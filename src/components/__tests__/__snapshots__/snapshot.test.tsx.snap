@@ -1,0 +1,32 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`T-21: 组件快照测试 > PetBubble 渲染快照 1`] = `
+<div
+  class="absolute left-1/2 bottom-full mb-2 -translate-x-1/2 transition-all duration-300 ease-out opacity-100"
+  style="pointer-events: none;"
+>
+  <div
+    class="relative max-w-[220px] whitespace-pre-wrap break-words rounded-2xl bg-white px-3 py-2 text-center text-sm text-gray-800 shadow-lg"
+  >
+    测试消息
+    <div
+      class="absolute left-1/2 -bottom-1 h-0 w-0 -translate-x-1/2 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-white"
+    />
+  </div>
+</div>
+`;
+
+exports[`T-21: 组件快照测试 > PetBubble 空消息快照 1`] = `
+<div
+  class="absolute left-1/2 bottom-full mb-2 -translate-x-1/2 transition-all duration-300 ease-out opacity-100"
+  style="pointer-events: none;"
+>
+  <div
+    class="relative max-w-[220px] whitespace-pre-wrap break-words rounded-2xl bg-white px-3 py-2 text-center text-sm text-gray-800 shadow-lg"
+  >
+    <div
+      class="absolute left-1/2 -bottom-1 h-0 w-0 -translate-x-1/2 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-white"
+    />
+  </div>
+</div>
+`;

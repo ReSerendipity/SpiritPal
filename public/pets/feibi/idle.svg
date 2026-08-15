@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Feibi (企鹅) — 暖系Q版圆润风 idle 动画 -->
+  <!-- 设计: 2.5头身, 粉彩系, 圆润线条 -->
+  <style>
+    @keyframes idle-breathe {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-2px); }
+    }
+    @keyframes idle-flap {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(-3deg); }
+    }
+    @keyframes idle-blink {
+      0%, 90%, 100% { ry: 6; }
+      95% { ry: 1; }
+    }
+    .body { animation: idle-breathe 3s ease-in-out infinite; }
+    .wing-l { animation: idle-flap 2.5s ease-in-out infinite; transform-origin: 40px 75px; }
+    .wing-r { animation: idle-flap 2.5s ease-in-out infinite 0.2s; transform-origin: 88px 75px; }
+    .eye-l { animation: idle-blink 5s ease-in-out infinite; }
+    .eye-r { animation: idle-blink 5s ease-in-out infinite 0.15s; }
+  </style>
+  <g class="body">
+    <!-- 身体 -->
+    <ellipse cx="64" cy="78" rx="30" ry="30" fill="#4A5568"/>
+    <!-- 肚子 -->
+    <ellipse cx="64" cy="82" rx="20" ry="22" fill="#F7F7F7"/>
+    <!-- 头部 -->
+    <circle cx="64" cy="44" r="26" fill="#4A5568"/>
+    <!-- 面部白色区域 -->
+    <ellipse cx="64" cy="48" rx="18" ry="14" fill="#F7F7F7"/>
+    <!-- 左翅膀 -->
+    <g class="wing-l">
+      <path d="M34,65 Q24,80 38,100 Q42,92 40,80 Z" fill="#4A5568"/>
+    </g>
+    <!-- 右翅膀 -->
+    <g class="wing-r">
+      <path d="M94,65 Q104,80 90,100 Q86,92 88,80 Z" fill="#4A5568"/>
+    </g>
+    <!-- 眼睛 -->
+    <ellipse cx="54" cy="44" rx="5" ry="6" fill="#1A202C" class="eye-l"/>
+    <ellipse cx="74" cy="44" rx="5" ry="6" fill="#1A202C" class="eye-r"/>
+    <!-- 眼睛高光 -->
+    <circle cx="56" cy="42" r="2" fill="white"/>
+    <circle cx="76" cy="42" r="2" fill="white"/>
+    <!-- 嘴巴（企鹅嘴） -->
+    <polygon points="58,52 64,58 70,52 64,50" fill="#F6AD55"/>
+    <!-- 腮红 -->
+    <ellipse cx="44" cy="52" rx="5" ry="3" fill="#FFB6C1" opacity="0.5"/>
+    <ellipse cx="84" cy="52" rx="5" ry="3" fill="#FFB6C1" opacity="0.5"/>
+    <!-- 头顶小黄毛 -->
+    <path d="M60,20 Q64,8 68,20" fill="#F6AD55"/>
+    <path d="M56,22 Q60,12 64,22" fill="#FBBF24"/>
+    <!-- 脚 -->
+    <ellipse cx="52" cy="106" rx="8" ry="4" fill="#F6AD55"/>
+    <ellipse cx="76" cy="106" rx="8" ry="4" fill="#F6AD55"/>
+  </g>
+</svg>

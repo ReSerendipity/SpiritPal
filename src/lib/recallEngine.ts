@@ -22,6 +22,7 @@ import { getDiarySystemManager } from './diarySystem'
 // P1-3 修复：将动态 require 改为静态 import，避免 ESM 环境下报错
 import { getContextAwarenessManager } from './contextAwareness'
 import { getMusicAwarenessManager } from './musicAwareness'
+import { getWeatherAwarenessManager } from './weatherAwareness'
 
 // ============ 类型定义 ============
 
@@ -566,6 +567,18 @@ export class RecallEngine {
       if (musicStatus && musicStatus.state === 'playing') fit += 0.05
     } catch {
       // 音乐感知不可用时忽略
+    }
+
+    // T-9: 天气信号（雨/雪等特殊天气时，温暖回忆更容易被共情）
+    try {
+      const weather = getWeatherAwarenessManager().getCurrentWeather()
+      if (weather) {
+        // WMO 代码：61-67 雨，71-77 雪，80-82 阵雨
+        const isPrecip = weather.weatherCode >= 61 && weather.weatherCode <= 82
+        if (isPrecip) fit += 0.05
+      }
+    } catch {
+      // 天气感知不可用时忽略
     }
 
     return Math.max(0, Math.min(1, fit))

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SpiritPal</title>
+    <!-- ======================================================================
+         BOOT 顺序安全层 1 / 3：在所有其他 <script> 之前注册全局错误处理。
+         这样即使 ESM 模块在解析/导入阶段（import App → 依赖链的
+         @tauri-apps/api/core 访问 __TAURI_INTERNALS__）就同步抛错，
+         用户也能在屏幕上直接看到错误信息，而不是"完全空白透明窗口"。
+         ====================================================================== -->
+    <script id="boot-error-handler">
+      (function () {
+        // 收集所有启动期错误，供 boot 遮罩显示
+        window.__BOOT_ERRORS__ = [];
+        function appendBootError(text) {
+          try {
+            window.__BOOT_ERRORS__.push(String(text));
+            var target = document.getElementById('boot-module-error');
+            if (target) {
+              target.textContent = window.__BOOT_ERRORS__.join('\n\n');
+            }
+            var boot = document.getElementById('boot-loading');
+            if (boot && !boot.classList.contains('stuck')) {
+              boot.classList.add('stuck');
+            }
+          } catch (_) { /* no-op */ }
+        }
+        // 同步错误（包括 ESM 初始化阶段的异常）
+        window.addEventListener('error', function (ev) {
+          var parts = [];
+          if (ev && ev.message) parts.push(String(ev.message));
+          if (ev && ev.filename) parts.push('at ' + ev.filename + ':' + (ev.lineno || '?') + ':' + (ev.colno || '?'));
+          if (ev && ev.error && ev.error.stack) parts.push(String(ev.error.stack));
+          appendBootError('[Boot Error] ' + parts.join('\n'));
+        }, true);
+        // 异步/Promise 错误
+        window.addEventListener('unhandledrejection', function (ev) {
+          var r = (ev && (ev.reason || ev.detail)) ? (ev.reason || ev.detail) : ev;
+          var msg = r instanceof Error
+            ? (r.message + '\n' + (r.stack || ''))
+            : String(r);
+          appendBootError('[Boot UnhandledRejection] ' + msg);
+        }, true);
+        // 兜底：页面加载完成后，若 boot-loading 还在，提示用户
+        window.addEventListener('load', function () {
+          setTimeout(function () {
+            var boot = document.getElementById('boot-loading');
+            if (boot && boot.parentNode && !boot.classList.contains('hidden')) {
+              // 没有被 main.tsx dismiss → 大概率挂了
+              if (!boot.classList.contains('stuck')) {
+                boot.classList.add('stuck');
+              }
+            }
+          }, 8000);
+        });
+      })();
+    </script>
+    <!-- ============ 首帧关键 CSS：保证在 JS 解析完成前页面就可见 ============ -->
+    <style id="boot-critical-css">
+      html, body {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        /* 兜底背景色：防止透明窗口+无渲染=完全不可见 */
+        background: #0f172a;
+        color: #e2e8f0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+      #root {
+        min-height: 100vh;
+      }
+      /* Boot 加载遮罩：在 React 挂载前显示，任何情况下用户都能看到内容 */
+      #boot-loading {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(160deg, #1e293b 0%, #0f172a 100%);
+        z-index: 99999;
+        user-select: none;
+        transition: opacity 0.25s ease;
+        padding: 16px;
+        box-sizing: border-box;
+      }
+      #boot-loading.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #boot-loading .spinner {
+        width: 38px;
+        height: 38px;
+        border: 3px solid rgba(255, 255, 255, 0.15);
+        border-top-color: #38bdf8;
+        border-radius: 50%;
+        animation: boot-spin 0.9s linear infinite;
+        margin-bottom: 16px;
+        flex-shrink: 0;
+      }
+      #boot-loading .title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #f1f5f9;
+        letter-spacing: 0.05em;
+        text-align: center;
+      }
+      #boot-loading .sub {
+        margin-top: 6px;
+        font-size: 12px;
+        color: #94a3b8;
+        text-align: center;
+      }
+      #boot-loading .error-hint {
+        margin-top: 20px;
+        font-size: 11px;
+        color: #f87171;
+        max-width: 100%;
+        text-align: center;
+        line-height: 1.6;
+        display: none;
+      }
+      #boot-module-error {
+        margin-top: 14px;
+        padding: 10px 12px;
+        max-width: 100%;
+        max-height: 40vh;
+        overflow: auto;
+        background: rgba(127, 29, 29, 0.45);
+        border: 1px solid rgba(248, 113, 113, 0.4);
+        color: #fecaca;
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 11px;
+        line-height: 1.55;
+        white-space: pre-wrap;
+        word-break: break-all;
+        border-radius: 6px;
+        display: none;
+        text-align: left;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      #boot-loading.stuck .error-hint,
+      #boot-loading.stuck #boot-module-error {
+        display: block;
+      }
+      @keyframes boot-spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+    <!-- Live2D Cubism Core SDK：已移除阻塞式 script 标签
+         缺失时会导致 WebView2 页面加载失败（302 fallback 循环）
+         Live2DRenderer 会在运行时检测并 fallback 到 SpriteRenderer -->
+  </head>
+  <body>
+    <!-- Boot 加载遮罩：在任何情况下（包括 JS 崩溃）至少能给用户视觉反馈 -->
+    <div id="boot-loading" role="status" aria-label="SpiritPal 启动中">
+      <div class="spinner" aria-hidden="true"></div>
+      <div class="title">SpiritPal</div>
+      <div class="sub">正在启动，请稍候…</div>
+      <div class="error-hint">
+        若长时间停留在本页面，说明前端初始化失败。<br />
+        请查看日志：%LOCALAPPDATA%\com.spiritpal.desktop-pet\logs\spiritpal.log
+      </div>
+      <!-- 模块/ESM 初始化错误会被上面的内联 onerror 写入这里 -->
+      <div id="boot-module-error" aria-live="assertive"></div>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

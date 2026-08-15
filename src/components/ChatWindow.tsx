@@ -57,7 +57,7 @@ import { getDiarySystemManager } from '../lib/diarySystem'
 // P1-6：接线防重复机制
 import { getAntiRepetitionManager } from '../lib/antiRepetition'
 // P1-5：情绪标签提示词 + 好感度解析
-import { EMOTION_PROMPT_FRAGMENT, extractAffectionDeltas, sumAffectionDeltas } from '../lib/emotionExtractor'
+import { EMOTION_PROMPT_FRAGMENT, extractAffectionDeltas, sumAffectionDeltas, emotionTagsToMood } from '../lib/emotionExtractor'
 // P2-1：结构化用户画像层
 import { getOwnerFactsManager } from '../lib/ownerFacts'
 // P2-4：宠物共同经历记忆
@@ -459,7 +459,8 @@ export default function ChatWindow() {
         updateMessageThink(assistantId, finalParsed.thinkContent)
       }
       // 最终清理：去除残留情绪标签和好感度标签
-      const cleanFinal = extractEmotion(fullText).cleanText
+      const extraction = extractEmotion(fullText)
+      const cleanFinal = extraction.cleanText
       // P1-5：解析好感度变化并写回 petStore
       const affectionDeltas = extractAffectionDeltas(fullText)
       if (affectionDeltas.length > 0) {
@@ -489,6 +490,12 @@ export default function ChatWindow() {
         isRememberRequest ? `[用户要求记住] ${text}` : text,
         cleanFinal,
       )
+      // T-6: 将宠物回复的情绪标签回写为当轮记忆的 valence/arousal
+      // 打通 emotionExtractor（LLM 情绪标签）与记忆侧情感体系，让后续检索能按情绪一致召回
+      const moodTag = emotionTagsToMood(extraction.animations)
+      if (moodTag) {
+        memory.updateMemoryMood(exchangedMem.id, moodTag.valence, moodTag.arousal)
+      }
       // P1-6：记录回复到防重复管理器
       antiRepMgr.recordResponse(cleanFinal)
       // P1-1：记录对话到日记系统

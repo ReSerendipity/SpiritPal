@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Gugugaga (狐狸) — 暖系Q版圆润风 idle 动画 -->
+  <!-- 设计: 2.5头身, 粉彩系, 圆润线条 -->
+  <style>
+    @keyframes idle-breathe {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-2px); }
+    }
+    @keyframes idle-tail {
+      0%, 100% { transform: rotate(-8deg); }
+      50% { transform: rotate(8deg); }
+    }
+    @keyframes idle-blink {
+      0%, 88%, 100% { ry: 6; }
+      92% { ry: 1; }
+    }
+    .body { animation: idle-breathe 3s ease-in-out infinite; }
+    .tail { animation: idle-tail 2s ease-in-out infinite; transform-origin: 90px 80px; }
+    .eye-l { animation: idle-blink 3.5s ease-in-out infinite; }
+    .eye-r { animation: idle-blink 3.5s ease-in-out infinite 0.1s; }
+  </style>
+  <g class="body">
+    <!-- 尾巴 -->
+    <g class="tail">
+      <path d="M90,78 Q115,60 110,40 Q108,32 102,38 Q98,48 92,60" fill="#E87040"/>
+      <path d="M108,42 Q106,36 102,40 Q100,46 96,54" fill="#FFF8F0"/>
+    </g>
+    <!-- 身体 -->
+    <ellipse cx="62" cy="82" rx="26" ry="22" fill="#E87040"/>
+    <!-- 肚子 -->
+    <ellipse cx="62" cy="86" rx="16" ry="16" fill="#FFF8F0"/>
+    <!-- 头部 -->
+    <circle cx="62" cy="44" r="24" fill="#E87040"/>
+    <!-- 面部白色区域 -->
+    <path d="M44,44 Q62,68 80,44 Q74,32 62,28 Q50,32 44,44" fill="#FFF8F0"/>
+    <!-- 耳朵 -->
+    <polygon points="40,26 34,4 50,20" fill="#E87040"/>
+    <polygon points="84,26 90,4 74,20" fill="#E87040"/>
+    <polygon points="42,24 38,10 48,21" fill="#FFB6C1"/>
+    <polygon points="82,24 86,10 76,21" fill="#FFB6C1"/>
+    <!-- 眼睛 -->
+    <ellipse cx="52" cy="42" rx="4" ry="6" fill="#2D2D2D" class="eye-l"/>
+    <ellipse cx="72" cy="42" rx="4" ry="6" fill="#2D2D2D" class="eye-r"/>
+    <!-- 眼睛高光 -->
+    <circle cx="54" cy="40" r="2" fill="white"/>
+    <circle cx="74" cy="40" r="2" fill="white"/>
+    <!-- 鼻子 -->
+    <circle cx="62" cy="50" r="2.5" fill="#2D2D2D"/>
+    <!-- 嘴巴 -->
+    <path d="M58,53 Q62,56 66,53" fill="none" stroke="#CC7777" stroke-width="1.2" stroke-linecap="round"/>
+    <!-- 腮红 -->
+    <ellipse cx="44" cy="50" rx="5" ry="3" fill="#FFB6C1" opacity="0.6"/>
+    <ellipse cx="80" cy="50" rx="5" ry="3" fill="#FFB6C1" opacity="0.6"/>
+    <!-- 前爪 -->
+    <ellipse cx="46" cy="98" rx="7" ry="4" fill="#E87040"/>
+    <ellipse cx="78" cy="98" rx="7" ry="4" fill="#E87040"/>
+  </g>
+</svg>

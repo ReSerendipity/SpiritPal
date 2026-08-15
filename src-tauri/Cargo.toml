@@ -1,0 +1,96 @@
+[package]
+name = "spiritpal-app"
+version = "0.1.0"
+description = "SpiritPal Desktop Pet"
+authors = ["SpiritPal"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "spiritpal_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# 以下依赖均为跨平台通用依赖，不包含 Windows-only crate。
+# Windows 专用依赖（windows crate）见下方 [target.'cfg(windows)'.dependencies]。
+serde_json = "1"
+serde = { version = "1", features = ["derive"] }
+log = "0.4"
+tauri-plugin-log = "2"
+tauri-plugin-store = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-sql = { version = "2", features = ["sqlite"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+tauri = { version = "2", features = ["macos-private-api", "tray-icon", "image-png"] }
+# 任务 A：API Key 加密存储 — 系统 Keychain（跨平台：Windows Credential Manager / macOS Keychain / Linux Secret Service）
+keyring = "3"
+# 任务 B：记忆数据 AES-256-GCM 加密
+aes-gcm = "0.10"
+sha2 = "0.10"
+base64 = "0.22"
+getrandom = "0.2"
+# R-06: PBKDF2 密钥派生（替代单次 SHA-256）
+pbkdf2 = "0.12"
+hmac = "0.12"
+# .petmod 压缩包导入 — zip 解压
+zip = "0.6"
+# 文件系统操作 — 模组目录扫描
+tauri-plugin-fs = "2"
+# 文件选择对话框 — .petmod 文件导入
+tauri-plugin-dialog = "2"
+# [Tauri Review] 安全打开应用程序/URL，替代 cmd /C start 防止命令注入
+open = "5"
+# Phase 1.2: 单实例插件 — 防止多开，重复启动时激活设置窗口
+tauri-plugin-single-instance = "2"
+# 全局键鼠监听 — 宠物注视光标效果（参考 BongoCat，使用 fork 版本以获得更好的跨平台支持）
+rdev = { git = "https://github.com/kunkunsh/rdev" }
+# R-12 v2.0: 字符串字面量混淆（Release 构建时字符串在 .rodata 中不可直接搜出明文）
+obfstr = "0.4"
+
+# macOS 平台专用依赖：仅在 macOS 编译时引入。
+# 提供 NSPanel 支持：将宠物窗口转为 NSPanel，实现不抢焦点、跨 Space、全屏可见浮层。
+# 参考 BongoCat 的 tauri-nspanel 集成方案。
+[target.'cfg(target_os = "macos")'.dependencies]
+tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1" }
+
+# Windows 平台专用依赖：仅在 Windows 编译时引入。
+# 提供 Win32 API 访问：鼠标穿透、系统空闲检测、前台窗口信息。
+# macOS / Linux 编译时不会拉取此 crate，确保跨平台构建无 Windows-only 依赖泄漏。
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+  "Win32_Foundation",
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_System_SystemInformation",
+  "Win32_System_Threading",
+  "Win32_System_ProcessStatus",
+  "Win32_Graphics_Gdi",
+  "Win32_System_LibraryLoader",
+  # R-12: IsDebuggerPresent 用于反调试检测
+  "Win32_System_Diagnostics_Debug",
+  # [Tauri Review] ShellExecuteW 用于安全打开应用程序/URL
+  "Win32_UI_Shell",
+] }
+
+# Release 构建优化 — 参考 WindowPet 压缩配置
+# 减小二进制体积，提升启动速度
+# 注意：lto = true + codegen-units = 1 会导致编译内存峰值极高（>8GB）
+# 为避免 OOM，此处使用折衷方案：lto = "thin" + codegen-units = 4
+# Release 构建优化 — R-12 v2.0 加强
+# opt-level=z: 体积优先（"s" 改 "z" 减 ~5%）
+# lto=fat: 跨 crate 内联（thin 改 fat，链接慢 ~30s）
+# codegen-units=1: 最积极优化
+# panic=abort: 移除 unwinding 栈符号表
+[profile.release]
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true

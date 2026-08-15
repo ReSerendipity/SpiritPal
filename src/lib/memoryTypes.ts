@@ -26,6 +26,8 @@
  */
 
 import type { MemoryEntry } from './types'
+// T-12: 统一配置入口
+import { TRIGGER_CONFIG, MAINTENANCE_CONFIG } from './memoryConfig'
 
 // ============ 记忆生命周期分层 ============
 // 热（最近 1 天）→ 温（1-7 天）→ 冷（7-30 天）→ 归档（>30 天）
@@ -267,10 +269,11 @@ export function checkFestivalToday(): { key: string; message: string } | null {
 }
 
 // ============ 触发频率控制常量 ============
+// T-12: 值统一来自 memoryConfig
 
-export const MAX_DAILY_TRIGGERS = 5                      // 每日主动触发上限
-export const MIN_TRIGGER_INTERVAL_MS = 30 * 60 * 1000    // 两次触发最小间隔（30 分钟）
-export const IGNORE_THRESHOLD = 3                         // 连续忽略阈值，超过后降频
+export const MAX_DAILY_TRIGGERS = TRIGGER_CONFIG.maxDailyTriggers       // 每日主动触发上限
+export const MIN_TRIGGER_INTERVAL_MS = TRIGGER_CONFIG.minTriggerIntervalMs // 两次触发最小间隔（30 分钟）
+export const IGNORE_THRESHOLD = TRIGGER_CONFIG.ignoreThreshold           // 连续忽略阈值，超过后降频
 
 // ============ 记忆分类系统 ============
 // 四分类：SHORT_TERM / LONG_TERM / EPISODIC / SEMANTIC
@@ -321,7 +324,8 @@ export const DEFAULT_CATEGORY_CONFIG: MemoryCategoryConfig = {
   // P1-3 修复：遗忘衰减系数太低（0.005），1天后仅衰减到 0.88，几乎不遗忘。提升到 0.02 使遗忘更明显。
   forgetDecayRate: 0.02,
   forgetMinImportance: 20,
-  consolidationIntervalMs: 60 * 60 * 1000, // 1 小时
+  // T-12: 巩固最小间隔统一来自 memoryConfig
+  consolidationIntervalMs: MAINTENANCE_CONFIG.consolidationIntervalMs,
   // F4：语义摘要最大字符数（compressEpisodic 中旧硬编码 2000）
   semanticSummaryMaxChars: 2000,
   // T-4：巩固后语义记忆最大字符数（applyConsolidation 中旧硬编码 5000）

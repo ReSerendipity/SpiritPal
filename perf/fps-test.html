@@ -1,0 +1,214 @@
+<!doctype html>
+<!--
+  perf/fps-test.html — Live2D 帧率测试页面
+
+  测试目标（PRD v0.2）：Live2D 渲染帧率 ≥ 30 fps
+
+  实现方案：
+    1. 通过 CDN 加载 pixi.js@7 + pixi-live2d-display@0.4 + Live2D Cubism Core
+    2. 加载示例 Live2D 模型（Haru / Hiyori）
+    3. 使用 requestAnimationFrame 统计 5 秒内的渲染帧数
+    4. 计算平均 FPS，写入 window.__perfFpsResult
+    5. 同时提供 Pixi.js Ticker 的 FPS 作为参考
+
+  该页面由 perf/fps-test.mjs 通过 Playwright 加载并读取结果。
+
+  环境变量（通过 URL query 传入）：
+    ?duration=5000  — 测量时长（ms，默认 5000）
+    ?model=<url>    — 自定义模型 URL
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SpiritPal FPS Test</title>
+    <style>
+      body { margin: 0; background: #1a1a2e; color: #eee; font-family: monospace; }
+      #canvas-container { width: 300px; height: 400px; margin: 0 auto; }
+      #status { text-align: center; padding: 10px; font-size: 14px; }
+      #fps-display { text-align: center; padding: 5px; font-size: 18px; color: #0f0; }
+    </style>
+    <!-- Live2D Cubism Core SDK — pixi-live2d-display 运行依赖 -->
+    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+    <!-- Pixi.js v7 -->
+    <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.3/dist/pixi.min.js"></script>
+    <!-- pixi-live2d-display (Cubism 4) -->
+    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"></script>
+  </head>
+  <body>
+    <div id="status">正在初始化...</div>
+    <div id="fps-display"></div>
+    <div id="canvas-container"></div>
+
+    <script>
+      // ============================================================
+      // 全局结果对象 — 由 Playwright 读取
+      // ============================================================
+      window.__perfFpsResult = null
+
+      // 解析 URL 参数
+      const params = new URLSearchParams(window.location.search)
+      const DURATION_MS = parseInt(params.get('duration') || '5000', 10)
+      const MODEL_URL =
+        params.get('model') ||
+        'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/haru/haru_greeter_t03.model3.json'
+
+      const statusEl = document.getElementById('status')
+      const fpsEl = document.getElementById('fps-display')
+      const containerEl = document.getElementById('canvas-container')
+
+      // ============================================================
+      // FPS 测量器 — 基于 requestAnimationFrame
+      // ============================================================
+      class FPSCounter {
+        constructor() {
+          this.frames = 0
+          this.startTime = 0
+          this.running = false
+          this.samples = []
+        }
+
+        start() {
+          this.frames = 0
+          this.startTime = performance.now()
+          this.running = true
+          this._tick()
+        }
+
+        _tick() {
+          if (!this.running) return
+          this.frames++
+          const elapsed = performance.now() - this.startTime
+          if (elapsed >= DURATION_MS) {
+            this.running = false
+            const fps = (this.frames / elapsed) * 1000
+            this.samples.push(fps)
+            this._onComplete(fps)
+            return
+          }
+          // 实时更新显示
+          if (this.frames % 10 === 0) {
+            const currentFps = (this.frames / elapsed) * 1000
+            fpsEl.textContent = `实时 FPS: ${currentFps.toFixed(1)}`
+          }
+          requestAnimationFrame(() => this._tick())
+        }
+
+        _onComplete(fps) {
+          // 子类覆盖
+        }
+      }
+
+      // ============================================================
+      // 主流程
+      // ============================================================
+      async function main() {
+        statusEl.textContent = '正在创建 Pixi 应用...'
+
+        // 1. 创建 Pixi 应用
+        const app = new PIXI.Application({
+          width: 300,
+          height: 400,
+          backgroundAlpha: 0,
+          antialias: true,
+          resolution: window.devicePixelRatio || 1,
+          autoDensity: true,
+        })
+        containerEl.appendChild(app.view)
+
+        // 注册 Live2D Ticker
+        if (PIXI.live2d && PIXI.live2d.InteractionManager) {
+          app.stage.interactive = true
+        }
+
+        statusEl.textContent = '正在加载 Live2D 模型...'
+
+        // 2. 加载 Live2D 模型（带超时保护，防止挂起）
+        let model = null
+        try {
+          // 检查 pixi-live2d-display 是否可用
+          if (!PIXI.live2d || !PIXI.live2d.Live2DModel) {
+            throw new Error('pixi-live2d-display 库未加载')
+          }
+
+          // 带超时的模型加载（15 秒超时，防止网络挂起）
+          const modelPromise = PIXI.live2d.Live2DModel.from(MODEL_URL)
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('模型加载超时（15s）')), 15000),
+          )
+          model = await Promise.race([modelPromise, timeoutPromise])
+
+          app.stage.addChild(model)
+
+          // 调整模型大小和位置
+          const scale = Math.min(
+            app.renderer.width / model.width,
+            app.renderer.height / model.height,
+          )
+          model.scale.set(scale * 0.9)
+          model.x = (app.renderer.width - model.width) / 2
+          model.y = (app.renderer.height - model.height) / 2
+
+          statusEl.textContent = `模型加载成功，开始测量 FPS（${DURATION_MS / 1000}秒）...`
+        } catch (err) {
+          // 模型加载失败，回退到纯 Pixi 动画测试
+          console.warn('Live2D 模型加载失败，回退到 Pixi 动画测试:', err)
+          statusEl.textContent = '模型加载失败，使用 Pixi 动画回退测试...'
+
+          // 创建一个简单的动画精灵作为回退
+          const graphics = new PIXI.Graphics()
+          app.stage.addChild(graphics)
+          let angle = 0
+          app.ticker.add(() => {
+            graphics.clear()
+            angle += 0.05
+            for (let i = 0; i < 5; i++) {
+              const r = 50 + Math.sin(angle + i) * 20
+              graphics.beginFill(0x4a90d9, 0.8)
+              graphics.drawCircle(
+                150 + Math.cos(angle + i * 1.2) * 60,
+                200 + Math.sin(angle + i * 1.2) * 60,
+                r,
+              )
+              graphics.endFill()
+            }
+          })
+          statusEl.textContent = `回退模式，开始测量 FPS（${DURATION_MS / 1000}秒）...`
+        }
+
+        // 3. 等待一帧让渲染稳定
+        await new Promise((r) => requestAnimationFrame(r))
+
+        // 4. 开始 FPS 测量
+        const counter = new FPSCounter()
+        counter._onComplete = (fps) => {
+          const tickerFps = app.ticker.FPS
+          window.__perfFpsResult = {
+            fps: Math.round(fps * 10) / 10,
+            tickerFps: Math.round(tickerFps * 10) / 10,
+            frames: counter.frames,
+            durationMs: DURATION_MS,
+            modelLoaded: !!model,
+            modelUrl: MODEL_URL,
+            timestamp: Date.now(),
+          }
+          fpsEl.textContent = `完成! 平均 FPS: ${fps.toFixed(1)}`
+          statusEl.textContent = '测量完成，结果已写入 window.__perfFpsResult'
+          console.log('FPS 测量结果:', window.__perfFpsResult)
+        }
+        counter.start()
+      }
+
+      // 启动
+      main().catch((err) => {
+        console.error('FPS 测试初始化失败:', err)
+        window.__perfFpsResult = {
+          fps: 0,
+          error: err.message,
+          timestamp: Date.now(),
+        }
+        statusEl.textContent = '初始化失败: ' + err.message
+      })
+    </script>
+  </body>
+</html>

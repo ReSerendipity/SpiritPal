@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Doro (猫) — 暖系Q版圆润风 idle 动画 -->
+  <!-- 设计: 2.5头身, 粉彩系, 圆润线条 -->
+  <style>
+    @keyframes idle-breathe {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-2px); }
+    }
+    @keyframes idle-tail {
+      0%, 100% { transform: rotate(-5deg); }
+      50% { transform: rotate(5deg); }
+    }
+    @keyframes idle-blink {
+      0%, 90%, 100% { ry: 7; }
+      95% { ry: 1; }
+    }
+    .body { animation: idle-breathe 3s ease-in-out infinite; }
+    .tail { animation: idle-tail 2s ease-in-out infinite; transform-origin: 85px 75px; }
+    .eye-l { animation: idle-blink 4s ease-in-out infinite; }
+    .eye-r { animation: idle-blink 4s ease-in-out infinite 0.1s; }
+  </style>
+  <g class="body">
+    <!-- 尾巴 -->
+    <g class="tail">
+      <path d="M85,75 Q105,60 100,45 Q98,38 92,42" fill="none" stroke="#F4A460" stroke-width="4" stroke-linecap="round"/>
+    </g>
+    <!-- 身体 -->
+    <ellipse cx="64" cy="82" rx="28" ry="24" fill="#F4A460"/>
+    <!-- 头部 -->
+    <circle cx="64" cy="48" r="26" fill="#F4A460"/>
+    <!-- 耳朵 -->
+    <polygon points="42,30 38,8 52,24" fill="#F4A460"/>
+    <polygon points="86,30 90,8 76,24" fill="#F4A460"/>
+    <polygon points="44,28 41,14 50,25" fill="#FFB6C1"/>
+    <polygon points="84,28 87,14 78,25" fill="#FFB6C1"/>
+    <!-- 脸部 -->
+    <ellipse cx="52" cy="46" rx="5" ry="7" fill="#2D2D2D" class="eye-l"/>
+    <ellipse cx="76" cy="46" rx="5" ry="7" fill="#2D2D2D" class="eye-r"/>
+    <!-- 眼睛高光 -->
+    <circle cx="54" cy="43" r="2" fill="white"/>
+    <circle cx="78" cy="43" r="2" fill="white"/>
+    <!-- 鼻子 -->
+    <ellipse cx="64" cy="53" rx="3" ry="2" fill="#FF9999"/>
+    <!-- 嘴巴 -->
+    <path d="M60,56 Q64,60 68,56" fill="none" stroke="#CC7777" stroke-width="1.5" stroke-linecap="round"/>
+    <!-- 腮红 -->
+    <ellipse cx="44" cy="54" rx="5" ry="3" fill="#FFB6C1" opacity="0.6"/>
+    <ellipse cx="84" cy="54" rx="5" ry="3" fill="#FFB6C1" opacity="0.6"/>
+    <!-- 前爪 -->
+    <ellipse cx="48" cy="98" rx="8" ry="5" fill="#F4A460"/>
+    <ellipse cx="80" cy="98" rx="8" ry="5" fill="#F4A460"/>
+    <!-- 爪垫 -->
+    <circle cx="46" cy="99" r="2" fill="#FFB6C1"/>
+    <circle cx="50" cy="99" r="2" fill="#FFB6C1"/>
+    <circle cx="78" cy="99" r="2" fill="#FFB6C1"/>
+    <circle cx="82" cy="99" r="2" fill="#FFB6C1"/>
+  </g>
+</svg>
