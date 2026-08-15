@@ -48,10 +48,8 @@ import {
   getMemoriesByTier,
   getMemorySummary,
   upsertMemorySummary,
-  deleteMemorySummary,
   getMemoryState,
   upsertMemoryState,
-  deleteMemoryState,
   clearAllMemoryData,
   isMemoryMigrated,
   isLegacyMode,
@@ -85,7 +83,6 @@ import {
   EVENT_KEYWORDS,
   ANNIVERSARY_MILESTONES,
   ANNIVERSARY_MESSAGES,
-  FESTIVALS,
   MAX_DAILY_TRIGGERS,
   MIN_TRIGGER_INTERVAL_MS,
   IGNORE_THRESHOLD,
@@ -356,7 +353,8 @@ export class EnhancedMemoryManager {
       // F10：校验和验证——如果数据中包含 _checksum，验证完整性
       if (data._checksum) {
         const storedChecksum = data._checksum as string
-        const { _checksum: _unused, ...payload } = data
+        const payload = { ...data }
+        delete payload._checksum
         const payloadJson = JSON.stringify(payload)
         const computedChecksum = this.computeChecksum(payloadJson)
         if (storedChecksum !== computedChecksum) {
@@ -942,7 +940,7 @@ export class EnhancedMemoryManager {
     const summary = toCompress
       .map((m) => `${m.category}: ${m.user.slice(0, 50)}`)
       .join('; ')
-    this.semanticMemory = `${this.semanticMemory} ${summary}`.trim().slice(-2000)
+    this.semanticMemory = `${this.semanticMemory} ${summary}`.trim().slice(-this.categoryConfig.semanticSummaryMaxChars)
   }
 
   // ============ 记忆触发机制 ============
@@ -973,25 +971,44 @@ export class EnhancedMemoryManager {
     // 以下为响应式触发，需要用户输入
     if (!currentInput) return null
 
+    // T-8: 响应式触发也受预算纪律约束（每日上限 + 全局间隔）
+    // 但响应式触发的间隔要求比主动触发宽松（减半），避免过度抑制自然对话中的回忆
+    if (!this.canTriggerResponsive()) return null
+
     // 1. 频率触发：同一话题出现3次以上
     const freqTrigger = this.checkFrequencyTrigger(currentInput)
-    if (freqTrigger) return freqTrigger
+    if (freqTrigger) {
+      this.recordTrigger('frequency')
+      return freqTrigger
+    }
 
     // 2. 相关性触发：与历史高度相关（向量检索 + LCS fallback）
     const relevanceTrigger = await this.checkRelevanceTrigger(currentInput)
-    if (relevanceTrigger) return relevanceTrigger
+    if (relevanceTrigger) {
+      this.recordTrigger('relevance')
+      return relevanceTrigger
+    }
 
     // 3. 情感触发：高情感记忆
     const emotionTrigger = this.checkEmotionTrigger(currentInput)
-    if (emotionTrigger) return emotionTrigger
+    if (emotionTrigger) {
+      this.recordTrigger('emotion')
+      return emotionTrigger
+    }
 
     // 4. 关键词触发
     const keywordTrigger = this.checkKeywordTrigger(currentInput)
-    if (keywordTrigger) return keywordTrigger
+    if (keywordTrigger) {
+      this.recordTrigger('keyword')
+      return keywordTrigger
+    }
 
     // 5. 时间触发：每天首次对话
     const timeTrigger = this.checkTimeTrigger()
-    if (timeTrigger) return timeTrigger
+    if (timeTrigger) {
+      this.recordTrigger('time')
+      return timeTrigger
+    }
 
     return null
   }
@@ -1028,6 +1045,22 @@ export class EnhancedMemoryManager {
         return false
       }
     }
+
+    return true
+  }
+
+  /**
+   * T-8: 响应式触发预算检查
+   * 仅检查每日总上限，不检查全局间隔（响应式触发是用户驱动的，不是主动打扰）
+   */
+  canTriggerResponsive(): boolean {
+    const now = Date.now()
+    const dayMs = 24 * 60 * 60 * 1000
+    this.triggerLog = this.triggerLog.filter((t) => now - t.timestamp < dayMs)
+
+    const recentTriggers = this.triggerLog.filter((t) => now - t.timestamp < dayMs)
+    // 每日总上限（响应式 + 主动共用配额）
+    if (recentTriggers.length >= MAX_DAILY_TRIGGERS) return false
 
     return true
   }
@@ -1570,10 +1603,10 @@ export class EnhancedMemoryManager {
    *
    * @param query 查询文本
    * @param limit 返回条数
-   * @param opts 选项（purpose 用于去重策略）
+   * @param _opts 选项（purpose 用于去重策略，预留接口暂未实现）
    * @returns 检索到的记忆列表（按相关性排序）
    */
-  async retrieve(query: string, limit: number = 5, opts?: { purpose?: 'chat' | 'trigger' | 'proactive' }): Promise<EnhancedMemory[]> {
+  async retrieve(query: string, limit: number = 5, _opts?: { purpose?: 'chat' | 'trigger' | 'proactive' }): Promise<EnhancedMemory[]> {
     if (!query || query.trim().length === 0) return []
 
     // S3：同一查询 5 秒内复用缓存结果（消除 D7）
@@ -1892,7 +1925,11 @@ export class EnhancedMemoryManager {
    * 从 emotionExtractor 解析出的情绪标签或记忆侧的规则层获取
    * 返回 {valence, arousal} 或 undefined
    */
-  private getCurrentMood(): { valence: number; arousal: number } | undefined {
+  /**
+   * 获取当前用户情绪（从最近工作记忆推断）
+   * T-3: 公开方法，供 RecallEngine 等外部模块使用
+   */
+  getCurrentMood(): { valence: number; arousal: number } | undefined {
     try {
       // F11 修正：使用静态 import 而非 require()
       // contextAwareness 可能不直接提供情绪，用最近交互的情绪推断
@@ -1917,25 +1954,7 @@ export class EnhancedMemoryManager {
     }
   }
 
-  /**
-   * 时间衰减排序 — F3 修正：统一委托给 calculateForgettingScore
-   * 废弃旧的固定 lambda 指数衰减模型，改用含 strength 的艾宾浩斯模型
-   *
-   * @param memories 记忆列表
-   * @returns 排序后的记忆列表（forgetScore 从低到高 = 不易忘的排前面）
-   */
-  timeDecaySort(
-    memories: EnhancedMemory[],
-  ): EnhancedMemory[] {
-    const config = this.categoryConfig
-    return [...memories]
-      .map(m => ({
-        ...m,
-        _weight: 1 - calculateForgettingScore(m, config).forgetScore, // 权重越高越不易忘
-      }))
-      .sort((a, b) => b._weight - a._weight)
-      .map(({ _weight: _, ...m }) => m)
-  }
+  // T-14: timeDecaySort 已删除（无调用点，已废弃委托 calculateForgettingScore）
 
   // F3 修正：calculateDecayWeight 已废弃，统一使用 calculateForgettingScore
 
@@ -2252,8 +2271,8 @@ export class EnhancedMemoryManager {
     // 将摘要追加到语义记忆
     this.semanticMemory = `${this.semanticMemory} [${new Date().toISOString()}] ${summary}`.trim()
     // 语义记忆长度限制
-    if (this.semanticMemory.length > 5000) {
-      this.semanticMemory = this.semanticMemory.slice(-5000)
+    if (this.semanticMemory.length > this.categoryConfig.semanticConsolidationMaxChars) {
+      this.semanticMemory = this.semanticMemory.slice(-this.categoryConfig.semanticConsolidationMaxChars)
     }
 
     // 从情景记忆中移除已巩固的记忆
