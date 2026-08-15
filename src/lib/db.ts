@@ -312,6 +312,23 @@ export async function initDB(): Promise<Database> {
     )
   `)
 
+  // T-1: 二期迁移 — owner_facts 表（结构化用户画像，行级存储替代 per-value 加密 blob）
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS owner_facts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      character_id TEXT NOT NULL,
+      fact_id TEXT NOT NULL,
+      fact_key TEXT NOT NULL,
+      fact_value TEXT NOT NULL,
+      source_memory_id TEXT,
+      confidence REAL DEFAULT 0.5,
+      updated_at INTEGER NOT NULL,
+      user_provided INTEGER DEFAULT 0
+    )
+  `)
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_owner_facts_char ON owner_facts(character_id)')
+  await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_owner_facts_char_key ON owner_facts(character_id, fact_key)')
+
   // OPTIMIZE: 为向量检索候选集查询添加索引。
   // 单列索引用于简单条件过滤
   await db.execute('CREATE INDEX IF NOT EXISTS idx_memories_character ON memories(character_id)')
@@ -851,6 +868,72 @@ export async function setMemoryMigrated(): Promise<void> {
 
 export async function isLegacyMode(): Promise<boolean> {
   return (await getSetting(MEMORY_LEGACY_FLAG)) === '1'
+}
+
+// ============ T-1: owner_facts 表操作（二期行级化） ============
+
+/** T-1: owner_facts 行类型 */
+export interface OwnerFactRow {
+  id?: number
+  character_id: string
+  fact_id: string
+  fact_key: string
+  fact_value: string
+  source_memory_id?: string | null
+  confidence: number
+  updated_at: number
+  user_provided: number // 0 or 1
+}
+
+/** T-1: 查询角色的所有事实 */
+export async function getOwnerFacts(characterId: string): Promise<OwnerFactRow[]> {
+  const db = await getDb()
+  return db.select(
+    'SELECT * FROM owner_facts WHERE character_id = $1 ORDER BY confidence DESC, updated_at DESC',
+    [characterId],
+  )
+}
+
+/** T-1: upsert 事实（按 character_id + fact_key 唯一） */
+export async function upsertOwnerFact(row: OwnerFactRow): Promise<void> {
+  const db = await getDb()
+  await db.execute(
+    `INSERT INTO owner_facts (character_id, fact_id, fact_key, fact_value, source_memory_id, confidence, updated_at, user_provided)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     ON CONFLICT(character_id, fact_key) DO UPDATE SET
+       fact_value = $4, source_memory_id = $5, confidence = $6, updated_at = $7, user_provided = $8`,
+    [
+      row.character_id, row.fact_id, row.fact_key, row.fact_value,
+      row.source_memory_id ?? null, row.confidence, row.updated_at,
+      row.user_provided ?? 0,
+    ],
+  )
+}
+
+/** T-1: 删除事实 */
+export async function deleteOwnerFact(characterId: string, factKey: string): Promise<void> {
+  const db = await getDb()
+  await db.execute(
+    'DELETE FROM owner_facts WHERE character_id = $1 AND fact_key = $2',
+    [characterId, factKey],
+  )
+}
+
+/** T-1: 清空角色所有事实 */
+export async function clearOwnerFacts(characterId: string): Promise<void> {
+  const db = await getDb()
+  await db.execute('DELETE FROM owner_facts WHERE character_id = $1', [characterId])
+}
+
+/** T-1: owner_facts 迁移标记 */
+const OWNER_FACTS_MIGRATION_FLAG = 'spiritpal-owner-facts-migrated-v2'
+
+export async function isOwnerFactsMigrated(): Promise<boolean> {
+  return (await getSetting(OWNER_FACTS_MIGRATION_FLAG)) === '1'
+}
+
+export async function setOwnerFactsMigrated(): Promise<void> {
+  await setSetting(OWNER_FACTS_MIGRATION_FLAG, '1')
 }
 
 // ============ mods 表操作 ============
