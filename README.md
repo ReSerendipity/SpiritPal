@@ -76,3 +76,18 @@ cd src-tauri && cargo test
 ## License
 
 See individual repositories in `references/` for their respective licenses.
+
+## ⚠️ Git Branch Usage Instructions
+
+**Important**: This project now uses main as the primary branch name.
+
+- **All development work should be done on the \main\ branch**
+- **Do NOT use the \public\ branch for development anymore**
+- **All code commits should be directly to the \main\ branch**
+
+Historical context: This project previously created an orphan branch named \public\ for potential public release purposes, but that strategy has been changed and all development and version management are now unified on the \main\ branch.
+
+When pushing to remote repository, please push to the \main\ branch:
+```bash
+git push origin main
+```
