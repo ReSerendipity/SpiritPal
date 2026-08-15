@@ -1,0 +1,341 @@
+@import "tailwindcss";
+
+/* ===== SpiritPal 设计 Token（对应高保真主流程 v1.0 · 治愈温暖基调）===== */
+@theme {
+  /* 色彩：奶油底 / 暖棕墨 / 暖橙强调 / 柔粉点缀 */
+  --color-cream: #fdf6ec;
+  --color-cream-deep: #f5e8d5;
+  --color-surface: #fffdf9;
+  --color-ink: #4a3626;
+  --color-ink-muted: #8a7461;
+  --color-ink-faint: #b3a18c;
+  --color-tangerine: #e8874a;
+  --color-tangerine-deep: #d06a2f;
+  --color-tangerine-soft: #fbe9dc;
+  --color-blush: #f2a6b8;
+  --color-blush-soft: #fbe4ea;
+  --color-success: #9ccb8e;
+  --color-success-deep: #6fae62;
+
+  /* 圆角 */
+  --radius-card: 20px;
+  --radius-panel: 14px;
+  --radius-pill: 999px;
+
+  /* 阴影 */
+  --shadow-soft: 0 6px 18px -10px rgba(74, 54, 38, 0.34);
+  --shadow-warm: 0 18px 44px -18px rgba(74, 54, 38, 0.42);
+
+  /* 动效（与高保真一致） */
+  --ease-spring: cubic-bezier(0.2, 0.9, 0.3, 1.25);
+}
+
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --spiritpal-pink: #FFB6C1;
+  --spiritpal-purple: #A777E3;
+  --spiritpal-blue: #6E8EFB;
+  --spiritpal-teal: #29ADB2;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body { background: transparent; }
+
+/* ===== SpiritPal 动画关键帧 ===== */
+@keyframes spiritpal-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+@keyframes spiritpal-heart {
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(-60px) scale(1.1); opacity: 0; }
+}
+
+@keyframes spiritpal-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes spiritpal-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  96% { transform: scaleY(0.1); }
+}
+
+/* ===== 首屏登场弹出动效（方案 B）===== */
+@keyframes spiritpal-pop-in {
+  0% { transform: scale(0.4) translateY(22px); opacity: 0; }
+  60% { transform: scale(1.06) translateY(-4px); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* ===== 宠物语气字体（楷体优先，治愈手写感）===== */
+.spiritpal-pet-voice {
+  font-family: 'KaiTi', '楷体', 'STKaiti', 'SimSun', serif;
+  letter-spacing: 0.02em;
+}
+
+/* ===== 桌面漫游走动循环（QQ 宠物式）===== */
+.spiritpal-roam-pet {
+  animation: spiritpal-roam 16s linear infinite;
+}
+
+@keyframes spiritpal-roam {
+  0%   { left: 4%; transform: scaleX(1); }
+  47%  { left: 84%; transform: scaleX(1); }
+  50%  { left: 84%; transform: scaleX(-1); }
+  97%  { left: 4%; transform: scaleX(-1); }
+  100% { left: 4%; transform: scaleX(1); }
+}
+
+/* ===== 音乐感知摆动（F5.2）— 宠物跟随节奏轻微摆动 ===== */
+@keyframes spiritpal-music-sway {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+
+.spiritpal-music-sway {
+  animation: spiritpal-music-sway 1.6s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+/* ===== 天气联动动画（F1.3）===== */
+/* 炎热扇风 — 旋转 */
+@keyframes spiritpal-fan-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 寒冷发抖 — 快速小幅度抖动 */
+@keyframes spiritpal-shiver {
+  0%, 100% { transform: translateX(-50%) rotate(0deg); }
+  25% { transform: translateX(-50%) rotate(-2deg); }
+  75% { transform: translateX(-50%) rotate(2deg); }
+}
+
+/* 打伞 — 轻微上下浮动 */
+@keyframes spiritpal-umbrella-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+/* 晴天 — 柔和光芒脉动 */
+@keyframes spiritpal-sunny-glow {
+  0%, 100% { filter: brightness(1) drop-shadow(0 0 0px transparent); }
+  50% { filter: brightness(1.08) drop-shadow(0 0 6px rgba(255, 220, 80, 0.4)); }
+}
+
+/* 天气动画类 */
+.spiritpal-weather-fan {
+  animation: spiritpal-shiver 0.15s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+.spiritpal-weather-cold {
+  animation: spiritpal-shiver 0.3s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+.spiritpal-weather-umbrella {
+  animation: spiritpal-umbrella-bob 2s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+.spiritpal-weather-sunny {
+  animation: spiritpal-sunny-glow 3s ease-in-out infinite;
+}
+
+/* 天气氛围覆盖层 */
+.spiritpal-weather-overlay {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+/* 雨滴动画 */
+@keyframes spiritpal-raindrop {
+  0% { transform: translateY(-10px); opacity: 0; }
+  10% { opacity: 0.6; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+
+.spiritpal-rain-overlay::before {
+  content: '';
+  position: absolute;
+  width: 1.5px;
+  height: 12px;
+  background: linear-gradient(to bottom, transparent, rgba(150, 200, 255, 0.5));
+  border-radius: 1px;
+  animation: spiritpal-raindrop 0.8s linear infinite;
+  left: 30%;
+  top: 0;
+}
+
+.spiritpal-rain-overlay::after {
+  content: '';
+  position: absolute;
+  width: 1px;
+  height: 10px;
+  background: linear-gradient(to bottom, transparent, rgba(150, 200, 255, 0.4));
+  border-radius: 1px;
+  animation: spiritpal-raindrop 0.6s linear infinite;
+  animation-delay: 0.3s;
+  left: 65%;
+  top: 0;
+}
+
+/* 雪花动画 */
+@keyframes spiritpal-snowflake {
+  0% { transform: translateY(-10px) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.7; }
+  100% { transform: translateY(100%) rotate(360deg); opacity: 0; }
+}
+
+.spiritpal-snow-overlay::before {
+  content: '❄';
+  position: absolute;
+  font-size: 8px;
+  color: rgba(220, 240, 255, 0.6);
+  animation: spiritpal-snowflake 3s linear infinite;
+  left: 25%;
+  top: 0;
+}
+
+.spiritpal-snow-overlay::after {
+  content: '❄';
+  position: absolute;
+  font-size: 6px;
+  color: rgba(220, 240, 255, 0.5);
+  animation: spiritpal-snowflake 4s linear infinite;
+  animation-delay: 1.5s;
+  left: 70%;
+  top: 0;
+}
+
+/* ===== 升级动画 ===== */
+@keyframes spiritpal-levelup-burst {
+  0% { transform: scale(0); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: scale(1); opacity: 0.6; }
+}
+
+@keyframes spiritpal-levelup-particle {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+}
+
+@keyframes spiritpal-levelup-text {
+  0% { transform: scale(0.5) translateY(20px); opacity: 0; }
+  60% { transform: scale(1.2) translateY(-5px); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* 滚动条美化（用于面板内列表） */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(74, 54, 38, 0.18); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(74, 54, 38, 0.3); }
+
+/* ===== 无障碍：键盘焦点样式（任务 B）===== */
+/* spiritpal-focusable 类用于所有需要键盘导航的交互元素 */
+/* 使用 :focus-visible 仅在键盘导航时显示焦点轮廓，不影响鼠标点击 */
+.spiritpal-focusable:focus-visible {
+  outline: 2px solid var(--color-tangerine);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* 确保原生交互元素也有可见的键盘焦点 */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="switch"]:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--color-tangerine);
+  outline-offset: 2px;
+}
+
+/* ===== 无障碍：高对比度模式（任务 B）===== */
+/* 响应系统高对比度设置，确保文字/背景对比度满足 WCAG AA 标准 */
+/* WCAG AA 要求：正常文字对比度 ≥ 4.5:1，大文字 ≥ 3:1 */
+@media (prefers-contrast: high) {
+  /* 强制使用高对比度的黑底白字/白底黑字配色 */
+  .bg-gray-900, .bg-gray-800, .bg-gray-950\/40 {
+    background-color: #000000 !important;
+  }
+
+  /* 文字颜色提亮为纯白，确保对比度 ≥ 7:1（AAA 级别） */
+  .text-white, .text-gray-100, .text-gray-300, .text-gray-400, .text-gray-500 {
+    color: #ffffff !important;
+  }
+
+  /* 交互元素强调色使用高对比度的黄色 */
+  .text-amber-300, .text-amber-400 {
+    color: #ffeb3b !important;
+  }
+
+  /* 按钮和卡片增加明显的白色边框 */
+  .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-md {
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  }
+
+  /* 焦点轮廓在高对比度模式下更醒目 */
+  .spiritpal-focusable:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [role="switch"]:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 3px solid #ffeb3b !important;
+    outline-offset: 2px !important;
+  }
+
+  /* 输入框背景使用纯黑，边框使用纯白 */
+  input, textarea, select {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    border: 2px solid #ffffff !important;
+  }
+
+  /* 消息气泡增加边框以区分 */
+  .bg-blue-600 {
+    background-color: #0033cc !important;
+    border: 1px solid #ffffff !important;
+  }
+
+  .bg-gray-700 {
+    background-color: #1a1a1a !important;
+    border: 1px solid #ffffff !important;
+  }
+
+  /* 链接和强调文字使用更亮的颜色 */
+  a, .text-blue-400, .text-green-400, .text-red-400, .text-purple-300 {
+    color: #66ccff !important;
+  }
+
+  /* 宠物状态栏背景增强 */
+  .bg-black\/40 {
+    background-color: #000000 !important;
+    border: 1px solid #ffffff !important;
+  }
+
+  /* 禁用半透明效果，确保对比度 */
+  .backdrop-blur-sm {
+    backdrop-filter: none !important;
+  }
+}

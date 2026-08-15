@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-07-25T06:30:11.123Z",
+  "limitMB": 30,
+  "allPassed": true,
+  "packages": [
+    {
+      "platform": "Windows (NSIS)",
+      "name": "SpiritPal_0.1.0_x64-setup.exe",
+      "sizeBytes": 30600371,
+      "sizeMB": 29.18,
+      "passed": true
+    },
+    {
+      "platform": "Windows (Binary)",
+      "name": "spiritpal-app.exe",
+      "sizeBytes": 40445952,
+      "sizeMB": 38.57,
+      "passed": true
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "SpiritPal",
+  "version": "0.1.0",
+  "identifier": "com.spiritpal.desktop-pet",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5223",
+    "beforeDevCommand": "npx vite dev",
+    "beforeBuildCommand": "node node_modules/typescript/bin/tsc -b && node node_modules/vite/bin/vite.js build && node scripts/obfuscate-and-sri.mjs"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: blob: https: asset: http://asset.localhost; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https: ipc: http://ipc.localhost; font-src 'self' data:; worker-src 'self' blob:"
+    },
+    "macOSPrivateApi": true
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis",
+      "dmg",
+      "appimage",
+      "deb"
+    ],
+    "createUpdaterArtifacts": false,
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "both"
+      },
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://timestamp.digicert.com"
+    },
+    "macOS": {
+      "signingIdentity": null,
+      "entitlements": null
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0"
+        ]
+      }
+    },
+    "resources": [
+      "../public/pets"
+    ],
+    "android": {
+      "minSdkVersion": 24
+    },
+    "iOS": {
+      "minimumSystemVersion": "13.0"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://raw.githubusercontent.com/spiritpal/spiritpal-app/main/updates.json"
+      ],
+      "dialog": false,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDI0QjRBMUQ2NkRDQzY5NDkKUldSSmFjeHQxcUcwSk1WSk14WGVBRk5tMXVuK285YmtkRFJHY0pOazJYaVNjWjZRTDVEUGtUSjAK"
+    },
+    "push": {
+      "android": {
+        "senderId": "spiritpal-fcm-sender-id"
+      },
+      "iOS": {
+        "bundleId": "com.spiritpal.desktop-pet"
+      }
+    }
+  }
+}

@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="@drawable/widget_background"
+    android:gravity="center">
+
+    <!-- 宠物头像 + 名称 -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="8dp">
+
+        <ImageView
+            android:id="@+id/widget_pet_icon"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/widget_icon_star"
+            android:contentDescription="Pet icon" />
+
+        <TextView
+            android:id="@+id/widget_pet_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="宠物"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:layout_marginStart="8dp" />
+    </LinearLayout>
+
+    <!-- 等级 -->
+    <TextView
+        android:id="@+id/widget_level_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Lv.1"
+        android:textSize="11sp"
+        android:textColor="#FBBF24"
+        android:layout_marginBottom="4dp" />
+
+    <!-- HP 进度条 -->
+    <ProgressBar
+        android:id="@+id/widget_hp_bar"
+        style="@android:style/Widget.ProgressBar.Horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="8dp"
+        android:max="100"
+        android:progress="70"
+        android:layout_marginBottom="2dp" />
+
+    <TextView
+        android:id="@+id/widget_hp_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="HP: 70/100"
+        android:textSize="10sp"
+        android:textColor="#A0AEC0"
+        android:layout_marginBottom="2dp" />
+
+    <!-- 心情 -->
+    <TextView
+        android:id="@+id/widget_mood_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="心情: 50/100"
+        android:textSize="10sp"
+        android:textColor="#A0AEC0"
+        android:layout_marginBottom="8dp" />
+
+    <!-- 操作按钮 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <TextView
+            android:id="@+id/widget_btn_feed"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="🍎 喂食"
+            android:textSize="12sp"
+            android:textColor="#FBBF24"
+            android:gravity="center"
+            android:padding="6dp"
+            android:background="@drawable/widget_btn_background" />
+
+        <View
+            android:layout_width="8dp"
+            android:layout_height="0dp" />
+
+        <TextView
+            android:id="@+id/widget_btn_chat"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="💬 聊天"
+            android:textSize="12sp"
+            android:textColor="#FBBF24"
+            android:gravity="center"
+            android:padding="6dp"
+            android:background="@drawable/widget_btn_background" />
+    </LinearLayout>
+
+</LinearLayout>

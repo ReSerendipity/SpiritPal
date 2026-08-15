@@ -1,0 +1,8 @@
+dist
+src-tauri
+node_modules
+perf
+e2e
+test-results
+*.md
+pnpm-lock.yaml

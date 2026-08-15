@@ -329,6 +329,53 @@ export async function initDB(): Promise<Database> {
   await db.execute('CREATE INDEX IF NOT EXISTS idx_owner_facts_char ON owner_facts(character_id)')
   await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_owner_facts_char_key ON owner_facts(character_id, fact_key)')
 
+  // T-1: 二期迁移 — pet_experiences 表（宠物共同经历，行级存储替代 per-value 加密 blob）
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS pet_experiences (
+      id TEXT PRIMARY KEY,
+      character_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      description TEXT NOT NULL,
+      timestamp INTEGER NOT NULL,
+      sentiment TEXT NOT NULL DEFAULT 'neutral',
+      intensity REAL NOT NULL DEFAULT 0.5
+    )
+  `)
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_pet_experiences_char ON pet_experiences(character_id)')
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_pet_experiences_ts ON pet_experiences(character_id, timestamp)')
+
+  // T-1: 二期迁移 — visual_memories 表（视觉记忆，行级存储替代 per-value 加密 blob）
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS visual_memories (
+      id TEXT PRIMARY KEY,
+      character_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      description TEXT NOT NULL,
+      image_path TEXT,
+      timestamp INTEGER NOT NULL,
+      sentiment TEXT NOT NULL DEFAULT 'neutral',
+      related_memory_id TEXT
+    )
+  `)
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_visual_memories_char ON visual_memories(character_id)')
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_visual_memories_ts ON visual_memories(character_id, timestamp)')
+
+  // T-1: 二期迁移 — entity_nodes 表（实体链接，行级存储替代 per-value 加密 blob）
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS entity_nodes (
+      id TEXT PRIMARY KEY,
+      character_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL,
+      linked_memory_ids TEXT NOT NULL DEFAULT '[]',
+      mention_count INTEGER NOT NULL DEFAULT 0,
+      first_seen INTEGER NOT NULL,
+      last_seen INTEGER NOT NULL
+    )
+  `)
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_entity_nodes_char ON entity_nodes(character_id)')
+  await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_entity_nodes_char_name ON entity_nodes(character_id, name)')
+
   // OPTIMIZE: 为向量检索候选集查询添加索引。
   // 单列索引用于简单条件过滤
   await db.execute('CREATE INDEX IF NOT EXISTS idx_memories_character ON memories(character_id)')
@@ -934,6 +981,163 @@ export async function isOwnerFactsMigrated(): Promise<boolean> {
 
 export async function setOwnerFactsMigrated(): Promise<void> {
   await setSetting(OWNER_FACTS_MIGRATION_FLAG, '1')
+}
+
+// ============ T-1: pet_experiences 表操作（二期行级化） ============
+
+/** T-1: pet_experiences 行类型 */
+export interface PetExperienceRow {
+  id: string
+  character_id: string
+  type: string
+  description: string
+  timestamp: number
+  sentiment: string
+  intensity: number
+}
+
+/** T-1: 查询角色的所有经历 */
+export async function getPetExperiences(characterId: string): Promise<PetExperienceRow[]> {
+  const db = await getDb()
+  return db.select(
+    'SELECT * FROM pet_experiences WHERE character_id = $1 ORDER BY timestamp ASC',
+    [characterId],
+  )
+}
+
+/** T-1: 插入一条经历 */
+export async function insertPetExperience(row: PetExperienceRow): Promise<void> {
+  const db = await getDb()
+  await db.execute(
+    `INSERT INTO pet_experiences (id, character_id, type, description, timestamp, sentiment, intensity)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [row.id, row.character_id, row.type, row.description, row.timestamp, row.sentiment, row.intensity],
+  )
+}
+
+/** T-1: 清空角色所有经历 */
+export async function clearPetExperiences(characterId: string): Promise<void> {
+  const db = await getDb()
+  await db.execute('DELETE FROM pet_experiences WHERE character_id = $1', [characterId])
+}
+
+/** T-1: pet_experiences 迁移标记 */
+const PET_EXPERIENCE_MIGRATION_FLAG = 'spiritpal-pet-experience-migrated-v2'
+
+export async function isPetExperienceMigrated(): Promise<boolean> {
+  return (await getSetting(PET_EXPERIENCE_MIGRATION_FLAG)) === '1'
+}
+
+export async function setPetExperienceMigrated(): Promise<void> {
+  await setSetting(PET_EXPERIENCE_MIGRATION_FLAG, '1')
+}
+
+// ============ T-1: visual_memories 表操作（二期行级化） ============
+
+/** T-1: visual_memories 行类型 */
+export interface VisualMemoryRow {
+  id: string
+  character_id: string
+  type: string
+  description: string
+  image_path?: string | null
+  timestamp: number
+  sentiment: string
+  related_memory_id?: string | null
+}
+
+/** T-1: 查询角色的所有视觉记忆 */
+export async function getVisualMemories(characterId: string): Promise<VisualMemoryRow[]> {
+  const db = await getDb()
+  return db.select(
+    'SELECT * FROM visual_memories WHERE character_id = $1 ORDER BY timestamp ASC',
+    [characterId],
+  )
+}
+
+/** T-1: 插入一条视觉记忆 */
+export async function insertVisualMemory(row: VisualMemoryRow): Promise<void> {
+  const db = await getDb()
+  await db.execute(
+    `INSERT INTO visual_memories (id, character_id, type, description, image_path, timestamp, sentiment, related_memory_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [
+      row.id, row.character_id, row.type, row.description,
+      row.image_path ?? null, row.timestamp, row.sentiment, row.related_memory_id ?? null,
+    ],
+  )
+}
+
+/** T-1: 清空角色所有视觉记忆 */
+export async function clearVisualMemories(characterId: string): Promise<void> {
+  const db = await getDb()
+  await db.execute('DELETE FROM visual_memories WHERE character_id = $1', [characterId])
+}
+
+/** T-1: visual_memories 迁移标记 */
+const VISUAL_MEMORY_MIGRATION_FLAG = 'spiritpal-visual-memory-migrated-v2'
+
+export async function isVisualMemoryMigrated(): Promise<boolean> {
+  return (await getSetting(VISUAL_MEMORY_MIGRATION_FLAG)) === '1'
+}
+
+export async function setVisualMemoryMigrated(): Promise<void> {
+  await setSetting(VISUAL_MEMORY_MIGRATION_FLAG, '1')
+}
+
+// ============ T-1: entity_nodes 表操作（二期行级化） ============
+
+/** T-1: entity_nodes 行类型 */
+export interface EntityNodeRow {
+  id: string
+  character_id: string
+  name: string
+  type: string
+  linked_memory_ids: string // JSON 数组
+  mention_count: number
+  first_seen: number
+  last_seen: number
+}
+
+/** T-1: 查询角色的所有实体 */
+export async function getEntityNodes(characterId: string): Promise<EntityNodeRow[]> {
+  const db = await getDb()
+  return db.select(
+    'SELECT * FROM entity_nodes WHERE character_id = $1 ORDER BY mention_count DESC',
+    [characterId],
+  )
+}
+
+/** T-1: upsert 实体（按 character_id + name 唯一） */
+export async function upsertEntityNode(row: EntityNodeRow): Promise<void> {
+  const db = await getDb()
+  await db.execute(
+    `INSERT INTO entity_nodes (id, character_id, name, type, linked_memory_ids, mention_count, first_seen, last_seen)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     ON CONFLICT(character_id, name) DO UPDATE SET
+       linked_memory_ids = $5, mention_count = $6, last_seen = $8`,
+    [
+      row.id, row.character_id, row.name, row.type, row.linked_memory_ids,
+      row.mention_count, row.first_seen, row.last_seen,
+    ],
+  )
+}
+
+/** T-1: 清空角色所有实体 */
+export async function clearEntityNodes(characterId: string): Promise<void> {
+  const db = await getDb()
+  await db.execute('DELETE FROM entity_nodes WHERE character_id = $1', [characterId])
+}
+
+/** T-1: entity_nodes 迁移标记 */
+const ENTITY_NODES_MIGRATION_FLAG = 'spiritpal-entity-nodes-migrated-v2'
+
+export async function isEntityNodesMigrated(): Promise<boolean> {
+  return (await getSetting(ENTITY_NODES_MIGRATION_FLAG)) === '1'
+}
+
+export async function setEntityNodesMigrated(): Promise<void> {
+  await setSetting(ENTITY_NODES_MIGRATION_FLAG, '1')
 }
 
 // ============ mods 表操作 ============

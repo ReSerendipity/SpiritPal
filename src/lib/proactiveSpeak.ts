@@ -39,17 +39,20 @@ import { getContextAwarenessManager } from './contextAwareness'
 import { getCommitmentTracker } from './commitmentTracker'
 // P2-1：接入 RecallEngine LLM 渲染，让主动说话时能自然地回忆而非只用模板
 import { getRecallEngine, buildRecallRenderPrompt } from './recallEngine'
+// T-12: 统一配置入口
+import { PROACTIVE_CONFIG } from './memoryConfig'
 
 // ============ 配置常量 ============
+// T-12: 值统一来自 memoryConfig
 
 /** 主动说话的最小间隔（毫秒）— 避免过于频繁 */
-const MIN_PROACTIVE_INTERVAL_MS = 5 * 60 * 1000  // 5 分钟
+const MIN_PROACTIVE_INTERVAL_MS = PROACTIVE_CONFIG.minIntervalMs
 
 /** 主动说话随机触发概率（每次检查时） */
-const RANDOM_TRIGGER_PROBABILITY = 0.3
+const RANDOM_TRIGGER_PROBABILITY = PROACTIVE_CONFIG.triggerProbability
 
 /** 检查间隔（毫秒） */
-const CHECK_INTERVAL_MS = 60 * 1000  // 1 分钟
+const CHECK_INTERVAL_MS = PROACTIVE_CONFIG.checkIntervalMs
 
 // ============ 主动说话提示词 ============
 // 参考 Open-LLM-VTuber proactive_speak_prompt.txt

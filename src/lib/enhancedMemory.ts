@@ -62,6 +62,8 @@ import { embed, isVectorSearchAvailable, searchSimilar, terminateVectorSearch } 
 import { generateId } from './commonUtils'
 // P3-1：深度整合 RAGRetriever — BM25+向量+RRF 多信号并行检索
 import { getRAGRetriever, type RAGResult, DEFAULT_RAG_CONFIG } from './ragRetrieval'
+// T-12: 统一配置入口
+import { INJECTION_CONFIG } from './memoryConfig'
 
 // ============ 从拆分模块导入（R2 重构）============
 // [REFACTOR] R2 - 将纯函数和类型常量拆分到独立模块，职责单一化
@@ -127,7 +129,8 @@ function localDateString(d: Date = new Date()): string {
 }
 
 // P0-5 配套：已注入记忆的冷却时长（同一条记忆在此时长内不重复注入到聊天上下文）
-const INJECTION_COOLDOWN_MS = 24 * 60 * 60 * 1000 // 24 小时
+// T-12: 值统一来自 memoryConfig
+const INJECTION_COOLDOWN_MS = INJECTION_CONFIG.cooldownMs
 
 export class EnhancedMemoryManager {
   private characterId: string
@@ -1677,7 +1680,14 @@ export class EnhancedMemoryManager {
               mem,
               fusedScore: this.computeMultiFactorScore(0.3, mem, query, now, currentMood),
             }))
-          const merged = [...scored, ...entityExtras]
+          // T-5：接入视觉记忆——最近的视觉快照与查询语义相关时并入（观察类线索）
+          const visualExtras = (await this.getVisualMemoryCandidates(query, limit))
+            .filter(m => !existingIds.has(m.id))
+            .map(mem => ({
+              mem,
+              fusedScore: this.computeMultiFactorScore(0.25, mem, query, now, currentMood),
+            }))
+          const merged = [...scored, ...entityExtras, ...visualExtras]
             .sort((a, b) => b.fusedScore - a.fusedScore)
             .slice(0, limit)
 
@@ -1916,6 +1926,47 @@ export class EnhancedMemoryManager {
         .slice(0, limit)
     } catch {
       // entityLinking 不可用时返回空
+      return []
+    }
+  }
+
+  /**
+   * T-5：将最近的视觉记忆并入检索（观察类线索）
+   * 从 visualMemoryManager 取最近快照，与查询做字符串相似度匹配；
+   * 命中的视觉快照以 sourceKind='observation' 的临时记忆条目参与排序。
+   * 动态 import 避免模块加载时序问题；任何失败静默降级。
+   */
+  private async getVisualMemoryCandidates(query: string, limit: number): Promise<EnhancedMemory[]> {
+    try {
+      const { getVisualMemoryManager } = await import('./visualMemoryManager')
+      const vmMgr = getVisualMemoryManager(this.characterId)
+      await vmMgr.ensureLoaded()
+      const recent = vmMgr.getRecent(5)
+      if (recent.length === 0) return []
+      const queryLower = query.toLowerCase()
+      return recent
+        .filter((m) => stringSimilarity(queryLower, m.description.toLowerCase().slice(0, 200)) > 0.2)
+        .slice(0, limit)
+        .map((m) => {
+          const mem: EnhancedMemory = {
+            id: `visual_${m.id}`,
+            created_at: new Date(m.timestamp).toISOString(),
+            user: m.description,
+            assistant: '',
+            importance: 40,
+            emotionalIntensity: 0,
+            category: '感知',
+            tags: [m.type],
+            accessCount: 0,
+            lastAccessed: m.timestamp,
+            decayFactor: 1.0,
+            isAutobiographical: false,
+            sourceKind: 'observation',
+          }
+          return mem
+        })
+    } catch {
+      // 视觉记忆不可用时返回空
       return []
     }
   }
@@ -2443,6 +2494,26 @@ export class EnhancedMemoryManager {
       mergedCount,
       consolidationDone: consolidation !== null,
       reassessmentDone,
+    }
+  }
+
+  /**
+   * T-6: 更新某条记忆的情感三维（valence/arousal）
+   * 用于对话结束后由 LLM 情绪标签（emotionExtractor.emotionTagsToMood）回写当轮记忆
+   * 行级路径下同步更新 memories 行
+   */
+  updateMemoryMood(memoryId: string, valence: number, arousal: number): void {
+    for (const pool of [this.workingMemory, this.episodicMemory, this.autobiographicalMemory]) {
+      const mem = pool.find((m) => m.id === memoryId)
+      if (mem) {
+        mem.emotionalValence = valence
+        mem.emotionalArousal = arousal
+        if (this.useRowLevelStorage && mem.dbId !== undefined) {
+          void updateMemoryRow(mem.dbId, { emotional_valence: valence, emotional_arousal: arousal })
+        }
+        this.scheduleSave()
+        return
+      }
     }
   }
 

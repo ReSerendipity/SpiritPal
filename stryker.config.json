@@ -1,0 +1,25 @@
+{
+  "$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker/master/packages/api/schema/stryker-core.json",
+  "_comment": "T-18: Mutation Testing 配置 — 验证测试用例有效性",
+  "packageManager": "pnpm",
+  "reporters": ["html", "clear-text", "progress"],
+  "testRunner": "vitest",
+  "coverageAnalysis": "perTest",
+  "mutate": [
+    "src/lib/behaviorEngine.ts",
+    "src/lib/buffManager.ts",
+    "src/lib/taskManager.ts",
+    "src/lib/items.ts"
+  ],
+  "thresholds": {
+    "high": 80,
+    "low": 60,
+    "break": 50
+  },
+  "vitest": {
+    "configFile": "vitest.config.ts"
+  },
+  "timeoutMs": 60000,
+  "concurrency": 2,
+  "disableTypeChecks": true
+}
