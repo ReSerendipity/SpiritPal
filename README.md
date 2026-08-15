@@ -91,3 +91,33 @@ When pushing to remote repository, please push to the \main\ branch:
 ```bash
 git push origin main
 ```
+
+## ⚠️ Git Branch Usage Instructions
+
+**Important**: This project uses a dual-branch strategy for 'local development + remote publication'.
+
+- **main branch (Local)**: **Local primary branch** for daily development and private work
+- **public branch (Remote)**: **Remote branch** for public releases
+
+### 📌 Development Guidelines
+
+1. **Make commits on \main\ branch during development**
+2. **Only push public content to \public\ branch, NEVER push \main\ branch to remote**
+
+### 🔒 Workflow
+
+**Daily Development:**
+```bash
+git checkout main      # Switch to local primary branch
+git add .              # Add files
+git commit -m "..."    # Local commit (will not be pushed to remote)
+```
+
+**When ready for public release (manually merge to public branch before pushing):**
+```bash
+git checkout public    # Switch to public release branch
+git merge main         # Merge local development content (optionally cherry-pick specific commits)
+git push origin public # Push to remote public branch
+```
+
+⚠️ **WARNING**: Never execute \git push origin main\, as it will leak your local private code to the remote repository.
