@@ -1,0 +1,1131 @@
+<!--
+/**
+ * ============================================================================
+ * SpiritPal — AI 桌面宠物功能演示页面
+ * ============================================================================
+ * 
+ * @fileoverview 交互式桌面宠物功能预览Demo，模拟真实桌面环境中的宠物行为与交互
+ * @project SpiritPal - 越用越懂你的 AI 桌面宠物
+ * @version 1.0.0
+ * @description
+ *   本Demo完整模拟了SpiritPal桌面宠物的核心交互体验，包括：
+ *   - 桌面环境模拟（背景、图标、任务栏）
+ *   - 宠物自由行走与边缘吸附
+ *   - 拖拽交互（鼠标拖动宠物到任意位置）
+ *   - 右键菜单（聊天、喂食、摸头、设置、切换形象）
+ *   - 聊天气泡与对话面板
+ *   - 宠物形象切换（Doro/菲比/咕咕嘎嘎）
+ *   - 饱食度HP系统
+ *   - 完整的设置面板（形象管理、性格配置、AI设置、记忆系统、系统设置）
+ * 
+ * @tech-stack 纯原生HTML + CSS + JavaScript（无框架依赖，便于快速预览）
+ * @rendering GIF精灵图动画 + CSS Transform/Animation
+ * @interaction 鼠标点击、拖拽、右键菜单、键盘输入
+ * 
+ * @key-features
+ *   1. 二维自由行走：宠物在桌面范围内随机漫步，支持方向翻转
+ *   2. 边缘智能吸附：靠近屏幕边缘时自动吸附到左/右/上边缘
+ *   3. 拖拽系统：支持鼠标自由拖动，边界限制，拖拽方向感知翻转
+ *   4. 气泡对话：定时弹出问候语，点击/喂食时触发对话
+ *   5. 四段式记忆展示：实时记忆、对话记忆、语义记忆、情景记忆
+ *   6. 五维性格配置：温度、活泼、依赖、直率、理性滑块调节
+ * 
+ * @note 本Demo为纯前端预览，不连接真实AI后端，对话为预设随机回复
+ * @author SpiritPal Team
+ * @date 2026
+ * ============================================================================
+ */
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpiritPal — 桌面宠物预览</title>
+<style>
+/* ===== 全局重置与基础样式 ===== */
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  overflow: hidden;
+  height: 100vh; width: 100vw;
+  user-select: none; /* 禁止文本选中，模拟桌面应用体验 */
+}
+
+/* ===== 模拟桌面背景层 ===== */
+.desktop {
+  position: fixed; inset: 0;
+  background: url('https://images.unsplash.com/photo-1497436072909-60f360e1d4b1?w=1920&q=80') center/cover;
+  filter: brightness(0.7); /* 降低亮度以突出前景宠物 */
+}
+/* 桌面渐变遮罩层，增强视觉层次感 */
+.desktop::after {
+  content: ''; position: fixed; inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.3) 100%);
+}
+
+/* ===== 桌面图标区域 ===== */
+.desktop-icons {
+  position: fixed; top: 20px; left: 20px;
+  display: flex; flex-direction: column; gap: 12px;
+  z-index: 50;
+}
+/* 单个桌面图标样式 */
+.desk-icon {
+  width: 72px; text-align: center; cursor: pointer;
+  padding: 6px; border-radius: 8px;
+  transition: background 0.15s;
+}
+.desk-icon:hover { background: rgba(255,255,255,0.1); }
+/* 图标图片容器，采用毛玻璃效果 */
+.desk-icon-img {
+  width: 48px; height: 48px; margin: 0 auto 4px;
+  border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  font-size: 28px;
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.15);
+}
+/* 图标文字标签，带阴影增强可读性 */
+.desk-icon-label {
+  font-size: 11px; color: #fff;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+  line-height: 1.3;
+}
+
+/* ===== 宠物主容器 ===== */
+.pet-container {
+  position: fixed;
+  z-index: 100;
+  cursor: pointer;
+  transition: left 0.05s linear, top 0.05s linear; /* 平滑移动过渡 */
+}
+/* 吸附时的过渡动画，比正常移动更慢更平滑 */
+.pet-container.snapping { transition: left 0.3s ease, top 0.3s ease; }
+.pet-container:hover .pet-shadow { opacity: 0.6; } /* 悬停时阴影加深 */
+/* 宠物地面阴影，增强立体感 */
+.pet-shadow {
+  position: absolute;
+  bottom: -4px; left: 50%;
+  transform: translateX(-50%);
+  width: 60px; height: 12px;
+  background: rgba(0,0,0,0.35);
+  border-radius: 50%;
+  filter: blur(4px);
+  opacity: 0.4;
+  transition: opacity 0.3s;
+}
+/* 宠物精灵图（GIF动画） */
+.pet-sprite {
+  display: block;
+  height: 160px;
+  width: auto;
+  image-rendering: auto;
+  transition: transform 0.1s;
+  pointer-events: none; /* 让点击事件穿透到容器 */
+}
+/* 点击按下时的缩放反馈效果 */
+.pet-container:active .pet-sprite {
+  transform: scale(0.92) translateY(3px);
+}
+
+/* 宠物行走弹跳动画 */
+.pet-container.walking {
+  animation: petWalk 0.4s ease-in-out infinite;
+}
+@keyframes petWalk {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); } /* 向上弹跳 */
+}
+
+/* ===== 边缘吸附定位类 ===== */
+.pet-container.snap-left { left: 0 !important; }   /* 吸附到左边缘 */
+.pet-container.snap-right { left: auto !important; right: 0 !important; } /* 吸附到右边缘 */
+.pet-container.snap-top { top: 0 !important; }     /* 吸附到上边缘 */
+
+/* ===== 对话气泡 ===== */
+.speech-bubble {
+  position: absolute;
+  bottom: 170px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255,255,255,0.95);
+  color: #333; padding: 10px 16px;
+  border-radius: 14px; font-size: 13px;
+  white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s, transform 0.3s;
+}
+/* 气泡显示状态 */
+.speech-bubble.show {
+  opacity: 1; transform: translateX(-50%) translateY(-4px);
+}
+/* 气泡底部小三角指示器 */
+.speech-bubble::after {
+  content: ''; position: absolute;
+  bottom: -6px; left: 50%; transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: rgba(255,255,255,0.95);
+}
+
+/* ===== HP饱食度条 ===== */
+.pet-hp {
+  position: absolute; bottom: -16px; left: 50%;
+  transform: translateX(-50%);
+  width: 60px; height: 5px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 3px; overflow: hidden;
+}
+/* HP填充条，绿色渐变表示健康状态 */
+.pet-hp-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, #4ade80, #22c55e);
+  transition: width 0.5s; /* 饱食度变化平滑过渡 */
+}
+
+/* ===== 右键菜单 ===== */
+.ctx-menu {
+  position: fixed; z-index: 9999;
+  background: rgba(28,28,40,0.96);
+  backdrop-filter: blur(24px); /* 毛玻璃效果 */
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px; padding: 6px;
+  min-width: 180px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  display: none;
+  animation: menuPop 0.15s ease; /* 弹出动画 */
+}
+@keyframes menuPop {
+  from { opacity:0; transform: scale(0.92); }
+  to { opacity:1; transform: scale(1); }
+}
+/* 菜单项 */
+.ctx-item {
+  padding: 10px 16px; border-radius: 8px;
+  cursor: pointer; font-size: 14px; color: #ddd;
+  display: flex; align-items: center; gap: 10px;
+  transition: background 0.12s;
+}
+.ctx-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.ctx-divider { height: 1px; background: rgba(255,255,255,0.06); margin: 4px 8px; }
+
+/* ===== 聊天面板（从宠物旁弹出） ===== */
+.chat-panel {
+  position: fixed;
+  z-index: 200;
+  width: 360px; height: 480px;
+  background: rgba(20,20,32,0.97);
+  backdrop-filter: blur(30px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  display: none; flex-direction: column;
+  overflow: hidden;
+}
+/* 聊天面板显示动画 */
+.chat-panel.show { display: flex; animation: chatPop 0.25s ease; }
+@keyframes chatPop {
+  from { opacity:0; transform: translateY(12px) scale(0.96); }
+  to { opacity:1; transform: translateY(0) scale(1); }
+}
+/* 聊天头部 - 宠物信息 */
+.chat-head {
+  padding: 14px 18px; display: flex; align-items: center; gap: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.chat-avatar {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: rgba(255,255,255,0.06);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; overflow: hidden;
+}
+.chat-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.chat-meta { flex: 1; }
+.chat-name { font-size: 14px; font-weight: 600; color: #fff; }
+.chat-status { font-size: 11px; color: #4ade80; } /* 绿色表示在线 */
+.chat-close {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: #888; font-size: 16px;
+  transition: background 0.15s;
+}
+.chat-close:hover { background: rgba(255,255,255,0.08); color: #fff; }
+
+/* 聊天消息区域 */
+.chat-body {
+  flex: 1; overflow-y: auto; padding: 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+/* 消息气泡基础样式 */
+.msg {
+  max-width: 82%; padding: 10px 14px;
+  border-radius: 14px; font-size: 13px; line-height: 1.55;
+}
+.msg.pet {
+  background: rgba(99,102,241,0.12); color: #c7d2fe;
+  align-self: flex-start; border-bottom-left-radius: 4px; /* 尾巴在左下角 */
+}
+.msg.user {
+  background: rgba(255,255,255,0.08); color: #eee;
+  align-self: flex-end; border-bottom-right-radius: 4px; /* 尾巴在右下角 */
+}
+/* 记忆触发消息 - 黄色虚线边框高亮 */
+.msg.memory {
+  background: rgba(251,191,36,0.08);
+  border: 1px dashed rgba(251,191,36,0.25);
+  color: #fbbf24; font-size: 11px;
+  align-self: flex-start; border-radius: 10px;
+}
+
+/* 聊天输入区域 */
+.chat-foot {
+  padding: 10px 14px; display: flex; gap: 8px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.chat-foot input {
+  flex: 1; background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; padding: 10px 14px;
+  color: #fff; font-size: 13px; outline: none;
+}
+.chat-foot input:focus { border-color: rgba(99,102,241,0.5); }
+.chat-foot input::placeholder { color: #555; }
+.chat-send {
+  background: #6366f1; color: #fff; border: none;
+  border-radius: 10px; padding: 0 18px;
+  font-size: 13px; cursor: pointer;
+  transition: background 0.15s;
+}
+.chat-send:hover { background: #4f46e5; }
+
+/* ===== 设置面板（居中模态框） ===== */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 500; display: none;
+}
+.overlay.show { display: block; }
+
+.settings {
+  position: fixed; top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  width: 740px; max-height: 560px;
+  background: rgba(18,18,30,0.98);
+  backdrop-filter: blur(30px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+  z-index: 600; display: none;
+  overflow: hidden;
+}
+.settings.show { display: flex; animation: panelIn 0.3s ease; }
+@keyframes panelIn {
+  from { opacity:0; transform: translate(-50%,-48%) scale(0.96); }
+  to { opacity:1; transform: translate(-50%,-50%) scale(1); }
+}
+
+/* 设置面板左侧导航 */
+.set-nav {
+  width: 180px; background: rgba(0,0,0,0.2);
+  padding: 20px 10px;
+  border-right: 1px solid rgba(255,255,255,0.04);
+}
+.set-nav-title { font-size: 17px; font-weight: 700; color: #fff; padding: 0 10px 14px; }
+.set-nav-item {
+  padding: 9px 14px; border-radius: 8px;
+  cursor: pointer; font-size: 13px; color: #999;
+  margin-bottom: 2px; transition: all 0.12s;
+  display: flex; align-items: center; gap: 8px;
+}
+.set-nav-item:hover { background: rgba(255,255,255,0.04); color: #ccc; }
+.set-nav-item.active { background: rgba(99,102,241,0.15); color: #818cf8; } /* 选中状态 */
+
+/* 设置面板右侧内容区 */
+.set-body { flex: 1; padding: 24px; overflow-y: auto; max-height: 560px; }
+.set-section { display: none; } /* 默认隐藏所有设置页 */
+.set-section.active { display: block; animation: fadeIn 0.2s; } /* 显示当前激活页 */
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+.set-title { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 16px; }
+
+/* 宠物角色卡片网格 */
+.pet-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+.pet-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px; padding: 16px;
+  cursor: pointer; transition: all 0.2s; text-align: center;
+}
+.pet-card:hover { border-color: rgba(129,140,248,0.3); transform: translateY(-3px); }
+.pet-card.selected { border-color: #818cf8; background: rgba(99,102,241,0.08); } /* 选中状态 */
+.pet-card-img {
+  width: 80px; height: 80px; margin: 0 auto 10px;
+  border-radius: 50%; overflow: hidden;
+  background: rgba(255,255,255,0.03);
+  display: flex; align-items: center; justify-content: center;
+}
+.pet-card-img img { width: 100%; height: 100%; object-fit: cover; }
+.pet-card-name { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 3px; }
+.pet-card-desc { font-size: 11px; color: #777; }
+.pet-card-tag {
+  display: inline-block; font-size: 10px;
+  padding: 2px 8px; border-radius: 4px; margin-top: 6px;
+}
+
+/* 性格滑块控件组 */
+.sld-group { margin-bottom: 14px; }
+.sld-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; color: #bbb; }
+.sld-label b { color: #818cf8; font-weight: 600; } /* 当前数值高亮 */
+/* 自定义滑块样式 */
+input[type="range"] {
+  width: 100%; height: 5px; border-radius: 3px;
+  background: rgba(255,255,255,0.08);
+  -webkit-appearance: none; outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #818cf8; cursor: pointer;
+  border: 2px solid #fff;
+}
+
+/* 开关切换控件 */
+.sw-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.sw-row:last-child { border-bottom: none; }
+.sw-label { font-size: 13px; color: #ddd; }
+.sw-desc { font-size: 11px; color: #666; margin-top: 2px; }
+.sw {
+  width: 40px; height: 22px; border-radius: 11px;
+  background: rgba(255,255,255,0.1);
+  position: relative; cursor: pointer; transition: background 0.2s;
+}
+.sw.on { background: #6366f1; } /* 开启状态 - 主题色 */
+.sw::after {
+  content: ''; position: absolute;
+  width: 18px; height: 18px; background: #fff;
+  border-radius: 50%; top: 2px; left: 2px;
+  transition: transform 0.2s;
+}
+.sw.on::after { transform: translateX(18px); } /* 滑块移动到右侧 */
+
+/* 代码块样式 - 用于展示JSON模板 */
+.code-block {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px; padding: 14px;
+  font-family: 'Cascadia Code','Fira Code',monospace;
+  font-size: 11px; line-height: 1.6;
+  color: #a5b4fc; overflow-x: auto; white-space: pre;
+}
+.ck { color: #f472b6; } .cs { color: #4ade80; } .cn { color: #fbbf24; } /* 语法高亮颜色 */
+
+/* 记忆卡片样式 */
+.mem-card {
+  background: rgba(251,191,36,0.04);
+  border: 1px solid rgba(251,191,36,0.12);
+  border-radius: 10px; padding: 10px 12px;
+  margin-bottom: 6px; font-size: 12px; color: #ccc;
+}
+.mem-tag {
+  display: inline-block; font-size: 10px;
+  padding: 2px 6px; border-radius: 4px;
+  margin-right: 6px;
+}
+
+/* ===== 模拟任务栏 ===== */
+.taskbar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: 46px;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(20px);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 14px; z-index: 200;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.tb-left { display: flex; gap: 10px; align-items: center; }
+.tb-icon {
+  width: 34px; height: 34px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; cursor: pointer; transition: background 0.15s;
+}
+.tb-icon:hover { background: rgba(255,255,255,0.1); }
+.tb-icon.active { background: rgba(99,102,241,0.2); }
+.tb-time { font-size: 12px; color: #999; }
+
+/* 拖拽操作提示 */
+.drag-hint {
+  position: fixed; bottom: 54px; right: 12px;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(10px);
+  border-radius: 8px; padding: 6px 12px;
+  font-size: 11px; color: #aaa; z-index: 50;
+  opacity: 0; transition: opacity 0.5s;
+}
+.drag-hint.show { opacity: 1; }
+
+/* 自定义滚动条样式 */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- 桌面背景层 -->
+<div class="desktop"></div>
+
+<!-- 桌面图标区域 -->
+<div class="desktop-icons">
+  <div class="desk-icon" onclick="openSettings()">
+    <div class="desk-icon-img" style="background:rgba(99,102,241,0.2);">🐾</div>
+    <div class="desk-icon-label">SpiritPal</div>
+  </div>
+  <div class="desk-icon">
+    <div class="desk-icon-img">📁</div>
+    <div class="desk-icon-label">文件</div>
+  </div>
+  <div class="desk-icon">
+    <div class="desk-icon-img">🌐</div>
+    <div class="desk-icon-label">浏览器</div>
+  </div>
+</div>
+
+<!-- 宠物主体容器 - 支持点击、右键菜单、拖拽 -->
+<div class="pet-container" id="pet"
+     oncontextmenu="showCtx(event)"
+     onclick="onPetClick()">
+  <!-- 对话气泡 -->
+  <div class="speech-bubble" id="bubble">主人你好呀~今天也要加油哦！</div>
+  <!-- 宠物精灵图（GIF动画） -->
+  <img class="pet-sprite" id="petSprite" src="https://raw.githubusercontent.com/MelanTech/Dororo/master/assets/idle.gif" alt="pet">
+  <!-- 地面阴影 -->
+  <div class="pet-shadow"></div>
+  <!-- HP饱食度条 -->
+  <div class="pet-hp"><div class="pet-hp-fill" id="hpFill" style="width:85%"></div></div>
+</div>
+
+<!-- 右键上下文菜单 -->
+<div class="ctx-menu" id="ctxMenu">
+  <div class="ctx-item" onclick="openChat()">💬 聊天</div>
+  <div class="ctx-item" onclick="feedPet()">🍎 喂食</div>
+  <div class="ctx-item" onclick="patPet()">✋ 摸头</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item" onclick="openSettings()">⚙️ 设置</div>
+  <div class="ctx-item" onclick="cyclePet()">🔄 切换形象</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item" onclick="closeCtx()">❌ 收起</div>
+</div>
+
+<!-- AI聊天面板 -->
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-head">
+    <div class="chat-avatar" id="chatAv"><img id="chatAvImg" src="https://raw.githubusercontent.com/MelanTech/Dororo/master/assets/head.png"></div>
+    <div class="chat-meta">
+      <div class="chat-name" id="chatName">Doro</div>
+      <div class="chat-status">● 在线 · Ollama qwen2.5</div>
+    </div>
+    <div class="chat-close" onclick="closeChat()">✕</div>
+  </div>
+  <div class="chat-body" id="chatBody">
+    <div class="msg pet">喵~ 主人好！今天想聊什么呢？😺</div>
+    <div class="msg memory">💡 记忆触发：你昨天说在赶项目，今天进展如何？</div>
+  </div>
+  <div class="chat-foot">
+    <input id="chatIn" placeholder="输入消息..." onkeydown="if(event.key==='Enter')sendMsg()">
+    <button class="chat-send" onclick="sendMsg()">发送</button>
+  </div>
+</div>
+
+<!-- 设置面板遮罩层与模态框 -->
+<div class="overlay" id="overlay" onclick="closeSettings()"></div>
+<div class="settings" id="settings">
+  <!-- 左侧导航栏 -->
+  <div class="set-nav">
+    <div class="set-nav-title">⚙️ 设置</div>
+    <div class="set-nav-item active" onclick="stab('pets',this)">🐾 形象管理</div>
+    <div class="set-nav-item" onclick="stab('personality',this)">🎭 性格配置</div>
+    <div class="set-nav-item" onclick="stab('ai',this)">🤖 AI 设置</div>
+    <div class="set-nav-item" onclick="stab('memory',this)">🧠 记忆系统</div>
+    <div class="set-nav-item" onclick="stab('template',this)">📋 通用模板</div>
+    <div class="set-nav-item" onclick="stab('system',this)">🖥️ 系统设置</div>
+  </div>
+  <!-- 右侧设置内容区 -->
+  <div class="set-body">
+
+    <!-- 形象管理设置页 -->
+    <div class="set-section active" id="sec-pets">
+      <div class="set-title">形象管理</div>
+      <div class="pet-cards">
+        <div class="pet-card selected" onclick="selPet('doro',this)">
+          <div class="pet-card-img"><img src="https://raw.githubusercontent.com/MelanTech/Dororo/master/assets/head.png"></div>
+          <div class="pet-card-name">Doro（多罗）</div>
+          <div class="pet-card-desc">胜利女神妮姬 · 猫咪</div>
+          <div class="pet-card-tag" style="background:#4ade8022;color:#4ade80;">Live2D</div>
+        </div>
+        <div class="pet-card" onclick="selPet('feibi',this)">
+          <div class="pet-card-img"><img src="https://raw.githubusercontent.com/llors-chen/Feibi_desktop/main/assets/gifs/idle.gif"></div>
+          <div class="pet-card-name">菲比（Feibi）</div>
+          <div class="pet-card-desc">鸣潮 · 活泼少女</div>
+          <div class="pet-card-tag" style="background:#fbbf2422;color:#fbbf24;">序列帧</div>
+        </div>
+        <div class="pet-card" onclick="selPet('gugu',this)">
+          <div class="pet-card-img"><div style="font-size:36px;line-height:1;">🐧</div></div>
+          <div class="pet-card-name">咕咕嘎嘎</div>
+          <div class="pet-card-desc">明日方舟终末地 · 企鹅</div>
+          <div class="pet-card-tag" style="background:#fbbf2422;color:#fbbf24;">序列帧</div>
+        </div>
+      </div>
+      <div style="margin-top:16px;padding:14px;background:rgba(255,255,255,0.02);border-radius:10px;font-size:12px;color:#888;">
+        🎨 毛色调整 · 👁 眼睛颜色 · 👒 帽子/围巾/配饰 · 📏 体型缩放 · 🌈 特效
+      </div>
+    </div>
+
+    <!-- 五维性格配置页 -->
+    <div class="set-section" id="sec-personality">
+      <div class="set-title">五维性格配置</div>
+      <div class="sld-group"><div class="sld-label"><span>🌡️ 温度</span><b id="s1">75</b></div><input type="range" min="0" max="100" value="75" oninput="document.getElementById('s1').textContent=this.value"></div>
+      <div class="sld-group"><div class="sld-label"><span>⚡ 活泼</span><b id="s2">60</b></div><input type="range" min="0" max="100" value="60" oninput="document.getElementById('s2').textContent=this.value"></div>
+      <div class="sld-group"><div class="sld-label"><span>💚 依赖</span><b id="s3">50</b></div><input type="range" min="0" max="100" value="50" oninput="document.getElementById('s3').textContent=this.value"></div>
+      <div class="sld-group"><div class="sld-label"><span>🗣️ 直率</span><b id="s4">65</b></div><input type="range" min="0" max="100" value="65" oninput="document.getElementById('s4').textContent=this.value"></div>
+      <div class="sld-group"><div class="sld-label"><span>🧠 理性</span><b id="s5">40</b></div><input type="range" min="0" max="100" value="40" oninput="document.getElementById('s5').textContent=this.value"></div>
+      <div style="padding:10px;background:rgba(99,102,241,0.08);border-radius:8px;font-size:11px;color:#a5b4fc;margin-top:12px;">
+        💡 性格参数将自动合成到 AI 的 System Prompt 中
+      </div>
+    </div>
+
+    <!-- AI模型设置页 -->
+    <div class="set-section" id="sec-ai">
+      <div class="set-title">AI 模型设置</div>
+      <div class="sw-row"><div><div class="sw-label">优先使用本地模型</div><div class="sw-desc">Ollama · 保护隐私</div></div><div class="sw on" onclick="this.classList.toggle('on')"></div></div>
+      <div class="sw-row"><div><div class="sw-label">OpenAI GPT-4o</div><div class="sw-desc">需配置 API Key</div></div><div class="sw" onclick="this.classList.toggle('on')"></div></div>
+      <div class="sw-row"><div><div class="sw-label">Claude 3.5 Sonnet</div><div class="sw-desc">需配置 API Key</div></div><div class="sw" onclick="this.classList.toggle('on')"></div></div>
+      <div class="sw-row"><div><div class="sw-label">DeepSeek</div><div class="sw-desc">国产大模型 · 高性价比</div></div><div class="sw" onclick="this.classList.toggle('on')"></div></div>
+    </div>
+
+    <!-- 四段式记忆系统展示页 -->
+    <div class="set-section" id="sec-memory">
+      <div class="set-title">四段式记忆架构</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
+        <div style="padding:10px;background:rgba(74,222,128,0.06);border-radius:8px;border:1px solid rgba(74,222,128,0.15);">
+          <div style="color:#4ade80;font-weight:600;font-size:12px;">实时记忆</div>
+          <div style="color:#666;font-size:11px;margin-top:3px;">最近 20 条上下文</div>
+        </div>
+        <div style="padding:10px;background:rgba(129,140,248,0.06);border-radius:8px;border:1px solid rgba(129,140,248,0.15);">
+          <div style="color:#818cf8;font-weight:600;font-size:12px;">对话记忆</div>
+          <div style="color:#666;font-size:11px;margin-top:3px;">47 条会话摘要</div>
+        </div>
+        <div style="padding:10px;background:rgba(251,191,36,0.06);border-radius:8px;border:1px solid rgba(251,191,36,0.15);">
+          <div style="color:#fbbf24;font-weight:600;font-size:12px;">语义记忆</div>
+          <div style="color:#666;font-size:11px;margin-top:3px;">156 条向量事实</div>
+        </div>
+        <div style="padding:10px;background:rgba(236,72,153,0.06);border-radius:8px;border:1px solid rgba(236,72,153,0.15);">
+          <div style="color:#ec4899;font-weight:600;font-size:12px;">情景记忆</div>
+          <div style="color:#666;font-size:11px;margin-top:3px;">23 条关键事件</div>
+        </div>
+      </div>
+      <div style="font-size:12px;font-weight:600;color:#fff;margin-bottom:8px;">最近触发的记忆</div>
+      <div class="mem-card"><span class="mem-tag" style="background:#fbbf2422;color:#fbbf24;">语义</span>用户是前端开发工程师，使用 React + TypeScript<div style="color:#555;margin-top:3px;font-size:10px;">重要性: 8/10 · 上次: 2天前</div></div>
+      <div class="mem-card"><span class="mem-tag" style="background:#ec489922;color:#ec4899;">情景</span>用户生日: 8月15日<div style="color:#555;margin-top:3px;font-size:10px;">重要性: 10/10 · 上次: 3个月前</div></div>
+    </div>
+
+    <!-- 通用宠物接入模板页 -->
+    <div class="set-section" id="sec-template">
+      <div class="set-title">通用宠物接入模板</div>
+      <div style="font-size:12px;color:#999;margin-bottom:10px;">新宠物只需按此 JSON 格式配置即可快速接入：</div>
+<div class="code-block"><span class="ck">// pet_template.json</span>
+{
+  <span class="ck">"id"</span>: <span class="cs">"my-custom-pet"</span>,
+  <span class="ck">"name"</span>: <span class="cs">"自定义宠物"</span>,
+  <span class="ck">"render"</span>: { <span class="ck">"type"</span>: <span class="cs">"live2d"</span>, <span class="ck">"modelPath"</span>: <span class="cs">"pet.model3.json"</span> },
+  <span class="ck">"personality"</span>: { <span class="ck">"warmth"</span>: <span class="cn">75</span>, <span class="ck">"liveliness"</span>: <span class="cn">60</span> },
+  <span class="ck">"animations"</span>: { <span class="ck">"idle"</span>: [<span class="cs">"idle_01"</span>], <span class="ck">"eat"</span>: [<span class="cs">"eat_01"</span>] },
+  <span class="ck">"dialogue"</span>: { <span class="ck">"tone"</span>: <span class="cs">"温柔可爱"</span> },
+  <span class="ck">"behavior"</span>: { <span class="ck">"moveSpeed"</span>: <span class="cn">50</span> }
+}</div>
+      <div style="margin-top:12px;padding:10px;background:rgba(74,222,128,0.06);border-radius:8px;font-size:11px;color:#4ade80;">
+        ✅ 接入只需 3 步：准备资源 → 填写配置 → 放入 /pets/ 目录
+      </div>
+    </div>
+
+    <!-- 系统设置页 -->
+    <div class="set-section" id="sec-system">
+      <div class="set-title">系统设置</div>
+      <div class="sw-row"><div><div class="sw-label">开机自启动</div><div class="sw-desc">系统启动时自动运行</div></div><div class="sw on" onclick="this.classList.toggle('on')"></div></div>
+      <div class="sw-row"><div><div class="sw-label">启动时最小化到托盘</div><div class="sw-desc">不弹出窗口</div></div><div class="sw on" onclick="this.classList.toggle('on')"></div></div>
+      <div class="sw-row"><div><div class="sw-label">点击穿透</div><div class="sw-desc">宠物不阻挡鼠标</div></div><div class="sw on" onclick="this.classList.toggle('on')"></div></div>
+      <div class="sw-row"><div><div class="sw-label">情境感知</div><div class="sw-desc">根据时间/天气调整行为</div></div><div class="sw on" onclick="this.classList.toggle('on')"></div></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 模拟任务栏 -->
+<div class="taskbar">
+  <div class="tb-left">
+    <div class="tb-icon" onclick="openSettings()">🐾</div>
+    <div class="tb-icon">📁</div>
+    <div class="tb-icon">🌐</div>
+  </div>
+  <div class="tb-time" id="clock">14:37</div>
+</div>
+
+<!-- 新手引导提示 -->
+<div class="drag-hint show" id="dragHint">💡 拖拽宠物到任意位置 · 右键可聊天/喂食/设置 · 靠近边缘自动吸附</div>
+
+<script>
+/**
+ * ===== 宠物数据配置 =====
+ * @description 定义所有可用宠物角色的属性，包括资源路径、对话语料等
+ * @type {Array<{id: string, name: string, src: string, icon: string, msgs: string[], greetings: string[], emoji?: string}>}
+ */
+const pets = [
+  { id:'doro', name:'Doro', src:'https://raw.githubusercontent.com/MelanTech/Dororo/master/assets/idle.gif', icon:'https://raw.githubusercontent.com/MelanTech/Dororo/master/assets/head.png', msgs:['喵~ 主人好！','嘿嘿~ 要摸摸吗？','陪你写代码！','困了...先睡会儿'], greetings:['主人你好呀~今天也要加油哦！','喵~ 今天天气不错呢！','主人在忙什么呀？'] },
+  { id:'feibi', name:'菲比', src:'https://raw.githubusercontent.com/llors-chen/Feibi_desktop/main/assets/gifs/idle.gif', icon:'https://raw.githubusercontent.com/llors-chen/Feibi_desktop/main/assets/gifs/idle.gif', msgs:['嗨嗨！','嘿嘿~戳我干嘛啦','一起听歌吧！','今天心情超好！'], greetings:['嗨嗨！今天有什么有趣的事？','我是菲比，要聊天吗？','嘿嘿~一起玩吧！'] },
+  { id:'gugu', name:'咕咕嘎嘎', src:'', icon:'', msgs:['咕咕！','嘎嘎~','咕咕嘎！','嘎嘎嘎嘎~'], greetings:['咕咕...嘎嘎！','咕咕嘎嘎~我来了！','嘎嘎！主人好！'], emoji:'🐧' }
+];
+
+/** @type {number} 当前选中的宠物索引 */
+let ci = 0;
+/** @type {boolean} 宠物是否正在被拖拽 */
+let isDragging = false;
+/** @type {number} 宠物当前X坐标 */
+let petX = window.innerWidth - 160;
+/** @type {number} 宠物当前Y坐标 */
+let petY = window.innerHeight - 220;
+/** @type {number} 宠物碰撞盒宽度 */
+let petW = 120, petH = 160;
+/** @constant {number} 边缘吸附触发距离（像素） */
+const SNAP_DIST = 30;
+/** @constant {number} 任务栏高度（像素），用于边界计算 */
+const TASKBAR_H = 46;
+
+// ===== DOM元素引用缓存 =====
+/** @type {HTMLElement} 宠物容器DOM元素 */
+const petEl = document.getElementById('pet');
+
+/**
+ * ===== 初始化函数 =====
+ * @description 页面加载完成后初始化宠物位置、时钟、问候语，并自动隐藏提示
+ */
+petEl.style.left = petX + 'px';
+petEl.style.top = petY + 'px';
+updateClock();
+setInterval(updateClock, 1000); // 每秒更新时钟
+showBubble(pets[0].greetings[Math.floor(Math.random()*3)]); // 显示随机问候语
+setTimeout(()=>document.getElementById('dragHint').classList.remove('show'), 6000); // 6秒后隐藏操作提示
+
+/**
+ * ===== 边缘吸附检测与执行 =====
+ * @description 检测宠物是否靠近屏幕边缘，若在阈值范围内则执行吸附动画
+ * @returns {void}
+ */
+function snapToEdge() {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const snapThreshold = SNAP_DIST;
+  let snapped = false;
+
+  // 清除之前的吸附状态类
+  petEl.classList.remove('snap-left','snap-right','snap-top','snapping');
+
+  // 左边缘吸附检测
+  if (petX <= snapThreshold) {
+    petX = 0;
+    petEl.classList.add('snap-left','snapping');
+    snapped = true;
+  }
+  // 右边缘吸附检测
+  if (petX + petW >= vw - snapThreshold) {
+    petX = vw - petW;
+    petEl.classList.add('snap-right','snapping');
+    snapped = true;
+  }
+  // 上边缘吸附检测
+  if (petY <= snapThreshold) {
+    petY = 0;
+    petEl.classList.add('snap-top','snapping');
+    snapped = true;
+  }
+  // 下边缘边界限制（任务栏上方，不吸附到底部）
+  if (petY + petH >= vh - TASKBAR_H - snapThreshold) {
+    petY = vh - TASKBAR_H - petH;
+    snapped = true;
+  }
+
+  // 应用吸附后的位置
+  if (snapped) {
+    petEl.style.left = petX + 'px';
+    petEl.style.top = petY + 'px';
+  }
+
+  // 过渡动画完成后移除snapping类，恢复正常移动
+  if (snapped) {
+    setTimeout(() => petEl.classList.remove('snapping'), 350);
+  }
+}
+
+/**
+ * ===== 宠物自动行走逻辑 =====
+ * @description 宠物在桌面范围内随机选择目标点并匀速行走到该位置
+ *   行走时添加弹跳动画，根据移动方向水平翻转宠物朝向
+ *   行走到目标点或中途被拖拽时停止，停止后执行边缘吸附
+ * @returns {void}
+ */
+function autoWalk() {
+  if (isDragging) return; // 拖拽时不行走
+  const vw = window.innerWidth, vh = window.innerHeight;
+  
+  // 随机生成目标位置（在桌面安全区域内）
+  const targetX = 40 + Math.random() * (vw - 200);
+  const targetY = 40 + Math.random() * (vh - TASKBAR_H - 200);
+
+  // 计算移动向量和距离
+  const dx = targetX - petX;
+  const dy = targetY - petY;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  if (dist < 10) return; // 距离太近则忽略
+
+  // 计算步进参数（匀速运动）
+  const speed = 2; // 每帧移动像素
+  const steps = Math.floor(dist / speed);
+  const stepX = dx / steps;
+  const stepY = dy / steps;
+
+  // 添加行走动画类
+  petEl.classList.add('walking');
+  // 根据水平移动方向翻转宠物（dx<0向左走，翻转；dx>0向右走，正常）
+  if (dx < -5) petEl.style.transform = 'scaleX(-1)';
+  else if (dx > 5) petEl.style.transform = 'scaleX(1)';
+
+  // 使用setInterval逐帧移动
+  let step = 0;
+  const walkInterval = setInterval(() => {
+    // 中断条件：被拖拽或到达目标
+    if (isDragging || step >= steps) {
+      clearInterval(walkInterval);
+      petEl.classList.remove('walking');
+      snapToEdge(); // 行走结束后检测边缘吸附
+      return;
+    }
+    // 更新位置
+    petX += stepX;
+    petY += stepY;
+    // 边界钳制，防止宠物走出屏幕
+    petX = Math.max(0, Math.min(vw - petW, petX));
+    petY = Math.max(0, Math.min(vh - TASKBAR_H - petH, petY));
+    petEl.style.left = petX + 'px';
+    petEl.style.top = petY + 'px';
+    step++;
+  }, 16); // 约60fps
+}
+// 随机间隔3-7秒触发一次自动行走
+setInterval(autoWalk, 3000 + Math.random() * 4000);
+
+/**
+ * ===== 自动气泡对话 =====
+ * @description 每12秒随机显示一条宠物问候语
+ */
+setInterval(() => {
+  const p = pets[ci];
+  showBubble(p.greetings[Math.floor(Math.random()*p.greetings.length)]);
+}, 12000);
+
+/**
+ * ===== 循环切换宠物形象 =====
+ * @description 按顺序切换到下一个宠物，循环往复
+ * @returns {void}
+ */
+function cyclePet() {
+  ci = (ci + 1) % pets.length;
+  applyPet();
+  closeCtx();
+}
+
+/**
+ * ===== 应用当前选中宠物的外观 =====
+ * @description 根据当前ci索引更新宠物精灵图、头像、名称，并显示问候语
+ *   对于无GIF资源的宠物（如咕咕嘎嘎），使用emoji作为替代显示
+ * @returns {void}
+ */
+function applyPet() {
+  const p = pets[ci];
+  const sprite = document.getElementById('petSprite');
+  
+  if (p.src) {
+    // 有GIF资源：显示精灵图
+    sprite.src = p.src;
+    sprite.style.display = 'block';
+    sprite.style.height = '160px';
+  } else {
+    // 无GIF资源：隐藏图片，创建emoji元素
+    sprite.style.display = 'none';
+    let emojiEl = petEl.querySelector('.gugu-emoji');
+    if (!emojiEl) {
+      emojiEl = document.createElement('div');
+      emojiEl.className = 'gugu-emoji';
+      emojiEl.style.cssText = 'font-size:100px;text-align:center;pointer-events:none;line-height:1;';
+      petEl.insertBefore(emojiEl, petEl.firstChild);
+    }
+    emojiEl.textContent = p.emoji || '🐾';
+  }
+  
+  // 清理之前宠物的emoji元素（当切换回有GIF的宠物时）
+  if (p.src) {
+    const old = petEl.querySelector('.gugu-emoji');
+    if (old) old.remove();
+  }
+  
+  // 更新聊天面板信息
+  document.getElementById('chatAvImg').src = p.icon || '';
+  document.getElementById('chatName').textContent = p.name;
+  showBubble(p.greetings[Math.floor(Math.random()*p.greetings.length)]);
+}
+
+/**
+ * ===== 在设置面板中选择指定宠物 =====
+ * @param {string} id - 宠物ID标识符
+ * @param {HTMLElement} card - 被点击的卡片DOM元素，用于高亮选中状态
+ * @returns {void}
+ */
+function selPet(id, card) {
+  ci = pets.findIndex(p=>p.id===id);
+  if(ci<0) return;
+  applyPet();
+  // 更新卡片选中状态
+  document.querySelectorAll('.pet-card').forEach(c=>c.classList.remove('selected'));
+  card.classList.add('selected');
+}
+
+/**
+ * ===== 显示对话气泡 =====
+ * @param {string} text - 要显示的文本内容
+ * @description 在宠物头顶显示气泡对话，4秒后自动消失
+ * @returns {void}
+ */
+function showBubble(text) {
+  const b = document.getElementById('bubble');
+  b.textContent = text;
+  b.classList.add('show');
+  setTimeout(()=>b.classList.remove('show'), 4000);
+}
+
+/**
+ * ===== 宠物点击计数 =====
+ * @type {number} 记录连续点击次数（预留功能）
+ */
+let clickCount = 0;
+
+/**
+ * ===== 宠物点击事件处理 =====
+ * @description 点击宠物时随机显示一条互动语，累加点击计数
+ * @returns {void}
+ */
+function onPetClick() {
+  clickCount++;
+  const p = pets[ci];
+  showBubble(p.msgs[Math.floor(Math.random()*p.msgs.length)]);
+}
+
+/**
+ * ===== 显示右键菜单 =====
+ * @param {MouseEvent} e - 鼠标事件对象，用于获取点击坐标
+ * @description 在鼠标右键点击位置显示上下文菜单
+ * @returns {void}
+ */
+function showCtx(e) {
+  e.preventDefault(); // 阻止浏览器默认右键菜单
+  const m = document.getElementById('ctxMenu');
+  m.style.left = e.clientX + 'px';
+  m.style.top = e.clientY + 'px';
+  m.style.display = 'block';
+}
+
+/**
+ * ===== 关闭右键菜单 =====
+ * @returns {void}
+ */
+function closeCtx() { document.getElementById('ctxMenu').style.display = 'none'; }
+
+/**
+ * 全局点击事件监听 - 点击菜单外部区域时关闭菜单
+ */
+document.addEventListener('click', e => {
+  if (!e.target.closest('.ctx-menu') && !e.target.closest('.pet-container')) closeCtx();
+});
+
+/**
+ * ===== 喂食互动 =====
+ * @description 喂食后宠物显示感谢语，饱食度HP增加10%（上限100%）
+ * @returns {void}
+ */
+function feedPet() {
+  closeCtx();
+  showBubble('好好吃！谢谢主人~ 🍎');
+  const f = document.getElementById('hpFill');
+  f.style.width = Math.min(100, parseFloat(f.style.width)+10)+'%';
+}
+
+/**
+ * ===== 摸头互动 =====
+ * @description 摸头后宠物显示舒适反馈语
+ * @returns {void}
+ */
+function patPet() {
+  closeCtx();
+  showBubble('嘿嘿...好舒服~');
+}
+
+/**
+ * ===== 打开聊天面板 =====
+ * @description 在宠物旁边智能定位聊天面板（避免超出屏幕边界）
+ * @returns {void}
+ */
+function openChat() {
+  closeCtx();
+  const p = document.getElementById('chatPanel');
+  // 获取宠物当前位置
+  const rect = petEl.getBoundingClientRect();
+  // 默认显示在宠物左侧
+  let left = rect.left - 380;
+  let top = rect.top - 100;
+  // 边界自适应：左侧空间不足则显示在右侧
+  if (left < 10) left = rect.right + 20;
+  if (top < 10) top = 10;
+  if (top + 480 > window.innerHeight - 50) top = window.innerHeight - 530;
+  p.style.left = left + 'px';
+  p.style.top = top + 'px';
+  p.classList.add('show');
+}
+
+/**
+ * ===== 关闭聊天面板 =====
+ * @returns {void}
+ */
+function closeChat() { document.getElementById('chatPanel').classList.remove('show'); }
+
+/**
+ * ===== 发送聊天消息 =====
+ * @description 处理用户输入，添加用户消息到聊天框，模拟AI延迟回复
+ *   有50%概率额外触发一条记忆相关消息
+ * @returns {void}
+ */
+function sendMsg() {
+  const inp = document.getElementById('chatIn');
+  const t = inp.value.trim(); if(!t) return;
+  const body = document.getElementById('chatBody');
+  // 添加用户消息
+  body.innerHTML += `<div class="msg user">${t}</div>`;
+  inp.value = '';
+  body.scrollTop = body.scrollHeight; // 自动滚动到底部
+  // 模拟AI思考延迟（0.7-1.2秒）后回复
+  setTimeout(()=>{
+    const p = pets[ci];
+    body.innerHTML += `<div class="msg pet">${p.msgs[Math.floor(Math.random()*p.msgs.length)]}</div>`;
+    body.scrollTop = body.scrollHeight;
+    // 随机触发记忆提示
+    if (Math.random()>0.5) {
+      setTimeout(()=>{
+        body.innerHTML += `<div class="msg memory">💡 记忆触发：这让你想起了之前聊到的话题</div>`;
+        body.scrollTop = body.scrollHeight;
+      }, 600);
+    }
+  }, 700+Math.random()*500);
+}
+
+/**
+ * ===== 打开设置面板 =====
+ * @description 显示模态遮罩和设置面板
+ * @returns {void}
+ */
+function openSettings() {
+  closeCtx();
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('settings').classList.add('show');
+}
+
+/**
+ * ===== 关闭设置面板 =====
+ * @returns {void}
+ */
+function closeSettings() {
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('settings').classList.remove('show');
+}
+
+/**
+ * ===== 设置面板标签页切换 =====
+ * @param {string} id - 标签页ID后缀（对应sec-{id}）
+ * @param {HTMLElement} el - 被点击的导航项元素
+ * @description 切换设置面板的活动标签页，更新导航高亮状态
+ * @returns {void}
+ */
+function stab(id, el) {
+  document.querySelectorAll('.set-nav-item').forEach(i=>i.classList.remove('active'));
+  document.querySelectorAll('.set-section').forEach(s=>s.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('sec-'+id).classList.add('active');
+}
+
+/**
+ * ===== 更新任务栏时钟 =====
+ * @description 获取当前时间并格式化为HH:MM显示在任务栏
+ * @returns {void}
+ */
+function updateClock() {
+  const d = new Date();
+  document.getElementById('clock').textContent = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+
+// ===== 拖拽系统变量 =====
+/** @type {number} 拖拽时鼠标相对于宠物左上角的X偏移 */
+let dragOffX = 0, dragOffY = 0;
+
+/**
+ * 鼠标按下事件 - 开始拖拽
+ * @param {MouseEvent} e - 鼠标事件
+ */
+petEl.addEventListener('mousedown', e => {
+  if (e.button !== 0) return; // 只响应左键
+  isDragging = true;
+  // 记录鼠标点击位置相对于宠物的偏移量
+  dragOffX = e.clientX - petEl.offsetLeft;
+  dragOffY = e.clientY - petEl.offsetTop;
+  // 清除吸附状态，禁用过渡动画以实现即时跟随
+  petEl.classList.remove('snapping','snap-left','snap-right','snap-top');
+  petEl.style.transition = 'none';
+  e.preventDefault();
+});
+
+/**
+ * 鼠标移动事件 - 拖拽中更新位置
+ * @param {MouseEvent} e - 鼠标事件
+ */
+document.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  // 根据鼠标位置计算宠物新位置（保持相对偏移）
+  petX = e.clientX - dragOffX;
+  petY = e.clientY - dragOffY;
+  // 边界限制：允许部分拖出屏幕（左右各留40px可见），但不超出上下边界
+  petX = Math.max(-petW + 40, Math.min(vw - 40, petX));
+  petY = Math.max(0, Math.min(vh - TASKBAR_H - 20, petY));
+  petEl.style.left = petX + 'px';
+  petEl.style.top = petY + 'px';
+  // 根据拖拽方向实时翻转宠物朝向
+  petEl.style.transform = e.movementX < 0 ? 'scaleX(-1)' : e.movementX > 0 ? 'scaleX(1)' : '';
+});
+
+/**
+ * 鼠标松开事件 - 结束拖拽
+ * @description 恢复过渡动画，松手后自动检测边缘吸附
+ */
+document.addEventListener('mouseup', () => {
+  if (!isDragging) return;
+  isDragging = false;
+  petEl.style.transition = ''; // 恢复CSS过渡
+  snapToEdge(); // 松手后触发边缘吸附
+});
+</script>
+</body>
+</html>
