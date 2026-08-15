@@ -1,0 +1,1070 @@
+<!--
+/**
+ * ============================================================================
+ * SpiritPal — AI 桌面宠物产品提案介绍页面
+ * ============================================================================
+ * 
+ * @fileoverview SpiritPal产品宣传落地页，用于TRAE AI创造力大赛提案展示
+ * @project SpiritPal - 越用越懂你的 AI 桌面宠物
+ * @version 1.0.0
+ * @description
+ *   本页面为SpiritPal项目的官方提案展示页面，完整呈现产品理念、功能特性、
+ *   技术架构与发展路线，包含以下核心板块：
+ *   - 顶部导航栏（固定定位，滚动时样式变化）
+ *   - Hero英雄区：产品标语、宠物角色展示卡片
+ *   - 痛点分析：当前桌面宠物市场存在的四大问题
+ *   - 解决方案：SpiritPal的五大核心特性 + 桌面Demo演示
+ *   - 交互式对话演示：展示记忆功能对话场景
+ *   - 用户画像：三类目标用户群体分析
+ *   - 市场数据统计：虚拟宠物行业数据展示
+ *   - 技术架构：八大技术栈卡片展示
+ *   - 价值主张：效率提升与情感价值双维度
+ *   - 开发路线图：三个阶段的产品迭代计划
+ *   - 页脚：技术栈标识与版权信息
+ * 
+ * @tech-stack 纯原生HTML + CSS + JavaScript（无框架依赖）
+ * @design-system CSS变量统一管理主题色、圆角、阴影等设计Token
+ * @animations 
+ *   - 粒子漂浮背景动画
+ *   - 滚动触发渐入动画（Intersection Observer）
+ *   - 宠物弹跳循环动画
+ *   - 聊天气泡依次进入动画
+ *   - 导航栏滚动样式切换
+ * @responsive 响应式设计，适配桌面端与移动端（<640px断点）
+ * 
+ * @characters 展示三个IP角色：
+ *   1. Doro（多罗）：胜利女神妮姬中的粉发猫咪，爱吃欧润吉（橘子）
+ *   2. Feibi（菲比）：鸣潮中的金发圆脸小萝莉，口头禅"菲比啾比"
+ *   3. Gugugaga（咕咕嘎嘎）：明日方舟终末地的企鹅，治愈系角色
+ * 
+ * @note 本页面为静态展示Demo，角色切换仅更新气泡文案，不切换实际图片
+ * @author SpiritPal Team
+ * @date 2026
+ * ============================================================================
+ */
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpiritPal — 越用越懂你的 AI 桌面宠物</title>
+<style>
+/* ===== 全局重置与CSS变量设计系统 ===== */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+/**
+ * CSS设计Token变量
+ * @description 统一管理主题色、渐变、圆角、阴影等设计系统参数
+ */
+:root {
+  --primary: #6C5CE7;        /* 主色调 - 紫蓝色 */
+  --primary-dark: #5A4BD1;   /* 主色调深色态 */
+  --secondary: #FD79A8;      /* 辅助色 - 粉色 */
+  --accent: #00CEC9;         /* 强调色 - 青色 */
+  --warm: #FDCB6E;           /* 暖色 - 黄色 */
+  --bg: #FEFCFB;             /* 页面背景色 - 暖白 */
+  --bg-card: #FFFFFF;        /* 卡片背景色 */
+  --bg-card-hover: #FFF9F5;  /* 卡片悬停背景色 */
+  --text: #2D3436;           /* 正文文字色 */
+  --text-dim: #636E72;       /* 次要文字色 */
+  --text-bright: #1A1A2E;    /* 标题文字色 */
+  --gradient: linear-gradient(135deg, #6C5CE7, #FD79A8);       /* 主渐变 */
+  --gradient-warm: linear-gradient(135deg, #FF6B6B, #FDCB6E);  /* 暖色渐变 */
+  --gradient-cool: linear-gradient(135deg, #00CEC9, #74B9FF);  /* 冷色渐变 */
+  --gradient-sunny: linear-gradient(135deg, #FDCB6E, #FF7675); /* 阳光渐变 */
+  --gradient-purple: linear-gradient(135deg, #A29BFE, #6C5CE7);/* 紫色渐变 */
+  --radius: 16px;            /* 大圆角 */
+  --radius-sm: 10px;         /* 小圆角 */
+  --shadow: 0 4px 20px rgba(0,0,0,0.06);                    /* 默认阴影 */
+  --shadow-hover: 0 8px 32px rgba(108,92,231,0.12);         /* 悬停阴影（带主题色） */
+  --border: rgba(0,0,0,0.06);/* 边框色 */
+}
+
+html { scroll-behavior: smooth; } /* 平滑滚动锚点跳转 */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+/* ===== 自定义滚动条样式 ===== */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 3px; }
+
+/* ===== 固定导航栏 ===== */
+.nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  padding: 16px 40px;
+  background: rgba(254,252,251,0.85);
+  backdrop-filter: blur(20px); /* 毛玻璃效果 */
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  transition: all 0.3s;
+}
+/* 滚动后的导航栏样式 - 更紧凑、背景更不透明 */
+.nav.scrolled { padding: 10px 40px; background: rgba(254,252,251,0.95); box-shadow: 0 2px 12px rgba(0,0,0,0.04); }
+.nav-logo {
+  font-size: 22px; font-weight: 800;
+  background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  letter-spacing: -0.5px;
+}
+.nav-links { display: flex; gap: 32px; }
+.nav-links a {
+  color: var(--text-dim); text-decoration: none; font-size: 14px; font-weight: 500;
+  transition: color 0.2s; position: relative;
+}
+.nav-links a:hover { color: var(--primary); }
+/* 导航链接下划线动画 */
+.nav-links a::after {
+  content: ''; position: absolute; bottom: -4px; left: 0; width: 0; height: 2px;
+  background: var(--gradient); border-radius: 1px; transition: width 0.3s;
+}
+.nav-links a:hover::after { width: 100%; }
+
+/* ===== Hero英雄区域 ===== */
+.hero {
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; padding: 120px 40px 80px;
+  overflow: hidden;
+}
+/* Hero背景渐变光晕 */
+.hero-bg {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(108,92,231,0.08) 0%, transparent 70%),
+              radial-gradient(ellipse 60% 40% at 80% 20%, rgba(253,121,168,0.06) 0%, transparent 60%),
+              radial-gradient(ellipse 50% 50% at 20% 80%, rgba(253,203,110,0.06) 0%, transparent 50%);
+}
+/* 粒子动画容器 */
+.hero-particles {
+  position: absolute; inset: 0; overflow: hidden;
+}
+/* 单个粒子样式 */
+.particle {
+  position: absolute; border-radius: 50%;
+  animation: float linear infinite;
+  opacity: 0.3;
+}
+/* 粒子漂浮动画：从底部上升到顶部，同时旋转 */
+@keyframes float {
+  0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.3; }
+  90% { opacity: 0.3; }
+  100% { transform: translateY(-10vh) rotate(720deg); opacity: 0; }
+}
+.hero-content {
+  position: relative; z-index: 10;
+  max-width: 900px; text-align: center;
+}
+/* Hero区域徽章标签 */
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 20px; border-radius: 100px;
+  background: rgba(108,92,231,0.08);
+  border: 1px solid rgba(108,92,231,0.18);
+  font-size: 13px; color: var(--primary); font-weight: 600;
+  margin-bottom: 32px;
+  animation: fadeInUp 0.8s ease-out;
+}
+/* 徽章上的脉冲小圆点 */
+.hero-badge-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--primary);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.hero h1 {
+  font-size: clamp(40px, 6vw, 72px); /* 响应式字体大小 */
+  font-weight: 900; line-height: 1.1;
+  margin-bottom: 24px;
+  animation: fadeInUp 0.8s ease-out 0.1s both;
+}
+.hero h1 .gradient-text {
+  background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero-subtitle {
+  font-size: clamp(16px, 2.2vw, 20px);
+  color: var(--text-dim); max-width: 600px; margin: 0 auto 48px;
+  animation: fadeInUp 0.8s ease-out 0.2s both;
+}
+/* 通用向上渐入动画 */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== Hero区宠物角色展示卡片 ===== */
+.pet-showcase {
+  display: flex; justify-content: center; gap: 32px;
+  margin-top: 20px;
+  animation: fadeInUp 0.8s ease-out 0.3s both;
+}
+.pet-card {
+  width: 180px; text-align: center;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 20px 16px;
+  border: 1px solid var(--border);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* 弹性缓动 */
+  cursor: pointer;
+  position: relative; overflow: hidden;
+  box-shadow: var(--shadow);
+}
+/* 卡片悬停时的渐变遮罩 */
+.pet-card::before {
+  content: ''; position: absolute; inset: 0;
+  background: var(--gradient); opacity: 0;
+  transition: opacity 0.3s; border-radius: var(--radius);
+}
+.pet-card:hover { transform: translateY(-8px) scale(1.02); border-color: rgba(108,92,231,0.2); box-shadow: var(--shadow-hover); }
+.pet-card:hover::before { opacity: 0.06; }
+.pet-card img {
+  width: 120px; height: 120px; object-fit: cover;
+  border-radius: 12px; margin-bottom: 12px;
+  position: relative; z-index: 1;
+  background: rgba(108,92,231,0.05);
+}
+/* Emoji占位容器（图片加载失败时显示） */
+.pet-card-emoji {
+  width: 120px; height: 120px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 64px; margin: 0 auto 12px;
+  border-radius: 12px;
+  background: rgba(108,92,231,0.05);
+  position: relative; z-index: 1;
+}
+.pet-card h3 {
+  font-size: 16px; font-weight: 700; margin-bottom: 4px;
+  color: var(--text-bright); position: relative; z-index: 1;
+}
+.pet-card p {
+  font-size: 12px; color: var(--text-dim); position: relative; z-index: 1;
+}
+
+/* ===== 通用区块样式 ===== */
+.section {
+  padding: 100px 40px;
+  max-width: 1200px; margin: 0 auto;
+  position: relative;
+}
+/* 区块标签 - 带左侧渐变短线 */
+.section-label {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600; color: var(--primary);
+  text-transform: uppercase; letter-spacing: 2px;
+  margin-bottom: 16px;
+}
+.section-label::before {
+  content: ''; width: 24px; height: 2px;
+  background: var(--gradient); border-radius: 1px;
+}
+.section-title {
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 800; line-height: 1.2;
+  margin-bottom: 16px;
+}
+.section-desc {
+  font-size: 16px; color: var(--text-dim);
+  max-width: 640px; margin-bottom: 48px;
+}
+
+/* ===== 痛点分析卡片网格 ===== */
+.problem-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+.problem-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  transition: all 0.3s;
+  position: relative; overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.problem-card:hover { border-color: rgba(108,92,231,0.2); transform: translateY(-4px); box-shadow: var(--shadow-hover); }
+.problem-icon {
+  width: 48px; height: 48px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; margin-bottom: 16px;
+}
+.problem-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; color: var(--text-bright); }
+.problem-card p { font-size: 14px; color: var(--text-dim); line-height: 1.6; }
+
+/* ===== 解决方案区域 - 左右两栏布局 ===== */
+.solution-wrapper {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 40px;
+  align-items: center;
+}
+@media (max-width: 768px) { .solution-wrapper { grid-template-columns: 1fr; } }
+/* 左侧：桌面模拟可视化 */
+.solution-visual {
+  position: relative;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 40px;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 360px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.solution-visual::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(108,92,231,0.04) 0%, transparent 70%);
+}
+/* 模拟桌面窗口 */
+.desktop-mockup {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 360px;
+  aspect-ratio: 16/10;
+  background: linear-gradient(135deg, #E8F4FD, #F0E6FF);
+  border-radius: 12px;
+  border: 2px solid rgba(108,92,231,0.12);
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(108,92,231,0.1);
+}
+/* 模拟任务栏 */
+.desktop-taskbar {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 28px;
+  background: rgba(108,92,231,0.08);
+  backdrop-filter: blur(10px);
+  display: flex; align-items: center; justify-content: center;
+}
+.desktop-taskbar-dot {
+  width: 4px; height: 4px; border-radius: 50%;
+  background: rgba(108,92,231,0.3);
+}
+/* 桌面上的宠物 */
+.desktop-pet {
+  position: absolute; bottom: 36px; right: 20px;
+  width: 64px; height: 64px;
+  animation: petBounce 3s ease-in-out infinite;
+}
+.desktop-pet img {
+  width: 100%; height: 100%; object-fit: cover;
+  border-radius: 12px;
+  filter: drop-shadow(0 4px 12px rgba(108,92,231,0.2));
+}
+@keyframes petBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); } /* 上下弹跳 */
+}
+/* 桌面宠物的对话气泡 */
+.desktop-bubble {
+  position: absolute; bottom: 104px; right: 12px;
+  background: white;
+  color: var(--text); font-size: 11px; font-weight: 500;
+  padding: 6px 12px; border-radius: 12px 12px 4px 12px;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(108,92,231,0.12);
+  animation: bubbleIn 0.4s ease-out 1s both;
+}
+@keyframes bubbleIn {
+  from { opacity: 0; transform: scale(0.8) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+/* 右侧：功能特性列表 */
+.solution-features { display: flex; flex-direction: column; gap: 20px; }
+.solution-feature {
+  display: flex; gap: 16px; align-items: flex-start;
+  padding: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: all 0.3s;
+  box-shadow: var(--shadow);
+}
+.solution-feature:hover { border-color: rgba(108,92,231,0.2); box-shadow: var(--shadow-hover); }
+.solution-feature-icon {
+  width: 40px; height: 40px; min-width: 40px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  background: rgba(108,92,231,0.06);
+}
+.solution-feature h4 { font-size: 15px; font-weight: 700; color: var(--text-bright); margin-bottom: 4px; }
+.solution-feature p { font-size: 13px; color: var(--text-dim); }
+
+/* ===== 技术栈卡片网格 ===== */
+.tech-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.tech-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 24px;
+  transition: all 0.3s;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+.tech-card:hover { border-color: rgba(108,92,231,0.2); transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+.tech-card-icon {
+  font-size: 32px; margin-bottom: 12px;
+  display: block;
+}
+.tech-card h4 { font-size: 14px; font-weight: 700; color: var(--text-bright); margin-bottom: 4px; }
+.tech-card p { font-size: 12px; color: var(--text-dim); }
+
+/* ===== 用户画像卡片 ===== */
+.user-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+.user-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px;
+  transition: all 0.3s;
+  box-shadow: var(--shadow);
+}
+.user-card:hover { border-color: rgba(108,92,231,0.2); transform: translateY(-4px); box-shadow: var(--shadow-hover); }
+.user-avatar {
+  width: 56px; height: 56px; border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; margin-bottom: 16px;
+}
+.user-card h3 { font-size: 18px; font-weight: 700; color: var(--text-bright); margin-bottom: 4px; }
+.user-card .user-tag {
+  display: inline-block; font-size: 11px; font-weight: 600;
+  padding: 2px 10px; border-radius: 100px;
+  background: rgba(108,92,231,0.08); color: var(--primary);
+  margin-bottom: 12px;
+}
+.user-card p { font-size: 14px; color: var(--text-dim); line-height: 1.6; }
+
+/* ===== 价值主张卡片 ===== */
+.value-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+@media (max-width: 768px) { .value-grid { grid-template-columns: 1fr; } }
+.value-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px;
+  text-align: center;
+  transition: all 0.3s;
+  position: relative; overflow: hidden;
+  box-shadow: var(--shadow);
+}
+/* 卡片顶部彩色装饰条 */
+.value-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+}
+.value-card:nth-child(1)::before { background: var(--gradient); }
+.value-card:nth-child(2)::before { background: var(--gradient-cool); }
+.value-card:nth-child(3)::before { background: var(--gradient-warm); }
+.value-card:hover { transform: translateY(-4px); border-color: rgba(108,92,231,0.2); box-shadow: var(--shadow-hover); }
+.value-icon { font-size: 40px; margin-bottom: 16px; display: block; }
+.value-card h3 { font-size: 18px; font-weight: 700; color: var(--text-bright); margin-bottom: 8px; }
+.value-card p { font-size: 14px; color: var(--text-dim); line-height: 1.6; }
+
+/* ===== 市场数据统计栏 ===== */
+.stats-bar {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 20px; margin: 60px 0;
+}
+@media (max-width: 768px) { .stats-bar { grid-template-columns: repeat(2, 1fr); } }
+.stat-item {
+  text-align: center; padding: 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+}
+.stat-number {
+  font-size: 36px; font-weight: 900;
+  background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  line-height: 1.2;
+}
+.stat-label { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+
+/* ===== 开发路线图时间轴 ===== */
+.roadmap { position: relative; padding-left: 40px; }
+/* 时间轴竖线 */
+.roadmap::before {
+  content: ''; position: absolute; left: 15px; top: 0; bottom: 0;
+  width: 2px; background: rgba(108,92,231,0.15);
+}
+.roadmap-item {
+  position: relative; margin-bottom: 40px;
+  padding: 24px 28px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: all 0.3s;
+  box-shadow: var(--shadow);
+}
+.roadmap-item:hover { border-color: rgba(108,92,231,0.2); box-shadow: var(--shadow-hover); }
+/* 时间轴节点圆点 */
+.roadmap-dot {
+  position: absolute; left: -33px; top: 28px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--gradient);
+  box-shadow: 0 0 12px rgba(108,92,231,0.3);
+}
+.roadmap-phase {
+  font-size: 12px; font-weight: 700; color: var(--primary);
+  text-transform: uppercase; letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+.roadmap-item h3 { font-size: 18px; font-weight: 700; color: var(--text-bright); margin-bottom: 8px; }
+.roadmap-item p { font-size: 14px; color: var(--text-dim); }
+.roadmap-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.roadmap-tag {
+  font-size: 11px; padding: 3px 10px; border-radius: 100px;
+  background: rgba(108,92,231,0.06); color: var(--primary);
+  font-weight: 500;
+}
+
+/* ===== 页脚 ===== */
+.footer {
+  padding: 60px 40px 40px;
+  text-align: center;
+  border-top: 1px solid var(--border);
+}
+.footer-logo {
+  font-size: 28px; font-weight: 900;
+  background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  margin-bottom: 12px;
+}
+.footer p { font-size: 14px; color: var(--text-dim); }
+.footer-tech {
+  margin-top: 20px; display: flex; justify-content: center; gap: 24px;
+  flex-wrap: wrap;
+}
+.footer-tech span {
+  font-size: 12px; color: var(--text-dim);
+  padding: 4px 14px; border-radius: 100px;
+  background: rgba(108,92,231,0.05);
+  border: 1px solid var(--border);
+}
+
+/* ===== 滚动触发动画类 ===== */
+.reveal {
+  opacity: 0; transform: translateY(40px);
+  transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal.visible { opacity: 1; transform: translateY(0); } /* 进入视口后显示 */
+
+/* ===== 交互式对话演示区域 ===== */
+.demo-area {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 40px;
+  margin-top: 40px;
+  position: relative; overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.demo-area::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 30% 70%, rgba(108,92,231,0.03) 0%, transparent 50%);
+}
+.demo-title {
+  font-size: 14px; font-weight: 600; color: var(--primary);
+  text-transform: uppercase; letter-spacing: 2px;
+  margin-bottom: 24px; position: relative; z-index: 1;
+}
+.demo-chat {
+  position: relative; z-index: 1;
+  max-width: 500px;
+}
+/* 聊天消息行 */
+.chat-msg {
+  display: flex; gap: 12px; margin-bottom: 16px;
+  animation: chatIn 0.5s ease-out both;
+}
+.chat-msg:nth-child(2) { animation-delay: 0.3s; }  /* 第二条延迟 */
+.chat-msg:nth-child(3) { animation-delay: 0.8s; }  /* 第三条延迟 */
+.chat-msg:nth-child(4) { animation-delay: 1.3s; }  /* 第四条延迟 */
+.chat-msg:nth-child(5) { animation-delay: 1.8s; }  /* 第五条延迟 */
+@keyframes chatIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.chat-avatar {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.chat-avatar.user { background: rgba(108,92,231,0.1); }
+.chat-avatar.pet { background: rgba(0,206,201,0.1); }
+.chat-bubble {
+  padding: 10px 16px; border-radius: 14px;
+  font-size: 14px; line-height: 1.5;
+  max-width: 360px;
+}
+.chat-bubble.user {
+  background: var(--primary); color: white;
+  border-bottom-left-radius: 4px;
+}
+.chat-bubble.pet {
+  background: rgba(108,92,231,0.06); color: var(--text);
+  border-bottom-left-radius: 4px;
+}
+/* 记忆引用标签 */
+.chat-bubble .memory-tag {
+  display: inline-block; font-size: 10px; padding: 2px 8px;
+  border-radius: 100px; background: rgba(0,206,201,0.1);
+  color: var(--accent); margin-top: 6px; font-weight: 600;
+}
+
+/* ===== 移动端响应式适配 ===== */
+@media (max-width: 640px) {
+  .nav { padding: 12px 20px; }
+  .nav-links { display: none; } /* 移动端隐藏导航链接 */
+  .hero { padding: 100px 20px 60px; }
+  .pet-showcase { flex-direction: column; align-items: center; gap: 16px; }
+  .pet-card { width: 100%; max-width: 240px; }
+  .section { padding: 60px 20px; }
+  .stats-bar { grid-template-columns: 1fr 1fr; }
+  .value-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- 顶部固定导航栏 -->
+<nav class="nav" id="nav">
+  <div class="nav-logo">SpiritPal</div>
+  <div class="nav-links">
+    <a href="#problem">痛点</a>
+    <a href="#solution">方案</a>
+    <a href="#users">用户</a>
+    <a href="#tech">技术</a>
+    <a href="#value">价值</a>
+    <a href="#roadmap">路线</a>
+  </div>
+</nav>
+
+<!-- Hero英雄区域 - 产品标语与角色展示 -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-particles" id="particles"></div>
+  <div class="hero-content">
+    <div class="hero-badge">
+      <span class="hero-badge-dot"></span>
+      TRAE AI 创造力大赛 · 创意提案
+    </div>
+    <h1>
+      <span class="gradient-text">越用越懂你</span><br>
+      的 AI 桌面宠物
+    </h1>
+    <p class="hero-subtitle">
+      SpiritPal — 一款基于 Tauri v2 的 AI 桌面宠物，<br>
+      以「轻量、陪伴、治愈」为理念，让多罗的欧润吉、菲比啾比、咕咕嘎嘎的治愈陪伴你的每一天。
+    </p>
+    <!-- 三个宠物角色卡片展示 -->
+    <div class="pet-showcase">
+      <div class="pet-card" onclick="switchPet(0)">
+        <img src="https://cdn.jsdelivr.net/gh/MelanTech/Dororo@master/assets/idle.gif" alt="Doro" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="pet-card-emoji" style="display:none">🍊</div>
+        <h3>多罗 Doro</h3>
+        <p>爱吃欧润吉的粉发小可爱</p>
+      </div>
+      <div class="pet-card" onclick="switchPet(1)">
+        <img src="https://cdn.jsdelivr.net/gh/llors-chen/Feibi_desktop@main/assets/gifs/idle.gif" alt="Feibi" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="pet-card-emoji" style="display:none">F</div>
+        <h3>菲比 Feibi</h3>
+        <p>菲比啾比~ 金发圆脸小萝莉</p>
+      </div>
+      <div class="pet-card" onclick="switchPet(2)">
+        <img src="https://aka.doubaocdn.com/s/6RMf1wl1tR" alt="Gugugaga" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="pet-card-emoji" style="display:none">🐧</div>
+        <h3>咕咕嘎嘎</h3>
+        <p>世界破破烂烂，小企鹅缝缝补补</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 痛点分析区域 -->
+<section class="section" id="problem">
+  <div class="reveal">
+    <div class="section-label">Problem</div>
+    <h2 class="section-title">我们发现了这些痛点</h2>
+    <p class="section-desc">当前桌面宠物/虚拟伴侣市场存在严重的体验割裂——我们心疼的不是宠物，而是那个没能被温柔对待的自己。</p>
+  </div>
+  <div class="problem-grid">
+    <div class="problem-card reveal">
+        <div class="problem-icon" style="background:rgba(255,107,107,0.08)">01</div>
+        <h3>AI 隐私黑箱</h3>
+        <p>市面主流 AI 桌宠依赖云端 API，用户对话数据需上传至第三方服务器，隐私可控性不足。</p>
+      </div>
+      <div class="problem-card reveal">
+        <div class="problem-icon" style="background:rgba(108,92,231,0.08)">02</div>
+        <h3>功能同质化严重</h3>
+        <p>现有桌面宠物功能单一，大多只有简单动画，缺乏 AI 对话、养成系统、记忆能力等深度功能。</p>
+      </div>
+      <div class="problem-card reveal">
+        <div class="problem-icon" style="background:rgba(253,121,168,0.08)">03</div>
+        <h3>金鱼记忆</h3>
+        <p>关闭对话就失忆，无法记住用户的喜好和习惯。每次聊天都像初次见面，永远无法建立真正的感情连接。我们心疼的不是宠物，而是那个没能被温柔对待的自己。</p>
+      </div>
+      <div class="problem-card reveal">
+        <div class="problem-icon" style="background:rgba(0,206,201,0.08)">04</div>
+        <h3>打扰式提醒</h3>
+        <p>弹窗、通知轰炸、强制置顶——传统应用把「提醒」做成了「干扰」，用户最终选择关闭所有通知。</p>
+      </div>
+  </div>
+</section>
+
+<!-- 解决方案区域 -->
+<section class="section" id="solution">
+  <div class="reveal">
+    <div class="section-label">Solution</div>
+    <h2 class="section-title">SpiritPal 的解法</h2>
+    <p class="section-desc">一只真正住在你屏幕上的宠物，有多罗的欧润吉、菲比啾比的魔性、咕咕嘎嘎的治愈——有性格、有记忆、会成长，而且完全尊重你的隐私。</p>
+  </div>
+  <div class="solution-wrapper reveal">
+    <!-- 左侧：桌面模拟Demo -->
+    <div class="solution-visual">
+      <div class="desktop-mockup">
+        <div class="desktop-bubble">主人~要不要来一个欧润吉？</div>
+        <div class="desktop-pet">
+          <img src="https://cdn.jsdelivr.net/gh/MelanTech/Dororo@master/assets/idle.gif" alt="Pet" onerror="this.outerHTML='<div style=\'font-size:48px\'>Pet</div>'">
+        </div>
+        <div class="desktop-taskbar">
+          <div class="desktop-taskbar-dot"></div>
+        </div>
+      </div>
+    </div>
+    <!-- 右侧：五大核心特性 -->
+    <div class="solution-features">
+      <div class="solution-feature">
+        <div class="solution-feature-icon">A</div>
+        <div>
+          <h4>本地 AI，隐私无忧</h4>
+          <p>通过 Ollama 运行本地大模型，对话数据永远不出你的设备。云端模型可选，但默认是你的。</p>
+        </div>
+      </div>
+      <div class="solution-feature">
+        <div class="solution-feature-icon">B</div>
+        <div>
+          <h4>轻量原生体验</h4>
+          <p>Tauri v2 + Rust 原生打包，安装包 <30MB，内存 <80MB，启动秒开，不卡顿。</p>
+        </div>
+      </div>
+      <div class="solution-feature">
+        <div class="solution-feature-icon">C</div>
+        <div>
+          <h4>三段式增强记忆</h4>
+          <p>实时上下文 - 历史摘要 - 关键词检索，让宠物真正"越用越懂你"。</p>
+        </div>
+      </div>
+      <div class="solution-feature">
+        <div class="solution-feature-icon">D</div>
+        <div>
+          <h4>无打扰式交互</h4>
+          <p>宠物用动作和气泡提醒你，不用弹窗打断你的工作流。需要时出现，不需要时隐形。</p>
+        </div>
+      </div>
+      <div class="solution-feature">
+        <div class="solution-feature-icon">E</div>
+        <div>
+          <h4>情感共鸣设计</h4>
+          <p>多罗的欧润吉、菲比啾比、咕咕嘎嘎的治愈——每个角色都承载着独特的情感符号，陪你度过每个时刻。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 交互式对话演示 - 展示记忆功能 -->
+  <div class="demo-area reveal">
+    <div class="demo-title">对话演示 — 多罗的记忆</div>
+    <div class="demo-chat">
+      <div class="chat-msg">
+        <div class="chat-avatar user">U</div>
+        <div class="chat-bubble user">今天心情好差，什么都不想做...</div>
+      </div>
+      <div class="chat-msg">
+        <div class="chat-avatar pet">🍊</div>
+        <div class="chat-bubble pet">
+          主人别难过~记得你上次说心情不好的时候，吃了橘子就好多了呢！我学着一个人一整天都不失落，主人也一定可以的~要不要我给你唱首歌？
+          <div class="memory-tag">引用记忆：上次吃橘子 + 心情恢复记录</div>
+        </div>
+      </div>
+      <div class="chat-msg">
+        <div class="chat-avatar user">U</div>
+        <div class="chat-bubble user">你怎么还记得这个...</div>
+      </div>
+      <div class="chat-msg">
+        <div class="chat-avatar pet">🍊</div>
+        <div class="chat-bubble pet">
+          因为我最喜欢主人了呀~ 你说过的每句话我都好好存着呢！要不要来一个欧润吉？橘子治百病哦~
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 用户画像区域 -->
+<section class="section" id="users">
+  <div class="reveal">
+    <div class="section-label">Users</div>
+    <h2 class="section-title">为谁而做</h2>
+    <p class="section-desc">从程序员到二次元爱好者，从独居青年到学生党——每个屏幕前的人都需要一个能记住你的数字伙伴。我们心疼的不是宠物，而是那个没能被温柔对待的自己。</p>
+  </div>
+  <div class="user-grid">
+    <div class="user-card reveal">
+        <div class="user-avatar" style="background:rgba(108,92,231,0.08)">🍊</div>
+        <div class="user-tag">需要治愈的人</div>
+        <h3>被生活压得喘不过气</h3>
+        <p>下班回家感到孤单，想要一个能记住自己的伙伴。多罗会说「要不要来一个欧润吉？」，菲比会说「菲比啾比~」，咕咕嘎嘎会说「世界破破烂烂，小企鹅缝缝补补」。</p>
+      </div>
+      <div class="user-card reveal">
+        <div class="user-avatar" style="background:rgba(253,121,168,0.08)">🐧</div>
+        <div class="user-tag">想要被需要的人</div>
+        <h3>想成为别人的重要存在</h3>
+        <p>我们心疼的不是宠物，而是那个没能被温柔对待的自己。养一只宠物，让它记住你的喜好，越聊越懂你——你也可以成为被需要的人。</p>
+      </div>
+      <div class="user-card reveal">
+        <div class="user-avatar" style="background:rgba(0,206,201,0.08)">💜</div>
+        <div class="user-tag">喜欢梗文化的你</div>
+        <h3>菲比啾比已经占领了你的群聊</h3>
+        <p>在 B 站刷到菲比啾比、多罗的欧润吉、咕咕嘎嘎的治愈日常——现在，这些角色可以住在你的桌面上，成为你的专属伙伴。</p>
+      </div>
+  </div>
+
+  <!-- 市场数据统计 -->
+  <div class="stats-bar reveal">
+    <div class="stat-item">
+      <div class="stat-number">5000万+</div>
+      <div class="stat-label">国内虚拟宠物类应用活跃用户</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number">89%</div>
+      <div class="stat-label">头部产品占据市场份额</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number">22%</div>
+      <div class="stat-label">实际养宠家庭渗透率</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number">极少</div>
+      <div class="stat-label">具备 AI 记忆的桌面宠物</div>
+    </div>
+  </div>
+</section>
+
+<!-- 技术架构区域 -->
+<section class="section" id="tech">
+  <div class="reveal">
+    <div class="section-label">Technology</div>
+    <h2 class="section-title">技术架构</h2>
+    <p class="section-desc">基于 Tauri v2 + React 19 + Rust，轻量安全，GIF 精灵图渲染 + 本地 AI 推理。</p>
+  </div>
+  <div class="tech-grid">
+    <div class="tech-card reveal">
+      <span class="tech-card-icon" style="font-size:24px;font-weight:800;color:var(--primary)">Rs</span>
+      <h4>Tauri v2 + Rust</h4>
+      <p>轻量安全的跨平台框架，安装包 <30MB，内存 <80MB</p>
+    </div>
+    <div class="tech-card reveal">
+      <span class="tech-card-icon" style="font-size:24px;font-weight:800;color:var(--primary)">Re</span>
+      <h4>React 19 + TypeScript</h4>
+      <p>现代化前端栈，组件化开发，类型安全</p>
+    </div>
+    <div class="tech-card reveal">
+      <span class="tech-card-icon" style="font-size:24px;font-weight:800;color:var(--primary)">SP</span>
+      <h4>精灵图渲染</h4>
+      <p>GIF/序列帧动画，CSS 动态效果，轻量高效</p>
+    </div>
+    <div class="tech-card reveal">
+      <span class="tech-card-icon" style="font-size:24px;font-weight:800;color:var(--primary)">AI</span>
+      <h4>本地 LLM (Ollama)</h4>
+      <p>隐私优先的 AI 推理，零成本，离线可用</p>
+    </div>
+    <div class="tech-card reveal">
+      <span class="tech-card-icon" style="font-size:24px;font-weight:800;color:var(--primary)">DB</span>
+      <h4>三段式记忆</h4>
+      <p>实时上下文 + 历史摘要 + 关键词检索，按角色独立存储</p>
+    </div>
+    <div class="tech-card reveal">
+      <span class="tech-card-icon" style="font-size:24px;font-weight:800;color:var(--primary)">GM</span>
+      <h4>四维属性养成</h4>
+      <p>饱食度/心情/健康/亲密度，属性联动，游戏化养成</p>
+    </div>
+    <div class="tech-card reveal">
+      <span class="tech-card-icon" style="font-size:24px;font-weight:800;color:var(--primary)">SSE</span>
+      <h4>流式响应</h4>
+      <p>SSE 实时流式输出，打字机效果，零延迟体验</p>
+    </div>
+    <div class="tech-card reveal">
+      <span class="tech-card-icon" style="font-size:24px;font-weight:800;color:var(--primary)">WIN</span>
+      <h4>Windows 优先</h4>
+      <p>Tauri v2 原生打包，安装包 <30MB，内存 <80MB</p>
+    </div>
+  </div>
+</section>
+
+<!-- 价值主张区域 -->
+<section class="section" id="value">
+  <div class="reveal">
+    <div class="section-label">Value</div>
+    <h2 class="section-title">价值与意义</h2>
+    <p class="section-desc">不只是一个玩具——SpiritPal 用技术承载情感，让每个角色都成为你生活中的治愈力量。</p>
+  </div>
+  <div class="value-grid" style="grid-template-columns: repeat(2, 1fr);">
+    <div class="value-card reveal">
+      <span class="value-icon" style="font-size:32px;font-weight:800;color:var(--accent)">E</span>
+      <h3>效率提升</h3>
+      <p>柔性番茄钟 + 日程管理 + 状态感知，用宠物动作替代弹窗提醒，减少工作流被打断的频率。养成系统让时间管理变成有趣的互动体验。</p>
+    </div>
+    <div class="value-card reveal">
+        <span class="value-icon" style="font-size:32px;font-weight:800;color:var(--warm)">S</span>
+        <h3>情感价值</h3>
+        <p>多罗的欧润吉、菲比啾比、咕咕嘎嘎的治愈——我们心疼的不是宠物，而是那个没能被温柔对待的自己。SpiritPal 让你成为被需要的人。</p>
+      </div>
+  </div>
+</section>
+
+<!-- 开发路线图区域 -->
+<section class="section" id="roadmap">
+  <div class="reveal">
+    <div class="section-label">Roadmap</div>
+    <h2 class="section-title">开发路线图</h2>
+    <p class="section-desc">从核心体验到开源生态，三个阶段逐步构建 SpiritPal 世界。</p>
+  </div>
+  <div class="roadmap">
+    <!-- Phase 1: MVP核心体验 -->
+    <div class="roadmap-item reveal">
+      <div class="roadmap-dot"></div>
+      <div class="roadmap-phase">Phase 1 — MVP</div>
+      <h3>核心体验</h3>
+      <p>透明窗口 + 角色精灵图渲染 + 基础交互 + AI 聊天 + 四维属性养成 + 番茄钟 + 系统托盘</p>
+      <div class="roadmap-tags">
+        <span class="roadmap-tag">透明窗口</span>
+        <span class="roadmap-tag">三角色切换</span>
+        <span class="roadmap-tag">AI 聊天</span>
+        <span class="roadmap-tag">四维养成</span>
+        <span class="roadmap-tag">番茄钟</span>
+      </div>
+    </div>
+    <!-- Phase 2: 增强版 -->
+    <div class="roadmap-item reveal">
+      <div class="roadmap-dot"></div>
+      <div class="roadmap-phase">Phase 2 — 增强版</div>
+      <h3>记忆增强 + 移动端</h3>
+      <p>三段式记忆系统 + 五维性格参数 + 本地 LLM 支持 + iOS/Android 适配 + 日程管理</p>
+      <div class="roadmap-tags">
+        <span class="roadmap-tag">三段式记忆</span>
+        <span class="roadmap-tag">五维性格</span>
+        <span class="roadmap-tag">本地 LLM</span>
+        <span class="roadmap-tag">移动端</span>
+      </div>
+    </div>
+    <!-- Phase 3: 社区版 -->
+    <div class="roadmap-item reveal">
+      <div class="roadmap-dot"></div>
+      <div class="roadmap-phase">Phase 3 — 社区版</div>
+      <h3>开源生态 + 多模态</h3>
+      <p>角色 MOD 系统 + 社区分享平台 + 语音交互 + 视觉识别 + 跨端数据同步</p>
+      <div class="roadmap-tags">
+        <span class="roadmap-tag">MOD 系统</span>
+        <span class="roadmap-tag">社区平台</span>
+        <span class="roadmap-tag">语音交互</span>
+        <span class="roadmap-tag">跨端同步</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 页脚 -->
+<footer class="footer">
+  <div class="footer-logo">SpiritPal</div>
+  <p>多罗的欧润吉 · 菲比啾比 · 咕咕嘎嘎的治愈</p>
+  <div class="footer-tech">
+    <span>Tauri v2</span>
+    <span>React 19</span>
+    <span>TypeScript</span>
+    <span>Rust</span>
+    <span>Zustand</span>
+    <span>Ollama</span>
+    <span>Tailwind CSS</span>
+  </div>
+  <p style="margin-top:24px;font-size:12px;color:var(--text-dim)">
+    TRAE AI 创造力大赛 · 创意提案 · 2026
+  </p>
+</footer>
+
+<script>
+/**
+ * ===== 粒子背景生成 =====
+ * @description IIFE立即执行函数，在Hero区域生成彩色漂浮粒子
+ *   粒子大小、颜色、动画时长、延迟均随机化，营造梦幻氛围
+ */
+(function() {
+  const container = document.getElementById('particles');
+  const colors = ['rgba(108,92,231,0.2)', 'rgba(253,121,168,0.15)', 'rgba(0,206,201,0.15)', 'rgba(253,203,110,0.15)'];
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = Math.random() * 4 + 2; // 粒子大小2-6px
+    p.style.cssText = `
+      width: ${size}px; height: ${size}px;
+      left: ${Math.random() * 100}%;
+      background: ${colors[Math.floor(Math.random() * colors.length)]};
+      animation-duration: ${Math.random() * 20 + 15}s; // 动画时长15-35秒
+      animation-delay: ${Math.random() * 20}s;       // 随机延迟避免同步
+    `;
+    container.appendChild(p);
+  }
+})();
+
+/**
+ * ===== 导航栏滚动效果 =====
+ * @description 监听窗口滚动事件，滚动超过50px时为导航栏添加scrolled类
+ *   scrolled类会使导航栏更紧凑、背景更不透明
+ */
+window.addEventListener('scroll', () => {
+  document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 50);
+});
+
+/**
+ * ===== 滚动触发渐入动画 =====
+ * @description 使用Intersection Observer API监听.reveal元素
+ *   当元素进入视口10%时添加.visible类触发动画
+ *   实现页面滚动时元素依次渐入的效果
+ */
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); } });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+/**
+ * ===== 宠物角色切换（Demo占位功能） =====
+ * @param {number} index - 宠物索引：0=Doro, 1=Feibi, 2=Gugugaga
+ * @description 点击Hero区宠物卡片时，更新桌面模拟Demo中的气泡文案
+ *   注意：这是简化版Demo，仅更新文案不切换实际图片资源
+ * @returns {void}
+ */
+function switchPet(index) {
+  const bubble = document.querySelector('.desktop-bubble');
+  if (bubble) {
+    const greetings = [
+      '主人~要不要来一个欧润吉？',  // Doro的台词
+      '菲比啾比~',                    // Feibi的台词
+      '咕咕嘎嘎！'                    // 咕咕嘎嘎的台词
+    ];
+    bubble.textContent = greetings[index];
+    // 触发气泡重放动画（通过重置animation属性）
+    bubble.style.animation = 'none';
+    bubble.offsetHeight; // 触发DOM重排
+    bubble.style.animation = 'bubbleIn 0.4s ease-out both';
+  }
+}
+</script>
+</body>
+</html>

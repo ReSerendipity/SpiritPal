@@ -1,0 +1,104 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+out/
+target/
+*.local
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Tauri
+src-tauri/target/
+src-tauri/WixTools/
+src-tauri/gen/schemas/
+src-tauri/gen/ios/
+# Android build artifacts (project config files are tracked)
+src-tauri/gen/android/.gradle/
+src-tauri/gen/android/build/
+src-tauri/gen/android/.idea/
+src-tauri/gen/android/local.properties
+src-tauri/gen/android/keystore.properties
+src-tauri/gen/android/app/build/
+src-tauri/gen/android/app/.cxx/
+src-tauri/gen/android/app/.externalNativeBuild/
+src-tauri/gen/android/app/src/main/jniLibs/
+src-tauri/gen/android/app/src/main/assets/
+
+# Mobile / package artifacts
+*.apk
+*.aab
+*.ipa
+*.app/
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# IDE / OS
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+debug.log
+
+# Testing
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Cache / temp
+.cache/
+.turbo/
+*.tsbuildinfo
+*.tmp
+*.bak
+fix-imports.js
+update-imports.ps1
+
+# Reference repos (vendored references, not part of project source)
+references/
+
+# Build artifacts
+artifacts/
+
+# Local tooling state
+.trae/
+.qoder/
+.idea/
+
+# IDE canvas files
+*.canvas.tsx
+*.canvas.status.json
+
+# Android signing & local SDK
+android-sdk/
+*.jks
+*.keystore
+
+# R-05: Tauri Updater private key (DO NOT COMMIT)
+src-tauri/keys/*.key
+src-tauri/keys/*.key.pub
