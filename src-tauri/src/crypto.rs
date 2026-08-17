@@ -3,8 +3,8 @@
 //! [REFACTOR] 从 lib.rs 拆分，集中管理所有加密相关逻辑
 //!
 //! # 加密流程
-//! 1. 密钥派生：SHA-256(password) → 32 字节 AES-256 密钥
-//!    （password 为机器 ID，高熵，单次 SHA-256 风险可接受；TODO: 未来迁移到 PBKDF2）
+//! 1. 密钥派生：PBKDF2-HMAC-SHA256（100,000 次迭代 + 32 字节随机 salt）→ 32 字节 AES-256 密钥
+//!    （password 为机器 ID；见 R-06。历史 ENC1: 前缀的旧数据仍走单次 SHA-256 兼容解密）
 //! 2. 随机生成 12 字节 nonce（使用 OS CSPRNG via getrandom）
 //! 3. AES-256-GCM 加密（认证加密，密文包含 16 字节认证标签）
 //! 4. 输出格式：base64(nonce || ciphertext || tag)
