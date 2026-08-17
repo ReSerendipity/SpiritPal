@@ -114,6 +114,20 @@ export type {
 } from './memoryTypes'
 import { getEntityManager } from './entityLinking'
 
+// ============ P0-1: 检索结果类型（带真实分数）============
+
+/** 检索结果（P0-1 新增：带真实检索分） */
+export interface RetrievalResult {
+  /** 记忆内容 */
+  memory: EnhancedMemory
+  /** 综合得分（0-1，用于排序） */
+  score: number
+  /** 基础检索分（RRF/向量/LCS 原始分） */
+  baseScore: number
+  /** 多因子融合后的分数 */
+  fusedScore: number
+}
+
 // ============ 四段式记忆管理器 ============
 
 /** 保存防抖间隔（毫秒）— 避免频繁写入 SQLite */
@@ -1660,12 +1674,14 @@ export class EnhancedMemoryManager {
       try {
         const ragResults: RAGResult[] = await this.ragRetriever.retrieve(query, this.embeddingCache)
         if (ragResults.length > 0) {
-          // P1-2：使用公共多因子加权函数，与向量/LCS 路径保持一致
+          // P0-3 修复：RRF 归一化改为标准 rank-based 公式（移除 *61 hack）
+          // 标准 RRF: score = 1 / (k + rank)，k=60 为 DEFAULT_RAG_CONFIG.rrfK
           const now = Date.now()
-          const scored = ragResults.map((r) => {
+          const scored = ragResults.map((r, idx) => {
             const mem = r.memory
-            // S3 修复：RRF 分数归一化到 0-1 再参与融合
-            const normalizedRRF = Math.min(1, r.score * 61) // rrfK+1 = 61
+            const rank = idx + 1
+            // P0-3：rank-based 归一化（Reciprocal Rank Fusion 标准公式）
+            const normalizedRRF = 1 / (DEFAULT_RAG_CONFIG.rrfK + rank)
             // F2：传入 currentMood
             const fusedScore = this.computeMultiFactorScore(normalizedRRF, mem, query, now, currentMood)
             return { mem, fusedScore }

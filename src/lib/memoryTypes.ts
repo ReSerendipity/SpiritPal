@@ -376,6 +376,20 @@ export interface ConsolidationEvent {
   timestamp: number
 }
 
+// ============ P0-1: 检索结果类型（带真实分数）============
+
+/** 检索结果（P0-1 新增：带真实检索分） */
+export interface RetrievalResult {
+  /** 记忆内容 */
+  memory: EnhancedMemory
+  /** 综合得分（0-1，用于排序） */
+  score: number
+  /** 基础检索分（RRF/向量/LCS 原始分） */
+  baseScore: number
+  /** 多因子融合后的分数 */
+  fusedScore: number
+}
+
 /**
  * 计算记忆的遗忘分数
  * 基于艾宾浩斯遗忘曲线：forgetScore = e^(-rate * ageHours) * (1 - accessBoost - recencyBoost)
