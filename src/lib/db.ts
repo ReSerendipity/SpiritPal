@@ -312,6 +312,24 @@ export async function initDB(): Promise<Database> {
     )
   `)
 
+  // P1-6: 新增 memory_semantic_facts 表（语义层结构化，替代 5000 字符字符串截断）
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS memory_semantic_facts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      character_id TEXT NOT NULL,
+      fact_key TEXT NOT NULL,
+      fact_value TEXT NOT NULL,
+      source_memory_ids TEXT DEFAULT '[]',
+      importance INTEGER DEFAULT 50,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      is_autobiographical INTEGER DEFAULT 0
+    )
+  `)
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_semantic_facts_char ON memory_semantic_facts(character_id)')
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_semantic_facts_key ON memory_semantic_facts(character_id, fact_key)')
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_semantic_facts_importance ON memory_semantic_facts(character_id, importance DESC)')
+
   // T-1: 二期迁移 — owner_facts 表（结构化用户画像，行级存储替代 per-value 加密 blob）
   // P1-5: 添加双时间轴列（valid_at, invalid_at, superseded_by）
   await db.execute(`
@@ -903,6 +921,8 @@ export async function clearAllMemoryData(characterId: string): Promise<void> {
   await db.execute('DELETE FROM memories WHERE character_id = $1', [characterId])
   await db.execute('DELETE FROM memory_summaries WHERE character_id = $1', [characterId])
   await db.execute('DELETE FROM memory_state WHERE character_id = $1', [characterId])
+  // P1-6: 同时清空结构化语义事实表
+  await db.execute('DELETE FROM memory_semantic_facts WHERE character_id = $1', [characterId])
 }
 
 /**
@@ -1033,6 +1053,75 @@ export async function isOwnerFactsMigrated(): Promise<boolean> {
 
 export async function setOwnerFactsMigrated(): Promise<void> {
   await setSetting(OWNER_FACTS_MIGRATION_FLAG, '1')
+}
+
+// ============ P1-6: memory_semantic_facts 表操作（语义层结构化） ============
+
+/** P1-6: 语义事实行类型 */
+export interface SemanticFactRow {
+  id?: number
+  character_id: string
+  fact_key: string
+  fact_value: string
+  source_memory_ids: string[]
+  importance: number
+  created_at: number
+  updated_at: number
+  is_autobiographical: number
+}
+
+/** P1-6: 查询角色的所有语义事实（按重要性排序） */
+export async function getSemanticFacts(characterId: string): Promise<SemanticFactRow[]> {
+  const db = await getDb()
+  return db.select(
+    'SELECT * FROM memory_semantic_facts WHERE character_id = $1 ORDER BY importance DESC, updated_at DESC',
+    [characterId],
+  )
+}
+
+/** P1-6: 按 key 查询特定语义事实 */
+export async function getSemanticFactByKey(characterId: string, factKey: string): Promise<SemanticFactRow | null> {
+  const db = await getDb()
+  const rows = await db.select<SemanticFactRow[]>(
+    'SELECT * FROM memory_semantic_facts WHERE character_id = $1 AND fact_key = $2 ORDER BY importance DESC LIMIT 1',
+    [characterId, factKey],
+  )
+  return rows[0] ?? null
+}
+
+/** P1-6: 插入或更新语义事实 */
+export async function upsertSemanticFact(row: SemanticFactRow): Promise<void> {
+  const db = await getDb()
+  await db.execute(
+    `INSERT INTO memory_semantic_facts (character_id, fact_key, fact_value, source_memory_ids, importance, created_at, updated_at, is_autobiographical)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     ON CONFLICT(character_id, fact_key) DO UPDATE SET
+       fact_value = $3,
+       source_memory_ids = $4,
+       importance = $5,
+       updated_at = $7,
+       is_autobiographical = $8`,
+    [row.character_id, row.fact_key, row.fact_value, JSON.stringify(row.source_memory_ids), row.importance, row.created_at, row.updated_at, row.is_autobiographical],
+  )
+}
+
+/** P1-6: 删除特定语义事实 */
+export async function deleteSemanticFact(characterId: string, factKey: string): Promise<void> {
+  const db = await getDb()
+  await db.execute('DELETE FROM memory_semantic_facts WHERE character_id = $1 AND fact_key = $2', [characterId, factKey])
+}
+
+/** P1-6: 清空角色所有语义事实 */
+export async function clearSemanticFacts(characterId: string): Promise<void> {
+  const db = await getDb()
+  await db.execute('DELETE FROM memory_semantic_facts WHERE character_id = $1', [characterId])
+}
+
+/** P1-6: 获取语义事实数量 */
+export async function getSemanticFactsCount(characterId: string): Promise<number> {
+  const db = await getDb()
+  const rows = await db.select<{ count: number }[]>('SELECT COUNT(*) as count FROM memory_semantic_facts WHERE character_id = $1', [characterId])
+  return rows[0]?.count ?? 0
 }
 
 // ============ T-1: pet_experiences 表操作（二期行级化） ============
