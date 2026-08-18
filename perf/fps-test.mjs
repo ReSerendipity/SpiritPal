@@ -24,7 +24,7 @@
 import { chromium } from 'playwright'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { THRESHOLDS, formatResult, printResult } from './_helpers.mjs'
+import { THRESHOLDS, saveResultJson, formatResult, printResult } from './_helpers.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = resolve(__filename, '..')
@@ -133,6 +133,7 @@ async function runFpsTest() {
       detail: `requestAnimationFrame FPS: ${result.fps} | Pixi Ticker FPS: ${result.tickerFps} | ${result.modelLoaded ? 'Live2D 模型' : '回退动画'}`,
     })
     printResult(testResult)
+    saveResultJson('fps-test', testResult)
     return testResult
   } finally {
     await browser.close()
