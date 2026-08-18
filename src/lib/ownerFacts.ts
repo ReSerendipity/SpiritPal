@@ -21,7 +21,7 @@
  * 4. 上下文注入：每条对话的 system prompt 顶层固定注入（预算 300~500 token）
  */
 
-import { getSetting, setSetting, getOwnerFacts, upsertOwnerFact, deleteOwnerFact, clearOwnerFacts, isOwnerFactsMigrated, setOwnerFactsMigrated } from './db'
+import { getSetting, setSetting, getOwnerFacts, getOwnerFactsAsOf, getOwnerFactsHistory, upsertOwnerFact, deleteOwnerFact, clearOwnerFacts, isOwnerFactsMigrated, setOwnerFactsMigrated } from './db'
 import { invoke } from '@tauri-apps/api/core'
 import { generateId } from './commonUtils'
 import { estimateTokens } from './stringSimilarity'
@@ -44,6 +44,12 @@ export interface OwnerFact {
   updatedAt: number
   /** 是否由用户手动填写（手动填写的事实不可被自动覆盖） */
   userProvided: boolean
+  /** P1-5: 事实生效时间 */
+  validAt?: number
+  /** P1-5: 事实失效时间（NULL=当前有效） */
+  invalidAt?: number
+  /** P1-5: 被哪个新事实取代 */
+  supersededBy?: number
 }
 
 // ============ 规则提取模式 ============
