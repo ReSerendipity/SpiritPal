@@ -157,7 +157,40 @@ async function main() {
   console.log('║' + '  📊 性能测试汇总报告'.padEnd(58) + '║')
   console.log('╠' + '═'.repeat(58) + '╣')
 
+  // ============================================================
+  // 结果 JSON 留存（审计 P3-12 S1：统一结果留存）
+  // ============================================================
   const allPassed = results.every((r) => r.passed)
+  try {
+    const { mkdirSync, writeFileSync, readFileSync, existsSync } = await import('node:fs')
+    const resultsDir = resolve(__dirname, 'results')
+    mkdirSync(resultsDir, { recursive: true })
+    const runRecord = {
+      timestamp: new Date().toISOString(),
+      passed: allPassed,
+      metrics: results.map((r) => ({
+        id: r.id,
+        name: r.name,
+        value: r.value,
+        unit: r.unit,
+        threshold: r.threshold,
+        passed: r.passed,
+      })),
+    }
+    writeFileSync(resolve(resultsDir, 'perf-run-latest.json'), JSON.stringify(runRecord, null, 2))
+    const historyFile = resolve(resultsDir, 'perf-history.json')
+    let history = []
+    if (existsSync(historyFile)) {
+      try { history = JSON.parse(readFileSync(historyFile, 'utf-8')) } catch { history = [] }
+    }
+    history.push(runRecord)
+    if (history.length > 200) history = history.slice(-200)
+    writeFileSync(historyFile, JSON.stringify(history, null, 2))
+    console.log('  ? 结果已留存: perf/results/perf-run-latest.json + perf-history.json')
+  } catch (err) {
+    console.error('  ?? 结果 JSON 留存失败:', err.message)
+  }
+
 
   for (const r of results) {
     const status = r.passed ? '✅ PASS' : '❌ FAIL'

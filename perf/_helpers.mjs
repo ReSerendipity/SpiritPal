@@ -17,7 +17,7 @@
 // 使用方式：import { THRESHOLDS, resolveExePath, ... } from './_helpers.mjs'
 
 import { execSync, spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { platform } from 'node:os'
@@ -293,6 +293,26 @@ export function formatResult({ name, value, unit, threshold, compare, detail }) 
     compare,
     passed,
     detail: detail || '',
+  }
+}
+
+// ============================================================
+// saveResultJson — 测试结果 JSON 留存（审计 P3-12 S1：统一结果留存）
+//
+// 将单项测试结果写入 perf/results/<id>.json，供 baseline-trend.mjs
+// 与趋势看板消费。
+// ============================================================
+export function saveResultJson(id, result) {
+  try {
+    const resultsDir = join(PROJECT_ROOT, 'perf', 'results')
+    if (!existsSync(resultsDir)) mkdirSync(resultsDir, { recursive: true })
+    const payload = {
+      timestamp: new Date().toISOString(),
+      ...result,
+    }
+    writeFileSync(join(resultsDir, id + '.json'), JSON.stringify(payload, null, 2))
+  } catch (err) {
+    console.error('  ?? 结果 JSON 留存失败 (' + id + '):', err.message)
   }
 }
 

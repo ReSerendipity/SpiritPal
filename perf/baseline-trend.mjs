@@ -63,6 +63,17 @@ function main() {
     } catch {}
   }
 
+  // 读取单项指标 JSON（P3-12 S1：由各 perf 脚本 saveResultJson 留存）
+  for (const [file, key] of [['cold-start.json', 'coldStart'], ['memory-usage.json', 'memory'], ['fps-test.json', 'fps']]) {
+    const fp = join(RESULTS_DIR, file)
+    if (existsSync(fp)) {
+      try {
+        const rec = JSON.parse(readFileSync(fp, 'utf-8'))
+        if (typeof rec.value === 'number') current[key] = rec.value
+      } catch {}
+    }
+  }
+
   const baseline = loadBaseline()
 
   if (!baseline) {

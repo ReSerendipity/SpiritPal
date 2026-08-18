@@ -171,6 +171,7 @@ async function runColdStartTest() {
       : `${mode} 模式，从启动到窗口可见`,
   })
   printResult(result)
+  saveResultJson('cold-start', result)
   return result
 }
 

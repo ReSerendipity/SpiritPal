@@ -180,6 +180,7 @@ async function runMemoryTest() {
     detail: `平均 ${avgMB.toFixed(2)} MB | 最高 ${maxMB.toFixed(2)} MB | 最低 ${minMB.toFixed(2)} MB | 采样 ${samples.length} 次`,
   })
   printResult(result)
+  saveResultJson('memory-usage', result)
   return result
 }
 
