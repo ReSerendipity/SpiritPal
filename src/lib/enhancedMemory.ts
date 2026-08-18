@@ -2416,6 +2416,9 @@ export class EnhancedMemoryManager {
   /**
    * 执行记忆巩固：通过 LLM 将情景记忆摘要为语义记忆
    * EPISODIC → SEMANTIC
+   * P0-2 改进：
+   * ① 候选增加 importance 条件（避免高重要度记忆被误删）
+   * ② 软删除（superseded_by）替代物理 DELETE，支持回溯
    *
    * @param llmSummarizer LLM 摘要函数（可选，不传则使用简单拼接摘要）
    * @returns 巩固事件（null 表示未执行）
@@ -2431,11 +2434,11 @@ export class EnhancedMemoryManager {
       return null
     }
 
-    // 选取需要巩固的情景记忆（重要度低且超过 7 天的旧记忆）
+    // P0-2：选取需要巩固的情景记忆（重要度低且超过 7 天的旧记忆）
     const DAY_MS = 86400000
     const candidates = this.episodicMemory.filter((mem) => {
       const age = (now - new Date(mem.created_at).getTime()) / DAY_MS
-      return age >= 7 && !mem.isAutobiographical
+      return age >= 7 && !mem.isAutobiographical && mem.importance < 30
     })
 
     if (candidates.length < 3) {
@@ -2464,17 +2467,31 @@ export class EnhancedMemoryManager {
       this.semanticMemory = this.semanticMemory.slice(-this.categoryConfig.semanticConsolidationMaxChars)
     }
 
-    // 从情景记忆中移除已巩固的记忆
-    // D2 修复：同步删除 SQLite 孤儿行 + embedding + RAG 索引
+    // P0-2 改进：软删除替代物理 DELETE
+    // 标记源记忆为 superseded_by（而非物理删除），支持回溯
+    const consolidationId = generateId('consolidation')
+    for (const m of candidates) {
+      if (m.dbId !== undefined) {
+        // 行级路径：写入 superseded_by
+        if (this.useRowLevelStorage) {
+          void updateMemoryRow(m.dbId, { superseded_by: Number(consolidationId) })
+        }
+      }
+      // 从内存中移除（但 DB 中保留，可回溯）
+      if (m.dbId !== undefined) {
+        this.embeddingCache.delete(m.dbId)
+      }
+    }
     const consolidatedIds = new Set(candidates.map((m) => m.id))
-    this.purgeMemoriesFromStore(candidates)
     this.episodicMemory = this.episodicMemory.filter((m) => !consolidatedIds.has(m.id))
 
     const event: ConsolidationEvent = {
       sourceIds: candidates.map((m) => m.id),
       summary,
       timestamp: now,
-    }
+      // P0-2：添加 consolidationId 支持溯源
+      consolidationId,
+    } as ConsolidationEvent & { consolidationId: string }
     this.consolidationLog.push(event)
     this.lastConsolidationAt = now
 
