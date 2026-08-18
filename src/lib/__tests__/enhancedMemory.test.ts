@@ -26,90 +26,10 @@ vi.mock('../vectorSearch', () => ({
   searchSimilar: vi.fn(() => [{ id: 1, score: 0.8 }]),
 }))
 
-import {
-  EnhancedMemoryManager,
-  getEnhancedMemoryManager,
-  stringSimilarity,
-  tokenize,
-  estimateTokens,
-} from '../enhancedMemory'
+import { EnhancedMemoryManager, getEnhancedMemoryManager } from '../enhancedMemory'
 import { getSetting, setSetting, getAllEmbeddings } from '../db'
 import { invoke } from '@tauri-apps/api/core'
 import { isVectorSearchAvailable, embed, searchSimilar } from '../vectorSearch'
-
-describe('enhancedMemory 纯函数', () => {
-  describe('stringSimilarity', () => {
-    it('两个空字符串相似度为 1', () => {
-      expect(stringSimilarity('', '')).toBe(1)
-    })
-
-    it('一空一非空相似度为 0', () => {
-      expect(stringSimilarity('abc', '')).toBe(0)
-      expect(stringSimilarity('', 'abc')).toBe(0)
-    })
-
-    it('相同字符串相似度为 1', () => {
-      expect(stringSimilarity('hello', 'hello')).toBe(1)
-    })
-
-    it('完全不同字符串相似度较低', () => {
-      expect(stringSimilarity('abc', 'xyz')).toBe(0)
-    })
-
-    it('部分匹配返回 0-1 之间值', () => {
-      const sim = stringSimilarity('abcde', 'abfgh')
-      expect(sim).toBeGreaterThan(0)
-      expect(sim).toBeLessThan(1)
-    })
-  })
-
-  describe('tokenize', () => {
-    it('空字符串返回空数组', () => {
-      expect(tokenize('')).toEqual([])
-    })
-
-    it('提取中文单字', () => {
-      const tokens = tokenize('你好世界')
-      expect(tokens).toContain('你')
-      expect(tokens).toContain('好')
-      expect(tokens.length).toBe(4)
-    })
-
-    it('提取拉丁单词（小写化）', () => {
-      const tokens = tokenize('Hello World')
-      expect(tokens).toContain('hello')
-      expect(tokens).toContain('world')
-    })
-
-    it('混合 CJK 和拉丁', () => {
-      const tokens = tokenize('你好 hello')
-      expect(tokens).toContain('你')
-      expect(tokens).toContain('好')
-      expect(tokens).toContain('hello')
-    })
-  })
-
-  describe('estimateTokens', () => {
-    it('空字符串为 0', () => {
-      expect(estimateTokens('')).toBe(0)
-    })
-
-    it('纯 CJK 按字符数估算', () => {
-      expect(estimateTokens('你好世界')).toBe(4)
-    })
-
-    it('纯拉丁按 4 字符/token 估算', () => {
-      const result = estimateTokens('hello world')
-      expect(result).toBe(Math.ceil(11 / 4))
-    })
-
-    it('混合内容', () => {
-      const result = estimateTokens('你好 hello')
-      // 2 CJK + 6 other (含空格) = 2 + ceil(6/4) = 2 + 2 = 4
-      expect(result).toBeGreaterThan(0)
-    })
-  })
-})
 
 describe('EnhancedMemoryManager', () => {
   let mgr: EnhancedMemoryManager

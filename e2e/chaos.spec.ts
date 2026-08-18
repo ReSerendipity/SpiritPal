@@ -9,11 +9,18 @@
 import { test as base, expect, type Page } from '@playwright/test'
 
 // 扩展 fixture：提供多种故障注入的 Tauri mock
-const test = base.extend<{ chaosPage: Page }>({
+const test = base.extend<{ chaosPage: Page; chaosErrors: string[] }>({
   chaosPage: async ({ page }, use) => {
     page.setDefaultTimeout(60000)
     page.setDefaultNavigationTimeout(60000)
     await use(page)
+  },
+  chaosErrors: async ({ page }, use) => {
+    const errors: string[] = []
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') errors.push(msg.text())
+    })
+    await use(errors)
   },
 })
 
@@ -102,6 +109,12 @@ test.describe('T-24: 混沌工程测试 — 故障注入与容错验证', () => 
 
     // 不应显示未捕获的错误页面
     const errorPage = chaosPage.locator('text=SpiritPal Error')
+    await expect(errorPage).not.toBeVisible({ timeout: 5000 })
+
+    // 恢复性断言：故障后窗口切换仍可用（导航不因一次性 IPC 失败而永久卡死）
+    await chaosPage.goto('http://127.0.0.1:5223/#/settings', { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {})
+    const rootAfter = chaosPage.locator('#root')
+    await expect(rootAfter).toBeAttached()
     await expect(errorPage).not.toBeVisible({ timeout: 5000 })
   })
 
@@ -239,10 +252,15 @@ test.describe('T-24: 混沌工程测试 — 故障注入与容错验证', () => 
     await chaosPage.goto('http://127.0.0.1:5223/#/chat', { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {})
     await chaosPage.goto('http://127.0.0.1:5223/#/pet', { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {})
 
-    // 应用应仍正常渲染
+    // 应用应仍正常渲染（自愈：间歇失败不应留下永久破坏状态）
     await expect(root).toBeAttached()
 
     const errorPage = chaosPage.locator('text=SpiritPal Error')
+    await expect(errorPage).not.toBeVisible({ timeout: 5000 })
+
+    // 数据一致性断言：反复导航后核心窗口仍可稳定回到宠物页且不白屏
+    await chaosPage.goto('http://127.0.0.1:5223/#/pet', { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {})
+    await expect(root).toBeAttached()
     await expect(errorPage).not.toBeVisible({ timeout: 5000 })
   })
 
@@ -280,6 +298,11 @@ test.describe('T-24: 混沌工程测试 — 故障注入与容错验证', () => 
     await expect(root).toBeAttached()
 
     const errorPage = chaosPage.locator('text=SpiritPal Error')
+    await expect(errorPage).not.toBeVisible({ timeout: 5000 })
+
+    // 恢复性断言：级联故障后仍能切换到设置页（说明错误被隔离、未级联扩散）
+    await chaosPage.goto('http://127.0.0.1:5223/#/settings', { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {})
+    await expect(root).toBeAttached()
     await expect(errorPage).not.toBeVisible({ timeout: 5000 })
   })
 })
