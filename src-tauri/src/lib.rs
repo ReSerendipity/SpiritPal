@@ -622,12 +622,20 @@ pub fn run() {
     // 桌面端专属插件
     #[cfg(desktop)]
     {
-        builder = builder
-            .plugin(tauri_plugin_autostart::init(
-                tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-                Some(vec!["--autostart"]),
-            ))
-            .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        builder = builder.plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--autostart"]),
+        ));
+
+        // T-01: WebDriver 自动化环境下跳过单实例注册。
+        // msedgedriver 每次创建会话都会拉起一个新的应用进程；
+        // 单实例插件会让「已有实例仍在运行」时的二次启动瞬间退出，
+        // 导致 tauri-driver 报 "Chrome instance exited" 而无法建立会话。
+        // 自动化标志由 msedgedriver 通过 WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS 注入。
+        let is_webdriver_automation =
+            std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS").is_ok();
+        if !is_webdriver_automation {
+            builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
                 // 二次启动时优先唤出主窗口（宠物），而不是设置窗口：
                 // 原逻辑优先 show settings-window，且无条件 set_focus 抢焦点，
                 // 用户在应用隐藏（托盘）时再次启动会被强制拉出窗口并打断当前操作。
@@ -637,8 +645,10 @@ pub fn run() {
                 } else if let Some(window) = app.get_webview_window("settings-window") {
                     let _ = window.show();
                 }
-            }))
-            .plugin(
+            }));
+        }
+
+        builder = builder.plugin(
                 tauri_plugin_global_shortcut::Builder::new()
                     .with_handler(|app, _shortcut, event| {
                         if event.state == ShortcutState::Pressed {
