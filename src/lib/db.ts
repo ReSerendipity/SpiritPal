@@ -313,6 +313,7 @@ export async function initDB(): Promise<Database> {
   `)
 
   // T-1: 二期迁移 — owner_facts 表（结构化用户画像，行级存储替代 per-value 加密 blob）
+  // P1-5: 添加双时间轴列（valid_at, invalid_at, superseded_by）
   await db.execute(`
     CREATE TABLE IF NOT EXISTS owner_facts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -323,11 +324,16 @@ export async function initDB(): Promise<Database> {
       source_memory_id TEXT,
       confidence REAL DEFAULT 0.5,
       updated_at INTEGER NOT NULL,
-      user_provided INTEGER DEFAULT 0
+      user_provided INTEGER DEFAULT 0,
+      valid_at INTEGER,          -- P1-5: 事实生效时间（毫秒时间戳）
+      invalid_at INTEGER,        -- P1-5: 事实失效时间（NULL=当前有效）
+      superseded_by INTEGER      -- P1-5: 被哪个新事实取代（外键指向自身 id）
     )
   `)
   await db.execute('CREATE INDEX IF NOT EXISTS idx_owner_facts_char ON owner_facts(character_id)')
   await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_owner_facts_char_key ON owner_facts(character_id, fact_key)')
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_owner_facts_valid ON owner_facts(valid_at)')
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_owner_facts_invalid ON owner_facts(invalid_at)')
 
   // T-1: 二期迁移 — pet_experiences 表（宠物共同经历，行级存储替代 per-value 加密 blob）
   await db.execute(`
@@ -919,7 +925,7 @@ export async function isLegacyMode(): Promise<boolean> {
 
 // ============ T-1: owner_facts 表操作（二期行级化） ============
 
-/** T-1: owner_facts 行类型 */
+/** T-1: owner_facts 行类型（支持双时间轴 P1-5） */
 export interface OwnerFactRow {
   id?: number
   character_id: string
@@ -930,6 +936,9 @@ export interface OwnerFactRow {
   confidence: number
   updated_at: number
   user_provided: number // 0 or 1
+  valid_at?: number | null     // P1-5: 事实生效时间
+  invalid_at?: number | null   // P1-5: 事实失效时间（NULL=当前有效）
+  superseded_by?: number | null // P1-5: 被哪个新事实取代
 }
 
 /** T-1: 查询角色的所有事实 */
@@ -941,18 +950,61 @@ export async function getOwnerFacts(characterId: string): Promise<OwnerFactRow[]
   )
 }
 
-/** T-1: upsert 事实（按 character_id + fact_key 唯一） */
+/** P1-5: 查询角色在指定时间点的有效事实（支持双时间轴） */
+export async function getOwnerFactsAsOf(characterId: string, asOfTime: number): Promise<OwnerFactRow[]> {
+  const db = await getDb()
+  return db.select(
+    `SELECT * FROM owner_facts 
+     WHERE character_id = $1 
+       AND (valid_at IS NULL OR valid_at <= $2)
+       AND (invalid_at IS NULL OR invalid_at > $2)
+     ORDER BY confidence DESC, updated_at DESC`,
+    [characterId, asOfTime],
+  )
+}
+
+/** P1-5: 查询角色的历史事实（已被取代的事实） */
+export async function getOwnerFactsHistory(characterId: string): Promise<OwnerFactRow[]> {
+  const db = await getDb()
+  return db.select(
+    `SELECT * FROM owner_facts 
+     WHERE character_id = $1 AND invalid_at IS NOT NULL
+     ORDER BY invalid_at DESC`,
+    [characterId],
+  )
+}
+
+/** T-1: upsert 事实（按 character_id + fact_key 唯一）
+ * P1-5 改进：同 key 新值插入时，旧值打 invalid_at 标记（非覆盖） */
 export async function upsertOwnerFact(row: OwnerFactRow): Promise<void> {
   const db = await getDb()
+  const now = Date.now()
+  
+  // P1-5: 先检查是否存在同 key 的有效旧值，如有则标记为失效
+  const existingRows = await db.select<{ id: number }[]>(
+    'SELECT id FROM owner_facts WHERE character_id = ? AND fact_key = ? AND (invalid_at IS NULL OR invalid_at > ?)',
+    [row.character_id, row.fact_key, now]
+  )
+  
+  if (existingRows && existingRows.length > 0) {
+    // 旧值标记为失效（被新值取代）
+    const oldId = existingRows[0].id
+    await db.execute(
+      'UPDATE owner_facts SET invalid_at = ?, superseded_by = ? WHERE id = ?',
+      [now, row.id ?? 0, oldId]
+    )
+  }
+  
+  // 插入新值
   await db.execute(
-    `INSERT INTO owner_facts (character_id, fact_id, fact_key, fact_value, source_memory_id, confidence, updated_at, user_provided)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `INSERT INTO owner_facts (character_id, fact_id, fact_key, fact_value, source_memory_id, confidence, updated_at, user_provided, valid_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      ON CONFLICT(character_id, fact_key) DO UPDATE SET
-       fact_value = $4, source_memory_id = $5, confidence = $6, updated_at = $7, user_provided = $8`,
+       fact_value = $4, source_memory_id = $5, confidence = $6, updated_at = $7, user_provided = $8, valid_at = $9`,
     [
       row.character_id, row.fact_id, row.fact_key, row.fact_value,
       row.source_memory_id ?? null, row.confidence, row.updated_at,
-      row.user_provided ?? 0,
+      row.user_provided ?? 0, now,
     ],
   )
 }
