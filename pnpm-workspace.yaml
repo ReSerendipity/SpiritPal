@@ -1,5 +1,7 @@
 packages: []
 allowBuilds:
+  edgedriver: true
   esbuild: true
+  geckodriver: true
   protobufjs: true
   sharp: true

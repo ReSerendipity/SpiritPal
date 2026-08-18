@@ -18,6 +18,7 @@
 // CI 中不运行（需要桌面环境 + WebView2 + 完整构建产物），通过环境变量
 // TAURI_DRIVER_ENABLED 控制跳过，避免「虚假覆盖」。
 
+import { test, expect } from '@playwright/test'
 import { remote, type RemoteOptions } from 'webdriverio'
 
 // Tauri Driver 连接配置
@@ -44,11 +45,12 @@ const ENABLED =
   'Tauri Driver 真实 E2E 测试',
   { tag: '@tauri-driver' },
   () => {
+    test.setTimeout(180_000)
     let client: WebdriverIO.Browser
     let windowHandle: string
 
     // 建立与 tauri-driver 的 WebDriver 会话
-    beforeAll(async () => {
+    test.beforeAll(async () => {
       client = await remote({
         // tauri-driver 使用 WebDriver 协议，连接到本地驱动服务
         hostname: new URL(TAURI_DRIVER_URL).hostname,
@@ -68,7 +70,7 @@ const ENABLED =
       await client.switchToWindow(windowHandle)
     })
 
-    afterAll(async () => {
+    test.afterAll(async () => {
       await client?.deleteSession()
     })
 
