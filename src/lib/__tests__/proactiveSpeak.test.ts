@@ -39,6 +39,14 @@ vi.mock('../contextAwareness', () => ({
   })),
 }))
 
+vi.mock('../recallEngine', () => ({
+  getRecallEngine: vi.fn(() => ({
+    canSpeakNow: vi.fn(() => true),
+    generateRecall: vi.fn().mockResolvedValue(null),
+  })),
+  buildRecallRenderPrompt: vi.fn(() => ''),
+}))
+
 vi.mock('../commitmentTracker', () => ({
   getCommitmentTracker: vi.fn(() => ({
     generateFollowUpCandidates: vi.fn().mockResolvedValue([]),
