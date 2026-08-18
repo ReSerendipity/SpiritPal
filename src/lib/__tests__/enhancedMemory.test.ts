@@ -1062,8 +1062,8 @@ describe('第五轮修复验证', () => {
 
       const results = await m.retrieve('我今天升职了特别开心', 2)
       expect(results.length).toBeGreaterThanOrEqual(2)
-      // 当前情绪积极 → 积极记忆（a）应排在消极记忆（b）之前
-      expect(results[0].id).toBe(a.id)
+      // P0-1: retrieve() 现在返回 RetrievalResult[]，需访问 .memory 字段
+      expect(results[0].memory.id).toBe(a.id)
     })
   })
 
@@ -1107,8 +1107,9 @@ describe('第五轮修复验证', () => {
       ;(searchSimilar as ReturnType<typeof vi.fn>).mockReturnValue([])
 
       const results = await m.retrieve('咪', 5)
-      expect(results.some((r) => r.id === 'mem-x')).toBe(true)
-      expect(results.some((r) => r.id === 'mem-y')).toBe(true)
+      // P0-1: retrieve() 现在返回 RetrievalResult[]，需访问 .memory 字段
+      expect(results.some((r) => r.memory.id === 'mem-x')).toBe(true)
+      expect(results.some((r) => r.memory.id === 'mem-y')).toBe(true)
     })
   })
 

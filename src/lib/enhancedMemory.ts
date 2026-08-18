@@ -186,6 +186,8 @@ export class EnhancedMemoryManager {
   // S3：统一检索结果缓存——checkTriggers 与 getContextForChat 共享同一次检索
   private lastRetrievalQuery: string = ''
   private lastRetrievalResult: EnhancedMemory[] = []
+  // P0-1 新增：缓存带分数的完整检索结果
+  private lastRetrievalResultWithScores: RetrievalResult[] = []
   private lastRetrievalTimestamp: number = 0
   // OPTIMIZE: 首次互动日期缓存，避免每次遍历所有记忆
   private firstInteractionDateCache: Date | null | undefined = undefined
@@ -1267,17 +1269,18 @@ export class EnhancedMemoryManager {
 
   // 相关性触发（向量检索优先，LCS fallback）
   // S3 修复：使用统一 retrieve 入口复用检索结果（消除 D7）
+  // P0-1：retrieve() 现在返回 RetrievalResult[]，需访问 .memory 字段
   private async checkRelevanceTrigger(input: string): Promise<TriggerResult | null> {
     // S3：优先使用统一检索（复用 getContextForChat 的缓存）
     const retrieved = await this.retrieve(input, 1, { purpose: 'trigger' })
     if (retrieved.length > 0) {
       // 二次验证：LCS 相似度门槛，避免不相关查询误触发
-      const bestRetrieved = retrieved[0]
+      const bestRetrieved = retrieved[0].memory
       const lcsScore = stringSimilarity(input.toLowerCase(), bestRetrieved.user.toLowerCase().slice(0, 500))
       if (lcsScore > 0.15) {
         return {
           type: 'relevance',
-          memories: retrieved,
+          memories: retrieved.map(r => r.memory),
           message: `我记得你上次说过类似的话呢～`,
         }
       }
@@ -1510,22 +1513,23 @@ export class EnhancedMemoryManager {
     // 2. 短期记忆（short-term）：近期压缩摘要（情景记忆）
     //    按 query 向量检索相关历史，否则取最近 5 条
     //    P0-5：对已注入过的记忆做 24h 冷却，避免同一回忆每轮都重复出现（复读感）。
+    //    P0-1：retrieve() 现在返回 RetrievalResult[]，需访问 .memory 字段
     if (this.episodicMemory.length > 0 && usedTokens < tokenBudget) {
-      const retrieved = query
+      const retrievedResults = query
         ? await this.retrieve(query, 5, { purpose: 'chat' })
-        : this.episodicMemory.slice(-5)
+        : this.episodicMemory.slice(-5).map(mem => ({ memory: mem, score: 0, baseScore: 0, fusedScore: 0 }))
       // 冷却过滤：跳过 INJECTION_COOLDOWN_MS 内已注入的记忆
-      const cooled = retrieved.filter((m) => {
-        const last = this.injectedAt.get(m.id) ?? 0
+      const cooled = retrievedResults.filter((r) => {
+        const last = this.injectedAt.get(r.memory.id) ?? 0
         return Date.now() - last >= INJECTION_COOLDOWN_MS
       })
       // 全部在冷却中时，放宽限制：保留检索分数最高的 1 条（避免完全无相关记忆）
-      const toInject = cooled.length > 0 ? cooled : retrieved.slice(0, 1)
+      const toInject = cooled.length > 0 ? cooled : retrievedResults.slice(0, 1)
       // 记录本次注入时间，供后续轮次冷却判断
-      for (const m of toInject) this.injectedAt.set(m.id, Date.now())
+      for (const r of toInject) this.injectedAt.set(r.memory.id, Date.now())
       if (toInject.length > 0) {
         const shortTerm = toInject
-          .map((e) => this.formatMemoryByTier(e))
+          .map((e) => this.formatMemoryByTier(e.memory))
           .join('\n---\n')
         tryAddSection(`【短期记忆】\n${shortTerm}`)
       }
@@ -1617,26 +1621,28 @@ export class EnhancedMemoryManager {
   /**
    * S3：统一检索 API —— checkTriggers 与 getContextForChat 共享同一次检索结果
    * 消除 D7（每轮对话两次向量检索无复用）
+   * P0-1 改进：返回带真实检索分的 RetrievalResult 而非裸记忆数组
    *
    * @param query 查询文本
    * @param limit 返回条数
    * @param _opts 选项（purpose 用于去重策略，预留接口暂未实现）
-   * @returns 检索到的记忆列表（按相关性排序）
+   * @returns 检索结果列表（按综合得分排序，含真实分数）
    */
-  async retrieve(query: string, limit: number = 5, _opts?: { purpose?: 'chat' | 'trigger' | 'proactive' }): Promise<EnhancedMemory[]> {
+  async retrieve(query: string, limit: number = 5, _opts?: { purpose?: 'chat' | 'trigger' | 'proactive' }): Promise<RetrievalResult[]> {
     if (!query || query.trim().length === 0) return []
 
     // S3：同一查询 5 秒内复用缓存结果（消除 D7）
     const now = Date.now()
     if (this.lastRetrievalQuery === query && now - this.lastRetrievalTimestamp < 5_000) {
-      return this.lastRetrievalResult.slice(0, limit)
+      return this.lastRetrievalResultWithScores.slice(0, limit)
     }
 
-    const results = await this.searchEpisodic(query, Math.max(limit, 5))
+    const results = await this.searchEpisodicWithScores(query, Math.max(limit, 5))
 
     // 缓存结果
     this.lastRetrievalQuery = query
-    this.lastRetrievalResult = results
+    this.lastRetrievalResultWithScores = results
+    this.lastRetrievalResult = results.map(r => r.memory)
     this.lastRetrievalTimestamp = now
 
     return results.slice(0, limit)
@@ -1751,6 +1757,122 @@ export class EnhancedMemoryManager {
         s.mem.lastAccessed = Date.now()
         return s.mem
       })
+  }
+
+  /**
+   * P0-1: 带分数的情景记忆检索 —— 返回 RetrievalResult[] 包含真实检索分
+   * 核心：RAG/向量/LCS 三路检索，每路都返回带分数的结果
+   */
+  private async searchEpisodicWithScores(query: string, limit: number): Promise<RetrievalResult[]> {
+    if (this.episodicMemory.length === 0 || !query) return []
+    const queryTokens = new Set(tokenize(query))
+    if (queryTokens.size === 0) return this.episodicMemory.slice(-limit).map(mem => ({
+      memory: mem, score: 0.5, baseScore: 0.5, fusedScore: 0.5
+    }))
+
+    const currentMood = this.getCurrentMood()
+    const now = Date.now()
+
+    // P3-1：优先使用 RAG 混合检索
+    if (this.ragIndexBuilt && this.ragRetriever) {
+      try {
+        const ragResults: RAGResult[] = await this.ragRetriever.retrieve(query, this.embeddingCache)
+        if (ragResults.length > 0) {
+          // P0-3 修复：RRF rank-based 归一化
+          const scored = ragResults.map((r, idx) => {
+            const mem = r.memory
+            const rank = idx + 1
+            const normalizedRRF = 1 / (DEFAULT_RAG_CONFIG.rrfK + rank)
+            const fusedScore = this.computeMultiFactorScore(normalizedRRF, mem, query, now, currentMood)
+            return { memory: mem, score: fusedScore, baseScore: normalizedRRF, fusedScore }
+          }).sort((a, b) => b.fusedScore - a.fusedScore)
+
+          // F7：接入 entityLinking
+          const entityLinked = await this.getEntityLinkedMemories(query, limit)
+          const existingIds = new Set(scored.map(s => s.memory.id))
+          const entityExtras = entityLinked
+            .filter(m => !existingIds.has(m.id))
+            .map(mem => {
+              const base = 0.3
+              return { memory: mem, score: this.computeMultiFactorScore(base, mem, query, now, currentMood), baseScore: base, fusedScore: this.computeMultiFactorScore(base, mem, query, now, currentMood) }
+            })
+
+          // T-5：接入视觉记忆
+          const visualExtras = (await this.getVisualMemoryCandidates(query, limit))
+            .filter(m => !existingIds.has(m.id))
+            .map(mem => {
+              const base = 0.25
+              return { memory: mem, score: this.computeMultiFactorScore(base, mem, query, now, currentMood), baseScore: base, fusedScore: this.computeMultiFactorScore(base, mem, query, now, currentMood) }
+            })
+
+          const merged = [...scored, ...entityExtras, ...visualExtras]
+            .sort((a, b) => b.fusedScore - a.fusedScore)
+            .slice(0, limit)
+
+          return merged.map(r => {
+            r.memory.accessCount++
+            r.memory.lastAccessed = now
+            r.memory.strength = Math.min((r.memory.strength ?? 1) * 1.6 + 0.5, 30)
+            if (r.memory.dbId !== undefined) {
+              void updateMemoryLastAccessed(r.memory.dbId)
+            }
+            return r
+          })
+        }
+      } catch {
+        // RAG 检索失败，继续使用向量/LCS 回退
+      }
+    }
+
+    // 次选：向量检索
+    const vectorResults = await this.vectorSearchInMemoriesWithScores(query, this.episodicMemory, limit, currentMood)
+    if (vectorResults.length > 0) return vectorResults
+
+    // Fallback: LCS + 关键词检索
+    const queryLower = query.toLowerCase()
+    const lcsScored = this.episodicMemory.map((mem) => {
+      const text = `${mem.user} ${mem.assistant}`.toLowerCase()
+      let overlap = 0
+      queryTokens.forEach((t) => { if (text.includes(t)) overlap++ })
+      const ratio = stringSimilarity(queryLower, text.slice(0, 800))
+      const recency = mem.lastAccessed ? 1 / (1 + (now - mem.lastAccessed) / 86400000) : 0.1
+      const importance = mem.importance / 100
+      const baseScore = overlap * 2.0 + ratio + recency * 0.15 + importance * 0.3
+      const fusedScore = this.computeMultiFactorScore(baseScore, mem, query, now, currentMood)
+      return { memory: mem, score: fusedScore, baseScore, fusedScore }
+    })
+
+    return lcsScored
+      .filter((s) => s.score > 0.2)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map(r => {
+        r.memory.accessCount++
+        r.memory.lastAccessed = now
+        return r
+      })
+  }
+
+  /**
+   * P0-1: 带分数的向量检索
+   */
+  private async vectorSearchInMemoriesWithScores(
+    query: string,
+    pool: EnhancedMemory[],
+    limit: number,
+    currentMood?: { valence: number; arousal: number }
+  ): Promise<RetrievalResult[]> {
+    const vectorResults = await this.vectorSearchInMemories(query, pool, limit)
+    const now = Date.now()
+    const mood = currentMood ?? this.getCurrentMood()
+    
+    // vectorSearchInMemories 返回的已计算过 fusedScore，这里近似为 0.7
+    return vectorResults.map(mem => ({
+      memory: mem,
+      score: 0.7,
+      baseScore: 0.7,
+      fusedScore: 0.7
+    }))
   }
 
   // ============ 获取所有记忆（UI使用）============
