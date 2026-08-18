@@ -53,8 +53,14 @@ import {
   clearAllMemoryData,
   isMemoryMigrated,
   isLegacyMode,
+  // P1-6: 结构化语义事实
+  getSemanticFacts,
+  upsertSemanticFact,
+  deleteSemanticFact,
+  clearSemanticFacts,
   type MemoryRow,
   type MemoryStateRow,
+  type SemanticFactRow,  // P1-6
 } from './db'
 // S2: 迁移器
 import { needsMigration, migrateCharacterMemory } from './memoryMigrator'
@@ -151,7 +157,9 @@ export class EnhancedMemoryManager {
   private storageKey: string
   private workingMemory: EnhancedMemory[]    // 工作记忆（最近5条）
   private episodicMemory: EnhancedMemory[]   // 情景记忆（历史对话）
-  private semanticMemory: string             // 语义记忆（摘要）
+  // P1-6: 语义层结构化 — 保留 string 类型用于向后兼容（legacy 迁移），新数据写入 structured table
+  private semanticMemory: string             // 语义记忆（摘要，legacy 格式）
+  private semanticFacts: SemanticFactRow[]   // P1-6: 结构化语义事实（从 memory_semantic_facts 表加载）
   private autobiographicalMemory: EnhancedMemory[] // 自传记忆（重要事件）
   private topicFrequency: Map<string, number> = new Map()
   // 触发频率控制状态
@@ -206,6 +214,7 @@ export class EnhancedMemoryManager {
     this.workingMemory = []
     this.episodicMemory = []
     this.semanticMemory = ''
+    this.semanticFacts = []  // P1-6: 结构化语义事实
     this.autobiographicalMemory = []
     this.triggerLog = []
     this.ignoreCount = {}
@@ -285,6 +294,13 @@ export class EnhancedMemoryManager {
       // 读取语义摘要
       const summary = await getMemorySummary(this.characterId)
       this.semanticMemory = summary ?? ''
+
+      // P1-6: 读取结构化语义事实
+      try {
+        this.semanticFacts = await getSemanticFacts(this.characterId)
+      } catch {
+        this.semanticFacts = []
+      }
 
       // 读取触发状态
       const state = await getMemoryState(this.characterId)
@@ -389,6 +405,7 @@ export class EnhancedMemoryManager {
       this.workingMemory = data.workingMemory ?? []
       this.episodicMemory = data.episodicMemory ?? []
       this.semanticMemory = data.semanticMemory ?? ''
+      this.semanticFacts = data.semanticFacts ?? []  // P1-6: 结构化语义事实
       this.autobiographicalMemory = data.autobiographicalMemory ?? []
       this.triggerLog = data.triggerLog ?? []
       this.ignoreCount = data.ignoreCount ?? {}
@@ -470,6 +487,7 @@ export class EnhancedMemoryManager {
         workingMemory: this.workingMemory,
         episodicMemory: this.episodicMemory,
         semanticMemory: this.semanticMemory,
+        semanticFacts: this.semanticFacts,  // P1-6: 结构化语义事实
         autobiographicalMemory: this.autobiographicalMemory,
         triggerLog: this.triggerLog,
         ignoreCount: this.ignoreCount,
@@ -1536,14 +1554,29 @@ export class EnhancedMemoryManager {
     }
 
     // 3. 长期记忆（long-term）：历史摘要（语义记忆）
-    if (this.semanticMemory && usedTokens < tokenBudget) {
-      // 长期摘要可能很长，按剩余预算截断
-      const remainingBudget = tokenBudget - usedTokens
-      const maxChars = Math.max(100, remainingBudget * 3) // 粗略 token→char 转换
-      const summary = this.semanticMemory.length > maxChars
-        ? this.semanticMemory.slice(0, maxChars) + '…'
-        : this.semanticMemory
-      tryAddSection(`【长期记忆】\n${summary}`)
+    // P1-6: 优先使用结构化语义事实，fallback 到字符串 semanticMemory
+    if (usedTokens < tokenBudget) {
+      let longTermContent: string
+      if (this.semanticFacts.length > 0) {
+        // 结构化语义事实：按重要性排序，格式化输出
+        const facts = this.semanticFacts
+          .slice(0, 10)  // 最多取前10条
+          .map(f => `[${f.fact_key}] ${f.fact_value}`)
+          .join('\n')
+        longTermContent = facts
+      } else if (this.semanticMemory) {
+        // Fallback: 旧字符串格式
+        const remainingBudget = tokenBudget - usedTokens
+        const maxChars = Math.max(100, remainingBudget * 3)
+        longTermContent = this.semanticMemory.length > maxChars
+          ? this.semanticMemory.slice(0, maxChars) + '…'
+          : this.semanticMemory
+      } else {
+        longTermContent = ''
+      }
+      if (longTermContent) {
+        tryAddSection(`【长期记忆】\n${longTermContent}`)
+      }
     }
 
     // 4. 核心记忆（core）：用户核心信息/偏好（自传记忆）
@@ -2009,6 +2042,7 @@ export class EnhancedMemoryManager {
     this.workingMemory = []
     this.episodicMemory = []
     this.semanticMemory = ''
+    this.semanticFacts = []  // P1-6: 清空结构化语义事实
     this.autobiographicalMemory = []
     this.topicFrequency.clear()
     this.triggerLog = []
@@ -2236,6 +2270,7 @@ export class EnhancedMemoryManager {
       workingMemory: this.workingMemory,
       episodicMemory: this.episodicMemory,
       semanticMemory: this.semanticMemory,
+      semanticFacts: this.semanticFacts,  // P1-6: 结构化语义事实
       autobiographicalMemory: this.autobiographicalMemory,
       triggerLog: this.triggerLog,
       ignoreCount: this.ignoreCount,
@@ -2261,6 +2296,7 @@ export class EnhancedMemoryManager {
       this.workingMemory = data.workingMemory ?? []
       this.episodicMemory = data.episodicMemory ?? []
       this.semanticMemory = data.semanticMemory ?? ''
+      this.semanticFacts = data.semanticFacts ?? []  // P1-6: 结构化语义事实
       this.autobiographicalMemory = data.autobiographicalMemory ?? []
       this.triggerLog = data.triggerLog ?? []
       this.ignoreCount = data.ignoreCount ?? {}
@@ -2470,6 +2506,29 @@ export class EnhancedMemoryManager {
     // P0-2 改进：软删除替代物理 DELETE
     // 标记源记忆为 superseded_by（而非物理删除），支持回溯
     const consolidationId = generateId('consolidation')
+
+    // P1-6: 写入结构化语义事实表
+    if (this.useRowLevelStorage) {
+      try {
+        const now = Date.now()
+        await upsertSemanticFact({
+          character_id: this.characterId,
+          fact_key: `consolidation-${consolidationId}`,
+          fact_value: summary,
+          source_memory_ids: candidates.map(m => m.id),
+          importance: 50,  // 中等重要性
+          created_at: now,
+          updated_at: now,
+          is_autobiographical: 0,
+        })
+        // 刷新内存缓存
+        this.semanticFacts = await getSemanticFacts(this.characterId)
+      } catch (e) {
+        console.warn('[P1-6] upsertSemanticFact failed:', e)
+      }
+    }
+
+    // 标记源记忆为 superseded_by（而非物理删除），支持回溯
     for (const m of candidates) {
       if (m.dbId !== undefined) {
         // 行级路径：写入 superseded_by
