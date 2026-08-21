@@ -99,7 +99,7 @@ use device::{start_device_listening, stop_device_listening};
 #[cfg(desktop)]
 use keychain::{delete_secret, get_secret, set_secret};
 #[cfg(desktop)]
-use tray::{set_tray_icon, update_tray_icon};
+use tray::{set_tray_icon, set_tray_icon_png, update_tray_icon};
 
 // ============ 桌面端专用导入 ============
 
@@ -693,7 +693,9 @@ pub fn run() {
                     )
                     .title("SpiritPal")
                     .inner_size(300.0, 400.0)
-                    .min_inner_size(280.0, 320.0)
+                    // 最小尺寸对齐前端 WIN_MIN_W/H(160×200)：宠物可缩小到 0.5×，
+                    // 窗口需要能跟随宠物缩小（否则小宠物配大窗口，边框预览显示巨大空白）
+                    .min_inner_size(160.0, 200.0)
                     .max_inner_size(720.0, 900.0)
                     .resizable(true)
                     .fullscreen(false)
@@ -869,6 +871,7 @@ pub fn run() {
                     start_topmost_keepalive,
                     // 托盘
                     set_tray_icon,
+                    set_tray_icon_png,
                     update_tray_icon,
                     // Keychain
                     set_secret,

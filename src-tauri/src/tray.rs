@@ -130,6 +130,34 @@ pub fn update_tray_icon(app: tauri::AppHandle, state: String) -> Result<(), Stri
     Ok(())
 }
 
+/// 设置托盘图标（PNG base64 字符串）
+///
+/// 供前端把宠物当前形象帧渲染成 32×32 PNG 后设为托盘图标（参考 ai-bubu 托盘动态图标）。
+/// 与 [`set_tray_icon`]（文件路径）互补，避免频繁写临时文件。
+///
+/// 前端调用方式：`invoke('set_tray_icon_png', { png: string })`（png 为不含 data: 前缀的 base64）
+///
+/// # Arguments
+/// - `app` — Tauri 应用句柄（自动注入）
+/// - `png` — PNG 图片的 base64 编码（不含 data:image/png;base64, 前缀）
+///
+/// # Returns
+/// - `Ok(())` — 设置成功
+/// - `Err(String)` — base64 解码失败、PNG 解码失败或托盘不存在
+#[cfg(desktop)]
+#[tauri::command]
+pub fn set_tray_icon_png(app: tauri::AppHandle, png: String) -> Result<(), String> {
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    let bytes = STANDARD.decode(png).map_err(|e| format!("base64 decode failed: {e}"))?;
+    // tauri 的 Image::from_bytes 在 image-png feature 下按 PNG 解码
+    let icon = tauri::image::Image::from_bytes(&bytes).map_err(|e| e.to_string())?;
+    let tray = app
+        .tray_by_id("main")
+        .ok_or_else(|| "tray icon 'main' not found".to_string())?;
+    tray.set_icon(Some(icon)).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 // ============ 托盘菜单构建 ============
 
 /// 构建系统托盘菜单
