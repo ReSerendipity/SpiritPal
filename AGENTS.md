@@ -1,8 +1,8 @@
 # SpiritPal AGENTS.md — AI 辅助开发指南
 
-> 🧬 **自进化协议版本**：v1.2  
-> 📅 **最后更新日期**：2026-08-15  
-> 🎯 **对应项目版本**：v1.0.0（闭源）
+> 🧬 **自进化协议版本**：v2.6  
+> 📅 **最后更新日期**：2026-08-21  
+> 🎯 **对应项目版本**：v0.1.0（闭源）
 
 ---
 
@@ -19,7 +19,7 @@ AI Agent 打开本文件后的 **第一件事** 是执行下面的「🧪 自进
 
 ### 🧪 自进化自检清单（每次启动工作前必跑）
 - [ ] 目录结构（`src/`、`src-tauri/`、`components/`、`stores/`、`hooks/`、`lib/`）是否和第 3 节模块边界描述一致？
-- [ ] 3 个窗口配置（pet-window / settings / chat）是否和 `lib/windowManager.ts` 实际配置一致？
+- [ ] 4 个窗口配置（pet-window / panel-window / settings / chat）是否和 `lib/windowManager.ts` 实际配置一致？
 - [ ] 上次工作是否踩了新坑？如果是，是否已追加到第 14 节 Known Gotchas？
 - [ ] 修改了 Rust Tauri command 后，是否已在前端对应调用处更新了类型签名？
 - [ ] 是否改了 package.json / Cargo.toml / tauri.conf.json 的版本号？如果改了一个，是否 3 个都同步（见第 10.2 节）？
@@ -46,7 +46,7 @@ AI Agent 打开本文件后的 **第一件事** 是执行下面的「🧪 自进
 | 动画 | Framer Motion v11 + Lottie Web | 宠物动作、表情切换用 Lottie，UI 交互动效用 Framer Motion |
 | 3D 宠物渲染（可选，如开启） | Three.js R3F | `components/pet3d/` 目录 |
 | Live2D（默认宠物形象） | pixi-live2d-display v0.4 | `components/petLive2d/`，模型文件 `assets/live2d/<petId>/` |
-| 样式方案 | TailwindCSS v3.4（JIT）+ CSS Variables | 颜色/圆角/阴影 100% Token 化，不许硬编码 `#ff6b6b` |
+| 样式方案 | TailwindCSS v4.2（JIT，`@tailwindcss/vite` 插件）+ CSS Variables | 颜色/圆角/阴影 100% Token 化，不许硬编码 `#ff6b6b` |
 | 国际化（i18n） | react-i18next v15 | 5 种语言：中/繁/英/日/韩，翻译文件：`public/locales/<lang>/translation.json` |
 | 包管理 | **pnpm 9**（shamefully-hoist = true） | 严禁 npm/yarn，node_modules 结构和 lockfile 会不兼容 |
 | 前端构建工具 | Vite 6.x + @tauri-apps/cli 插件 | `vite.config.ts` 已配 Tauri dev server 代理 |
@@ -114,7 +114,7 @@ import "./PetWindow.css"
 
 ## 3. 模块边界 & 目录结构
 
-### 3.1 整体架构（桌面三窗口）
+### 3.1 整体架构（桌面多窗口）
 ```
                 ┌──────────────────────┐
                 │   Tauri 2.x Runtime   │ ← Rust 单进程 + WRY WebView
@@ -122,11 +122,13 @@ import "./PetWindow.css"
                 └──────────┬─────────────┘
                            │  IPC（Tauri command）
 ┌──────────────────────────┴─────────────────────────────┐
-│            3 个独立 WebView（同一个前端代码 3 实例）       │
+│            4 个独立 WebView（同一个前端代码多实例）        │
 │                                                         │
-│  🐾 pet-window         ⚙️ settings-window     💬 chat-window │
-│  （永远置顶/无边框）      （常规窗口）          （抽屉式）   │
-└─────────────────────────────────────────────────────────┘
+│  🐾 pet-window   ⚙️ settings-window   💬 chat-window      │
+│  （永远置顶/无边框）  （常规窗口）       （抽屉式）          │
+│                                                                │
+│  🪪 panel-window（透明置顶小窗，显示角色状态+快捷按钮）         │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ### 3.2 前端目录职责（`src/` 下）
@@ -162,7 +164,7 @@ import "./PetWindow.css"
 | `src-tauri/src/db.rs` | SQLx + SQLite（含 7 个 migration 脚本），DB 路径 `app_data_dir().join("spiritpal.db")` |
 | `src-tauri/src/types.rs` | Rust struct（对应前端 `lib/types.ts`）：`Pet`、`ChatMessage`、`Settings` |
 | `src-tauri/src/tests.rs`（或 `tests/` 目录） | **32 个单元测试**：加密一致性 / DB 迁移 / command 参数校验 / 路径穿越攻击测试 |
-| `src-tauri/capabilities/` | Tauri v2 capabilities JSON（安全权限白名单）：`default.json` / `pet-window.json` / `chat-window.json` | **修改必须人工 review**，capability 过大会导致跨窗口 IPC 安全漏洞 |
+| `src-tauri/capabilities/` | Tauri v2 capabilities JSON（安全权限白名单）：`default.json`（pet-window + panel-window）/ `chat-window.json` / `settings-window.json` | **修改必须人工 review**，capability 过大会导致跨窗口 IPC 安全漏洞 |
 | `src-tauri/tauri.conf.json` | Tauri 应用配置：bundle ID / 图标路径 / 窗口定义 / updater 公钥 | 版本号改这里 + package.json + Cargo.toml 同步（见 §10.2） |
 | `src-tauri/Cargo.toml` | Rust 依赖 + crate metadata | 版本号同步位置之一 |
 
@@ -451,6 +453,12 @@ Scope 建议：`pet-window` / `chat` / `settings` / `rust-encryption` / `i18n` /
 | 11 | **功能性改动后必须编译桌面端和移动端才能看到结果** | 修改了角色配置、UI 组件、业务逻辑等前端/共享代码后，只运行 `pnpm dev` 或 `pnpm test` 就以为改动生效 | 开发模式下改动看似生效（Vite HMR），但生产构建或实际应用中改动未体现；移动端完全未更新 | **任何功能性改动完成后，必须执行完整编译流程**：① 桌面端：`pnpm tauri build`（生成 Windows/macOS/Linux 安装包）；② 移动端：`pnpm tauri android build --apk` 或 `pnpm tauri ios build`（生成移动安装包）。编译产物复制到 `artifacts/` 目录进行验证。仅运行测试或开发模式不能替代完整编译。 | 2026-08-12 |
 | 12 | **响应式触发限流不能有全局间隔检查** | T-8 给响应式触发加了 `canTriggerResponsive()` 含 15min 间隔检查 | 测试失败：周期触发 `recordTrigger('frequency')` 后，响应式触发也被全局间隔拦截 → 用户主动对话时无法触发情感回忆 | 响应式触发是用户驱动的（非主动打扰），只需检查每日总上限，**不加全局间隔检查**。间隔检查仅适用于主动触发（`canTrigger`） | 2026-08-15 |
 | 13 | **Rust `computeContextFit` 中不能用 `await import`** | T-9 给 `computeContextFit` 加音乐信号时用了 `await import('./musicAwareness')` | `tsc` 编译通过但运行时报错：`computeContextFit` 是同步方法，不能使用 `await` | 同步方法中引用外部模块必须用顶部静态 `import`，不能用动态 `await import` | 2026-08-15 |
+| 14 | **无边框窗口的窗口操作（最小化/最大化/缩放）必须显式加 capability 权限，否则静默失败** | settings/chat 窗口是 `decorations: false`，`WindowControls` 调 `minimize()/toggleMaximize()`、`FramelessResizeHandles` 调 `startResizeDragging()`，但 `capabilities/*.json` 里没写对应 allow | 按钮点了没反应、鼠标拖边缘无法缩放，**控制台无任何报错**（Promise 被 `.catch(() => {})` 吞掉），排查半天 | `core:window:default` 只含只读权限，写操作必须显式加：`allow-minimize` / `allow-maximize` / `allow-unmaximize` / `allow-toggle-maximize` / `allow-start-resize-dragging`；同时 `WebviewWindowBuilder`/前端 `WebviewWindow` 必须 `resizable: true`（`resizable: false` 的窗口在 Windows 上即使有权限也无法最大化） | 2026-08-19 |
+| 15 | **面板/浮层可拖动时，顶层拖拽条（data-tauri-drag-region）必须让出 z-index** | pet-window 顶部有一条 h-8 的 `data-tauri-drag-region` 拖拽条（z-50），状态面板默认 `right-1 top-1` 恰好被它盖住 | 按住面板顶部（名字行）拖动 → 触发的是整窗拖拽而不是面板拖动，面板永远拖不走 | 拖拽条 z-index 降到面板（z-30）之下；面板拖拽用「3px 阈值后才 setPointerCapture」模式（立即 capture 会吞掉面板内按钮的 onClick）；拖拽期间临时关闭像素穿透（`usePixelClickThrough(!panelDragging, ...)`）防 WS_EX_TRANSPARENT 截断事件 | 2026-08-19 |
+| 16 | **桌宠窗口内滚动型浮层（右键菜单等）滚不动 = max-h 超窗口 + 根节点 wheel 拦截 + 穿透白名单缺失三重叠加** | pet-window（高 400）右键弹出菜单，菜单 `max-h-[420px]`；滚轮滚动菜单 → 宠物被缩放、菜单不动；菜单底部项（退出）被窗口裁掉一半 | 菜单永远滑不到底；截图可见最后一项只有上半部分 | ① 浮层 max-height 用 `Math.min(420, winH - 8)` 动态计算，保证 ≤ 窗口视口高（否则容器底部被窗口物理裁剪）；② 浮层容器必须 `onWheel={e => e.stopPropagation()}`，否则滚轮冒泡到 PetWindow 根节点的 `handleWheel`（缩放宠物，preventDefault 吞掉原生滚动）；③ 浮层容器/遮罩必须加入像素穿透交互白名单（`[data-spiritpal-menu]` / `.spiritpal-menu-overlay`），否则悬停浮层空白区时窗口被切到 WS_EX_TRANSPARENT，滚轮事件直接丢失 | 2026-08-19 |
+| 17 | **窗口边缘吸附判定不能用「窗口中心点」，必须用「窗口边缘距屏幕边」** | v1.7 实现实时磁吸时用中心点判定 + `max(40, 窗口宽×20%)` 阈值 | 默认 300px 窗口半宽 150 > 阈值 60，放大到 600px 后半宽 300 > 阈值 120——窗口中心永远到不了阈值范围，**吸附整体失效**（小窗口也不吸） | 判定改为窗口边缘距屏幕边缘 < 阈值（`x - screenX < thresh` / `screenX+screenW-(x+winW) < thresh`），窗口贴边时边缘距边为 0 恒满足；中心点只用于防卡屏（鼠标距中心超窗口尺寸时跳过吸附） | 2026-08-19 |
+| 18 | **宠物头顶气泡（bottom-full 定位）在窗口高度只按精灵尺寸计算时被顶部裁剪** | 滚轮把宠物放大到 3×（精灵 624 高），handleWheel 的 needH = spriteH+32，宠物顶部只剩 24px | 气泡显示在宠物容器正上方，被窗口顶部物理裁剪，文字/图形显示不全 | 窗口目标高度预留气泡空间：`needH = max(WIN_H, spriteH + 32 + BUBBLE_TOP_SPACE(64))`，宠物 pos.y 相应下移；小窗口（默认 400）不受影响 | 2026-08-19 |
+| 19 | **Tauri v2 的 `currentMonitor()` 是顶层函数，Window 实例没有该方法** | usePetDragging 写 `(win as any).currentMonitor()` 获取当前显示器 | 拖动开始缓存屏幕环境时抛 `TypeError: win.currentMonitor is not a function` → catch 吞掉 → dragEnvRef 恒为 null → **边缘吸附永不生效**（实时磁吸+释放吸附全部失效）；单测 mock 了 currentMonitor 掩盖此 bug，真实环境必现 | 用顶层函数：`import { currentMonitor } from '@tauri-apps/api/window'` 后直接 `currentMonitor()`；写 Tauri API 调用前先确认是模块函数还是实例方法（window.js 导出表）；排此类"功能不生效"先查运行时 console（CDP 注入日志最快） | 2026-08-19 |
 
 ---
 
@@ -461,5 +469,19 @@ Scope 建议：`pet-window` / `chat` / `settings` / `rust-encryption` / `i18n` /
 | v1.0 | 2026-08-10 | 初始建立自进化协议 | 从 SpiritPal 项目健康度评估报告建议补齐：建立自进化协议（5 条铁律 + 自检清单）+ 版本号 3 文件同步清单（package.json + Cargo.toml + tauri.conf.json）+ i18n 多语言规范（5 种语言 4 步流程）+ 4 个典型 SOP（新增 Tauri Command / 新增 Store / 新增宠物角色 / 新增设置）+ 10 条 Known Gotchas 集中化表格 | v1.0.0 |
 | v1.1 | 2026-08-15 | S2 记忆存储架构重构补全 | 清理 enhancedMemory.ts 未使用导入（deleteMemorySummary/deleteMemoryState/FESTIVALS）；补全 S2 方案 §9 测试计划全部用例（迁移 4 场景/双模式回退/export-import 兼容/对账/corrupt 保留/行级 load-save/遗忘晋升行级化）共 32 例；全量回归 vitest 1494 通过 / tsc 0 错误 / eslint 0 错误 / cargo test 55 通过 | v1.0.0 |
 | v1.2 | 2026-08-15 | 未完成任务清单 T-1~T-15 批量完成 | T-2 eslint warning 全项目清零；T-3 recallEngine 情绪一致性接入真实情绪（setCurrentMood + getCurrentMood 公开化）；T-4 semantic 容量配置生效（semanticSummaryMaxChars/semanticConsolidationMaxChars 替代硬编码 2000/5000）；T-1 ownerFacts.ts 二期行级化迁移（owner_facts 表 + 双模式回退 + .legacy 备份）；T-7 Agent 路径注入记忆上下文；T-8 响应式触发限流（canTriggerResponsive 每日上限共用配额）；T-9 contextFit 多信号化（工作状态 + 音乐信号）；T-10 响应判定语义化阈值 0.4；T-14 删除 timeDecaySort 死代码；T-15 文档同步；全量回归 vitest 1494 通过 / tsc 0 错误 / eslint 0 错误 / cargo test 全通过 | v1.0.0 |
+| v1.3 | 2026-08-19 | 修复桌宠窗口交互问题（面板独立拖动 + 无边框窗口最大化/最小化/缩放） | 状态面板改为可独立拖动停靠（petStore.panelPosition 持久化 + 3px 阈值拖拽 + 拖拽期临时关闭像素穿透 + 顶部拖拽条 z-50→z-20 让位）；settings/chat 窗口补 capability 权限（minimize/maximize/unmaximize/toggle-maximize/start-resize-dragging）；appWindows.ts 前端创建路径 resizable: false→true + min 尺寸对齐 Rust 托盘路径；新增 Gotcha 14/15；同步修正「对应项目版本」为实际 0.1.0；vitest petStore 57 通过 / tsc 0 错误 / eslint 0 错误 | v0.1.0 |
+| v1.4 | 2026-08-19 | 修复右键菜单无法滚动到底 + 核对菜单功能实现 | 右键菜单三重修复：max-height 改为视口自适应 `Math.min(420, winH-8)`（否则容器底部被 400px 宠物窗口裁剪）、容器 onWheel stopPropagation（否则滚轮被根节点缩放处理器吞掉）、菜单容器+遮罩加入像素穿透白名单（`[data-spiritpal-menu]`/`.spiritpal-menu-overlay`）；新增 Gotcha 16；逐项核对菜单 13 项功能（11 项真实、换装半实现、对话内容少）；tsc/eslint 0 错误 | v0.1.0 |
+| v1.5 | 2026-08-19 | 补齐换装直达 + 核对设置页 19 页签 | 换装补齐：windowEventBus 新增 `open-settings-tab` 事件（类型安全注册），右键菜单「换装」→ 打开设置窗口并直达外观/装饰页（先发一次+窗口创建完成后 250ms 补发一次的双发保险，规避新窗口监听器注册时序）；SettingsWindow 的 TABS 提升为模块级常量并监听该事件校验切换；设置页 19 页签全量核对：17 项完整真实（AI/外观/性格/性格编辑/养成/商店/背包/记忆/成就/日程/模组/相册/数据/快捷/精灵图/通用/关于），排行=本地单机对比（非在线），社区=UI 完整但数据为内置 mock（communityApi 占位 URL 回退 mock，待接真实后端）；tsc/eslint 0 错误 | v0.1.0 |
+| v1.6 | 2026-08-19 | 社区/排行改「尚未完善」提示 + 宠物窗口随尺寸自适应 | 新增 FeatureComingSoon 共享占位组件，CommunityPanel/LeaderboardPanel 重写为明确的「功能尚未完善」提示页（删除全部 mock 数据与伪交互，communityApi 模块保留未引用）；宠物窗口随宠物缩放自适应：handleWheel 计算目标窗口尺寸（精灵+32px 边距，保底 300×400，上限 720×900 对齐 Rust max_inner_size）→ setSize + 锚定（中心 X/底部 Y 不动），usePetDragging.snapToEdge 改用动态 outerSize（删除固定 WIN_W/WIN_H 常量，避免窗口变大后吸附边界错误）；vitest 1820 通过 / tsc 0 / eslint 0 | v0.1.0 |
+| v1.7 | 2026-08-19 | Dororo 学习成果落地：实时边缘磁吸 + 比例阈值 + 贴边视觉反馈 | ① 拖动中实时磁吸：handleMouseMove 每帧 dockToEdgeSync（窗口中心距边缘 < 阈值即贴边，Dororo window.gd dock_to_edge 对齐）；② 比例阈值：max(40px, 窗口宽×20%)，窗口放大后吸附依然跟手，monitor.position 支持多显示器；③ 防卡屏：鼠标距窗口中心超过窗口尺寸时跳过吸附；④ 贴边视觉反馈：usePetDragging 暴露 dockDir（ref 去抖防高频 setState），PetWindow 加停靠变换层（宠物向窗外偏移 55% 藏身、悬停弹回 30% 探头）+ 停靠气泡「贴边休息一下～」；snapToEdge 释放后兜底复用同一套中心点+比例阈值逻辑；拖拽环境（窗口/屏幕尺寸）拖动开始一次性缓存避免高频 IPC；vitest 1820 通过 / tsc 0 / eslint 0 | v0.1.0 |
+| v1.8 | 2026-08-19 | 学习报告盘点后落地两项：喂食渐进恢复 + 托盘实时图标 | ① 喂食渐进恢复（VPet 借鉴）：feed 立即生效 30%（FEED_IMMEDIATE_RATIO），剩余进 pendingHunger/pendingMood（NurturingStats 新增可选字段），applyPendingRecovery 纯函数每秒补剩余 1/10（至少 1 点），模块级 ensurePendingRecoveryTicker 定时器（幂等启动/自停，导出 stopPendingRecoveryTicker 供测试清理；注意 petStore.tick 是每小时衰减，不可用于渐进）；② 托盘实时图标（ai-bubu 借鉴）：新增 Rust command set_tray_icon_png（base64 PNG → Image::from_bytes 解码 → tray.set_icon，tauri image-png feature），前端 trayIconRenderer.ts 把宠物当前帧渲染为 32×32 PNG（图集按动画行+frame 裁剪、视频抓可见缓冲 video、SVG 直绘，精灵图资源缓存），SpriteRenderer 新增 onFrameChange 回调暴露帧号，PetWindow 每 3s + 状态/角色变化时 invoke 更新；vitest 1825 通过 / tsc 0 / eslint 0 / cargo check 0 | v0.1.0 |
+| v1.9 | 2026-08-19 | 修复大尺寸下的两个问题：气泡被顶部裁剪 + 边缘吸附失效 | ① 边缘吸附失效根因：v1.7 用「窗口中心点」判定吸附，窗口半宽（150~300px）永远大于阈值（40~120px），吸附整体不触发——判定改为「窗口边缘距屏幕边缘 < 阈值」（dockToEdgeSync + snapToEdge 同步修正），中心点仅保留用于防卡屏；② 气泡裁剪：PetBubble 定位在宠物容器正上方（bottom-full），handleWheel 目标高度只按精灵+32px 计算导致放大后顶部仅 24px——新增 BUBBLE_TOP_SPACE(64) 预留气泡空间；新增 Gotcha 17/18；vitest 1825 通过 / tsc 0 / eslint 0 | v0.1.0 |
+| v2.0 | 2026-08-19 | 吸附覆盖全部拖动路径（拖拽条/背景拖拽）+ 单元测试验证 | 用户反馈"贴边无吸附/无藏身探头"：新增 usePetDragging 单元测试模拟拖到屏幕边缘 → 窗口贴边 + dockDir='left' 断言通过（证明吸附判定本身工作）；根因是吸附只在「拖宠物本体」路径生效——顶部拖拽条（Tauri 原生拖拽）与背景拖拽层完全不触发磁吸/释放吸附。新增「窗口移动停止吸附」：usePetDragging 监听 win.onMoved，窗口 400ms 静止且非鼠标拖拽中 → snapToEdge（覆盖所有拖动路径，松手后自动贴边 + dockDir 视觉反馈）；vitest 1826 通过 / tsc 0 / eslint 0 | v0.1.0 |
+| v2.1 | 2026-08-19 | 找到吸附不生效的真正根因：currentMonitor 实例方法不存在 | 端到端排查（Rust 临时加 remote-debugging-port + CDP + playwright 模拟拖拽 + 运行时 console 日志）：`(win as any).currentMonitor()` 抛 `TypeError: win.currentMonitor is not a function` → 环境缓存 catch 吞掉 → dragEnvRef 恒 null → 吸附永不触发（v1.7~v2.0 所有吸附版本都因此失效，单测 mock 掩盖）。修复：改用 @tauri-apps/api/window 顶层 `currentMonitor()` 函数（拖动环境缓存 + snapToEdge 两处），真实运行环境验证 env 缓存成功（450×600 物理 @ 2560×1600，sf=1.5）；新增 Gotcha 19；vitest 1826 通过 / tsc 0 / eslint 0 | v0.1.0 |
+| v2.2 | 2026-08-19 | 吸附视觉改为「宠物本体对齐屏幕边」+ 窗口尺寸改逻辑像素 | 用户实测：吸附只对下边缘正常，左/右/上"宠物没到边缘就吸附"且现象怪——根因：吸附对齐的是「窗口」，宠物在窗口内位置不定（行走/缩放后居中），窗口贴边时宠物仍悬空。修复：dockTransform 从固定 55% 藏身偏移改为按 pos/winW/winH/sprite 尺寸计算的贴边对齐（left: translateX(-pos.x)，right: winW-pos.x-sw 等，悬停 poke 24px 探头）；winW/winH 从 outerSize 物理像素改为 ÷scaleFactor 的逻辑像素（顺带修正 sf≠1 时 S/M/L 档位判定与停靠计算的坐标错位）；vitest 1826 通过 / tsc 0 / eslint 0 | v0.1.0 |
+| v2.3 | 2026-08-19 | 新增窗口边框预览（调试用） | AppSettings 新增 showWindowBorder（默认 false，持久化）；PetWindow 开启时渲染 inset-0 虚线边框 + 角落尺寸/缩放标签（pointer-events-none，不影响像素穿透与交互）；入口两处：右键菜单「窗口边框：开/关」+ 设置页通用 tab 开关；vitest 1826 通过 / tsc 0 / eslint 0 | v0.1.0 |
+| v2.4 | 2026-08-19 | 窗口随宠物缩小（边框预览暴露的最小尺寸问题） | 用户反馈：宠物缩小时边框依然巨大（0.5× 时窗口仍 300×400）。根因：handleWheel 保底 WIN_W/H(300/400) + Rust min_inner_size 280×320 都过大。修复：新增 WIN_MIN_W/H(160×200) 对齐 Rust min_inner_size(160×200)，handleWheel 保底改小——窗口随宠物缩放（0.5× 时 160×200，1.0× 时 224×304，3.0× 时 608×720），边框贴合宠物；面板钳位 clampPanelPos/panelDisplayPos 改用动态 winH（替代固定 WIN_H）；吸附判定基于窗口边缘，窗口≈宠物后触发时机自然；vitest 1826 通过 / tsc 0 / eslint 0 / cargo check 0 | v0.1.0 |
+| v2.5 | 2026-08-19 | 右键菜单适配小窗口 + 状态面板拆分为独立窗口 | ① 菜单溢出：宠物 0.5× 时窗口 160 宽 < 菜单默认 192 宽，菜单横向溢出被裁剪且覆盖宠物——adjustedPos 加 maxW = min(192, winW-8)，菜单随窗口收窄；② 面板分离：新增独立 panel-window（透明置顶小窗，216×176，index.html#/panel 路由 + PanelWindow 组件），显示角色状态（等级/心情/饱食/活力/金币）+ 聊天/设置按钮，标题行 data-tauri-drag-region 拖动、透明区像素穿透；PetWindow 移除窗口内 S 档状态栏与 M/L 档面板（含面板拖拽全套代码/winTier/DockStat），启动时创建面板窗口并每 2s 经 windowEventBus 'pet-stats' 同步状态；capabilities default.json windows 加 panel-window；vitest 1826 通过 / tsc 0 / eslint 0 / cargo check 0 | v0.1.0 |
+| v2.6 | 2026-08-21 | README 文档问题全面修复 + AGENTS 同步修正 | README：消除「Git 分支说明」两段互相矛盾的内容，合并为单一准确的「本地 main + 远程 public」双分支策略（远端确有 public 分支）；修正目录树（去除不存在的 `Pet/spiritpal-app/` 外层包装，改为实际根目录布局）；AGENTS：同步 Tailwind 版本 v3.4→v4.2（`@tailwindcss/vite`，package.json 确认 `^4.2.2`）、窗口模型 3→4（新增 panel-window，capabilities 清单改为 `default.json`(+panel)/`chat-window.json`/`settings-window.json`） | v0.1.0 |
 
 <!-- 🔄 下次更新 AGENTS.md 时，在上面表格末尾追加新一行，不要删除历史记录 -->
