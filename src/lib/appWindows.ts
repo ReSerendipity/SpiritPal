@@ -17,6 +17,10 @@ export interface WindowConfig {
   alwaysOnTop?: boolean
   skipTaskbar?: boolean
   backgroundColor?: string
+  /** 是否允许鼠标缩放窗口（无边框窗口配合 FramelessResizeHandles 使用） */
+  resizable?: boolean
+  minWidth?: number
+  minHeight?: number
 }
 
 export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
@@ -27,6 +31,11 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
     url: 'index.html#/settings',
     decorations: false,
     backgroundColor: '#fdf6ec',
+    // 与 Rust 托盘路径创建的 settings-window 保持一致（resizable + 最小尺寸），
+    // 否则前端创建出来的窗口无法最大化/边缘缩放
+    resizable: true,
+    minWidth: 580,
+    minHeight: 400,
   },
   'chat-window': {
     title: 'SpiritPal Chat',
@@ -35,6 +44,9 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
     url: 'index.html#/chat',
     decorations: false,
     backgroundColor: '#fdf6ec',
+    resizable: true,
+    minWidth: 320,
+    minHeight: 400,
   },
   'roam-window': {
     title: 'SpiritPal 漫游',
@@ -46,6 +58,20 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
     alwaysOnTop: true,
     skipTaskbar: true,
     backgroundColor: '#00000000',
+    resizable: false,
+  },
+  // 独立状态面板窗口：与宠物窗口分离的浮动状态卡（角色状态 + 聊天/设置入口）
+  'panel-window': {
+    title: 'SpiritPal 面板',
+    width: 216,
+    height: 176,
+    url: 'index.html#/panel',
+    transparent: true,
+    decorations: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    backgroundColor: '#00000000',
+    resizable: false,
   },
 }
 
@@ -82,7 +108,9 @@ export async function ensureAppWindow(label: string): Promise<Window | null> {
       height: config.height,
       x,
       y,
-      resizable: false,
+      minWidth: config.minWidth,
+      minHeight: config.minHeight,
+      resizable: config.resizable ?? false,
       decorations: config.decorations ?? true,
       transparent: config.transparent ?? false,
       alwaysOnTop: config.alwaysOnTop ?? false,

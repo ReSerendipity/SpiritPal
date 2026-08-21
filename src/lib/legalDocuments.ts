@@ -93,7 +93,7 @@ SpiritPal（以下简称"本应用"）是一款桌面宠物应用，致力于保
 
 如您对本隐私政策有任何疑问，请通过以下方式联系我们：
 
-- GitHub Issues: https://github.com/spiritpal/spiritpal-app/issues
+- GitHub Issues: https://github.com/ReSerendipity/SpiritPal/issues
 `
 
 export const TERMS_OF_SERVICE = `# 用户协议

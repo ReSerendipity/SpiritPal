@@ -269,6 +269,10 @@ export interface NurturingStats {
   lastInteractionAt: number
   /** 上次亲密度每日衰减时间戳 */
   lastAffectionDecayAt: number
+  /** 喂食待渐进恢复的饱食值（VPet 式延迟恢复：立即生效 30%，剩余每秒补 1/10） */
+  pendingHunger?: number
+  /** 喂食待渐进恢复的心情值 */
+  pendingMood?: number
 }
 
 // ============ 共享数据（跨角色）============
@@ -531,6 +535,8 @@ export interface AppSettings {
   petForm: 'window' | 'roam'
   /** 当前角色 ID */
   currentCharacterId: string
+  /** 显示窗口边框预览（调试用：虚线框标出宠物窗口的实际边界与尺寸） */
+  showWindowBorder: boolean
 }
 
 // ============ 聊天消息 ============

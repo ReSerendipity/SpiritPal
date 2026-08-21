@@ -55,32 +55,34 @@ import {
   usePetTimers,
   usePetMemoryTriggers,
 } from '../hooks'
-import { getCurrentWindow, PhysicalPosition } from '@tauri-apps/api/window'
+import type { DockDir } from '../hooks/pet/usePetDragging'
+import { getCurrentWindow, PhysicalPosition, PhysicalSize } from '@tauri-apps/api/window'
+import { invoke } from '@tauri-apps/api/core'
 import { switchPetForm } from '../lib/petForm'
+import { windowEventBus } from '../lib/windowEventBus'
+import { ensureAppWindow } from '../lib/appWindows'
+import { renderPetTrayIcon } from '../lib/trayIconRenderer'
 import { FramelessResizeHandles, DRAG_SURFACE_CLASS } from './FramelessChrome'
 import { usePixelClickThrough } from '../lib/pixelClickThrough'
 // P2-4：宠物共同经历记忆
 import { getPetExperienceManager } from '../lib/petExperience'
 
-const WIN_W = 300
 // 像素点击穿透的额外交互白名单（状态卡片等面板区域保持可点击）
-const PET_FRAMELESS_INTERACTIVE = ['[class*="panel"]']
+// 右键菜单（data-spiritpal-menu）及其遮罩（.spiritpal-menu-overlay）也必须保持交互，
+// 否则悬停菜单空白/分隔线区域时窗口会被切到穿透态，滚轮与鼠标事件全部丢失
+const PET_FRAMELESS_INTERACTIVE = ['[class*="panel"]', '[data-spiritpal-menu]', '.spiritpal-menu-overlay']
 
+const WIN_W = 300
 const WIN_H = 400
+// 窗口最小尺寸（对齐 Rust min_inner_size 160×200）：宠物缩小时窗口跟随缩小，
+// 避免"小宠物配大窗口"（边框预览显示巨大空白）
+const WIN_MIN_W = 160
+const WIN_MIN_H = 200
 const SPRITE_W = 192
 const SPRITE_H = 208
+// 宠物头顶上方的气泡预留空间（PetBubble 定位在宠物容器正上方，窗口高度不预留会被顶部裁剪）
+const BUBBLE_TOP_SPACE = 64
 const __emptyDecorations: never[] = []
-
-function DockStat({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div className="flex items-center gap-1" role="progressbar" aria-label={`${label} ${value}%`}
-      aria-valuenow={value} aria-valuemin={0} aria-valuemax={100}>
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} aria-hidden="true" />
-      <span className="text-[10px]">{label}</span>
-      <span className="ml-auto tabular-nums text-[10px] text-ink-faint">{value}</span>
-    </div>
-  )
-}
 
 // Stable selector functions — defined OUTSIDE the component to avoid creating new
 // function references on every render. In Zustand v5, useStore wraps each selector
@@ -105,7 +107,6 @@ const selectBathe = (s: ReturnType<typeof usePetStore.getState>) => s.bathe
 const selectSwitchCharacter = (s: ReturnType<typeof usePetStore.getState>) => s.switchCharacter
 const selectInitCharacter = (s: ReturnType<typeof usePetStore.getState>) => s.initCharacter
 const selectCompletePomodoro = (s: ReturnType<typeof usePetStore.getState>) => s.completePomodoro
-const selectGetColorTier = (s: ReturnType<typeof usePetStore.getState>) => s.getColorTier
 const selectSharedCoins = (s: ReturnType<typeof usePetStore.getState>) => s.sharedCoins
 const selectSetPosition = (s: ReturnType<typeof usePetStore.getState>) => s.setPosition
 const selectWornDecorations = (s: ReturnType<typeof usePetStore.getState>) => s.wornDecorations[s.currentCharacterId] ?? __emptyDecorations
@@ -116,6 +117,7 @@ const selectPetSize = (s: ReturnType<typeof useSettingsStore.getState>) => s.pet
 const selectPetOpacity = (s: ReturnType<typeof useSettingsStore.getState>) => s.petOpacity
 const selectSwitchSettingsChar = (s: ReturnType<typeof useSettingsStore.getState>) => s.switchCharacter
 const selectUpdateSettings = (s: ReturnType<typeof useSettingsStore.getState>) => s.updateSettings
+const selectShowWindowBorder = (s: ReturnType<typeof useSettingsStore.getState>) => s.showWindowBorder
 
 /**
  * 宠物主窗口
@@ -146,7 +148,6 @@ export default function PetWindow() {
   const switchPetChar = usePetStore(selectSwitchCharacter)
   const initPetChar = usePetStore(selectInitCharacter)
   const completePomodoro = usePetStore(selectCompletePomodoro)
-  const getColorTier = usePetStore(selectGetColorTier)
   const sharedCoins = usePetStore(selectSharedCoins)
   const setPosition = usePetStore(selectSetPosition)
   const wornDecorations = usePetStore(selectWornDecorations)
@@ -156,6 +157,7 @@ export default function PetWindow() {
   const petOpacity = useSettingsStore(selectPetOpacity)
   const switchSettingsChar = useSettingsStore(selectSwitchSettingsChar)
   const updateSettings = useSettingsStore(selectUpdateSettings)
+  const showWindowBorder = useSettingsStore(selectShowWindowBorder)
 
   const character = getCharacter(currentCharacterId)
 
@@ -178,24 +180,31 @@ export default function PetWindow() {
   })
   const [firstRunStep, setFirstRunStep] = useState<'greet' | 'select'>('greet')
 
-  // 窗口宽度档位（S/M/L 自适应）
+  // 窗口尺寸（逻辑像素，S/M/L 自适应档位 + 停靠视觉对齐用）
   const [winW, setWinW] = useState<number>(WIN_W)
+  const [winH, setWinH] = useState<number>(WIN_H)
   useEffect(() => {
     const win = getCurrentWindow()
     let disposed = false
+    // outerSize 返回物理像素，÷scaleFactor 得到逻辑像素（与 pos/sprite 的 CSS px 一致）
     const sync = () => {
-      win.outerSize().then((s) => { if (!disposed) setWinW(s.width) }).catch(() => {})
+      Promise.all([win.outerSize(), win.scaleFactor()])
+        .then(([s, sf]) => {
+          if (disposed) return
+          setWinW(Math.round(s.width / sf))
+          setWinH(Math.round(s.height / sf))
+        })
+        .catch(() => {})
     }
     sync()
     let unlistenFn: (() => void) | null = null
-    win.onResized(({ payload }) => { if (!disposed) setWinW(payload.width) })
+    win.onResized(() => { sync() })
       .then((fn) => { unlistenFn = fn; if (disposed) fn() })
       .catch(() => {})
-    // 兜底：resize 事件可能因权限/时序丢失，周期轮询同步窗口尺寸（S/M/L 自适应档位）
+    // 兜底：resize 事件可能因权限/时序丢失，周期轮询同步窗口尺寸
     const timer = window.setInterval(sync, 2000)
     return () => { disposed = true; unlistenFn?.(); window.clearInterval(timer) }
   }, [])
-  const winTier: 'S' | 'M' | 'L' = winW >= 540 ? 'L' : winW >= 360 ? 'M' : 'S'
 
   // ========== Core UI State (组件拥有) ==========
   const [pos, setPos] = useState<{ x: number; y: number }>(
@@ -319,6 +328,7 @@ export default function PetWindow() {
   // 拖拽交互
   const {
     dragging,
+    dockDir,
     handleMouseDown: dragHandleMouseDown,
     handleMouseMove: dragHandleMouseMove,
     handleMouseUp: dragHandleMouseUp,
@@ -408,7 +418,8 @@ export default function PetWindow() {
     safeTimeout,
   })
 
-  // 像素级点击穿透 —— 暂时禁用以修复窗口拖拽问题
+  // 像素级点击穿透 —— 气泡/右键菜单等交互区域通过 PET_FRAMELESS_INTERACTIVE 白名单保持可交互
+  // （状态面板已拆分为独立窗口，不再占用本窗口）
   usePixelClickThrough(true, PET_FRAMELESS_INTERACTIVE)
 
   // ========== Effects ==========
@@ -417,6 +428,39 @@ export default function PetWindow() {
   useEffect(() => {
     setPosition(pos)
   }, [pos, setPosition])
+
+  // 独立状态面板窗口：启动时创建并显示（与宠物窗口分离的浮动状态卡），
+  // 之后周期同步角色状态（角色切换/喂食/玩耍等变化 2s 内反映到面板）
+  useEffect(() => {
+    let disposed = false
+    const ensurePanel = async () => {
+      try {
+        const win = await ensureAppWindow('panel-window')
+        if (win && !disposed) {
+          await win.show()
+        }
+      } catch {
+        // 面板窗口创建失败不阻塞主窗口
+      }
+    }
+    void ensurePanel()
+    const timer = window.setInterval(() => {
+      if (disposed) return
+      void windowEventBus.emit('pet-stats', {
+        characterId: currentCharacterId,
+        name: character?.displayName ?? currentCharacterId,
+        level: stats.level,
+        mood: Math.round(stats.mood),
+        hunger: Math.round(stats.hunger),
+        health: Math.round(stats.health),
+        coins: sharedCoins,
+      })
+    }, 2000)
+    return () => {
+      disposed = true
+      window.clearInterval(timer)
+    }
+  }, [currentCharacterId, character?.displayName, stats.level, stats.mood, stats.hunger, stats.health, sharedCoins])
 
   const spawnHearts = useCallback(() => {
     const ids = [Date.now(), Date.now() + 1, Date.now() + 2]
@@ -495,6 +539,7 @@ export default function PetWindow() {
 
   function handleMouseLeave() {
     getEmotionManager().setHovered(false)
+    setHovered(false)
     if (draggingRef.current) {
       dragHandleMouseLeave()
       setPetState('idle')
@@ -505,6 +550,7 @@ export default function PetWindow() {
 
   function handleMouseEnter() {
     getEmotionManager().setHovered(true)
+    setHovered(true)
   }
 
   function handleContextMenu(e: React.MouseEvent) {
@@ -535,6 +581,68 @@ export default function PetWindow() {
   function handleBgMouseUp() {
     bgDragRef.current = null
   }
+
+  // ========== 停靠（贴边）视觉反馈 —— 对齐 Dororo 边缘吸附交互 ==========
+  const [hovered, setHovered] = useState(false)
+  const prevDockDirRef = useRef<DockDir>(null)
+
+  // 停靠贴边变换：吸附的是「窗口」，但用户看到的是「宠物本体」——
+  // 宠物在窗口内位置不定（行走/缩放），必须把宠物本体对齐到屏幕边缘，
+  // 否则窗口贴边而宠物悬空（"没到边缘就吸附"的怪现象）。
+  // 悬停时向屏幕内轻微探头（poke 24px）。
+  const dockTransform = useMemo(() => {
+    if (!dockDir) return undefined
+    // sprite 尺寸在 render 前部才计算，这里直接按 petSize 派生（避免 TDZ）
+    const sw = SPRITE_W * petSize
+    const sh = SPRITE_H * petSize
+    const poke = hovered ? 24 : 0
+    switch (dockDir) {
+      // 宠物左边缘 → 窗口左边缘（窗口贴边后即屏幕左边缘）
+      case 'left': return `translateX(${Math.round(-pos.x + poke)}px)`
+      case 'right': return `translateX(${Math.round(winW - pos.x - sw - poke)}px)`
+      case 'top': return `translateY(${Math.round(-pos.y + poke)}px)`
+      case 'bottom': return `translateY(${Math.round(winH - pos.y - sh - poke)}px)`
+      default: return undefined
+    }
+  }, [dockDir, hovered, pos.x, pos.y, winW, winH, petSize])
+
+  // 停靠进入时冒一句气泡（拖动中不提示；setTimeout 异步触发避免 effect 内同步 setState）
+  useEffect(() => {
+    const prev = prevDockDirRef.current
+    prevDockDirRef.current = dockDir
+    if (dockDir && !prev && !dragging) {
+      const t = window.setTimeout(() => {
+        setBubble('贴边休息一下～')
+      }, 0)
+      return () => window.clearTimeout(t)
+    }
+  }, [dockDir, dragging, setBubble])
+
+  // ========== 托盘图标实时渲染（参考 ai-bubu：宠物当前帧 → 托盘图标） ==========
+  // 当前精灵帧号（SpriteRenderer.onFrameChange 回传，图集动画帧变化时更新）
+  const trayFrameRef = useRef(0)
+
+  // 状态/角色变化立即更新托盘图标，并每 3s 定时抓帧（覆盖图集 idle 动画的帧推进）
+  useEffect(() => {
+    let disposed = false
+    let timer = 0
+    const update = () => {
+      if (disposed) return
+      void renderPetTrayIcon(currentCharacterId, petState, trayFrameRef.current)
+        .then((png) => {
+          if (png && !disposed) {
+            void invoke('set_tray_icon_png', { png }).catch(() => {})
+          }
+        })
+        .catch(() => {})
+    }
+    update()
+    timer = window.setInterval(update, 3000)
+    return () => {
+      disposed = true
+      window.clearInterval(timer)
+    }
+  }, [currentCharacterId, petState])
 
   // ========== Actions ==========
 
@@ -677,7 +785,7 @@ export default function PetWindow() {
     }
   }
 
-  // 滚轮缩放
+  // 滚轮缩放（窗口随宠物尺寸自适应：精灵放大时窗口同步变大，锚定中心 X 与底部 Y）
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -688,10 +796,28 @@ export default function PetWindow() {
       updateSettings({ petSize: newSize })
       const newSpriteW = SPRITE_W * newSize
       const newSpriteH = SPRITE_H * newSize
+      // 目标窗口尺寸：精灵尺寸 + 上下左右各 16px 边距，顶部额外预留气泡空间，
+      // 下限对齐 Rust min_inner_size（WIN_MIN_W/H，宠物缩小时窗口跟随缩小），
+      // 上限不超 Rust 侧 max_inner_size 720×900
+      const needW = Math.min(720, Math.max(WIN_MIN_W, Math.ceil(newSpriteW + 32)))
+      const needH = Math.min(900, Math.max(WIN_MIN_H, Math.ceil(newSpriteH + 32 + BUBBLE_TOP_SPACE)))
       setPos({
-        x: Math.max(0, (WIN_W - newSpriteW) / 2),
-        y: Math.max(0, WIN_H - newSpriteH - 8),
+        x: Math.max(0, (needW - newSpriteW) / 2),
+        y: Math.max(0, needH - newSpriteH - 8),
       })
+      // 同步调整窗口尺寸，锚定策略：窗口中心 X 与底部 Y 保持不变（宠物像"站在原地长大"）
+      const win = getCurrentWindow()
+      void Promise.all([win.outerPosition(), win.outerSize(), win.scaleFactor()])
+        .then(async ([pos, size, sf]) => {
+          const physW = Math.round(needW * sf)
+          const physH = Math.round(needH * sf)
+          const newX = pos.x + Math.round((size.width - physW) / 2)
+          const newY = pos.y + (size.height - physH)
+          // 先改尺寸再移动位置，避免锚定偏移闪烁
+          await win.setSize(new PhysicalSize(physW, physH))
+          await win.setPosition(new PhysicalPosition(newX, newY))
+        })
+        .catch(() => {})
     }
   }, [updateSettings])
 
@@ -733,11 +859,6 @@ export default function PetWindow() {
 
   const spriteW = SPRITE_W * petSize
   const spriteH = SPRITE_H * petSize
-  const hungerTier = getColorTier(stats.hunger)
-  const moodTier = getColorTier(stats.mood)
-  const tierColor: Record<string, string> = {
-    green: '#22c55e', yellow: '#eab308', orange: '#f97316', red: '#ef4444',
-  }
 
   const bgStyle: React.CSSProperties = (() => {
     switch (background.type) {
@@ -766,8 +887,20 @@ export default function PetWindow() {
       aria-label="宠物窗口"
       role="application"
     >
-      {/* 无边框窗口拖拽层（隐藏，仅用于窗口拖拽） */}
-      <div className="absolute left-0 right-0 top-0 z-50 h-8" data-tauri-drag-region aria-hidden="true" />
+      {/* 无边框窗口拖拽层（隐藏，仅用于窗口拖拽）。
+          z-20 低于状态面板/状态栏（z-30），避免遮挡面板导致其无法被按住拖动 */}
+      <div className="absolute left-0 right-0 top-0 z-20 h-8" data-tauri-drag-region aria-hidden="true" />
+
+      {/* 窗口边框预览（调试用）：虚线框标出宠物窗口的实际边界 + 角落显示尺寸/缩放。
+          pointer-events-none 不拦截交互，也不会影响像素穿透判定 */}
+      {showWindowBorder && (
+        <div className="pointer-events-none absolute inset-0 z-[60]" aria-hidden="true">
+          <div className="absolute inset-0 border-2 border-dashed border-tangerine/70" />
+          <div className="absolute left-1 top-1 rounded bg-tangerine/80 px-1.5 py-0.5 text-[10px] font-semibold text-white tabular-nums">
+            {winW}×{winH} · {petSize.toFixed(1)}×
+          </div>
+        </div>
+      )}
 
       {/* 背景层（同时也是窗口拖拽面：按住空白背景可拖动无边框窗口） */}
       <div
@@ -782,60 +915,6 @@ export default function PetWindow() {
       {/* 升级动画 */}
       {levelUp && (
         <LevelUpOverlay level={levelUp.level} characterName={levelUp.name} onComplete={() => setLevelUp(null)} />
-      )}
-
-      {/* 状态栏（S 档紧凑显示；M/L 档由右侧面板承载） */}
-      {winTier === 'S' && (
-        <div
-          className="absolute left-1 top-1 z-30 flex flex-col gap-0.5 rounded-panel border border-ink/10 bg-surface/90 px-2 py-1.5 text-[10px] text-ink shadow-soft"
-          role="group" aria-label="宠物状态信息"
-        >
-          <div className="flex items-center gap-1" role="progressbar"
-            aria-label={`饱食度 ${Math.round(stats.hunger)}%`}
-            aria-valuenow={Math.round(stats.hunger)} aria-valuemin={0} aria-valuemax={100}>
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: tierColor[hungerTier] }} aria-hidden="true" />
-            <span>饱食 {Math.round(stats.hunger)}</span>
-          </div>
-          <div className="flex items-center gap-1" role="progressbar"
-            aria-label={`心情度 ${Math.round(stats.mood)}%`}
-            aria-valuenow={Math.round(stats.mood)} aria-valuemin={0} aria-valuemax={100}>
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: tierColor[moodTier] }} aria-hidden="true" />
-            <span>心情 {Math.round(stats.mood)}</span>
-          </div>
-          <div className="flex items-center gap-1 text-tangerine-deep" aria-label={`金币 ${sharedCoins}`}>
-            <span aria-hidden="true">🪙</span> <span className="tabular-nums">{sharedCoins}</span>
-          </div>
-        </div>
-      )}
-
-      {/* 缩放档位面板（M/L 档出现，对应高保真 S/M/L 自适应布局） */}
-      {winTier !== 'S' && character && (
-        <div className="absolute right-1 top-1 z-30 flex w-[128px] flex-col gap-1 rounded-panel border border-ink/10 bg-surface/95 p-2 text-ink shadow-soft">
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="font-bold">{character.displayName}</span>
-            <span className="text-ink-faint">Lv.{stats.level}</span>
-          </div>
-          <DockStat label="心情" value={Math.round(stats.mood)} color={tierColor[moodTier]} />
-          <DockStat label="饱食" value={Math.round(stats.hunger)} color={tierColor[hungerTier]} />
-          <DockStat label="活力" value={Math.round(stats.health)} color="#22c55e" />
-          <div className="flex items-center justify-between text-[10px] text-tangerine-deep">
-            <span aria-hidden="true">🪙</span><span className="tabular-nums">{sharedCoins}</span>
-          </div>
-          <div className="mt-0.5 flex gap-1">
-            <button
-              onClick={() => void showWindow('chat-window')}
-              className="flex-1 rounded-full bg-tangerine px-2 py-1 text-[11px] font-semibold text-white hover:bg-tangerine-deep"
-            >
-              聊天
-            </button>
-            <button
-              onClick={() => void showWindow('settings-window')}
-              className="flex-1 rounded-full border border-ink/15 px-2 py-1 text-[11px] font-semibold text-ink-muted hover:border-tangerine hover:text-tangerine-deep"
-            >
-              设置
-            </button>
-          </div>
-        </div>
       )}
 
       {/* 宠物容器 — usePetGaze 管理 transform（gaze + walk offset） */}
@@ -872,7 +951,14 @@ export default function PetWindow() {
           <div className="pointer-events-none absolute z-20 text-xl" style={{ left: '12%', top: '4px' }}>📡</div>
         )}
 
-        {/* 精灵本体 — 外层音乐/天气动画，usePetDragging 管理 [data-sprite] transform */}
+        {/* 精灵本体 — 停靠(贴边)变换层：窗口吸附到屏幕边缘时整体向窗外偏移藏身，悬停探头。
+            独立包裹层避免与 usePetGaze / usePetDragging / 音乐摇摆的 transform 互相覆盖 */}
+        <div
+          style={{
+            transform: dockTransform,
+            transition: dragging || !dockTransform ? 'none' : 'transform 0.3s ease',
+          }}
+        >
         <div
           className={
             (musicSwaying ? 'spiritpal-music-sway ' : '') +
@@ -918,7 +1004,12 @@ export default function PetWindow() {
                 onError={() => setLive2dFailed(true)}
               />
             ) : (
-              <SpriteRenderer characterId={currentCharacterId} state={petState} size={petSize} />
+              <SpriteRenderer
+                characterId={currentCharacterId}
+                state={petState}
+                size={petSize}
+                onFrameChange={(f) => { trayFrameRef.current = f }}
+              />
             )}
           </div>
 
@@ -940,6 +1031,7 @@ export default function PetWindow() {
             </>
           )}
         </div>
+        </div>{/* 停靠变换层闭合 */}
       </div>
 
       {/* 右键菜单 */}
@@ -952,11 +1044,23 @@ export default function PetWindow() {
           onFeed={handleFeed}
           onPlay={handlePlay}
           onBathe={handleBathe}
-          onDressup={() => void showWindow('settings-window')}
+          onDressup={() => {
+            // 换装直达：打开设置窗口并切到「外观」页（装饰品管理区）。
+            // 先发一次事件（窗口已存在时立即生效），等窗口创建完成再补发一次
+            // （新建窗口的监听器注册有时序，需要稍作延迟）
+            void windowEventBus.emit('open-settings-tab', { tab: 'appearance' })
+            void showWindow('settings-window').then(() => {
+              window.setTimeout(() => {
+                void windowEventBus.emit('open-settings-tab', { tab: 'appearance' })
+              }, 250)
+            })
+          }}
           onPomodoro={handleStartPomodoro}
           onScreenshot={handleScreenshot}
           onSettings={() => void showWindow('settings-window')}
           onRoam={() => void switchPetForm('roam')}
+          onToggleBorder={() => updateSettings({ showWindowBorder: !showWindowBorder })}
+          borderVisible={showWindowBorder}
           onSwitchCharacter={handleSwitchCharacter}
           onDialogue={handleDialogue}
           onExit={() => void handleExit()}
