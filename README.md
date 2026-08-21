@@ -5,26 +5,26 @@
 ## Directory Structure
 
 ```
-Pet/
-├── spiritpal-app/           # Core application (Tauri v2 + React 19 + TypeScript)
-│   ├── src/              # Frontend source code
-│   │   ├── components/   # UI components
-│   │   ├── lib/          # Core libraries (AI, memory, behavior, etc.)
-│   │   ├── stores/       # Zustand state management
-│   │   ├── mobile/       # Mobile-specific views
-│   │   └── test/         # Vitest test setup & mocks
-│   ├── src-tauri/        # Rust backend (Tauri commands, Win32 API, encryption)
-│   ├── perf/             # Performance test scripts
-│   └── e2e/              # Playwright E2E tests
-├── docs/                 # Documentation
-│   ├── analysis/         # Repository analysis reports & optimization plans
-│   └── project/          # PRD, technical specs, and roadmap
-├── demo/                 # Demo HTML pages and preview assets
-├── references/           # Vendored reference repos for learning (gitignored)
-├── artifacts/            # Build outputs like APK files (gitignored)
-├── .github/workflows/    # CI/CD pipelines (ci.yml, release.yml)
-├── .trae/                # Local IDE tooling state (gitignored)
-├── AGENTS.md             # AI agent guidance and architecture docs
+SpiritPal/
+├── src/                 # Frontend source code
+│   ├── components/      # UI components
+│   ├── lib/             # Core libraries (AI, memory, behavior, etc.)
+│   ├── stores/          # Zustand state management
+│   ├── mobile/          # Mobile-specific views
+│   │   └── test/        # Vitest test setup & mocks
+│   └── stores/__tests__ # Zustand store unit tests
+├── src-tauri/           # Rust backend (Tauri commands, capabilities, tray)
+│   ├── src/             # Rust source (commands, encryption, db, tray)
+│   └── capabilities/    # Tauri v2 capability permission whitelists
+├── docs/                # Documentation
+│   ├── analysis/        # Repository analysis reports & optimization plans
+│   └── project/         # PRD, technical specs, and roadmap
+├── demo/                # Demo HTML pages and preview assets
+├── references/          # Vendored reference repos for learning (gitignored)
+├── artifacts/           # Build outputs like APK files (gitignored)
+├── .github/workflows/   # CI/CD pipelines
+├── .trae/               # Local IDE tooling state (gitignored)
+├── AGENTS.md            # AI agent guidance and architecture docs（自进化协议）
 └── .gitignore
 ```
 
@@ -77,47 +77,33 @@ cd src-tauri && cargo test
 
 See individual repositories in `references/` for their respective licenses.
 
-## ⚠️ Git Branch Usage Instructions
+## ⚠️ Git Branch Usage Instructions（分支策略：本地 main + 远程 public）
 
-**Important**: This project now uses main as the primary branch name.
+> 本仓库采用 **「本地开发 + 远程发布」双分支策略**，请严格遵守，避免把本地私有代码泄漏到远程。
 
-- **All development work should be done on the \main\ branch**
-- **Do NOT use the \public\ branch for development anymore**
-- **All code commits should be directly to the \main\ branch**
+- **`main`（本地开发分支）**：日常开发与私有工作都在这条分支上，**只提交到本地**。
+- **`public`（远程发布分支）**：对外发布的公共内容专属分支。**仅此分支会被推送到远程**。
 
-Historical context: This project previously created an orphan branch named \public\ for potential public release purposes, but that strategy has been changed and all development and version management are now unified on the \main\ branch.
+### 📌 使用准则
 
-When pushing to remote repository, please push to the \main\ branch:
+1. 开发时一律在 `main` 分支上提交。
+2. 需要对外发布时，先把内容合并到 `public`，再 `push origin public`。
+3. ⚠️ **绝对不要执行 `git push origin main`** —— 会把本地私有代码泄漏到 GitHub。
+
+### 🔒 工作流
+
+**日常开发（只动本地）：**
 ```bash
-git push origin main
+git checkout main      # 切到本地开发分支
+git add .              # 暂存
+git commit -m "..."    # 本地提交（不会被推送）
 ```
 
-## ⚠️ Git Branch Usage Instructions
-
-**Important**: This project uses a dual-branch strategy for 'local development + remote publication'.
-
-- **main branch (Local)**: **Local primary branch** for daily development and private work
-- **public branch (Remote)**: **Remote branch** for public releases
-
-### 📌 Development Guidelines
-
-1. **Make commits on \main\ branch during development**
-2. **Only push public content to \public\ branch, NEVER push \main\ branch to remote**
-
-### 🔒 Workflow
-
-**Daily Development:**
+**发布公共内容（合并到 public 后推送）：**
 ```bash
-git checkout main      # Switch to local primary branch
-git add .              # Add files
-git commit -m "..."    # Local commit (will not be pushed to remote)
+git checkout public    # 切到发布分支
+git merge main         # 合并本地开发内容（可按需 cherry-pick 指定提交）
+git push origin public # 推送到远程 public 分支
 ```
 
-**When ready for public release (manually merge to public branch before pushing):**
-```bash
-git checkout public    # Switch to public release branch
-git merge main         # Merge local development content (optionally cherry-pick specific commits)
-git push origin public # Push to remote public branch
-```
-
-⚠️ **WARNING**: Never execute \git push origin main\, as it will leak your local private code to the remote repository.
+> 📌 远端 `origin` 同时存在 `main` 与 `public` 两个分支时，请始终以 `public` 作为唯一对外发布出口。
