@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "SpiritPal pet-window permissions (minimal: window mgmt + event listening + tray)",
-  "windows": ["pet-window"],
+  "description": "SpiritPal pet-window + panel-window permissions (minimal: window mgmt + event listening + tray)",
+  "windows": ["pet-window", "panel-window"],
   "permissions": [
     "core:default",
     "core:window:allow-show",
