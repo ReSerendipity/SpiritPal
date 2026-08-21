@@ -1,6 +1,6 @@
 // petStore 单元测试 — 四维数值、经验等级、金币、背包、装饰品
-import { describe, it, expect, beforeEach } from 'vitest'
-import { usePetStore, computeOfflineDecay } from '../petStore'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { usePetStore, computeOfflineDecay, applyPendingRecovery, stopPendingRecoveryTicker } from '../petStore'
 import type { InventoryItem } from '../../lib/types'
 
 function makeItem(overrides: Partial<InventoryItem> = {}): InventoryItem {
@@ -18,6 +18,11 @@ function makeItem(overrides: Partial<InventoryItem> = {}): InventoryItem {
 }
 
 describe('petStore', () => {
+  afterEach(() => {
+    // 清理 feed 渐进恢复定时器（模块级单例，防止污染后续用例）
+    stopPendingRecoveryTicker()
+  })
+
   beforeEach(() => {
     // 重置到初始状态
     usePetStore.setState({
@@ -26,6 +31,7 @@ describe('petStore', () => {
       currentCharacterId: 'doro',
       inventory: [],
       position: null,
+      panelPosition: null,
       wornDecorations: {},
       background: { type: 'none' },
     })
@@ -95,13 +101,18 @@ describe('petStore', () => {
   })
 
   describe('feed', () => {
-    it('有足够金币时喂食成功', () => {
+    it('有足够金币时喂食成功（立即恢复 30%，剩余进入渐进队列）', () => {
       usePetStore.getState().initCharacter('doro')
       const food = makeItem({ price: 10, hungerRestore: 20, moodRestore: 5 })
       usePetStore.getState().feed(food)
       const stats = usePetStore.getState().stats['doro']
       expect(usePetStore.getState().sharedCoins).toBe(90)
-      expect(stats.hunger).toBe(100) // 80 + 20, clamped at 100
+      // 立即 30%：hunger 80 + round(20*0.3)=6 → 86；mood 80 + round(5*0.3)=2 → 82
+      expect(stats.hunger).toBe(86)
+      expect(stats.mood).toBe(82)
+      // 剩余部分进入渐进队列：hunger 100-86=14，mood 85-82=3
+      expect(stats.pendingHunger).toBe(14)
+      expect(stats.pendingMood).toBe(3)
     })
 
     it('金币不足时不执行', () => {
@@ -111,6 +122,61 @@ describe('petStore', () => {
       const coinsBefore = usePetStore.getState().sharedCoins
       usePetStore.getState().feed(food)
       expect(usePetStore.getState().sharedCoins).toBe(coinsBefore)
+      expect(usePetStore.getState().stats['doro'].pendingHunger ?? 0).toBe(0)
+    })
+
+    it('数值已达上限时无待恢复值', () => {
+      usePetStore.getState().initCharacter('doro')
+      usePetStore.setState((s) => ({ stats: { ...s.stats, doro: { ...s.stats['doro'], hunger: 95, mood: 99 } } }))
+      const food = makeItem({ price: 10, hungerRestore: 20, moodRestore: 5 })
+      usePetStore.getState().feed(food)
+      const stats = usePetStore.getState().stats['doro']
+      // hunger 95+6=101 → clamp 100（立即部分已触顶），pending 0
+      expect(stats.hunger).toBe(100)
+      expect(stats.pendingHunger).toBe(0)
+      // mood 99+2=101 → clamp 100，pending 0
+      expect(stats.mood).toBe(100)
+      expect(stats.pendingMood).toBe(0)
+    })
+  })
+
+  describe('applyPendingRecovery（喂食渐进恢复）', () => {
+    function base(overrides: Partial<ReturnType<typeof usePetStore.getState>['stats'][string]> = {}) {
+      return {
+        hunger: 50, mood: 50, health: 80, affection: 0, level: 1, exp: 0, coins: 0,
+        lastTickAt: 0, lastInteractionAt: 0, lastAffectionDecayAt: 0,
+        ...overrides,
+      } as ReturnType<typeof usePetStore.getState>['stats'][string]
+    }
+
+    it('无 pending 时返回空对象', () => {
+      expect(applyPendingRecovery(base())).toEqual({})
+    })
+
+    it('每步恢复剩余 1/10（至少 1 点）', () => {
+      const r1 = applyPendingRecovery(base({ pendingHunger: 100 }))
+      expect(r1.hunger).toBe(60) // 50 + round(100*0.1)=10
+      expect(r1.pendingHunger).toBe(90)
+      const r2 = applyPendingRecovery(base({ pendingHunger: 1 }))
+      expect(r2.hunger).toBe(51) // max(1, round(0.1))=1
+      expect(r2.pendingHunger).toBe(0)
+    })
+
+    it('恢复到上限时钳位且 pending 不为负', () => {
+      const r = applyPendingRecovery(base({ hunger: 98, pendingHunger: 20 }))
+      expect(r.hunger).toBe(100)
+      expect(r.pendingHunger).toBe(18)
+    })
+
+    it('多次恢复最终收敛到目标值', () => {
+      let cur = base({ hunger: 86, pendingHunger: 14, mood: 82, pendingMood: 3 })
+      for (let i = 0; i < 60; i++) {
+        cur = { ...cur, ...applyPendingRecovery(cur) }
+      }
+      expect(cur.pendingHunger).toBe(0)
+      expect(cur.pendingMood).toBe(0)
+      expect(cur.hunger).toBe(100) // 86 + 14 全部补回
+      expect(cur.mood).toBe(85) // 82 + 3
     })
   })
 
@@ -350,6 +416,17 @@ describe('petStore', () => {
     it('保存宠物位置', () => {
       usePetStore.getState().setPosition({ x: 100, y: 200 })
       expect(usePetStore.getState().position).toEqual({ x: 100, y: 200 })
+    })
+  })
+
+  describe('setPanelPosition', () => {
+    it('初始为 null（默认右上角停靠）', () => {
+      expect(usePetStore.getState().panelPosition).toBeNull()
+    })
+
+    it('保存状态面板位置', () => {
+      usePetStore.getState().setPanelPosition({ x: 120, y: 48 })
+      expect(usePetStore.getState().panelPosition).toEqual({ x: 120, y: 48 })
     })
   })
 

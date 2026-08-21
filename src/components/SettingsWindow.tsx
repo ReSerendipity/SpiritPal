@@ -64,6 +64,7 @@ import { LeaderboardPanel } from './LeaderboardPanel'
 import { WindowControls } from './WindowControls'
 import { FramelessResizeHandles } from './FramelessChrome'
 import { setLanguage as i18nSetLanguage } from '../lib/i18n'
+import { windowEventBus } from '../lib/windowEventBus'
 import { trackSettingChange, trackImageSwitch } from '../lib/analytics'
 import type { AIConfig, AppSettings, BackgroundConfig, BackgroundType } from '../lib/types'
 
@@ -76,7 +77,30 @@ const selectBackground = (s: ReturnType<typeof usePetStore.getState>) => s.backg
 const selectSetBackground = (s: ReturnType<typeof usePetStore.getState>) => s.setBackground
 
 type Tab = 'ai' | 'appearance' | 'personality' | 'personalityEditor' | 'nurturing' | 'shop' | 'inventory' | 'memory' | 'achievements' | 'leaderboard' | 'schedule' | 'mods' | 'album' | 'data' | 'quick' | 'sprite' | 'community' | 'general' | 'about'
-type ToggleKey = 'autoStart' | 'startMinimized' | 'notifications'
+type ToggleKey = 'autoStart' | 'startMinimized' | 'notifications' | 'showWindowBorder'
+
+/** 侧边栏标签页定义（模块级常量，供跨窗口「打开指定标签页」事件校验使用） */
+const TABS: { key: Tab; label: string; icon: typeof Bot }[] = [
+  { key: 'ai', label: 'AI', icon: Bot },
+  { key: 'appearance', label: '外观', icon: Palette },
+  { key: 'personality', label: '性格', icon: SlidersHorizontal },
+  { key: 'personalityEditor', label: '性格编辑', icon: Activity },
+  { key: 'nurturing', label: '养成', icon: Heart },
+  { key: 'shop', label: '商店', icon: ShoppingBag },
+  { key: 'inventory', label: '背包', icon: Backpack },
+  { key: 'memory', label: '记忆', icon: Brain },
+  { key: 'achievements', label: '成就', icon: Trophy },
+  { key: 'leaderboard', label: '排行', icon: Trophy },
+  { key: 'schedule', label: '日程', icon: Calendar },
+  { key: 'mods', label: '模组', icon: Package },
+  { key: 'album', label: '相册', icon: Camera },
+  { key: 'data', label: '数据', icon: Database },
+  { key: 'quick', label: '快捷', icon: Sliders },
+  { key: 'sprite', label: '精灵图', icon: Grid3x3 },
+  { key: 'community', label: '社区', icon: Users },
+  { key: 'general', label: '通用', icon: SettingsIcon },
+  { key: 'about', label: '关于', icon: Info },
+]
 
 const AI_CONFIG_KEY = 'spiritpal-ai-config'
 
@@ -127,6 +151,17 @@ export default function SettingsWindow() {
   const [coreDir, setCoreDir] = useState('')
   const [pendingOverseasProvider, setPendingOverseasProvider] = useState<string | null>(null)
   const [rememberOverseas, setRememberOverseas] = useState(false)
+
+  // 跨窗口「打开指定标签页」请求（如宠物右键菜单「换装」直达外观页）
+  useEffect(() => {
+    let unlisten: (() => void) | null = null
+    void windowEventBus.on('open-settings-tab', (payload) => {
+      if (TABS.some((t) => t.key === payload.tab)) {
+        setTab(payload.tab as Tab)
+      }
+    }).then((fn) => { unlisten = fn })
+    return () => { unlisten?.() }
+  }, [])
 
   // 检测 Live2D Cubism Core 是否已就绪（用户自装）
   useEffect(() => {
@@ -361,28 +396,6 @@ export default function SettingsWindow() {
   }
 
   const character = getCharacter(settings.currentCharacterId)
-
-  const TABS: { key: Tab; label: string; icon: typeof Bot }[] = [
-    { key: 'ai', label: 'AI', icon: Bot },
-    { key: 'appearance', label: '外观', icon: Palette },
-    { key: 'personality', label: '性格', icon: SlidersHorizontal },
-    { key: 'personalityEditor', label: '性格编辑', icon: Activity },
-    { key: 'nurturing', label: '养成', icon: Heart },
-    { key: 'shop', label: '商店', icon: ShoppingBag },
-    { key: 'inventory', label: '背包', icon: Backpack },
-    { key: 'memory', label: '记忆', icon: Brain },
-    { key: 'achievements', label: '成就', icon: Trophy },
-    { key: 'leaderboard', label: '排行', icon: Trophy },
-    { key: 'schedule', label: '日程', icon: Calendar },
-    { key: 'mods', label: '模组', icon: Package },
-    { key: 'album', label: '相册', icon: Camera },
-    { key: 'data', label: '数据', icon: Database },
-    { key: 'quick', label: '快捷', icon: Sliders },
-    { key: 'sprite', label: '精灵图', icon: Grid3x3 },
-    { key: 'community', label: '社区', icon: Users },
-    { key: 'general', label: '通用', icon: SettingsIcon },
-    { key: 'about', label: '关于', icon: Info },
-  ]
 
   return (
     <div className="flex h-full w-full flex-col bg-cream text-ink">
@@ -896,7 +909,7 @@ export default function SettingsWindow() {
           <div className="max-w-4xl">
             <h2 className="mb-1 text-lg font-semibold">社区形象</h2>
             <div className="mb-4 text-xs text-ink-faint">
-              浏览、下载、上传社区形象 .petmod 文件，支持评分与评论。下载后自动安装到本地模组管理。
+              功能尚未完善，敬请期待后续版本。
             </div>
             <CommunityPanel />
           </div>
@@ -910,6 +923,7 @@ export default function SettingsWindow() {
               { key: 'autoStart', label: '开机自启' },
               { key: 'startMinimized', label: '启动时最小化' },
               { key: 'notifications', label: '通知' },
+              { key: 'showWindowBorder', label: '窗口边框预览（调试）' },
             ] as { key: ToggleKey; label: string }[]).map((item) => (
               <div key={item.key} className="flex items-center justify-between">
                 <span className="text-sm">{item.label}</span>
@@ -995,6 +1009,56 @@ export default function SettingsWindow() {
               <div className="text-sm text-ink-faint">版本：0.1.0</div>
               <div className="mt-2 text-sm text-ink-muted">
                 一款基于 Tauri v2 的桌面宠物应用，支持多角色养成、AI 对话、记忆系统与番茄钟。
+              </div>
+            </div>
+            <div className="rounded-xl bg-surface p-4">
+              <div className="mb-2 text-sm font-semibold text-tangerine-deep">关注我们</div>
+              <div className="flex flex-wrap gap-2 text-sm">
+                <a
+                  href="https://github.com/ReSerendipity/SpiritPal"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-lg bg-cream-deep px-3 py-1.5 text-ink-muted hover:bg-ink/5"
+                  title="GitHub 仓库"
+                >
+                  GitHub
+                </a>
+                <a
+                  href="https://www.xiaohongshu.com/user/profile/6a606c140000000010000801"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-lg bg-cream-deep px-3 py-1.5 text-ink-muted hover:bg-ink/5"
+                  title="小红书"
+                >
+                  小红书
+                </a>
+                <a
+                  href="https://v.douyin.com/eJgZfhanu4I/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-lg bg-cream-deep px-3 py-1.5 text-ink-muted hover:bg-ink/5"
+                  title="抖音"
+                >
+                  抖音
+                </a>
+                <a
+                  href="https://www.kuaishou.com/profile/3x2sk6hj48i2mhs"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-lg bg-cream-deep px-3 py-1.5 text-ink-muted hover:bg-ink/5"
+                  title="快手"
+                >
+                  快手
+                </a>
+                <a
+                  href="https://space.bilibili.com/499527473"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-lg bg-cream-deep px-3 py-1.5 text-ink-muted hover:bg-ink/5"
+                  title="B站"
+                >
+                  B站
+                </a>
               </div>
             </div>
             <div className="rounded-xl bg-surface p-4 text-sm text-ink-muted">

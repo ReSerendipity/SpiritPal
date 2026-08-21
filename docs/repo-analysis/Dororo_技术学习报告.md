@@ -925,3 +925,122 @@ C# 和 GDScript 的分工遵循**"不可替代性"原则**：
 
 > **报告结束**  
 > 本报告基于对项目全部文件的静态分析，包括 PCK 资源包解析、DLL 二进制字符串提取、Live2D 模型 JSON 解析、配置文件分析等。所有结论均基于可观测证据推导。
+
+---
+
+# 附录 A：GitHub 源码版交互实现深度分析（2026-08-19 补充）
+
+> 前置报告（2026-06-14）分析的是本地解包后的二进制版本，GDScript 为编译字节码，只能推测交互行为。
+> 本附录基于 GitHub 源码仓库 `MelanTech/Dororo`（`scripts/gd/interact/window.gd` / `move.gd` / `drag_inertia.gd` / `rand_move.gd`）逐行解读，
+> 重点回答两个问题：**「随意放大缩小」和「边缘吸附」到底怎么实现的**。
+
+## A.1 窗口缩放（window.gd）
+
+```
+STEP_SIZE = 0.05      # 每次滚轮步进
+MIN_SCALE = 0.1       # 缩放下限（可缩到原始 10%）
+BASE_WINDOW_WIDTH/HEIGHT = 启动时窗口尺寸（@onready 捕获）
+
+滚轮上/下 → increase/decrease_window_size()
+  → window_scale += 0.05（下限 0.1，无硬上限）
+  → update_window():
+      new_w = BASE_WINDOW_WIDTH × window_scale
+      new_h = BASE_WINDOW_HEIGHT × window_scale
+      root.set_size(new_w, new_h)
+      → 若启用停靠：重新执行 dock_to_edge()（缩放时保持吸附状态）
+      → window_scale 写入 config.ini（持久化，重启恢复）
+```
+
+要点：
+1. **线性比例缩放**：窗口 = 启动基准尺寸 × scale，无上限（仅下限 0.1）。
+2. **缩放后重新吸附**：缩放不会破坏停靠状态，缩放完窗口仍贴边。
+3. **配置持久化**：`window_scale` 存 config.ini `[window]` 段。
+
+## A.2 边缘吸附（window.gd dock_to_edge）— 本仓库最有价值的部分
+
+### 判定基准：窗口中心点 + 比例阈值
+
+```gdscript
+win_cpos   = win_pos - screen_pos + win_size / 2   # 窗口中心（相对屏幕）
+thresh_pixel = win_size.x × 0.3                     # 阈值 = 窗口宽度 × 30%（比例而非固定像素）
+```
+
+- 中心距左/上边界 < 阈值 → 吸附到左/上边（x=screen_pos.x 或 y=screen_pos.y）
+- 中心距右/下边界 < 阈值 → 吸附到右/下边（x = screen+win_w - win_size.x）
+- 四边都超阈值 → 解除停靠
+
+### 实时判定而非释放后吸附
+
+```gdscript
+# _input 的 InputEventMouseMotion 分支（拖拽中每帧执行）：
+if event is InputEventMouseMotion and dragging:
+    new_position = drag_start_window_pos + delta_pos
+    if enable_docking:
+        new_position = dock_to_edge(new_position, dock_thresh)   # ← 拖拽过程中实时吸
+    root.position = new_position
+```
+
+拖动时每帧都跑 dock_to_edge，窗口接近边缘时**提前"贴"上去**（QQ 宠物式磁吸感），
+不是松手后才 40px 吸附。
+
+### 防卡屏逻辑（关键细节）
+
+```gdscript
+if dragging and (dis_mouse_win_cpos > win_size.x or dis_mouse_win_cpos > win_size.y):
+    # 鼠标距窗口中心超过窗口尺寸 → 强制不停靠
+    # 防止窗口被"吸"在边缘后，鼠标在窗口外拉不回来
+    return win_pos   # 原样返回，跳过本次吸附
+```
+
+### 吸附时的视觉反馈（桌宠灵魂）
+
+| 停靠方向 | 模型旋转 | 模型偏移 | Body_group |
+|---------|---------|---------|-----------|
+| 左 | 85° | x = -380 | 0（藏身体） |
+| 右 | -95° | x = +380 | 0 |
+| 上 | 175° | y = -380 | 0 |
+| 下 | -5° | y = +380 | 0 |
+| 无 | 0° | (0,0) | 1 |
+
+吸附时角色**旋转 + 水平藏到屏幕外**（DOCK_POS_OFFSET=380），只露头；悬停时 `dock_pop()`
+把模型弹出 110px（"探头"），悬停计数 3 次→疑惑表情，6 次→生气表情。
+
+### dock_pop（停靠探头）
+
+- 停靠且未拖动时，鼠标悬停 → 模型从边缘弹出 110px 探头
+- 离开 → 收回；计数累计触发 Doubt / DockPopAngry 表情
+
+## A.3 拖拽（window.gd _input）
+
+- **左键**：记录按下时鼠标/窗口位置，移动时 `起点 + delta`，实时 dock_to_edge（A.2）
+- **中键**：打开/关闭工具栏
+- **滚轮**：缩放（A.1）
+- 拖拽状态与 MoveEffect 互斥（`window.dragging` / `docking` 锁）
+
+## A.4 拖拽惯性（drag_inertia.gd）— 注意：不是窗口惯性
+
+- 拖拽速度映射到 Live2D 参数 **ParamAngleX/Y**（身体倾斜方向）
+- `current_velocity.lerp(target_velocity, acceleration × delta)` 加速逼近，松手后向 0 减速回正
+- 效果：拖动时身体随速度倾斜、松手回正 —— 模型姿态惯性，与窗口本身无关
+
+## A.5 随机漫步（move.gd + rand_move.gd）
+
+- 每 10s（move_interval）随机选 usable_rect 内一点，tween 以 speed=250 平滑移动窗口
+- 移动中模型 flip_h 朝向目标、播放 run 动画；到达后 idle
+- move_lock 优先级：拖拽/停靠锁 > 随机移动（用户交互优先）
+
+## A.6 与 SpiritPal 现状对比 & 可借鉴清单
+
+| 能力 | Dororo 实现 | SpiritPal 现状 | 差距 / 可借鉴 |
+|------|------------|---------------|--------------|
+| 缩放 | 滚轮 0.05 步进，基准×scale，下限 0.1，缩放后保持停靠 | 滚轮 0.1 步进（0.5~3.0），窗口跟随精灵（v1.6 已实现，锚定中心X/底部Y） | ✅ 基本对齐；可选：缩放下限放宽、缩放时保持吸附 |
+| 吸附时机 | **拖动中实时判定**（每帧） | 释放后 snapToEdge（40px 固定阈值） | ⭐ 可升级：拖动中实时磁吸，体验更跟手 |
+| 吸附阈值 | **窗口宽 × 30% 比例阈值** | 固定 40px | ⭐ 窗口放大后 40px 相对过小，建议 `max(40, winW×0.2)` |
+| 防卡屏 | 鼠标距窗口中心 > 窗口尺寸 → 跳过吸附 | 无 | ⭐ 建议补（防止吸附后拖不出来） |
+| 吸附视觉反馈 | 旋转+藏身+探头动画+表情（Doubt/生气） | 无任何反馈 | ⭐⭐ 最大差距：桌宠灵魂所在，建议做（CSS transform 即可实现旋转/偏移，气泡可模拟表情） |
+| 配置持久化 | window_scale/pos 存 config.ini | petStore.position 已持久化，petSize 在 settingsStore | ✅ 已对齐 |
+| 拖拽惯性 | 模型姿态倾斜惯性（Live2D 参数） | 窗口旋转 + 速度衰减（usePetDragging） | ⚠️ 方向不同但效果等价，无需照搬 |
+
+**结论**：缩放能力 SpiritPal 已基本对齐；真正值得学习的是 Dororo 的**「拖动中实时吸附 + 比例阈值 + 防卡屏 + 吸附视觉反馈（旋转/探头/表情）」**这套交互闭环，SpiritPal 目前只实现了其中"释放后固定阈值吸附"的一小部分。
+
+> 附录基于 `MelanTech/Dororo` 源码（main 分支，Godot 4.4.1）解读，脚本路径：`scripts/gd/interact/{window,move,drag_inertia,rand_move}.gd`。

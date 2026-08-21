@@ -35,6 +35,8 @@ interface SpriteRendererProps {
   className?: string
   /** 自定义内联样式 */
   style?: CSSProperties
+  /** 当前帧号变化回调（供托盘图标渲染等外部取帧使用） */
+  onFrameChange?: (frame: number) => void
 }
 
 /**
@@ -87,11 +89,17 @@ export function SpriteRenderer({
   size = 1,
   className,
   style,
+  onFrameChange,
 }: SpriteRendererProps) {
   const character = getCharacter(characterId)
   const [frame, setFrame] = useState(0)
   const rafRef = useRef<number>(0)
   const lastTimeRef = useRef<number>(0)
+
+  // 帧号变化通知（托盘图标等外部取帧）
+  useEffect(() => {
+    onFrameChange?.(frame)
+  }, [frame, onFrameChange])
 
   // ===== 双缓冲视频 refs =====
   const videoRefA = useRef<HTMLVideoElement>(null)

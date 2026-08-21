@@ -115,6 +115,12 @@ export interface UpdateAvailablePayload {
 /** 全局快捷键切换事件 */
 export type GlobalShortcutTogglePayload = void
 
+/** 打开设置窗口指定标签页事件（如右键菜单「换装」直达外观/装饰页） */
+export interface OpenSettingsTabPayload {
+  /** 目标标签页 key（与 SettingsWindow 的 TABS 定义对齐） */
+  tab: string
+}
+
 // ============ 事件注册表（类型安全）============
 
 /**
@@ -149,6 +155,22 @@ export interface WindowEventMap {
   // 设置
   'open-settings': void
   'toggle-focus-mode': boolean
+  'open-settings-tab': OpenSettingsTabPayload
+
+  // 宠物状态同步（宠物窗口 → 独立状态面板窗口）
+  'pet-stats': PetStatsPayload
+}
+
+/** 宠物状态面板数据（宠物窗口周期同步到独立面板窗口） */
+export interface PetStatsPayload {
+  characterId: string
+  /** 角色显示名 */
+  name: string
+  level: number
+  mood: number
+  hunger: number
+  health: number
+  coins: number
 }
 
 // ============ 事件总线类 ============

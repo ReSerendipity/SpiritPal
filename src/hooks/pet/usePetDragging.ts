@@ -1,25 +1,40 @@
 /**
  * @file usePetDragging.ts
- * @description 宠物拖拽交互 Hook — 拖拽速度感知、惯性旋转、边缘吸附
+ * @description 宠物拖拽交互 Hook — 拖拽速度感知、惯性旋转、实时边缘磁吸
  *
- * 拖拽惯性 + 边缘吸附（参考同类桌宠交互设计，本项目独立实现）
+ * 拖拽惯性 + 实时边缘吸附（对齐 Dororo 桌面宠物交互，本项目独立实现）
  *
  * 特性：
  * - 3px 阈值区分点击和拖拽
  * - 拖拽速度感知（用于惯性旋转效果）
- * - 释放后自动边缘吸附（8方向磁力）
+ * - 拖动中实时边缘磁吸（窗口中心距屏幕边缘 < 阈值即贴边，参考 Dororo window.gd dock_to_edge）
+ * - 吸附阈值 = max(40px, 窗口宽度 × 20%)（比例阈值，窗口放大后依然跟手）
+ * - 防卡屏：鼠标距窗口中心超过窗口尺寸时跳过吸附（防止窗口吸住后拖不出来）
+ * - 暴露 dockDir 停靠方向，供 UI 层做"贴边藏身/探头"视觉反馈
  * - 拖拽时窗口点击穿透，释放后恢复
  * - 使用 ref + rAF 直接操作 DOM，避免拖拽时高频 setState
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getCurrentWindow, PhysicalPosition } from '@tauri-apps/api/window'
+import { getCurrentWindow, currentMonitor, PhysicalPosition } from '@tauri-apps/api/window'
 
-const WIN_W = 300
-const WIN_H = 400
 const MOTION_MAX_SPEED = 2.0
 const DRAG_DECELERATION = 0.15
 const MAX_ROTATION_DEG = 15
+
+/** 停靠方向（UI 层据此做贴边视觉反馈） */
+export type DockDir = 'left' | 'right' | 'top' | 'bottom' | null
+
+/** 吸附阈值比例：窗口宽度的 20%（参考 Dororo 的 30%，取 20% 更跟手） */
+const DOCK_THRESHOLD_RATIO = 0.2
+/** 吸附阈值保底（px，物理像素） */
+const DOCK_THRESHOLD_MIN_PX = 40
+
+interface DockResult {
+  x: number
+  y: number
+  dir: Exclude<DockDir, null>
+}
 
 export interface UsePetDraggingOptions {
   /** 精灵容器 ref（用于直接操作 transform） */
@@ -45,6 +60,8 @@ export interface UsePetDraggingReturn {
   dragging: boolean
   /** 拖拽次数（用于"晕晕的"检测） */
   dragCount: number
+  /** 当前停靠方向（窗口贴边时为 'left'/'right'/'top'/'bottom'，否则 null） */
+  dockDir: DockDir
   /** mousedown 处理器 */
   handleMouseDown: (e: React.MouseEvent) => void
   /** mousemove 处理器 */
@@ -65,6 +82,9 @@ export function usePetDragging(options: UsePetDraggingOptions): UsePetDraggingRe
   const [dragging, setDragging] = useState(false)
   // dragCount 同时维护 state（供渲染期读取）与 ref（供回调同步使用）
   const [dragCount, setDragCount] = useState(0)
+  // 停靠方向 state（供 UI 层视觉反馈）；ref 用于避免高频 setState（方向不变不重渲染）
+  const [dockDir, setDockDirState] = useState<DockDir>(null)
+  const dockDirRef = useRef<DockDir>(null)
 
   const dragVelocityRef = useRef({ x: 0, y: 0 })
   const dragLastPosRef = useRef<{ x: number; y: number; t: number } | null>(null)
@@ -77,6 +97,61 @@ export function usePetDragging(options: UsePetDraggingOptions): UsePetDraggingRe
   const interruptWalkRef = useRef<() => void>(() => {})
   // 打破 rAF 自引用：循环回调通过 ref 调用最新一次渲染的动画函数
   const animateDragVelocityRef = useRef<() => void>(() => {})
+
+  /** 仅方向变化时更新停靠状态（避免拖动中高频 setState） */
+  const setDockDir = useCallback((dir: DockDir) => {
+    if (dockDirRef.current !== dir) {
+      dockDirRef.current = dir
+      setDockDirState(dir)
+    }
+  }, [])
+
+  // 拖动环境缓存（拖动开始一次性获取；实时磁吸判定走同步函数，不做高频 IPC）
+  const dragEnvRef = useRef<{
+    winPhysW: number
+    winPhysH: number
+    screenX: number
+    screenY: number
+    screenW: number
+    screenH: number
+  } | null>(null)
+
+  /**
+   * 同步边缘磁吸判定（参考 Dororo window.gd dock_to_edge）：
+   * - 判定基准：窗口边缘距屏幕边缘（v1.9 修正：不能用窗口中心点判定——
+   *   窗口放大后中心距边永远大于阈值，吸附会整体失效）
+   * - 阈值：max(40px, 窗口宽 × 20%)（比例阈值，窗口放大后依然跟手）
+   * - 防卡屏：鼠标距窗口中心超过窗口尺寸 → 跳过吸附（防止窗口吸住后拖不出来）
+   * @returns 吸附后的窗口位置 + 停靠方向；不吸附返回 null
+   */
+  const dockToEdgeSync = useCallback((
+    x: number,
+    y: number,
+    mousePhysX?: number,
+    mousePhysY?: number,
+  ): DockResult | null => {
+    const env = dragEnvRef.current
+    if (!env) return null
+    const thresh = Math.max(DOCK_THRESHOLD_MIN_PX, Math.round(env.winPhysW * DOCK_THRESHOLD_RATIO))
+    const cx = x + env.winPhysW / 2
+    const cy = y + env.winPhysH / 2
+    // 防卡屏：鼠标距窗口中心超过窗口尺寸时不停靠，窗口可继续拖出屏幕
+    if (mousePhysX !== undefined && mousePhysY !== undefined) {
+      if (Math.abs(mousePhysX - cx) > env.winPhysW || Math.abs(mousePhysY - cy) > env.winPhysH) {
+        return null
+      }
+    }
+    // 窗口边缘距屏幕边缘 < 阈值 → 贴边吸附（左/右/上/下）
+    if (x - env.screenX < thresh) return { x: env.screenX, y, dir: 'left' }
+    if (env.screenX + env.screenW - (x + env.winPhysW) < thresh) {
+      return { x: env.screenX + env.screenW - env.winPhysW, y, dir: 'right' }
+    }
+    if (y - env.screenY < thresh) return { x, y: env.screenY, dir: 'top' }
+    if (env.screenY + env.screenH - (y + env.winPhysH) < thresh) {
+      return { x, y: env.screenY + env.screenH - env.winPhysH, dir: 'bottom' }
+    }
+    return null
+  }, [])
 
   // 拖拽速度感知动画循环
   const animateDragVelocity = useCallback(() => {
@@ -106,34 +181,50 @@ export function usePetDragging(options: UsePetDraggingOptions): UsePetDraggingRe
     animateDragVelocityRef.current = animateDragVelocity
   })
 
-  // 屏幕边缘吸附
+  // 屏幕边缘吸附（释放后兜底：与拖动中实时磁吸共用中心点 + 比例阈值逻辑）
   const snapToEdge = useCallback(async () => {
     try {
       const win = getCurrentWindow()
       const pos = await win.outerPosition()
-      const scaleFactor = await win.scaleFactor()
+      // 窗口尺寸动态获取：窗口会随宠物缩放（滚轮）而改变，不能用固定 300×400
+      const size = await win.outerSize()
+      const monitor = await currentMonitor()
+      if (!monitor) return
       const x = pos.x
       const y = pos.y
-      const snapDist = 40
-      const monitor = await (win as any).currentMonitor()
-      if (!monitor) return
+      const screenX = monitor.position?.x ?? 0
+      const screenY = monitor.position?.y ?? 0
       const screenW = monitor.size.width
       const screenH = monitor.size.height
-      const winPhysW = Math.round(WIN_W * scaleFactor)
-      const winPhysH = Math.round(WIN_H * scaleFactor)
+      const winPhysW = size.width
+      const winPhysH = size.height
+      const thresh = Math.max(DOCK_THRESHOLD_MIN_PX, Math.round(winPhysW * DOCK_THRESHOLD_RATIO))
       let newX = x
       let newY = y
-      if (x < snapDist) newX = 0
-      else if (x + winPhysW > screenW - snapDist) newX = screenW - winPhysW
-      if (y < snapDist) newY = 0
-      else if (y + winPhysH > screenH - snapDist) newY = screenH - winPhysH
+      let dir: Exclude<DockDir, null> | null = null
+      // 窗口边缘距屏幕边缘 < 阈值 → 贴边吸附（与 dockToEdgeSync 判定一致）
+      if (x - screenX < thresh) {
+        newX = screenX
+        dir = 'left'
+      } else if (screenX + screenW - (x + winPhysW) < thresh) {
+        newX = screenX + screenW - winPhysW
+        dir = 'right'
+      }
+      if (y - screenY < thresh) {
+        newY = screenY
+        dir = dir ?? 'top'
+      } else if (screenY + screenH - (y + winPhysH) < thresh) {
+        newY = screenY + screenH - winPhysH
+        dir = dir ?? 'bottom'
+      }
       if (newX !== x || newY !== y) {
         await win.setPosition(new PhysicalPosition(newX, newY))
       }
+      setDockDir(dir)
     } catch {
       // 忽略
     }
-  }, [])
+  }, [setDockDir])
 
   const startSnapPolling = useCallback(() => {
     let stableCount = 0
@@ -191,6 +282,35 @@ export function usePetDragging(options: UsePetDraggingOptions): UsePetDraggingRe
     }
   }, [])
 
+  // 窗口移动停止吸附：覆盖顶部拖拽条（Tauri 原生拖拽）/背景拖拽层等
+  // 不走 usePetDragging 实时磁吸的路径 —— 任何原因导致窗口移动停止（400ms 静止）
+  // 且靠近屏幕边缘时，自动吸附并更新 dockDir（拖宠物本体的实时磁吸已由 handleMouseMove 处理）
+  useEffect(() => {
+    const win = getCurrentWindow()
+    let movedAt = 0
+    let unlistenFn: (() => void) | null = null
+    let disposed = false
+    win.onMoved(() => {
+      if (!disposed) movedAt = Date.now()
+    }).then((fn) => {
+      if (disposed) fn()
+      else unlistenFn = fn
+    }).catch(() => {})
+    const timer = window.setInterval(() => {
+      if (disposed) return
+      // 鼠标拖拽中（usePetDragging）→ 跳过（实时磁吸已处理，避免拖拽停顿误吸）
+      if (downPosRef.current) return
+      if (movedAt === 0 || Date.now() - movedAt < 400) return
+      movedAt = Date.now() // 防止重复吸附抖动
+      void snapToEdge()
+    }, 200)
+    return () => {
+      disposed = true
+      unlistenFn?.()
+      window.clearInterval(timer)
+    }
+  }, [snapToEdge])
+
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button === 2) return
     downPosRef.current = { x: e.clientX, y: e.clientY, t: Date.now() }
@@ -227,8 +347,17 @@ export function usePetDragging(options: UsePetDraggingOptions): UsePetDraggingRe
     if (dragStartedRef.current && dragWinOriginRef.current) {
       const origin = dragWinOriginRef.current
       const sf = dragScaleRef.current
-      const newX = Math.round(origin.winX + (e.screenX * sf - origin.mouseX))
-      const newY = Math.round(origin.winY + (e.screenY * sf - origin.mouseY))
+      let newX = Math.round(origin.winX + (e.screenX * sf - origin.mouseX))
+      let newY = Math.round(origin.winY + (e.screenY * sf - origin.mouseY))
+      // 拖动中实时边缘磁吸（Dororo 同款：窗口接近边缘即"贴"上去，而非释放后吸附）
+      const docked = dockToEdgeSync(newX, newY, e.screenX * sf, e.screenY * sf)
+      if (docked) {
+        newX = docked.x
+        newY = docked.y
+        setDockDir(docked.dir)
+      } else {
+        setDockDir(null)
+      }
       getCurrentWindow().setPosition(new PhysicalPosition(newX, newY)).catch(() => {})
       return
     }
@@ -255,11 +384,27 @@ export function usePetDragging(options: UsePetDraggingOptions): UsePetDraggingRe
             mouseX: e.screenX * sf,
             mouseY: e.screenY * sf,
           }
+          // 缓存窗口/屏幕环境（实时磁吸判定用；拖拽中窗口尺寸不变，无需重复 IPC）
+          // 注意：currentMonitor 是 @tauri-apps/api/window 的顶层函数，Window 实例没有该方法
+          try {
+            const size = await win.outerSize()
+            const monitor = await currentMonitor()
+            dragEnvRef.current = monitor ? {
+              winPhysW: size.width,
+              winPhysH: size.height,
+              screenX: monitor.position.x,
+              screenY: monitor.position.y,
+              screenW: monitor.size.width,
+              screenH: monitor.size.height,
+            } : null
+          } catch {
+            dragEnvRef.current = null
+          }
         } catch { /* 忽略 */ }
         startSnapPolling()
       }
     }
-  }, [animateDragVelocity, startSnapPolling, onDragStart])
+  }, [animateDragVelocity, startSnapPolling, dockToEdgeSync, setDockDir, onDragStart])
 
   const handleMouseUp = useCallback(() => {
     if (snapCheckRef.current) {
@@ -302,6 +447,7 @@ export function usePetDragging(options: UsePetDraggingOptions): UsePetDraggingRe
   return {
     dragging,
     dragCount,
+    dockDir,
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,

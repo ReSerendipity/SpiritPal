@@ -87,6 +87,9 @@ const TICK_HEALTH_DECAY_HUNGRY = 5
 /** 饥饿阈值（低于此值时健康开始衰减） */
 const HUNGER_THRESHOLD = 20
 
+/** 喂食立即生效比例（剩余部分进入渐进恢复队列，每秒补剩余 1/10，参考 VPet 延迟恢复机制） */
+const FEED_IMMEDIATE_RATIO = 0.3
+
 // ============ 互动操作增益 ============
 
 /** 玩耍心情增益最小值 */
@@ -200,6 +203,79 @@ function makeUpdateCurrentStats(
 }
 
 /**
+ * 喂食渐进恢复（纯函数，可单测）
+ *
+ * 对单个角色统计执行一步恢复：hunger/mood 各补剩余 pending 的 1/10（至少 1 点），
+ * 返回更新后的字段（含新的 pending 值）。pending 为 0 时返回空对象。
+ *
+ * @param cur 当前角色统计（含 pendingHunger/pendingMood）
+ * @returns 需要合并到 stats 的增量字段
+ */
+export function applyPendingRecovery(cur: NurturingStats): Partial<NurturingStats> {
+  const pendH = cur.pendingHunger ?? 0
+  const pendM = cur.pendingMood ?? 0
+  if (pendH <= 0 && pendM <= 0) return {}
+  let hunger = cur.hunger
+  let mood = cur.mood
+  let pendingHunger = pendH
+  let pendingMood = pendM
+  if (pendH > 0) {
+    const step = Math.max(1, Math.round(pendH * 0.1))
+    const gain = Math.min(pendH, step)
+    hunger = clamp(hunger + gain, MIN_STAT, MAX_STAT)
+    pendingHunger = pendH - gain
+  }
+  if (pendM > 0) {
+    const step = Math.max(1, Math.round(pendM * 0.1))
+    const gain = Math.min(pendM, step)
+    mood = clamp(mood + gain, MIN_STAT, MAX_STAT)
+    pendingMood = pendM - gain
+  }
+  return { hunger, mood, pendingHunger, pendingMood }
+}
+
+/** 渐进恢复定时器 ID（模块级单例，所有角色 pending 清空后自动停止） */
+let pendingRecoveryTickerId: number | null = null
+
+/**
+ * 停止渐进恢复定时器（测试清理用；生产环境由自停逻辑管理，无需手动调用）
+ */
+export function stopPendingRecoveryTicker(): void {
+  if (pendingRecoveryTickerId !== null) {
+    clearInterval(pendingRecoveryTickerId)
+    pendingRecoveryTickerId = null
+  }
+}
+
+/**
+ * 启动喂食渐进恢复定时器（每秒对全部角色执行一步恢复）
+ * - 幂等：已在运行时不重复启动
+ * - 自停：所有角色 pending 均清空后自动停止并释放
+ * - 供 feed() 在产生 pending 时调用；残留 pending 也会在下次 feed 时被继续消化
+ */
+function ensurePendingRecoveryTicker(): void {
+  if (pendingRecoveryTickerId !== null) return
+  pendingRecoveryTickerId = window.setInterval(() => {
+    const { stats } = usePetStore.getState()
+    const nextStats: Record<string, NurturingStats> = {}
+    let anyPending = false
+    for (const [id, cur] of Object.entries(stats)) {
+      if ((cur.pendingHunger ?? 0) <= 0 && (cur.pendingMood ?? 0) <= 0) continue
+      anyPending = true
+      nextStats[id] = { ...cur, ...applyPendingRecovery(cur) }
+    }
+    if (!anyPending) {
+      if (pendingRecoveryTickerId !== null) {
+        clearInterval(pendingRecoveryTickerId)
+        pendingRecoveryTickerId = null
+      }
+      return
+    }
+    usePetStore.setState((s) => ({ stats: { ...s.stats, ...nextStats } }))
+  }, 1000)
+}
+
+/**
  * 计算离线衰减后的数值（纯函数，无副作用）
  * @param elapsed 离线时长（毫秒）
  * @param cur 当前养成数据
@@ -246,6 +322,8 @@ interface PetStoreState {
   inventory: InventoryItem[]
   /** 宠物精灵在窗口内的位置（跨角色共享，持久化） */
   position: { x: number; y: number } | null
+  /** 状态面板在宠物窗口内的位置（跨角色共享，持久化；null = 使用默认右上角停靠） */
+  panelPosition: { x: number; y: number } | null
   /** 每个角色独立持有的已穿戴装饰品 */
   wornDecorations: Record<string, WornDecoration[]>
   /** 背景自定义配置 */
@@ -268,6 +346,12 @@ interface PetStoreState {
    * @param pos 位置坐标 { x, y }
    */
   setPosition: (pos: { x: number; y: number }) => void
+
+  /**
+   * 保存状态面板在宠物窗口内的位置
+   * @param pos 位置坐标 { x, y }
+   */
+  setPanelPosition: (pos: { x: number; y: number }) => void
 
   /**
    * 增加经验值（自动处理升级逻辑）
@@ -411,6 +495,7 @@ export const usePetStore = create<PetStoreState>()(
       currentCharacterId: getDefaultCharacter().id,
       inventory: [],
       position: null,
+      panelPosition: null,
       wornDecorations: {},
       background: { type: 'none' },
 
@@ -447,6 +532,10 @@ export const usePetStore = create<PetStoreState>()(
 
       setPosition: (pos) => {
         set({ position: pos })
+      },
+
+      setPanelPosition: (pos) => {
+        set({ panelPosition: pos })
       },
 
       addExp: (amount) => {
@@ -497,11 +586,20 @@ export const usePetStore = create<PetStoreState>()(
         const multiplier = getCharacterMultiplier(currentCharacterId, food.id)
         const moodGain = Math.round((food.moodRestore ?? Math.floor(Math.random() * 8) + 2) * multiplier)
         const hungerGain = Math.round((food.hungerRestore ?? 0) * multiplier)
+        // VPet 式延迟恢复：立即生效 30%，剩余部分进入渐进队列（每秒补剩余 1/10）
+        const targetHunger = clamp(cur.hunger + hungerGain, MIN_STAT, MAX_STAT)
+        const targetMood = clamp(cur.mood + moodGain, MIN_STAT, MAX_STAT)
+        const newHunger = clamp(cur.hunger + Math.round(hungerGain * FEED_IMMEDIATE_RATIO), MIN_STAT, MAX_STAT)
+        const newMood = clamp(cur.mood + Math.round(moodGain * FEED_IMMEDIATE_RATIO), MIN_STAT, MAX_STAT)
+        const pendingHunger = Math.max(0, targetHunger - newHunger)
+        const pendingMood = Math.max(0, targetMood - newMood)
         const updateCurrentStats = makeUpdateCurrentStats(currentCharacterId, set)
         updateCurrentStats(
           (c) => ({
-            hunger: clamp(c.hunger + hungerGain, MIN_STAT, MAX_STAT),
-            mood: clamp(c.mood + moodGain, MIN_STAT, MAX_STAT),
+            hunger: newHunger,
+            mood: newMood,
+            pendingHunger: (c.pendingHunger ?? 0) + pendingHunger,
+            pendingMood: (c.pendingMood ?? 0) + pendingMood,
           }),
           (state) => ({ sharedCoins: state.sharedCoins - food.price }),
         )
@@ -509,6 +607,10 @@ export const usePetStore = create<PetStoreState>()(
           getBuffManager(currentCharacterId).applyBuff(food.buff)
         }
         get().addExp(FEED_EXP_GAIN)
+        // 启动渐进恢复定时器（每秒补 pending，补完自动停止）
+        if (pendingHunger > 0 || pendingMood > 0) {
+          ensurePendingRecoveryTicker()
+        }
         // 注意：气泡由 UI 层（PetWindow.handleFeed）统一显示，避免双重触发
       },
 

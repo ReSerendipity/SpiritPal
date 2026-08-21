@@ -32,6 +32,7 @@ import {
   Check,
   Camera,
   Footprints,
+  Frame,
 } from 'lucide-react'
 import { getAllCharacters, getCharacter } from '../lib/characters'
 import { getFoodsForCharacter } from '../lib/items'
@@ -73,6 +74,10 @@ interface PetContextMenuProps {
   onDialogue: () => void
   /** 退出回调 */
   onExit: () => void
+  /** 切换窗口边框预览回调（调试用） */
+  onToggleBorder?: () => void
+  /** 窗口边框预览当前是否开启 */
+  borderVisible?: boolean
 }
 
 type SubKey = 'feed' | 'pomodoro' | 'switch' | null
@@ -106,6 +111,8 @@ export function PetContextMenu(props: PetContextMenuProps) {
     onSwitchCharacter,
     onDialogue,
     onExit,
+    onToggleBorder,
+    borderVisible,
   } = props
 
   const [sub, setSub] = useState<SubKey>(null)
@@ -116,20 +123,24 @@ export function PetContextMenu(props: PetContextMenuProps) {
   const foods = getFoodsForCharacter(currentCharacterId)
 
   // 边界自适应：确保菜单不超出窗口可视区域（纯派生值，x/y 变化时重算）
+  // 注意：maxH 必须 ≤ 窗口视口高度，否则菜单容器底部会被窗口物理裁剪（宠物窗口最小 200px 高）
+  // maxW 同理：宠物缩小时窗口宽度可能 < 菜单默认宽（192），必须随窗口收窄，否则菜单溢出被裁剪
   const adjustedPos = useMemo(() => {
     const winW = window.innerWidth
     const winH = window.innerHeight
+    const maxW = Math.min(MENU_W, winW - MARGIN * 2)
+    const maxH = Math.min(MENU_H_MAX, winH - MARGIN * 2)
     let mx = x
     let my = y
     // 右边界检测
-    if (mx + MENU_W + MARGIN > winW) {
-      mx = Math.max(MARGIN, winW - MENU_W - MARGIN)
+    if (mx + maxW + MARGIN > winW) {
+      mx = Math.max(MARGIN, winW - maxW - MARGIN)
     }
     // 下边界检测
-    if (my + MENU_H_MAX + MARGIN > winH) {
-      my = Math.max(MARGIN, winH - MENU_H_MAX - MARGIN)
+    if (my + maxH + MARGIN > winH) {
+      my = Math.max(MARGIN, winH - maxH - MARGIN)
     }
-    return { x: mx, y: my }
+    return { x: mx, y: my, maxW, maxH }
   }, [x, y])
 
   // 点击外部关闭（延迟绑定避免立即触发）
@@ -156,20 +167,24 @@ export function PetContextMenu(props: PetContextMenuProps) {
 
   return (
     <>
-      {/* 透明遮罩 */}
-      <div className="fixed inset-0 z-40" />
+      {/* 透明遮罩（拦截点击外部关闭菜单；class 供像素穿透白名单保持交互） */}
+      <div className="spiritpal-menu-overlay fixed inset-0 z-40" />
       <div
         ref={menuRef}
         data-spiritpal-menu
-        className="fixed z-50 w-48 max-h-[420px] overflow-y-auto rounded-xl border border-ink/10 bg-surface/95 p-1.5 text-ink shadow-warm"
+        className="fixed z-50 w-48 overflow-y-auto rounded-xl border border-ink/10 bg-surface/95 p-1.5 text-ink shadow-warm"
         style={{
           left: adjustedPos.x,
           top: adjustedPos.y,
+          maxWidth: adjustedPos.maxW,
+          maxHeight: adjustedPos.maxH,
           scrollbarWidth: 'thin',
           scrollbarColor: 'rgba(74,54,38,0.25) transparent',
         }}
         onMouseDown={(e) => e.stopPropagation()}
         onContextMenu={(e) => e.stopPropagation()}
+        // 阻止滚轮冒泡到宠物窗口根节点的缩放处理器（否则菜单永远滚不动）
+        onWheel={(e) => e.stopPropagation()}
       >
         {/* 聊天 */}
         <button className={itemBase} onClick={() => { onChat(); onClose() }}>
@@ -257,6 +272,13 @@ export function PetContextMenu(props: PetContextMenuProps) {
         <button className={itemBase} onClick={() => { onSettings(); onClose() }}>
           <Settings size={15} style={{ color: themeColor }} /> 设置
         </button>
+
+        {/* 窗口边框预览（调试用） */}
+        {onToggleBorder && (
+          <button className={itemBase} onClick={() => { onToggleBorder(); onClose() }}>
+            <Frame size={15} style={{ color: themeColor }} /> 窗口边框{borderVisible ? '：开' : '：关'}
+          </button>
+        )}
 
         {/* 桌面漫游 */}
         <button className={itemBase} onClick={() => { onRoam?.(); onClose() }}>

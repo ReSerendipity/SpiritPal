@@ -23,6 +23,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   language: 'zh',
   petForm: 'window',
   currentCharacterId: getDefaultCharacter().id,
+  showWindowBorder: false,
 }
 
 /**

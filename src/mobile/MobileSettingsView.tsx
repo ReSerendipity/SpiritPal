@@ -437,6 +437,51 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
             <li>✓ 推送通知</li>
           </ul>
         </div>
+        <div className={`mx-auto mt-4 max-w-xs rounded-xl ${cardBgClass} border ${cardBorderClass} p-4 text-left`}>
+          <h3 className="mb-2 text-sm font-medium">关注我们</h3>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <a
+              href="https://github.com/ReSerendipity/SpiritPal"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
+            >
+              GitHub
+            </a>
+            <a
+              href="https://www.xiaohongshu.com/user/profile/6a606c140000000010000801"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
+            >
+              小红书
+            </a>
+            <a
+              href="https://v.douyin.com/eJgZfhanu4I/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
+            >
+              抖音
+            </a>
+            <a
+              href="https://www.kuaishou.com/profile/3x2sk6hj48i2mhs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
+            >
+              快手
+            </a>
+            <a
+              href="https://space.bilibili.com/499527473"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
+            >
+              B站
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   )
