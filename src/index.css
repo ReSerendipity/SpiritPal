@@ -85,19 +85,6 @@ body { background: transparent; }
   letter-spacing: 0.02em;
 }
 
-/* ===== 桌面漫游走动循环（QQ 宠物式）===== */
-.spiritpal-roam-pet {
-  animation: spiritpal-roam 16s linear infinite;
-}
-
-@keyframes spiritpal-roam {
-  0%   { left: 4%; transform: scaleX(1); }
-  47%  { left: 84%; transform: scaleX(1); }
-  50%  { left: 84%; transform: scaleX(-1); }
-  97%  { left: 4%; transform: scaleX(-1); }
-  100% { left: 4%; transform: scaleX(1); }
-}
-
 /* ===== 音乐感知摆动（F5.2）— 宠物跟随节奏轻微摆动 ===== */
 @keyframes spiritpal-music-sway {
   0%, 100% { transform: rotate(-3deg); }

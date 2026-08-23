@@ -17,6 +17,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getCurrentWindow, currentMonitor, PhysicalPosition } from '@tauri-apps/api/window'
+import { useSettingsStore } from '../../stores/settingsStore'
 
 const MOTION_MAX_SPEED = 2.0
 const DRAG_DECELERATION = 0.15
@@ -130,6 +131,8 @@ export function usePetDragging(options: UsePetDraggingOptions): UsePetDraggingRe
     mousePhysX?: number,
     mousePhysY?: number,
   ): DockResult | null => {
+    // 边缘吸附开关：关闭时实时磁吸不生效（不贴边、无 dockDir）
+    if (!useSettingsStore.getState().edgeSnapEnabled) return null
     const env = dragEnvRef.current
     if (!env) return null
     const thresh = Math.max(DOCK_THRESHOLD_MIN_PX, Math.round(env.winPhysW * DOCK_THRESHOLD_RATIO))
@@ -184,6 +187,11 @@ export function usePetDragging(options: UsePetDraggingOptions): UsePetDraggingRe
   // 屏幕边缘吸附（释放后兜底：与拖动中实时磁吸共用中心点 + 比例阈值逻辑）
   const snapToEdge = useCallback(async () => {
     try {
+      // 边缘吸附开关：关闭时释放/移动停止均不吸附，dockDir 复位
+      if (!useSettingsStore.getState().edgeSnapEnabled) {
+        setDockDir(null)
+        return
+      }
       const win = getCurrentWindow()
       const pos = await win.outerPosition()
       // 窗口尺寸动态获取：窗口会随宠物缩放（滚轮）而改变，不能用固定 300×400

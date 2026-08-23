@@ -25,6 +25,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   currentCharacterId: getDefaultCharacter().id,
   showWindowBorder: false,
   statusCardMode: 'off',
+  edgeSnapEnabled: true,
 }
 
 /**
