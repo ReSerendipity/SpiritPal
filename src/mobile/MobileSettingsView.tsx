@@ -16,31 +16,24 @@
 import { useState } from 'react'
 import {
   Sun, Moon, Monitor, Bell, RefreshCw, Cloud, Wifi,
-  Type, Info, ChevronRight,
+  Type, Info, ChevronRight, Brain, Sparkles,
 } from 'lucide-react'
 import { useSettingsStore } from '../stores/settingsStore'
 import { usePetStore } from '../stores/petStore'
 import { themeManager, type ThemeMode } from '../lib/themeManager'
 import { syncManager, type SyncConfig } from '../lib/syncManager'
 import { getAllCharacters } from '../lib/characters'
-
-/**
- * 移动端设置视图组件属性
- */
-interface MobileSettingsViewProps {
-  /** 是否为深色主题 */
-  isDark: boolean
-}
+import { MobileMemoryView } from './MobileMemoryView'
+import { MobilePersonalityView } from './MobilePersonalityView'
 
 /** 设置页面分区类型 */
-type SettingsSection = 'main' | 'theme' | 'sync' | 'about'
+type SettingsSection = 'main' | 'theme' | 'sync' | 'memory' | 'personality' | 'about'
 
 /**
  * 移动端设置视图组件
- * @param props - 组件属性
  * @returns 设置界面 JSX 元素
  */
-export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
+export function MobileSettingsView() {
   const settings = useSettingsStore()
   const updateSettings = useSettingsStore((s) => s.updateSettings)
   const setLanguage = useSettingsStore((s) => s.setLanguage)
@@ -52,13 +45,13 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
   const [themeMode, setThemeMode] = useState<ThemeMode>(themeManager.getMode())
   const [syncConfig, setSyncConfig] = useState<SyncConfig>(syncManager.getConfig())
 
-  // 主题样式
-  const bgClass = isDark ? 'bg-gray-900' : 'bg-gray-50'
-  const textClass = isDark ? 'text-gray-100' : 'text-gray-900'
-  const cardBgClass = isDark ? 'bg-gray-800' : 'bg-white'
-  const cardBorderClass = isDark ? 'border-gray-700' : 'border-gray-200'
-  const subtitleClass = isDark ? 'text-gray-400' : 'text-gray-500'
-  const chevronClass = isDark ? 'text-gray-600' : 'text-gray-400'
+  // 主题样式（与桌面端 SettingsWindow 一致的语义 Token 配色）
+  const bgClass = 'bg-cream'
+  const textClass = 'text-ink'
+  const cardBgClass = 'bg-surface'
+  const cardBorderClass = 'border-ink/10'
+  const subtitleClass = 'text-ink-muted'
+  const chevronClass = 'text-ink-faint'
 
   /**
    * 设置主题模式
@@ -104,9 +97,8 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
         <div className="flex-1 overflow-y-auto px-3 py-3">
           {/* 主题 */}
           <SettingItem
-            isDark={isDark}
             icon={themeMode === 'dark' ? Moon : Sun}
-            iconBg="bg-indigo-500"
+            iconBg="bg-tangerine"
             title="外观主题"
             subtitle={
               themeMode === 'system' ? '跟随系统' : themeMode === 'dark' ? '深色' : '浅色'
@@ -121,9 +113,9 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
           {/* 宠物大小 */}
           <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
             <div className="mb-2 flex items-center gap-2">
-              <Type size={16} className="text-gray-400" />
+              <Type size={16} className="text-ink-faint" />
               <span className="text-sm font-medium">宠物大小</span>
-              <span className="ml-auto text-xs text-gray-500">{settings.petSize.toFixed(1)}x</span>
+              <span className="ml-auto text-xs text-ink-muted">{settings.petSize.toFixed(1)}x</span>
             </div>
             <input
               type="range"
@@ -132,21 +124,21 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
               step={0.1}
               value={settings.petSize}
               onChange={(e) => updateSettings({ petSize: parseFloat(e.target.value) })}
-              className="w-full accent-indigo-500"
+              className="w-full accent-tangerine"
             />
           </div>
 
           {/* 通知开关 */}
           <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
             <div className="flex items-center gap-2">
-              <Bell size={16} className="text-gray-400" />
+              <Bell size={16} className="text-ink-faint" />
               <span className="text-sm font-medium">推送通知</span>
               <label className="ml-auto flex items-center">
                 <input
                   type="checkbox"
                   checked={settings.notifications}
                   onChange={(e) => updateSettings({ notifications: e.target.checked })}
-                  className="h-4 w-4 accent-indigo-500"
+                  className="h-4 w-4 accent-tangerine"
                 />
               </label>
             </div>
@@ -154,9 +146,8 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
 
           {/* 数据同步 */}
           <SettingItem
-            isDark={isDark}
             icon={syncConfig.transport === 'cloud' ? Cloud : Wifi}
-            iconBg="bg-blue-500"
+            iconBg="bg-tangerine-deep"
             title="数据同步"
             subtitle={syncConfig.enabled ? `已启用 · ${syncConfig.transport === 'cloud' ? '云端' : '局域网'}` : '未启用'}
             chevronClass={chevronClass}
@@ -176,10 +167,8 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
                   onClick={() => handleSwitchCharacter(char.id)}
                   className={`rounded-lg px-3 py-1.5 text-xs ${
                     settings.currentCharacterId === char.id
-                      ? 'bg-indigo-500 text-white'
-                      : isDark
-                        ? 'bg-gray-700 text-gray-300'
-                        : 'bg-gray-200 text-gray-700'
+                      ? 'bg-tangerine text-white'
+                      : 'bg-cream-deep text-ink-muted'
                   }`}
                 >
                   {char.displayName}
@@ -204,10 +193,8 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
                   onClick={() => setLanguage(lang.id)}
                   className={`rounded-lg px-3 py-1.5 text-xs ${
                     settings.language === lang.id
-                      ? 'bg-indigo-500 text-white'
-                      : isDark
-                        ? 'bg-gray-700 text-gray-300'
-                        : 'bg-gray-200 text-gray-700'
+                      ? 'bg-tangerine text-white'
+                      : 'bg-cream-deep text-ink-muted'
                   }`}
                 >
                   {lang.label}
@@ -216,11 +203,36 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
             </div>
           </div>
 
+          {/* 记忆可视化 */}
+          <SettingItem
+            icon={Brain}
+            iconBg="bg-tangerine"
+            title="记忆"
+            subtitle="查看三层记忆与可视化分析"
+            chevronClass={chevronClass}
+            cardBgClass={cardBgClass}
+            cardBorderClass={cardBorderClass}
+            subtitleClass={subtitleClass}
+            onClick={() => setSection('memory')}
+          />
+
+          {/* 性格编辑 */}
+          <SettingItem
+            icon={Sparkles}
+            iconBg="bg-tangerine-deep"
+            title="性格"
+            subtitle="编辑五维性格、说话风格与作息"
+            chevronClass={chevronClass}
+            cardBgClass={cardBgClass}
+            cardBorderClass={cardBorderClass}
+            subtitleClass={subtitleClass}
+            onClick={() => setSection('personality')}
+          />
+
           {/* 关于 */}
           <SettingItem
-            isDark={isDark}
             icon={Info}
-            iconBg="bg-gray-500"
+            iconBg="bg-ink/50"
             title="关于"
             subtitle="SpiritPal v0.1.0"
             chevronClass={chevronClass}
@@ -244,7 +256,7 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
     return (
       <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
         <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
-          <button onClick={() => setSection('main')} className="text-sm text-indigo-500">
+          <button onClick={() => setSection('main')} className="text-sm text-tangerine">
             ← 返回
           </button>
           <h2 className="text-base font-semibold">外观主题</h2>
@@ -259,12 +271,12 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
                 onClick={() => handleSetTheme(opt.id)}
                 className={`mb-2 flex w-full items-center gap-3 rounded-xl border p-3 transition-colors ${
                   isActive
-                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
+                    ? 'border-tangerine bg-tangerine-soft'
                     : `${cardBgClass} ${cardBorderClass}`
                 }`}
               >
                 <div className={`flex h-9 w-9 items-center justify-center rounded-full ${
-                  isActive ? 'bg-indigo-500 text-white' : isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-500'
+                  isActive ? 'bg-tangerine text-white' : 'bg-ink/5 text-ink-faint'
                 }`}>
                   <Icon size={16} />
                 </div>
@@ -273,7 +285,7 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
                   <div className={`text-xs ${subtitleClass}`}>{opt.desc}</div>
                 </div>
                 {isActive && (
-                  <div className="h-2 w-2 rounded-full bg-indigo-500" />
+                  <div className="h-2 w-2 rounded-full bg-tangerine" />
                 )}
               </button>
             )
@@ -288,7 +300,7 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
     return (
       <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
         <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
-          <button onClick={() => setSection('main')} className="text-sm text-indigo-500">
+          <button onClick={() => setSection('main')} className="text-sm text-tangerine">
             ← 返回
           </button>
           <h2 className="text-base font-semibold">数据同步</h2>
@@ -297,14 +309,14 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
           {/* 启用同步 */}
           <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
             <div className="flex items-center gap-2">
-              <RefreshCw size={16} className="text-gray-400" />
+              <RefreshCw size={16} className="text-ink-faint" />
               <span className="text-sm font-medium">启用同步</span>
               <label className="ml-auto flex items-center">
                 <input
                   type="checkbox"
                   checked={syncConfig.enabled}
                   onChange={(e) => handleUpdateSync({ enabled: e.target.checked })}
-                  className="h-4 w-4 accent-indigo-500"
+                  className="h-4 w-4 accent-tangerine"
                 />
               </label>
             </div>
@@ -321,8 +333,8 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
                 onClick={() => handleUpdateSync({ transport: 'cloud' })}
                 className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-2 text-xs ${
                   syncConfig.transport === 'cloud'
-                    ? 'bg-indigo-500 text-white'
-                    : isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'
+                    ? 'bg-tangerine text-white'
+                    : 'bg-cream-deep text-ink-muted'
                 }`}
               >
                 <Cloud size={14} />
@@ -332,8 +344,8 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
                 onClick={() => handleUpdateSync({ transport: 'lan' })}
                 className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-2 text-xs ${
                   syncConfig.transport === 'lan'
-                    ? 'bg-indigo-500 text-white'
-                    : isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'
+                    ? 'bg-tangerine text-white'
+                    : 'bg-cream-deep text-ink-muted'
                 }`}
               >
                 <Wifi size={14} />
@@ -346,7 +358,7 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
           <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
             <div className="mb-2 flex items-center justify-between">
               <span className="text-sm font-medium">自动同步间隔</span>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-ink-muted">
                 {syncConfig.autoSyncInterval === 0 ? '禁用' : `${syncConfig.autoSyncInterval / 60000} 分钟`}
               </span>
             </div>
@@ -362,8 +374,8 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
                   onClick={() => handleUpdateSync({ autoSyncInterval: opt.val })}
                   className={`flex-1 rounded-lg py-1.5 text-xs ${
                     syncConfig.autoSyncInterval === opt.val
-                      ? 'bg-indigo-500 text-white'
-                      : isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'
+                      ? 'bg-tangerine text-white'
+                      : 'bg-cream-deep text-ink-muted'
                   }`}
                 >
                   {opt.label}
@@ -378,8 +390,8 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
             disabled={!syncConfig.enabled}
             className={`mb-3 w-full rounded-xl py-3 text-sm font-medium ${
               syncConfig.enabled
-                ? 'bg-indigo-500 text-white'
-                : 'bg-gray-300 text-gray-500 dark:bg-gray-700'
+                ? 'bg-tangerine text-white'
+                : 'bg-ink/10 text-ink-faint'
             }`}
           >
             立即同步
@@ -388,7 +400,7 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
           {/* 同步信息 */}
           <div className={`rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
             <h3 className="mb-2 text-sm font-medium">同步信息</h3>
-            <div className="space-y-1 text-xs text-gray-500">
+            <div className="space-y-1 text-xs text-ink-muted">
               <div className="flex justify-between">
                 <span>当前状态</span>
                 <span>{syncManager.getStatus()}</span>
@@ -408,11 +420,45 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
     )
   }
 
+  // ===== 记忆 =====
+  if (section === 'memory') {
+    return (
+      <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
+        <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
+          <button onClick={() => setSection('main')} className="text-sm text-tangerine">
+            ← 返回
+          </button>
+          <h2 className="text-base font-semibold">记忆</h2>
+        </header>
+        <div className="flex-1 overflow-hidden">
+          <MobileMemoryView />
+        </div>
+      </div>
+    )
+  }
+
+  // ===== 性格 =====
+  if (section === 'personality') {
+    return (
+      <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
+        <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
+          <button onClick={() => setSection('main')} className="text-sm text-tangerine">
+            ← 返回
+          </button>
+          <h2 className="text-base font-semibold">性格</h2>
+        </header>
+        <div className="flex-1 overflow-hidden">
+          <MobilePersonalityView />
+        </div>
+      </div>
+    )
+  }
+
   // ===== 关于 =====
   return (
     <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
       <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
-        <button onClick={() => setSection('main')} className="text-sm text-indigo-500">
+        <button onClick={() => setSection('main')} className="text-sm text-tangerine">
           ← 返回
         </button>
         <h2 className="text-base font-semibold">关于</h2>
@@ -426,7 +472,7 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
         </p>
         <div className={`mx-auto mt-6 max-w-xs rounded-xl ${cardBgClass} border ${cardBorderClass} p-4 text-left`}>
           <h3 className="mb-2 text-sm font-medium">功能特性</h3>
-          <ul className="space-y-1 text-xs text-gray-500">
+          <ul className="space-y-1 text-xs text-ink-muted">
             <li>✓ 全屏 Live2D 宠物渲染</li>
             <li>✓ 触摸手势交互（点击/拖拽/双击/长按/捏合）</li>
             <li>✓ 深浅色主题切换</li>
@@ -492,8 +538,6 @@ export function MobileSettingsView({ isDark }: MobileSettingsViewProps) {
  * 通用设置项组件属性
  */
 interface SettingItemProps {
-  /** 是否为深色主题 */
-  isDark: boolean
   /** 图标组件 */
   icon: typeof Sun
   /** 图标背景色类名 */

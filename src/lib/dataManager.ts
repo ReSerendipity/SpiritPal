@@ -37,6 +37,8 @@ import { getModManager } from './modManager'
 import { CHARACTERS } from './characters'
 import { getSetting, setSetting, getDb } from './db'
 import type { AppSettings, AIConfig, NurturingStats, InventoryItem } from './types'
+import { maskPIIInObject } from './piiMasking'
+import { encryptExportData, type EncryptedPayload } from './encryptedExport'
 
 // ============ 导出数据结构 ============
 
@@ -126,7 +128,8 @@ export class DataManager {
 
   // ============ 导出全部数据 ============
 
-  async exportAll(): Promise<string> {
+  async exportAll(opts?: { maskPii?: boolean }): Promise<string> {
+    const maskPii = opts?.maskPii ?? true
     const data: AppExportData = {
       version: EXPORT_VERSION,
       exportedAt: new Date().toISOString(),
@@ -218,7 +221,32 @@ export class DataManager {
       console.warn('[DataManager] 导出模组数据失败:', e)
     }
 
+    // PII 掩码（GDPR 默认打码，减少明文导出敏感信息）
+    if (maskPii) {
+      data.exportedItems?.push('个人信息（邮箱/手机号/身份证）已打码')
+      return JSON.stringify(maskPIIInObject(data), null, 2)
+    }
+    data.exportedItems?.push('未打码（明文导出）')
+
     return JSON.stringify(data, null, 2)
+  }
+
+  // 导出为加密文件（AES-256-GCM）
+  async exportEncryptedFile(password: string): Promise<EncryptedPayload> {
+    const plain = await this.exportAll({ maskPii: false })
+    return encryptExportData(plain, password)
+  }
+
+  // 触发加密 .spiritpal 文件下载
+  async downloadEncryptedExport(password: string): Promise<void> {
+    const payload = await this.exportEncryptedFile(password)
+    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `spiritpal-export-${Date.now()}.spiritpal`
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
   // 导出为文件
@@ -369,6 +397,13 @@ export class DataManager {
       await db.execute("DELETE FROM settings WHERE key LIKE 'spiritpal:%'")
       // 清空 schedules 表
       await db.execute('DELETE FROM schedules')
+      // GDPR：清空实体图相关表（entityGraph 接入后新增；表可能尚未创建，单独容错）
+      try {
+        await db.execute('DELETE FROM memory_entity_edges')
+        await db.execute('DELETE FROM memory_entities')
+      } catch {
+        // 实体图表尚未创建时忽略
+      }
       console.info('[DataManager] SQLite 数据已清除')
     } catch (e) {
       console.error('[DataManager] SQLite 清理失败:', e)

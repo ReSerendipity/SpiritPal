@@ -3,6 +3,13 @@
  *
  * @fileoverview 运行时动态加载与切换Live2D模型，支持自动参数映射与预览
  *
+ * ⚠️ 弃用说明（2026-08-21）：
+ * 本模块为「框架桩」——`discoverModelMeta`/`scanAndMapParams` 仍是 mock/空实现，
+ * 且依赖 Node `events`（`import { EventEmitter } from 'events'`），在 Webview 渲染端
+ * 不可靠。其唯一有真实价值的能力（模型加载后参数自动映射）已由 `paramAutoMapper` +
+ * `Live2DRenderer`（用真实 `internalModel.getModelParameterIds()` 扫描）取代。
+ * 故本模块标记为 **已取代/弃用**，不建议继续接线；如需模型切换请走 `Live2DRenderer`。
+ *
  * 主要模块：
  * - ModelLoadState/ModelMeta/ModelValidationResult: 模型状态与元信息类型
  * - ModelHotLoader: 模型热加载器主类
@@ -13,15 +20,15 @@
  * - renderAdapter.ts: 渲染适配器接口
  *
  * 核心接口：
- * - loadModel(): 加载Live2D模型文件
+ * - loadModel(): 加载Live2D模型文件（框架/待实现）
  * - switchModel(): 运行时切换当前模型
- * - previewModel(): 预览模式加载（不应用为当前模型）
+ * - previewModel(): 预览模式加载
  * - validateModel(): 模型文件完整性校验
  * - getAvailableModels(): 获取可用模型列表
  *
- * 核心功能（参考Live2DPet）：
+ * 核心功能（参考Live2DPet，当前为框架，待接真实 SDK）：
  * 1. 模型导入：运行时导入任意Live2D模型（.model3.json）
- * 2. 参数映射：自动扫描模型参数并创建标准参数映射
+ * 2. 参数映射：自动扫描模型参数并创建标准参数映射（已由 paramAutoMapper 承担）
  * 3. 热切换：无需重启应用即可切换模型
  * 4. 模型校验：参数完整性、动作组、表情检查
  * 5. 预览模式：提交前临时预览模型效果

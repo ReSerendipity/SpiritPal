@@ -48,12 +48,12 @@ export function TagCloud({ memories, onSelectTag, selectedTag }: TagCloudProps) 
 
   if (tagStats.length === 0) {
     return (
-      <div className="rounded-xl bg-gray-800/60 p-4">
+      <div className="rounded-xl border border-ink/10 bg-surface p-4">
         <div className="mb-2 flex items-center gap-2">
-          <Tag size={14} className="text-cyan-300" />
-          <h4 className="text-xs font-semibold">标签云</h4>
+          <Tag size={14} className="text-tangerine" />
+          <h4 className="text-xs font-semibold text-ink">标签云</h4>
         </div>
-        <div className="py-4 text-center text-[11px] text-gray-500">暂无标签数据</div>
+        <div className="py-4 text-center text-[11px] text-ink-faint">暂无标签数据</div>
       </div>
     )
   }
@@ -71,20 +71,20 @@ export function TagCloud({ memories, onSelectTag, selectedTag }: TagCloudProps) 
   }
 
   function getTagColor(freq: number): string {
-    if (maxFreq === minFreq) return 'text-cyan-300'
+    if (maxFreq === minFreq) return 'text-tangerine-deep'
     const ratio = (freq - minFreq) / (maxFreq - minFreq)
-    if (ratio > 0.75) return 'text-amber-300'
-    if (ratio > 0.5) return 'text-cyan-300'
-    if (ratio > 0.25) return 'text-indigo-300'
-    return 'text-gray-400'
+    if (ratio > 0.75) return 'text-tangerine'
+    if (ratio > 0.5) return 'text-tangerine-deep'
+    if (ratio > 0.25) return 'text-ink-muted'
+    return 'text-ink-faint'
   }
 
   return (
-    <div className="rounded-xl bg-gray-800/60 p-4">
+    <div className="rounded-xl border border-ink/10 bg-surface p-4">
       <div className="mb-2 flex items-center gap-2">
-        <Tag size={14} className="text-cyan-300" />
-        <h4 className="text-xs font-semibold">标签云</h4>
-        <span className="text-[10px] text-gray-500">（{tagStats.length} 个标签）</span>
+        <Tag size={14} className="text-tangerine" />
+        <h4 className="text-xs font-semibold text-ink">标签云</h4>
+        <span className="text-[10px] text-ink-faint">（{tagStats.length} 个标签）</span>
       </div>
       <div className="flex flex-wrap gap-1.5">
         {tagStats.map(([tag, freq]) => (
@@ -94,7 +94,7 @@ export function TagCloud({ memories, onSelectTag, selectedTag }: TagCloudProps) 
             className={`rounded px-1.5 py-0.5 transition-colors ${getTagSize(freq)} ${getTagColor(freq)} ${
               selectedTag === tag
                 ? 'bg-amber-400/20 ring-1 ring-amber-400'
-                : 'hover:bg-white/5'
+                : 'hover:bg-ink/5'
             }`}
             title={`${tag}: ${freq} 条记忆`}
           >
@@ -156,12 +156,12 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
 
   if (chartData.length === 0) {
     return (
-      <div className="rounded-xl bg-gray-800/60 p-4">
+      <div className="rounded-xl border border-ink/10 bg-surface p-4">
         <div className="mb-2 flex items-center gap-2">
-          <TrendingUp size={14} className="text-pink-300" />
-          <h4 className="text-xs font-semibold">情感曲线</h4>
+          <TrendingUp size={14} className="text-tangerine" />
+          <h4 className="text-xs font-semibold text-ink">情感曲线</h4>
         </div>
-        <div className="py-4 text-center text-[11px] text-gray-500">近 30 天无记忆数据</div>
+        <div className="py-4 text-center text-[11px] text-ink-faint">近 30 天无记忆数据</div>
       </div>
     )
   }
@@ -170,10 +170,10 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
   const chartHeight = 60
 
   return (
-    <div className="rounded-xl bg-gray-800/60 p-4">
+    <div className="rounded-xl border border-ink/10 bg-surface p-4">
       <div className="mb-2 flex items-center gap-2">
-        <TrendingUp size={14} className="text-pink-300" />
-        <h4 className="text-xs font-semibold">情感曲线（近 30 天）</h4>
+        <TrendingUp size={14} className="text-tangerine" />
+        <h4 className="text-xs font-semibold text-ink">情感曲线（近 30 天）</h4>
       </div>
 
       {/* SVG 折线图 */}
@@ -192,7 +192,7 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
               y1={chartHeight * (1 - ratio)}
               x2={chartData.length * 30}
               y2={chartHeight * (1 - ratio)}
-              stroke="rgba(255,255,255,0.05)"
+              stroke="rgba(74,54,38,0.08)"
               strokeWidth={1}
             />
           ))}
@@ -209,7 +209,7 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
                   })
                   .join(' ')}
                 fill="none"
-                stroke="rgba(244, 114, 182, 0.8)"
+                stroke="rgba(232, 135, 74, 0.8)"
                 strokeWidth={2}
               />
               {/* 填充区域 */}
@@ -224,7 +224,7 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
                     .join(' ') +
                   ` L ${((chartData.length - 1) * 30 + 15)} ${chartHeight} L 15 ${chartHeight} Z`
                 }
-                fill="rgba(244, 114, 182, 0.1)"
+                fill="rgba(232, 135, 74, 0.12)"
               />
             </>
           )}
@@ -239,8 +239,8 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
                 cx={x}
                 cy={y}
                 r={3}
-                fill={d.avgIntensity > 0.7 ? '#f472b6' : d.avgIntensity > 0.3 ? '#818cf8' : '#6b7280'}
-                stroke="rgba(0,0,0,0.3)"
+                fill={d.avgIntensity > 0.7 ? '#e8874a' : d.avgIntensity > 0.3 ? '#b3a18c' : '#d06a2f'}
+                stroke="rgba(74,54,38,0.3)"
                 strokeWidth={1}
               />
             )
@@ -253,7 +253,7 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
               x={i * 30 + 15}
               y={chartHeight + 14}
               textAnchor="middle"
-              fill="rgba(255,255,255,0.3)"
+              fill="rgba(74,54,38,0.4)"
               fontSize={8}
             >
               {d.date}
@@ -263,15 +263,15 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
       </div>
 
       {/* 图例 */}
-      <div className="mt-1 flex items-center justify-center gap-3 text-[10px] text-gray-500">
+      <div className="mt-1 flex items-center justify-center gap-3 text-[10px] text-ink-faint">
         <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-pink-400" /> 高情感
+          <span className="h-2 w-2 rounded-full bg-tangerine" /> 高情感
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-indigo-400" /> 中情感
+          <span className="h-2 w-2 rounded-full bg-ink-faint" /> 中情感
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-gray-500" /> 低情感
+          <span className="h-2 w-2 rounded-full bg-tangerine-deep" /> 低情感
         </span>
       </div>
     </div>
@@ -307,12 +307,12 @@ export function TimeDensityChart({ memories }: TimeDensityChartProps) {
 
   if (monthlyData.length === 0) {
     return (
-      <div className="rounded-xl bg-gray-800/60 p-4">
+      <div className="rounded-xl border border-ink/10 bg-surface p-4">
         <div className="mb-2 flex items-center gap-2">
-          <BarChart3 size={14} className="text-green-300" />
-          <h4 className="text-xs font-semibold">记忆密度</h4>
+          <BarChart3 size={14} className="text-tangerine" />
+          <h4 className="text-xs font-semibold text-ink">记忆密度</h4>
         </div>
-        <div className="py-4 text-center text-[11px] text-gray-500">暂无数据</div>
+        <div className="py-4 text-center text-[11px] text-ink-faint">暂无数据</div>
       </div>
     )
   }
@@ -321,10 +321,10 @@ export function TimeDensityChart({ memories }: TimeDensityChartProps) {
   const barHeight = 50
 
   return (
-    <div className="rounded-xl bg-gray-800/60 p-4">
+    <div className="rounded-xl border border-ink/10 bg-surface p-4">
       <div className="mb-2 flex items-center gap-2">
-        <BarChart3 size={14} className="text-green-300" />
-        <h4 className="text-xs font-semibold">记忆密度（近 12 个月）</h4>
+        <BarChart3 size={14} className="text-tangerine" />
+        <h4 className="text-xs font-semibold text-ink">记忆密度（近 12 个月）</h4>
       </div>
 
       <div className="flex items-end gap-1" style={{ height: barHeight + 16 }}>
@@ -333,10 +333,10 @@ export function TimeDensityChart({ memories }: TimeDensityChartProps) {
           const ratio = count / maxCount
           const color =
             ratio > 0.7
-              ? 'bg-green-400'
+              ? 'bg-tangerine'
               : ratio > 0.4
-              ? 'bg-green-500/60'
-              : 'bg-green-600/40'
+              ? 'bg-tangerine/70'
+              : 'bg-tangerine-deep/50'
           return (
             <div
               key={month}
@@ -347,7 +347,7 @@ export function TimeDensityChart({ memories }: TimeDensityChartProps) {
                 className={`w-full rounded-t ${color} transition-all hover:opacity-80`}
                 style={{ height }}
               />
-              <span className="mt-1 text-[8px] text-gray-500">
+              <span className="mt-1 text-[8px] text-ink-faint">
                 {month.slice(5)}
               </span>
             </div>

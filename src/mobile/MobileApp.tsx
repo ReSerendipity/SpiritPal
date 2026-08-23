@@ -136,15 +136,13 @@ export default function MobileApp() {
     }
   }, [activeTab])
 
-  // 主题相关的样式类
+  // 主题相关的样式类（统一走 SpiritPal 语义 Token：奶油底/暖棕墨/暖橙强调，与桌面端一致）
   const isDark = theme === 'dark'
-  const bgClass = isDark ? 'bg-gray-900' : 'bg-gray-50'
-  const textClass = isDark ? 'text-gray-100' : 'text-gray-900'
-  const tabBarClass = isDark
-    ? 'bg-gray-800/95 border-gray-700'
-    : 'bg-white/95 border-gray-200'
-  const activeTabClass = isDark ? 'text-indigo-400' : 'text-indigo-600'
-  const inactiveTabClass = isDark ? 'text-gray-500' : 'text-gray-400'
+  const bgClass = 'bg-cream'
+  const textClass = 'text-ink'
+  const tabBarClass = 'border-ink/10 bg-surface/95 backdrop-blur-md'
+  const activeTabClass = 'text-tangerine'
+  const inactiveTabClass = 'text-ink-faint'
 
   return (
     <div
@@ -153,27 +151,23 @@ export default function MobileApp() {
       onTouchEnd={handleTouchEnd}
     >
       {/* 顶部状态栏 */}
-      <header
-        className={`flex items-center justify-between px-4 py-2 ${
-          isDark ? 'bg-gray-800/80' : 'bg-white/80'
-        } backdrop-blur-sm`}
-      >
+      <header className="flex items-center justify-between border-b border-ink/10 bg-surface/80 px-4 py-2 backdrop-blur-sm">
         <div className="flex items-center gap-2">
           <span className="text-lg font-semibold">SpiritPal</span>
           {syncStatus === 'syncing' && (
-            <span className="text-xs text-blue-400">同步中…</span>
+            <span className="text-xs text-tangerine-deep">同步中…</span>
           )}
           {syncStatus === 'success' && (
-            <span className="text-xs text-green-400">已同步</span>
+            <span className="text-xs text-success-deep">已同步</span>
           )}
           {syncStatus === 'error' && (
-            <span className="text-xs text-red-400">同步失败</span>
+            <span className="text-xs text-red-500">同步失败</span>
           )}
         </div>
         <button
           onClick={toggleTheme}
           className={`flex h-9 w-9 items-center justify-center rounded-full ${
-            isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-700'
+            isDark ? 'bg-tangerine-soft text-tangerine-deep' : 'bg-ink/5 text-ink-muted'
           }`}
           aria-label="切换主题"
           title={`当前: ${themeMode}`}
@@ -192,21 +186,21 @@ export default function MobileApp() {
         {/* 聊天视图 */}
         {activeTab === 'chat' && (
           <div className="absolute inset-0 z-20">
-            <MobileChatView isDark={isDark} />
+            <MobileChatView />
           </div>
         )}
 
         {/* 养成视图 */}
         {activeTab === 'nurture' && (
           <div className="absolute inset-0 z-20 overflow-y-auto">
-            <MobileNurturingView isDark={isDark} />
+            <MobileNurturingView />
           </div>
         )}
 
         {/* 设置视图 */}
         {activeTab === 'settings' && (
           <div className="absolute inset-0 z-20 overflow-y-auto">
-            <MobileSettingsView isDark={isDark} />
+            <MobileSettingsView />
           </div>
         )}
       </main>

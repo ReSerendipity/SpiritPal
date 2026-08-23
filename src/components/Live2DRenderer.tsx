@@ -25,6 +25,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import { Application, Ticker } from 'pixi.js'
 import type { PetState } from '../lib/types'
+import { getParamAutoMapper } from '../lib/paramAutoMapper'
 
 // pixi-live2d-display 动态加载 — 避免 Cubism Core 缺失时崩溃整个应用
 let _Live2DModel: any = null
@@ -217,6 +218,29 @@ export const Live2DRenderer = forwardRef<Live2DRendererHandle, Live2DRendererPro
               return
             }
             modelRef.current = model
+
+            // autoMapper 接线：用真实模型参数名扫描并建立标准参数映射（不伪造）
+            try {
+              const mapper = getParamAutoMapper()
+              const internal = model.internalModel
+              let ids: string[] = []
+              if (internal) {
+                if (typeof internal.getModelParameterIds === 'function') {
+                  ids = internal.getModelParameterIds() as string[]
+                } else if (internal.coreModel && typeof internal.coreModel.getParameterIds === 'function') {
+                  ids = internal.coreModel.getParameterIds() as string[]
+                }
+              }
+              if (Array.isArray(ids) && ids.length > 0) {
+                mapper.autoDiscover(ids)
+                const stats = mapper.getStats()
+                if (stats.total > 0) {
+                  console.info(`[Live2D] 参数自动映射：${stats.mapped}/${stats.total}（覆盖率 ${Math.round(stats.coverage * 100)}%）`)
+                }
+              }
+            } catch {
+              // 忽略参数映射失败（不影响渲染）
+            }
 
             // 计算适配缩放
             const modelW = model.width || 1
