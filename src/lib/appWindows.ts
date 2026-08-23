@@ -77,22 +77,28 @@ export async function ensureAppWindow(label: string): Promise<Window | null> {
 
     let x: number | undefined
     let y: number | undefined
+    let width = config.width
+    let height = config.height
     if (label === 'roam-window') {
+      // 真漫游：漫游窗口铺满主屏（透明+点击穿透），宠物在整个桌面上行走
       try {
         const primary = await primaryMonitor()
         if (primary) {
-          x = Math.round((primary.size.width - config.width) / 2)
-          y = Math.max(0, Math.round(primary.size.height - config.height - 90))
+          const sf = primary.scaleFactor || 1
+          width = Math.round(primary.size.width / sf)
+          height = Math.round(primary.size.height / sf)
+          x = 0
+          y = 0
         }
       } catch {
-        // 定位失败则使用默认位置
+        // 定位失败则使用默认尺寸与位置
       }
     }
 
     return new WebviewWindow(label, {
       title: config.title,
-      width: config.width,
-      height: config.height,
+      width,
+      height,
       x,
       y,
       minWidth: config.minWidth,
