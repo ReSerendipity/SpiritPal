@@ -60,19 +60,6 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
     backgroundColor: '#00000000',
     resizable: false,
   },
-  // 独立状态面板窗口：与宠物窗口分离的浮动状态卡（角色状态 + 聊天/设置入口）
-  'panel-window': {
-    title: 'SpiritPal 面板',
-    width: 216,
-    height: 176,
-    url: 'index.html#/panel',
-    transparent: true,
-    decorations: false,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    backgroundColor: '#00000000',
-    resizable: false,
-  },
 }
 
 /**

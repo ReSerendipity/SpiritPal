@@ -31,7 +31,6 @@ describe('petStore', () => {
       currentCharacterId: 'doro',
       inventory: [],
       position: null,
-      panelPosition: null,
       wornDecorations: {},
       background: { type: 'none' },
     })
@@ -419,16 +418,6 @@ describe('petStore', () => {
     })
   })
 
-  describe('setPanelPosition', () => {
-    it('初始为 null（默认右上角停靠）', () => {
-      expect(usePetStore.getState().panelPosition).toBeNull()
-    })
-
-    it('保存状态面板位置', () => {
-      usePetStore.getState().setPanelPosition({ x: 120, y: 48 })
-      expect(usePetStore.getState().panelPosition).toEqual({ x: 120, y: 48 })
-    })
-  })
 
   describe('setBackground', () => {
     it('设置背景配置', () => {

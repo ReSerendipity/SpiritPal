@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "SpiritPal pet-window + panel-window permissions (minimal: window mgmt + event listening + tray)",
-  "windows": ["pet-window", "panel-window"],
+  "description": "SpiritPal pet-window permissions (minimal: window mgmt + event listening + tray)",
+  "windows": ["pet-window"],
   "permissions": [
     "core:default",
     "core:window:allow-show",
@@ -33,10 +33,6 @@
     "sql:allow-execute",
     "sql:allow-close",
     "sql:allow-load",
-    "global-shortcut:default",
-    "global-shortcut:allow-is-registered",
-    "global-shortcut:allow-register",
-    "global-shortcut:allow-unregister",
     "notification:default",
     "notification:allow-request-permission",
     "notification:allow-notify",

@@ -115,11 +115,13 @@ function isDevToolsOpen(): boolean {
  * @param enabled 是否启用点击穿透检测
  * @param interactiveSelectors 额外的交互元素选择器
  * @param autoHideOnHover 是否启用悬停自动隐藏（默认 false）
+ * @param onHoverInteractiveChange 交互状态翻转回调（true=光标在角色/交互 UI 上；false=透明区或窗口外）
  */
 export function usePixelClickThrough(
   enabled = true,
   interactiveSelectors?: string[],
   autoHideOnHover = false,
+  onHoverInteractiveChange?: (interactive: boolean) => void,
 ) {
   const lastIgnoreState = useRef<boolean | null>(null)
   const isCheckingRef = useRef(false)
@@ -132,6 +134,11 @@ export function usePixelClickThrough(
   const isHiddenRef = useRef(false)
   const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastMouseOnCharacter = useRef(false)
+  // 交互状态翻转回调（存 ref 避免影响 effect 依赖，轮询闭包始终读最新值；渲染期禁写 ref → effect 中同步）
+  const interactiveChangeRef = useRef(onHoverInteractiveChange)
+  useEffect(() => {
+    interactiveChangeRef.current = onHoverInteractiveChange
+  })
 
   useEffect(() => {
     if (!enabled) {
@@ -224,6 +231,8 @@ export function usePixelClickThrough(
             await invoke('remove_pet_click_through')
           }
           lastIgnoreState.current = shouldIgnore
+          // 交互状态翻转通知（穿透态=false：光标在透明区或窗口外）
+          interactiveChangeRef.current?.(!shouldIgnore)
         }
 
         // 8. 悬停自动隐藏 + 穿透联动

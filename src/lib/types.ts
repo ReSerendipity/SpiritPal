@@ -537,6 +537,8 @@ export interface AppSettings {
   currentCharacterId: string
   /** 显示窗口边框预览（调试用：虚线框标出宠物窗口的实际边界与尺寸） */
   showWindowBorder: boolean
+  /** 状态卡显示模式：off=不显示 / left=展开面板左侧 / right=宠物右侧 */
+  statusCardMode: 'off' | 'left' | 'right'
 }
 
 // ============ 聊天消息 ============

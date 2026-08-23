@@ -12,7 +12,7 @@
  * - useState: 关闭动画状态
  * - useEffect: 定时器控制自动关闭
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type Ref } from 'react'
 
 /** 气泡组件Props */
 interface PetBubbleProps {
@@ -22,6 +22,10 @@ interface PetBubbleProps {
   onClose: () => void
   /** 显示时长（毫秒，默认3000） */
   duration?: number
+  /** 测量用 ref（挂在气泡外层定位 div 上，宠物窗口据此读取气泡实际尺寸做窗口自适应） */
+  measureRef?: Ref<HTMLDivElement>
+  /** 定位锚点：above-pet=贴宠物头顶上方（默认）；top-center=窗口顶部正中对话区（展开态） */
+  anchor?: 'above-pet' | 'top-center'
 }
 
 /**
@@ -29,7 +33,7 @@ interface PetBubbleProps {
  *
  * 在宠物头顶显示消息，指定时长后自动淡出消失。
  */
-export function PetBubble({ message, onClose, duration = 3000 }: PetBubbleProps) {
+export function PetBubble({ message, onClose, duration = 3000, measureRef, anchor = 'above-pet' }: PetBubbleProps) {
   const [closing, setClosing] = useState(false)
 
   useEffect(() => {
@@ -43,7 +47,10 @@ export function PetBubble({ message, onClose, duration = 3000 }: PetBubbleProps)
 
   return (
     <div
-      className={`absolute left-1/2 bottom-full mb-2 -translate-x-1/2 transition-all duration-300 ease-out ${
+      ref={measureRef}
+      className={`absolute left-1/2 -translate-x-1/2 transition-all duration-300 ease-out ${
+        anchor === 'top-center' ? 'top-0' : 'bottom-full mb-2'
+      } ${
         closing ? 'opacity-0 -translate-y-1' : 'opacity-100'
       }`}
       style={{ pointerEvents: 'none' }}
