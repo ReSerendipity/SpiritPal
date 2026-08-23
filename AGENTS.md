@@ -1,6 +1,6 @@
 # SpiritPal AGENTS.md — AI 辅助开发指南
 
-> 🧬 **自进化协议版本**：v2.12  
+> 🧬 **自进化协议版本**：v2.13  
 > 📅 **最后更新日期**：2026-08-22  
 > 🎯 **对应项目版本**：v0.1.0（闭源）
 
@@ -492,6 +492,7 @@ Scope 建议：`pet-window` / `chat` / `settings` / `rust-encryption` / `i18n` /
 | v2.11 | 2026-08-22 | 用户反馈：① 打开左侧状态卡后宠物被挤到边缘；② 边缘吸附太强（差不多到边缘就被强制吸附）；③ 状态卡左侧模式没有胶囊（不对称）；④ 命名统一为左侧/右侧（去掉"上方"） | ① 行走范围面板感知：根因=usePetBehavior 行走目标硬编码 `WIN_W=300`，面板展开（窗口 444 宽）后宠物仍走向 x∈[8,100] 被"挤"到状态卡后面——新增 getWalkBounds 注入（面板展开时返回列间缝隙，区间 <24px 跳过行走改 idle；收起态 null 用默认），修复"宠物被挤到边缘"；② 吸附阈值收紧：DOCK_THRESHOLD_RATIO 20%→8%、MIN_PX 40→16（仅真正贴边才吸附）；③ 胶囊双模式：收起态胶囊在 statusCardMode≠'off' 时都显示（left=左上/right=右上），点击展开面板；④ 命名统一：'top-right'→'right'（标签「右上方」→「右侧」），类型/尺寸函数/测试同步；新增 Gotcha 22；全量回归 vitest 1859 通过 / tsc 0 / 改动文件 eslint 0 | v0.1.0 |
 
 | v2.12 | 2026-08-22 | 上帝视角评审后全量修复：文档与现实同步 + 死代码清理 + 权限最小化 + 行走范围彻底修复 + 构建脚本化 | ① **文档同步**：修正 AGENTS.md 虚假声明——`forbid(unsafe_code)` 实际不存在（get_mouse_pos 含 unsafe 块）、偏好设置实为明文 localStorage（非 secureStore 加密）、command 数 12→30、Rust 测试 32→105、lib 模块 13→159；② **死代码清理**：petStore.panelPosition/setPanelPosition（v1.3 遗留无消费者）与其测试、communityApi 模块+测试（未引用占位）删除；③ **capabilities 最小化**：default.json 移除前端未使用的 global-shortcut 4 项（22→18；store/sql/notification/dialog 均被 pet 窗口实际使用保留）；④ **行走范围彻底修复**：收起态改用实际窗口宽（computeWalkBounds 纯函数，修复 1.0×/3.0× 宠物只走左半区残留），展开态返回列间缝隙，6 个新单测；⑤ 新增 `scripts/build-win.ps1`（构建+产物替换+进程锁处理脚本化）；全量回归 vitest / tsc / eslint / cargo 全过，生产构建通过 | v0.1.0 |
+| v2.13 | 2026-08-22 | 用户反馈：漫游功能被限定在窗口内来回走（实为 CSS 假动画）；边缘吸附需开关 | ① **真桌面漫游**：RoamWindow 重写——漫游窗口铺满主屏（appWindows 按主显示器逻辑尺寸创建、透明点击穿透），宠物按随机目标点全屏行走（水平为主+35% 纵向，30% 概率休息 1.5~4s），悬停停下冒泡、移开继续、右键返回窗口形态；删除 index.css 的 spiritpal-roam CSS 假动画（16s 窗口内 4%↔84% 往返）；② **边缘吸附开关**：AppSettings/settingsStore 新增 edgeSnapEnabled（默认 true），usePetDragging 的 dockToEdgeSync/snapToEdge 按开关门控（关闭则不贴边、dockDir 复位），面板动作列表新增「边缘吸附」切换项；全量回归 vitest 1833 通过 / tsc 0 / eslint 0 | v0.1.0 |
 
 <!-- 🔄 下次更新 AGENTS.md 时，在上面表格末尾追加新一行，不要删除历史记录 -->
 

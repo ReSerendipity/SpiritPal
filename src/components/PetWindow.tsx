@@ -45,6 +45,7 @@ import {
   Footprints,
   Frame,
   Eye,
+  Magnet,
 } from 'lucide-react'
 import { getModManager } from '../lib/modManager'
 import { PetBubble } from './PetBubble'
@@ -149,6 +150,7 @@ const selectSwitchSettingsChar = (s: ReturnType<typeof useSettingsStore.getState
 const selectUpdateSettings = (s: ReturnType<typeof useSettingsStore.getState>) => s.updateSettings
 const selectShowWindowBorder = (s: ReturnType<typeof useSettingsStore.getState>) => s.showWindowBorder
 const selectStatusCardMode = (s: ReturnType<typeof useSettingsStore.getState>) => s.statusCardMode
+const selectEdgeSnapEnabled = (s: ReturnType<typeof useSettingsStore.getState>) => s.edgeSnapEnabled
 
 /** 状态卡单行统计项（内置状态卡用，迁移自原独立 PanelWindow） */
 function StatRow({ label, value, color }: { label: string; value: number; color: string }) {
@@ -259,6 +261,7 @@ export default function PetWindow() {
   const switchSettingsChar = useSettingsStore(selectSwitchSettingsChar)
   const updateSettings = useSettingsStore(selectUpdateSettings)
   const showWindowBorder = useSettingsStore(selectShowWindowBorder)
+  const edgeSnapEnabled = useSettingsStore(selectEdgeSnapEnabled)
   const statusCardModeRaw = useSettingsStore(selectStatusCardMode)
   // 旧版本持久化的 'top-right' 归一化为 'right'（命名已统一，避免旧数据落在无定位分支）
   const statusCardMode: StatusCardMode = (statusCardModeRaw as string) === 'top-right' ? 'right' : statusCardModeRaw
@@ -1442,6 +1445,11 @@ export default function PetWindow() {
               icon={<Frame size={13} />}
               label={`窗口边框${showWindowBorder ? '：开' : '：关'}`}
               onClick={() => updateSettings({ showWindowBorder: !showWindowBorder })}
+            />
+            <ActionButton
+              icon={<Magnet size={13} />}
+              label={`边缘吸附${edgeSnapEnabled ? '：开' : '：关'}`}
+              onClick={() => updateSettings({ edgeSnapEnabled: !edgeSnapEnabled })}
             />
             <ActionButton
               icon={<Footprints size={13} />}

@@ -539,6 +539,8 @@ export interface AppSettings {
   showWindowBorder: boolean
   /** 状态卡显示模式：off=不显示 / left=展开面板左侧 / right=宠物右侧 */
   statusCardMode: 'off' | 'left' | 'right'
+  /** 边缘吸附开关（拖到屏幕边缘自动贴边；可在面板动作列表切换） */
+  edgeSnapEnabled: boolean
 }
 
 // ============ 聊天消息 ============
