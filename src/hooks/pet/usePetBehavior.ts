@@ -34,6 +34,8 @@ export interface UsePetBehaviorOptions {
   workStateRef: React.MutableRefObject<WorkState>
   /** 音乐摇摆状态 ref（从 usePetSensors 共享） */
   musicSwayingRef?: React.MutableRefObject<boolean>
+  /** 行走目标 x 范围（面板展开时限定为面板内宠物区，避免宠物游走到状态卡/动作列表后面；null=用默认窗口范围） */
+  getWalkBounds?: () => { minX: number; maxX: number } | null
 }
 
 export interface UsePetBehaviorReturn {
@@ -66,7 +68,7 @@ export interface UsePetBehaviorReturn {
 }
 
 export function usePetBehavior(options: UsePetBehaviorOptions): UsePetBehaviorReturn {
-  const { showBubble, workStateRef, musicSwayingRef: externalMusicRef } = options
+  const { showBubble, workStateRef, musicSwayingRef: externalMusicRef, getWalkBounds } = options
 
   const [petState, setPetState] = useState<PetState>('idle')
   const [currentAnimId, setCurrentAnimId] = useState<AnimationId>('idle')
@@ -82,6 +84,11 @@ export function usePetBehavior(options: UsePetBehaviorOptions): UsePetBehaviorRe
   // pickBehaviorRef：打破 scheduleNextBehavior ↔ pickBehavior 的循环依赖，
   // 定时器回调始终调用最新一次渲染产生的 pickBehavior
   const pickBehaviorRef = useRef<() => void>(() => {})
+  // getWalkBoundsRef：定时器回调读最新行走范围（面板展开状态变化时无需重建 pickBehavior）；渲染期禁写 ref → effect 中同步
+  const getWalkBoundsRef = useRef(getWalkBounds)
+  useEffect(() => {
+    getWalkBoundsRef.current = getWalkBounds
+  })
 
   const animStateMachine = getAnimationStateMachine()
 
@@ -131,8 +138,16 @@ export function usePetBehavior(options: UsePetBehaviorOptions): UsePetBehaviorRe
     const renderState = animationIdToPetState(animId)
     setCurrentAnimId(animId)
     if (renderState === 'walk') {
-      const minX = 8
-      const maxX = WIN_W - SPRITE_W - 8
+      // 行走目标 x 范围：面板展开时由 getWalkBounds 限定为面板内宠物区（列间缝隙），
+      // 区间过小（宠物在面板里没有游走空间）则跳过行走改 idle——避免宠物游走到状态卡/动作列表后面
+      const bounds = getWalkBoundsRef.current?.() ?? null
+      const minX = bounds?.minX ?? 8
+      const maxX = bounds?.maxX ?? WIN_W - SPRITE_W - 8
+      if (maxX - minX < 24) {
+        setPetState('idle')
+        scheduleNextBehavior()
+        return
+      }
       const targetX = minX + Math.random() * Math.max(1, maxX - minX)
       startWalkAnimationRef.current(targetX, animId, () => scheduleNextBehavior())
       return

@@ -78,6 +78,7 @@ mod system;
 mod tray;
 pub mod validation;
 mod win32;
+mod mcp_bridge;
 // R-11: SRI 哈希（构建时自动生成）
 // clippy::incompatible_msrv: LazyLock 需要 1.80.0，但项目 MSRV 设为 1.77.2，此处允许
 // dead_code: 生成的 get_hash 函数可能未被当前代码引用
@@ -100,6 +101,8 @@ use device::{start_device_listening, stop_device_listening};
 use keychain::{delete_secret, get_secret, set_secret};
 #[cfg(desktop)]
 use tray::{set_tray_icon, set_tray_icon_png, update_tray_icon};
+#[cfg(desktop)]
+use mcp_bridge::mcp_respond;
 
 // ============ 桌面端专用导入 ============
 
@@ -415,6 +418,8 @@ fn get_active_window() -> ActiveWindowInfo {
 /// - `Err(String)` — 获取窗口句柄失败
 // 全局保活线程去重标志：子窗口（聊天/设置/漫游）的 main.tsx 也会调用本命令，
 // 若每次调用都启动新线程，多窗口累积出多个线程同时 SetWindowPos 高频置顶。
+// 仅在桌面端使用（AtomicBool/Ordering 只在 desktop cfg 下导入），移动端不编译此静态。
+#[cfg(desktop)]
 static TOPMOST_KEEPALIVE_STARTED: AtomicBool = AtomicBool::new(false);
 
 #[cfg(desktop)]
@@ -673,6 +678,9 @@ pub fn run() {
                 let _ = decrypt_db_at_rest(app_handle).await;
             });
 
+            // MCP 命令桥：在应用进程内宿主 spiritpal-mcp 的 bridge 服务器
+            mcp_bridge::spawn(app.handle());
+
             // =========================================
             // 桌面端：主窗口创建 + 托盘 + 空闲检测 + 全局快捷键
             // =========================================
@@ -692,7 +700,9 @@ pub fn run() {
                         WebviewUrl::App("index.html#/pet".into()),
                     )
                     .title("SpiritPal")
-                    .inner_size(300.0, 400.0)
+                    // 默认 224×304 = 1.0× 宠物的基准适配尺寸（精灵 192×208 + 32 边距 + 64 气泡空间），
+                    // 减少首帧与前端按持久化 petSize 校正后的落差闪烁；前端挂载后会立即按实际 petSize 校正
+                    .inner_size(224.0, 304.0)
                     // 最小尺寸对齐前端 WIN_MIN_W/H(160×200)：宠物可缩小到 0.5×，
                     // 窗口需要能跟随宠物缩小（否则小宠物配大窗口，边框预览显示巨大空白）
                     .min_inner_size(160.0, 200.0)
@@ -851,6 +861,27 @@ pub fn run() {
                 }
             }
 
+            // =========================================
+            // 移动端：创建根 WebView
+            // =========================================
+            // tauri.conf.json 的 app.windows 为空（桌面端为了配合单实例插件，
+            // 窗口统一在 setup 中动态创建，避免重复启动闪窗）。
+            // 但 Android/iOS 依赖窗口配置来创建根 WebView：若全程零窗口，
+            // tauri-runtime-wry 的移动端 Resumed/Suspended 分支因无窗口而
+            // 永不创建 WebView（tauri issue #15671），表现为白屏。
+            // 故移动端在此显式创建根 WebView（等价于把窗口写回 app.windows）。
+            #[cfg(not(desktop))]
+            {
+                use tauri::{WebviewUrl, WebviewWindowBuilder};
+                WebviewWindowBuilder::new(
+                    app,
+                    "main",
+                    WebviewUrl::App("index.html".into()),
+                )
+                .title("SpiritPal")
+                .build()?;
+            }
+
             log::info!("[SpiritPal] setup complete");
             Ok(())
         })
@@ -896,6 +927,8 @@ pub fn run() {
                     // R-14: 数据库加密
                     encrypt_db_at_rest,
                     decrypt_db_at_rest,
+                    // MCP 命令桥：webview 回调挂起的工具调用
+                    mcp_respond,
                 ]
             }
             #[cfg(not(desktop))]

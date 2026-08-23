@@ -22,7 +22,6 @@ const MobileApp = lazy(() => import('./mobile/MobileApp'))
 const SettingsWindow = lazy(() => import('./components/SettingsWindow'))
 const ChatWindow = lazy(() => import('./components/ChatWindow'))
 const RoamWindow = lazy(() => import('./components/RoamWindow'))
-const PanelWindow = lazy(() => import('./components/PanelWindow'))
 
 function detectMobile(): boolean {
   if (typeof navigator === 'undefined') return false
@@ -133,15 +132,6 @@ export default function App() {
       </Suspense>
     )
   }
-  if (route.startsWith('/panel')) {
-    return (
-      <Suspense fallback={<div className="h-screen w-screen bg-transparent" />}>
-        <ErrorBoundary>
-          <PanelWindow />
-        </ErrorBoundary>
-      </Suspense>
-    )
-  }
 
   return (
     <ErrorBoundary>
@@ -166,7 +156,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    const fullMsg = `${error.message}\n\nComponent Stack:\n`
+    const fullMsg = `${error.message}\n\nComponent Stack:\n${errorInfo.componentStack ?? ''}`
     console.error('[SpiritPal ErrorBoundary]', fullMsg)
     invoke('log_frontend_error', { level: 'error', message: fullMsg }).catch(() => {})
   }

@@ -25,10 +25,10 @@ const MAX_ROTATION_DEG = 15
 /** 停靠方向（UI 层据此做贴边视觉反馈） */
 export type DockDir = 'left' | 'right' | 'top' | 'bottom' | null
 
-/** 吸附阈值比例：窗口宽度的 20%（参考 Dororo 的 30%，取 20% 更跟手） */
-const DOCK_THRESHOLD_RATIO = 0.2
+/** 吸附阈值比例：窗口宽度的 8%（用户反馈 20% 太强、差不多边缘就被强制吸附，收紧到仅真正贴边时吸附） */
+const DOCK_THRESHOLD_RATIO = 0.08
 /** 吸附阈值保底（px，物理像素） */
-const DOCK_THRESHOLD_MIN_PX = 40
+const DOCK_THRESHOLD_MIN_PX = 16
 
 interface DockResult {
   x: number

@@ -24,6 +24,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   petForm: 'window',
   currentCharacterId: getDefaultCharacter().id,
   showWindowBorder: false,
+  statusCardMode: 'off',
 }
 
 /**

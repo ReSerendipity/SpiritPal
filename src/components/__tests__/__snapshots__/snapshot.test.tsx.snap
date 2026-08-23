@@ -2,7 +2,7 @@
 
 exports[`T-21: 组件快照测试 > PetBubble 渲染快照 1`] = `
 <div
-  class="absolute left-1/2 bottom-full mb-2 -translate-x-1/2 transition-all duration-300 ease-out opacity-100"
+  class="absolute left-1/2 -translate-x-1/2 transition-all duration-300 ease-out bottom-full mb-2 opacity-100"
   style="pointer-events: none;"
 >
   <div
@@ -18,7 +18,7 @@ exports[`T-21: 组件快照测试 > PetBubble 渲染快照 1`] = `
 
 exports[`T-21: 组件快照测试 > PetBubble 空消息快照 1`] = `
 <div
-  class="absolute left-1/2 bottom-full mb-2 -translate-x-1/2 transition-all duration-300 ease-out opacity-100"
+  class="absolute left-1/2 -translate-x-1/2 transition-all duration-300 ease-out bottom-full mb-2 opacity-100"
   style="pointer-events: none;"
 >
   <div

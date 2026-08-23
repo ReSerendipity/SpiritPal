@@ -157,20 +157,8 @@ export interface WindowEventMap {
   'toggle-focus-mode': boolean
   'open-settings-tab': OpenSettingsTabPayload
 
-  // 宠物状态同步（宠物窗口 → 独立状态面板窗口）
-  'pet-stats': PetStatsPayload
-}
-
-/** 宠物状态面板数据（宠物窗口周期同步到独立面板窗口） */
-export interface PetStatsPayload {
-  characterId: string
-  /** 角色显示名 */
-  name: string
-  level: number
-  mood: number
-  hunger: number
-  health: number
-  coins: number
+  // 对话：对话物品使用后打开指定对话图（settings 窗口 → pet 窗口）
+  'open-dialogue': { graphId: string }
 }
 
 // ============ 事件总线类 ============

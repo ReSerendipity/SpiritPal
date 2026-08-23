@@ -47,6 +47,7 @@ import { getBuffManager } from '../lib/buffManager'
 import { getTaskManager } from '../lib/taskManager'
 import { getBubbleManager } from '../lib/bubbleManager'
 import { getDialogueManager } from '../lib/dialogueManager'
+import { windowEventBus } from '../lib/windowEventBus'
 import { initDB, sqliteStorage } from '../lib/db'
 
 /**
@@ -322,8 +323,6 @@ interface PetStoreState {
   inventory: InventoryItem[]
   /** 宠物精灵在窗口内的位置（跨角色共享，持久化） */
   position: { x: number; y: number } | null
-  /** 状态面板在宠物窗口内的位置（跨角色共享，持久化；null = 使用默认右上角停靠） */
-  panelPosition: { x: number; y: number } | null
   /** 每个角色独立持有的已穿戴装饰品 */
   wornDecorations: Record<string, WornDecoration[]>
   /** 背景自定义配置 */
@@ -346,12 +345,6 @@ interface PetStoreState {
    * @param pos 位置坐标 { x, y }
    */
   setPosition: (pos: { x: number; y: number }) => void
-
-  /**
-   * 保存状态面板在宠物窗口内的位置
-   * @param pos 位置坐标 { x, y }
-   */
-  setPanelPosition: (pos: { x: number; y: number }) => void
 
   /**
    * 增加经验值（自动处理升级逻辑）
@@ -495,7 +488,6 @@ export const usePetStore = create<PetStoreState>()(
       currentCharacterId: getDefaultCharacter().id,
       inventory: [],
       position: null,
-      panelPosition: null,
       wornDecorations: {},
       background: { type: 'none' },
 
@@ -532,10 +524,6 @@ export const usePetStore = create<PetStoreState>()(
 
       setPosition: (pos) => {
         set({ position: pos })
-      },
-
-      setPanelPosition: (pos) => {
-        set({ panelPosition: pos })
       },
 
       addExp: (amount) => {
@@ -818,14 +806,17 @@ export const usePetStore = create<PetStoreState>()(
           getBuffManager(currentCharacterId).applyBuff(item.buff)
         }
 
-        // 对话物品：触发对话系统
+        // 对话物品：触发对话系统（跨窗口通知 pet 窗口打开指定对话图）
         if (item.type === 'dialogue' && item.dialogueTrigger) {
           try {
             const mgr = getDialogueManager()
-            // 确保对话图已注册（如果尚未注册则跳过，不报错）
-            if (mgr.getGraph(item.dialogueTrigger)) {
-              // 对话触发由 UI 层监听，这里仅标记触发
-              // DialoguePanel 会通过事件监听显示对话
+            const registered = mgr.getRegisteredGraphIds()
+            if (registered.length > 0) {
+              // 优先打开物品指定的对话图；未注册时回退到任一已注册图，保证物品确实触发对话
+              const graphId = mgr.getGraph(item.dialogueTrigger)
+                ? item.dialogueTrigger
+                : registered[Math.floor(Math.random() * registered.length)]
+              void windowEventBus.emit('open-dialogue', { graphId })
             }
           } catch {
             // 对话系统未加载，忽略
