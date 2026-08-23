@@ -1,0 +1,22 @@
+[package]
+name = "spiritpal-mcp"
+version = "0.1.0"
+description = "SpiritPal MCP stdio server (transport + tool registry; tool calls bridge to the running app)"
+edition = "2021"
+
+[[bin]]
+name = "spiritpal-mcp"
+path = "src/main.rs"
+
+[lib]
+name = "spiritpal_mcp"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true

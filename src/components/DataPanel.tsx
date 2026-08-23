@@ -71,6 +71,26 @@ export function DataPanel() {
     flash('success', '配置文件已导出')
   }
 
+  async function handleEncryptedExport() {
+    const password = window.prompt('设置加密导出密码（用于解密备份文件，请牢记）:')
+    if (!password) return
+    const confirmPwd = window.prompt('再次输入密码确认:')
+    if (password !== confirmPwd) {
+      flash('error', '两次密码不一致，已取消')
+      return
+    }
+    if (password.length < 6) {
+      flash('error', '密码至少 6 位')
+      return
+    }
+    try {
+      await mgr.downloadEncryptedExport(password)
+      flash('success', '加密备份(.spiritpal)已导出，请用设置的密码解密导入')
+    } catch (e) {
+      flash('error', `加密导出失败: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
   async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -329,6 +349,12 @@ export function DataPanel() {
           className="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-amber-400"
         >
           <Download size={16} /> 导出全部数据
+        </button>
+        <button
+          onClick={handleEncryptedExport}
+          className="mt-2 flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-200 hover:bg-amber-500/20"
+        >
+          <Database size={16} /> 导出加密备份 (.spiritpal)
         </button>
       </div>
 

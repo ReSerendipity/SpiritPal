@@ -442,21 +442,22 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
 
   const hungerTier = getColorTier(stats.hunger)
   const moodTier = getColorTier(stats.mood)
+  // 状态色与桌面端 NurturingPanel 的 TIER_COLORS 保持一致
   const tierColor: Record<string, string> = {
-    green: '#22c55e',
-    yellow: '#eab308',
-    orange: '#f97316',
-    red: '#ef4444',
+    green: 'bg-green-500',
+    yellow: 'bg-yellow-400',
+    orange: 'bg-orange-400',
+    red: 'bg-red-500',
   }
 
-  // 主题样式类
-  const statusBgClass = isDark ? 'bg-black/50' : 'bg-black/30'
+  // 状态浮层：暖棕半透明（与桌面端宠物窗口浮层风格一致）
+  const statusBgClass = 'bg-ink/45'
 
   return (
     <div
       ref={containerRef}
       className={`relative h-full w-full overflow-hidden ${
-        isDark ? 'bg-gradient-to-b from-gray-900 to-gray-800' : 'bg-gradient-to-b from-blue-50 to-pink-50'
+        isDark ? 'bg-gradient-to-b from-ink to-ink/70' : 'bg-gradient-to-b from-cream to-blush-soft'
       }`}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -466,17 +467,17 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
       {/* 状态栏（左上角） */}
       <div className={`absolute left-2 top-2 z-30 flex flex-col gap-1 rounded-lg ${statusBgClass} px-2 py-1.5 text-[11px] text-white backdrop-blur-sm`}>
         <div className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full" style={{ background: tierColor[hungerTier] }} />
+          <span className={`h-2 w-2 rounded-full ${tierColor[hungerTier]}`} />
           <span>饱食 {Math.round(stats.hunger)}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full" style={{ background: tierColor[moodTier] }} />
+          <span className={`h-2 w-2 rounded-full ${tierColor[moodTier]}`} />
           <span>心情 {Math.round(stats.mood)}</span>
         </div>
         <div className="flex items-center gap-1.5 text-amber-300">
           🪙 <span className="tabular-nums">{sharedCoins}</span>
         </div>
-        <div className="flex items-center gap-1.5 text-indigo-300">
+        <div className="flex items-center gap-1.5 text-tangerine-soft">
           ❤️ <span className="tabular-nums">Lv.{stats.level}</span>
         </div>
       </div>
@@ -543,7 +544,7 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
       {/* 长按互动菜单 */}
       {menu && (
         <div
-          className="absolute z-40 flex flex-col gap-1 rounded-xl bg-white/95 p-2 shadow-2xl dark:bg-gray-800/95"
+          className="absolute z-40 flex flex-col gap-1 rounded-xl border border-ink/10 bg-surface/95 p-2 shadow-soft"
           style={{
             left: Math.min(menu.x, window.innerWidth - 120),
             top: Math.min(menu.y, window.innerHeight - 200),
@@ -556,7 +557,7 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
                 item.action()
                 setMenu(null)
               }}
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-ink hover:bg-ink/5"
             >
               <span className="text-lg">{item.emoji}</span>
               <span>{item.label}</span>
@@ -564,7 +565,7 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
           ))}
           <button
             onClick={() => setMenu(null)}
-            className="mt-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600"
+            className="mt-1 rounded-lg bg-cream-deep px-3 py-1.5 text-xs text-ink-muted hover:bg-ink/10"
           >
             关闭
           </button>
@@ -572,7 +573,7 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
       )}
 
       {/* 底部提示 */}
-      <div className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 text-center text-[10px] text-gray-400 dark:text-gray-500">
+      <div className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 text-center text-[10px] text-ink-faint">
         单击互动 · 双击喂食 · 长按菜单 · 捏合缩放
       </div>
     </div>

@@ -30,19 +30,10 @@ import { getEnhancedMemoryManager } from '../lib/enhancedMemory'
 import { composeFullSystemPrompt, getEffectivePersonality } from '../lib/personalityEngine'
 
 /**
- * MobileChatView 组件属性
- */
-interface MobileChatViewProps {
-  /** 是否深色模式 */
-  isDark: boolean
-}
-
-/**
  * 移动端聊天视图组件
- * @param props 组件属性
  * @returns 聊天界面组件
  */
-export function MobileChatView({ isDark }: MobileChatViewProps) {
+export function MobileChatView() {
   const messagesByCharacter = useChatStore((s) => s.messagesByCharacter)
   const isLoading = useChatStore((s) => s.isLoading)
   const sendMessage = useChatStore((s) => s.sendMessage)
@@ -70,17 +61,13 @@ export function MobileChatView({ isDark }: MobileChatViewProps) {
     }
   }, [messages])
 
-  // 主题样式类
-  const bgClass = isDark ? 'bg-gray-900' : 'bg-gray-50'
-  const textClass = isDark ? 'text-gray-100' : 'text-gray-900'
-  const bubbleUserClass = isDark
-    ? 'bg-indigo-600 text-white'
-    : 'bg-indigo-500 text-white'
-  const bubbleBotClass = isDark
-    ? 'bg-gray-800 text-gray-100'
-    : 'bg-white text-gray-900'
-  const inputBgClass = isDark ? 'bg-gray-800' : 'bg-white'
-  const inputBorderClass = isDark ? 'border-gray-700' : 'border-gray-200'
+  // 主题样式类（与桌面端 ChatWindow 一致的语义 Token 配色）
+  const bgClass = 'bg-cream'
+  const textClass = 'text-ink'
+  const bubbleUserClass = 'bg-tangerine text-white'
+  const bubbleBotClass = 'border border-ink/10 bg-surface text-ink'
+  const inputBgClass = 'bg-surface'
+  const inputBorderClass = 'border-ink/10'
 
   /**
    * 发送消息处理函数
@@ -236,12 +223,12 @@ export function MobileChatView({ isDark }: MobileChatViewProps) {
       {/* 顶部：角色信息 + 清空按钮 */}
       <header className={`flex items-center justify-between border-b ${inputBorderClass} px-4 py-2`}>
         <div className="flex items-center gap-2">
-          <Bot size={18} className="text-indigo-400" />
+          <Bot size={18} className="text-tangerine" />
           <span className="text-sm font-medium">{character?.displayName ?? '宠物'}</span>
         </div>
         <button
           onClick={handleClear}
-          className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+          className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-ink-faint hover:bg-ink/5 hover:text-red-500"
           title="清空历史"
         >
           <Trash2 size={14} />
@@ -256,10 +243,10 @@ export function MobileChatView({ isDark }: MobileChatViewProps) {
         style={{ overscrollBehavior: 'contain' }}
       >
         {messages.length === 0 && (
-          <div className="flex h-full flex-col items-center justify-center text-center text-gray-400">
+          <div className="flex h-full flex-col items-center justify-center text-center text-ink-faint">
             <Bot size={48} className="mb-3 opacity-40" />
             <p className="text-sm">和 {character?.displayName ?? '宠物'} 聊聊天吧～</p>
-            <p className="mt-1 text-xs text-gray-500">支持流式输出和 Markdown</p>
+            <p className="mt-1 text-xs text-ink-muted">支持流式输出和 Markdown</p>
           </div>
         )}
 
@@ -269,7 +256,7 @@ export function MobileChatView({ isDark }: MobileChatViewProps) {
             className={`mb-3 flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             {msg.role === 'assistant' && (
-              <div className="mr-2 mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-indigo-500 text-white">
+              <div className="mr-2 mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-blush-soft text-tangerine-deep">
                 <Bot size={14} />
               </div>
             )}
@@ -285,7 +272,7 @@ export function MobileChatView({ isDark }: MobileChatViewProps) {
               )}
             </div>
             {msg.role === 'user' && (
-              <div className="ml-2 mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gray-300 text-white dark:bg-gray-600">
+              <div className="ml-2 mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-tangerine text-white">
                 <User size={14} />
               </div>
             )}
@@ -293,7 +280,7 @@ export function MobileChatView({ isDark }: MobileChatViewProps) {
         ))}
 
         {error && (
-          <div className="mb-3 rounded-lg bg-red-100 px-3 py-2 text-xs text-red-600 dark:bg-red-900/30 dark:text-red-400">
+          <div className="mb-3 rounded-lg border border-ink/10 bg-surface px-3 py-2 text-xs text-red-500 ring-1 ring-red-400/40">
             {error}
           </div>
         )}
@@ -311,7 +298,7 @@ export function MobileChatView({ isDark }: MobileChatViewProps) {
             onKeyDown={handleKeyDown}
             placeholder="输入消息…"
             rows={1}
-            className={`flex-1 resize-none rounded-2xl ${inputBgClass} ${textClass} border ${inputBorderClass} px-3 py-2 text-sm outline-none focus:border-indigo-400`}
+            className={`flex-1 resize-none rounded-panel ${inputBgClass} ${textClass} border ${inputBorderClass} px-3 py-2 text-sm placeholder-ink-faint outline-none focus:ring-1 focus:ring-tangerine`}
             style={{ maxHeight: '120px' }}
           />
           {isLoading ? (
@@ -326,7 +313,7 @@ export function MobileChatView({ isDark }: MobileChatViewProps) {
             <button
               onClick={handleSend}
               disabled={!input.trim()}
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-indigo-500 text-white disabled:opacity-40"
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-tangerine text-white shadow-soft hover:bg-tangerine-deep disabled:opacity-40"
               aria-label="发送"
             >
               <Send size={16} />

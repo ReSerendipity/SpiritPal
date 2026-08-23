@@ -826,3 +826,110 @@ Phase 3 聚焦 **「长期演进、生态级」** 的特性，预计需 3-6 个�
 > - MIT（BongoCat / WindowPet / Open-LLM-VTuber / OpenPets / DyberPet）：可自由借鉴与移植
 > - Apache-2.0（VPet）：仅作学习参考，不直接移植代码
 > - AGPL-3.0（super-agent-party）：仅作架构与设计层面的学习参考，**不建议直接复制代码**，移植时必须独立实现（洁净室实现）
+
+---
+
+# 附录 A：新增 8 个参考仓库的综合价值分析（2026-08-21 补充）
+
+> 在《新仓库对 SpiritPal 项目的持续价值分析》基础上，由「桌面宠物开源仓库清单」批量调研新增 8 个参考仓库。
+> 分析方式：逐一 `git clone` 并静态阅读源码/README/元数据，结论基于可核实事实（含源码完整性核查）。
+> 关联报告：`Petra_技术学习报告.md` / `dsh-pet_技术学习报告.md` / `deepseek-harness-pet_技术学习报告.md` / `DeepSeek-Balance-Whale-Widget_技术学习报告.md` / `dsh-niulai-pet_技术学习报告.md` / `remielle-codex-pet_技术学习报告.md` / `douyin-code_技术学习报告.md` / `MyFlowingFireflyWife_技术学习报告.md`
+
+## A.1 新增仓库基本信息一览
+
+| 仓库 | 主语言 | License | 形态 | 一句话定位 | 对 SpiritPal 参考价值 |
+|------|--------|---------|------|-----------|---------------------|
+| **Wumiu/Petra** | TS + Rust(Tauri2) | MIT | 独立 EXE (zip+setup) | 拖 PSD 生成 2.5D 角色 / 兼容 Live2D 的 AI 桌宠 | ⭐ 高（同 Tauri2 栈） |
+| **PC2005-cloud/dsh-pet** | TS + Python | MIT | DSH npm 插件 | 住在 DSH 界面、91 动作、可零成本自生成桌宠 | 中（素材生成管线） |
+| **wraven68/deepseek-harness-pet** | Python(tkinter) | MIT | 独立 EXE + ps1 | 读 DSH 日志，展示任务进度/状态的桌面助手 | 中（任务→状态反馈闭环） |
+| **whitefirer/dsh-niulai-pet** | TS/React | MIT | DSH npm 插件 | 任务完成喊「妈妈」、六皮肤、语音 KWS 停喊 | 中（KWS + 任务反馈） |
+| **MeteorNOX/DeepSeek-Balance-Whale-Widget** | JS | MIT(标注) | DSH npm 插件 | DSH 右下角 DeepSeek 余额小鲸鱼挂件 | 低（LLM 用量可视化） |
+| **HanaAyane/remielle-codex-pet** | 素材包(无代码) | 无正式 LICENSE（同人非商业） | Codex v2 素材 zip | 米哈游《绝区零》蕾米 Codex 桌宠资源 | 低（格式验证，素材不可商用） |
+| **jianyangSong/douyin-code** | Python + Next.js | MIT | 纯源码 | 「每日一个 AI 工具」：像素桌宠 + AI 写作助手 | 低（悬停系统监控） |
+| **PYmili/MyFlowingFireflyWife** | Python(PySide6) | **GPL-3.0** | 源码**不完整（缺 src/）** | 《星穹铁道》流萤主题桌宠 | ✗ 不推荐 |
+
+## A.2 逐仓库价值评估
+
+### A.2.1 Petra（同类 Tauri2，价值最高）
+
+| 特性 | 源文件 | 优先级 | 难度 | 说明 |
+|------|--------|--------|------|------|
+| **PSD→2.5D 角色生成** | `src/live2d/`（ag-psd） | P1 | 高 | 拖入分层 PSD 自动生成 2.5D 角色，免建模。契合 SpiritPal「零基础个性化」定位，是其最大差异点 |
+| 行为系统分层 | `src/autonomous/BehaviorEngine.ts` | P1 | 中 | 漫游/待机/动作库的状态机组织方式 |
+| AI 助手主动问候 | `src/assistant/` | P2 | 低 | 基于时段/事件的主动发言 |
+| Rust 侧（launch/screen/DPAPI） | `src-tauri/src/` | P2 | 低 | 与 SpiritPal 同为 Tauri2，可直接借鉴 |
+
+### A.2.2 dsh-pet（素材管线）
+
+| 特性 | 来源 | 优先级 | 难度 | 说明 |
+|------|------|--------|------|------|
+| 素材归一化/抠像管线 | `scripts/chroma_step02.py`、`normalize_step03.py` | P1 | 中 | 用 ffmpeg+numpy 统一源视频为标准帧，SpiritPal `spriteSheetTool.ts` 可借鉴自动化流程 |
+| 动画链落地对齐/双缓冲 | `src/client/` | P2 | 中 | 减少动画切换跳变 |
+
+### A.2.3 deepseek-harness-pet（任务→状态反馈）
+
+| 特性 | 来源 | 优先级 | 难度 | 说明 |
+|------|------|--------|------|------|
+| 任务→状态帧反馈闭环 | `pet.py` | P1 | 低 | 把 idle/working/complete 映射到宠物状态，SpiritPal 已有 taskManager，可叠加 |
+| 顶置任务面板 | `pet.py` | P2 | 中 | 可折叠待办面板 |
+
+### A.2.4 dsh-niulai-pet（KWS + 任务反馈）
+
+| 特性 | 来源 | 优先级 | 难度 | 说明 |
+|------|------|--------|------|------|
+| 任务完成强反馈（喊话/动画） | `src/client/pet.ts` | P1 | 低 | 与 SpiritPal taskManager 天然互补 |
+| 多皮肤配置化 | `src/client/skins.ts` | P1 | 低 | 皮肤数组驱动 |
+| 本地 KWS 语音触发 | `src/client/kws.ts` + `kws/`（sherpa-onnx） | P2 | 高 | 本地唤醒「喊宠物名互动」的 wasm 落地方案 |
+
+### A.2.5 DeepSeek-Balance-Whale-Widget（用量可视化）
+
+| 特性 | 来源 | 优先级 | 难度 | 说明 |
+|------|------|--------|------|------|
+| LLM 用量/余额挂件 | `lib/index.js` | P2 | 低 | SpiritPal 依赖多 LLM service，可加 token 用量展示 |
+
+### A.2.6 remielle-codex-pet（格式验证）
+
+| 特性 | 来源 | 优先级 | 难度 | 说明 |
+|------|------|--------|------|------|
+| 精灵图集结构验证 | `pet.json` + `spritesheet.webp`(8×11) | P2 | 低 | 与 SpiritPal ATLAS（8×9）结构高度相似，印证 codex 素规范；素材不可商用 |
+| 16 向视线 | 精灵图内视线方向 | P2 | 中 | 视线跟随扩展参考 |
+
+> ⚠️ **版权提示**：米哈游同人非商业 + 无正式 LICENSE，**素材禁止用于 SpiritPal 发布物**，仅作格式学习。
+
+### A.2.7 douyin-code（系统监控）
+
+| 特性 | 来源 | 优先级 | 难度 | 说明 |
+|------|------|--------|------|------|
+| 悬停系统监控气泡 | `monitor.py` + `pet.py` | P2 | 低 | CPU/内存/网速气泡，可扩展 contextAwareness |
+
+### A.2.8 MyFlowingFireflyWife（不推荐）
+
+| 发现 | 说明 |
+|------|------|
+| **GPL-3.0** | 强 copyleft，不宜照搬 |
+| **源码不完整（缺 `src/`）** | 入口引用 `src.window.firefly` 但仓库无 `src/` 目录，无法运行/打包 |
+| 结论 | **不推荐用作技术参考**；仅选题（IP 同人桌宠）有市场启发 |
+
+## A.3 新增 8 仓库综合价值矩阵
+
+| 排名 | 仓库 | 高价值特性 | License | 综合评分(1-10) | 核心价值定位 |
+|------|------|-----------|---------|----------------|-------------|
+| 1 | **Petra** | PSD 生成 + 行为系统 | MIT | **7.5/10** | 同 Tauri2 栈 + 免建模 2.5D 生成，最值得参考 |
+| 2 | **dsh-pet** | 素材归一化管线 | MIT | **7/10** | 91 动作资产 + 自动化素材管线 |
+| 3 | **deepseek-harness-pet** | 任务→状态反馈闭环 | MIT | **6.5/10** | 直白补齐「任务外化」反馈 |
+| 4 | **dsh-niulai-pet** | KWS + 任务反馈 + 多皮肤 | MIT | **6/10** | 任务语音反馈 + 本地唤醒参考 |
+| 5 | **douyin-code** | 悬停系统监控 | MIT | **5/10** | 轻量交互参考 |
+| 6 | **DeepSeek-Balance-Whale-Widget** | LLM 用量挂件 | MIT | **4.5/10** | 用量可视化 |
+| 7 | **remielle-codex-pet** | 精灵图格式验证 | 无正式 LICENSE | **4/10** | 仅格式学习，素材不可商用 |
+| 8 | **MyFlowingFireflyWife** | 无实质 | GPL-3.0 | **1/10** | 源码缺失 + GPL，不推荐 |
+
+## A.4 关键结论
+
+1. **价值集中度低**：8 个新仓库中仅 **Petra** 与 SpiritPal 技术栈高度重合（Tauri2），其余多为 DSH 寄生插件或小工具，整体参考价值低于原 7 仓库批次的 BongoCat / Open-LLM-VTuber。
+2. **最值得做**：Petra 的 **PSD→2.5D 角色生成**（P1，高难度但有差异化）与 **任务状态→桌宠反馈闭环**（deepseek-harness-pet / dsh-niulai-pet，P1，低成本）。
+3. **本地唤醒方向**：dsh-niulai-pet 的 sherpa-onnx 中文 KWS（wasm）为 SpiritPal 未来的本地语音唤醒提供了可落地方案（P2）。
+4. **版权红线**：remielle-codex-pet 素材（米哈游同人非商业）**禁止商用**；MyFlowingFireflyWife 为 GPL-3.0 且**源码不完整**，均不建议移植。
+5. **许可证警示**：8 仓库中 6 个为 MIT（可借鉴移植）、1 个无正式 LICENSE、1 个 GPL-3.0。
+
+> 本附录基于 2026-08-21 对 8 个仓库的 `git clone` 静态分析（研究目录 `c:\Users\Doro\repo_research\`）。<br>
+> 许可证提示：MIT（Petra / dsh-pet / deepseek-harness-pet / dsh-niulai-pet / douyin-code，DeepSeek-Balance-Whale-Widget 仅 package.json 标注）可自由借鉴；remielle-codex-pet 无正式 LICENSE 且为同人非商业，**素材不可商用**；MyFlowingFireflyWife 为 GPL-3.0 且源码不完整，不推荐。

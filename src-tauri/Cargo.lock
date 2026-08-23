@@ -4590,6 +4590,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "spiritpal-mcp",
  "tauri",
  "tauri-build",
  "tauri-nspanel",
@@ -4606,6 +4607,14 @@ dependencies = [
  "tauri-plugin-updater",
  "windows 0.58.0",
  "zip 0.6.6",
+]
+
+[[package]]
+name = "spiritpal-mcp"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
