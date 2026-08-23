@@ -1,7 +1,7 @@
 # SpiritPal AGENTS.md — AI 辅助开发指南
 
-> 🧬 **自进化协议版本**：v2.6  
-> 📅 **最后更新日期**：2026-08-21  
+> 🧬 **自进化协议版本**：v2.12  
+> 📅 **最后更新日期**：2026-08-22  
 > 🎯 **对应项目版本**：v0.1.0（闭源）
 
 ---
@@ -19,7 +19,7 @@ AI Agent 打开本文件后的 **第一件事** 是执行下面的「🧪 自进
 
 ### 🧪 自进化自检清单（每次启动工作前必跑）
 - [ ] 目录结构（`src/`、`src-tauri/`、`components/`、`stores/`、`hooks/`、`lib/`）是否和第 3 节模块边界描述一致？
-- [ ] 4 个窗口配置（pet-window / panel-window / settings / chat）是否和 `lib/windowManager.ts` 实际配置一致？
+- [ ] 3 个窗口配置（pet-window / settings / chat）是否和 `lib/appWindows.ts` 实际配置一致？
 - [ ] 上次工作是否踩了新坑？如果是，是否已追加到第 14 节 Known Gotchas？
 - [ ] 修改了 Rust Tauri command 后，是否已在前端对应调用处更新了类型签名？
 - [ ] 是否改了 package.json / Cargo.toml / tauri.conf.json 的版本号？如果改了一个，是否 3 个都同步（见第 10.2 节）？
@@ -51,7 +51,7 @@ AI Agent 打开本文件后的 **第一件事** 是执行下面的「🧪 自进
 | 包管理 | **pnpm 9**（shamefully-hoist = true） | 严禁 npm/yarn，node_modules 结构和 lockfile 会不兼容 |
 | 前端构建工具 | Vite 6.x + @tauri-apps/cli 插件 | `vite.config.ts` 已配 Tauri dev server 代理 |
 | Rust 后端工具链 | MSRV 1.80+ | `rust-toolchain.toml` 已锁 1.80 stable，cargo workspace 单包模式 |
-| Rust 加密生态 | AES-GCM（aes-gcm crate）+ Argon2（argon2 crate）+ Tauri secureStore | 所有敏感数据：聊天记录、宠物档案、偏好设置 **全链路加密** |
+| Rust 加密生态 | AES-GCM（aes-gcm crate）+ Argon2（argon2 crate）+ Tauri secureStore | ⚠️ **部分落地**：聊天记录/记忆走 Rust 端加密（encryption.rs）；**偏好设置实际为明文 localStorage persist**（settingsStore 未接 secureStore，与本节描述不符，待补） |
 | Rust 数据存储 | SQLite + SQLx（typed sqlx::query_as! 宏） | 数据库路径 `app_data_dir()/spiritpal.db`，每次启动前自动加密校验 |
 | 跨平台支持 | Windows 10+ / macOS 12+ / Linux（可选） | CI `ci.yml` 三个 Job 同时构建三个平台二进制 |
 
@@ -77,7 +77,7 @@ AI Agent 打开本文件后的 **第一件事** 是执行下面的「🧪 自进
 
 ### 2.2 Rust 约定
 - **命名规则**：函数/变量/模块 `snake_case`，结构体/Enum `PascalCase`，trait `PascalCase` 或 `<Verb>Noun`（`PetDataStore`、`Encryptable`），常量 `UPPER_SNAKE_CASE`
-- **`#![forbid(unsafe_code)]`**：`src-tauri/src/lib.rs` 顶部已加。除非调用 Tauri FFI 官方 API，**禁止写 `unsafe {}` 块**（即使你觉得能证明安全，也必须 PR 人工 review）
+- **unsafe 约束**：⚠️ `#![forbid(unsafe_code)]` **实际未在 lib.rs 声明**（文档曾声称已加，与代码不符）；`commands/window.rs` 的 `get_mouse_pos` 使用 Win32 `GetCursorPos` unsafe 块。约定：新代码避免 unsafe，必须用 unsafe 时用 `tauri-plugin` 官方封装并单独 PR review
 - **格式化 & Lint**：
   ```bash
   cargo fmt --all          # 格式化
@@ -122,12 +122,11 @@ import "./PetWindow.css"
                 └──────────┬─────────────┘
                            │  IPC（Tauri command）
 ┌──────────────────────────┴─────────────────────────────┐
-│            4 个独立 WebView（同一个前端代码多实例）        │
+│            3 个独立 WebView（同一个前端代码多实例）        │
 │                                                         │
 │  🐾 pet-window   ⚙️ settings-window   💬 chat-window      │
 │  （永远置顶/无边框）  （常规窗口）       （抽屉式）          │
-│                                                                │
-│  🪪 panel-window（透明置顶小窗，显示角色状态+快捷按钮）         │
+│  （内嵌可收起状态卡：角色状态+快捷入口）                  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -139,7 +138,7 @@ import "./PetWindow.css"
 | `src/components/petLive2d/` | Live2D 宠物形象渲染（pixi-live2d-display） | 不要直接操作 canvas，统一走 `useLive2dController()` hook |
 | `src/stores/` | Zustand stores（状态管理），持久化靠 `persist` 中间件 | 一个 store = 一个业务域：`petStore`（宠物档案）/ `settingsStore`（偏好）/ `chatStore`（聊天历史）/ `windowStore`（窗口布局）。**不要一个全局大 store**。 |
 | `src/hooks/` | 公共自定义 Hooks | 命名必须 `useXxx`：`useDraggableWindow`、`useTauriInvoke<T>()`、`useDebounced()`。每个 hook **单独文件**，注释写清楚返回值类型。 |
-| `src/lib/`（核心逻辑层 🔥） | **不允许出现 React** 的纯 TS 工具层（13 个子模块，重要度排序） | |
+| `src/lib/`（核心逻辑层 🔥） | **不允许出现 React** 的纯 TS 工具层（⚠️ 实际 159 个 .ts 文件，远超本节清单；以下为重要度排序的子集） | |
 | `src/lib/windowManager.ts` | 3 窗口创建/销毁/定位逻辑 | 改必须人工 review，窗口边界穿透、无边框样式和 OS 强相关 |
 | `src/lib/encryption/` | AES-GCM 加密 + Argon2 密钥派生（和 Rust 端保持一致算法） | 严禁改算法参数（IV 12字节、盐 16字节、Argon2 m=65536 t=3 p=1），否则旧数据解不开 |
 | `src/lib/storage/` | IndexedDB 包装（聊天历史 + 宠物日记） | 写 schema 迁移脚本要同时改 Rust 端 migrations（防止两边不一致） |
@@ -158,13 +157,13 @@ import "./PetWindow.css"
 | 目录 | 职责 |
 |------|------|
 | `src-tauri/src/main.rs` | Tauri `Builder::default()` 启动入口 + capabilities 配置加载 |
-| `src-tauri/src/lib.rs` | `#![forbid(unsafe_code)]` + 所有模块声明（`mod commands; mod encryption; ...`） |
-| `src-tauri/src/commands/` | **12 个 Tauri Commands**（一一对应前端 `src/lib/ipcTypes.ts` 的命令名）：<br>`pet`（档案 CRUD）/ `chat`（历史加密读写）/ `settings`（偏好 secureStore）/ `backup`（JSON 导入导出）/ `window`（置顶/穿透）/ `update`（自动更新签名校验）/ `encryption`（Argon2 派生测试）/ `system-tray`（托盘菜单事件）/ `live2d-cache`（模型缓存清理）/ `log`（日志滚动）/ `analytics`（本地统计，不上传）/ `diagnose`（用户一键导出故障诊断包） |
+| `src-tauri/src/lib.rs` | Tauri `Builder::default()` 启动入口 + capabilities 配置加载 + 窗口/托盘/系统事件（⚠️ 无 forbid(unsafe_code) 声明） |
+| `src-tauri/src/commands/` | **30 个 Tauri Commands**（⚠️ 实际数；一一对应前端 `src/lib/ipcTypes.ts` 的命令名）：<br>`pet`（档案 CRUD）/ `chat`（历史加密读写）/ `settings`（偏好 secureStore）/ `backup`（JSON 导入导出）/ `window`（置顶/穿透）/ `update`（自动更新签名校验）/ `encryption`（Argon2 派生测试）/ `system-tray`（托盘菜单事件）/ `live2d-cache`（模型缓存清理）/ `log`（日志滚动）/ `analytics`（本地统计，不上传）/ `diagnose`（用户一键导出故障诊断包） |
 | `src-tauri/src/encryption.rs` | 与前端 `lib/encryption/` **算法严格一致**：AES-256-GCM + Argon2id，互测通过才允许 |
 | `src-tauri/src/db.rs` | SQLx + SQLite（含 7 个 migration 脚本），DB 路径 `app_data_dir().join("spiritpal.db")` |
 | `src-tauri/src/types.rs` | Rust struct（对应前端 `lib/types.ts`）：`Pet`、`ChatMessage`、`Settings` |
-| `src-tauri/src/tests.rs`（或 `tests/` 目录） | **32 个单元测试**：加密一致性 / DB 迁移 / command 参数校验 / 路径穿越攻击测试 |
-| `src-tauri/capabilities/` | Tauri v2 capabilities JSON（安全权限白名单）：`default.json`（pet-window + panel-window）/ `chat-window.json` / `settings-window.json` | **修改必须人工 review**，capability 过大会导致跨窗口 IPC 安全漏洞 |
+| `src-tauri/src/tests.rs`（或 `tests/` 目录） | **105 个单元测试**（⚠️ 实际数）：加密一致性 / DB 迁移 / command 参数校验 / 路径穿越攻击测试 |
+| `src-tauri/capabilities/` | Tauri v2 capabilities JSON（安全权限白名单）：`default.json`（pet-window）/ `chat-window.json` / `settings-window.json` | **修改必须人工 review**，capability 过大会导致跨窗口 IPC 安全漏洞 |
 | `src-tauri/tauri.conf.json` | Tauri 应用配置：bundle ID / 图标路径 / 窗口定义 / updater 公钥 | 版本号改这里 + package.json + Cargo.toml 同步（见 §10.2） |
 | `src-tauri/Cargo.toml` | Rust 依赖 + crate metadata | 版本号同步位置之一 |
 
@@ -177,7 +176,7 @@ import "./PetWindow.css"
 | Store 文件 | 作用域 | 持久化策略 | 关键 Actions |
 |-----------|--------|-----------|-------------|
 | `stores/petStore.ts` | 当前选中的宠物（activePetId）、所有宠物列表、好感度、饥饿值 | `persist(name="spiritpal:pet", partialize: {档案+好感度走 AES-GCM 持久化，瞬时状态（当前表情）仅内存})` | `setActivePet(id)` / `feedPet(id, food)` / `updatePetMood(id, -5)` |
-| `stores/settingsStore.ts` | 语言、启动行为、窗口置顶、Live2D 画质、自动更新开关 | `persist(name="spiritpal:settings", encrypt: true（Tauri secureStore wrapper）)` | `setLanguage("zh-CN")` / `setAlwaysOnTop(true)` |
+| `stores/settingsStore.ts` | 语言、启动行为、窗口置顶、Live2D 画质、自动更新开关 | ⚠️ `persist(name="spiritpal:settings", 明文 localStorage)`（文档曾声称 secureStore 加密，实际未接） | `setLanguage("zh-CN")` / `setAlwaysOnTop(true)` |
 | `stores/chatStore.ts` | 当前对话、未读数、草稿、表情包列表 | `persist(name="spiritpal:chat", partialize: {messages走加密写入DB，草稿存IndexedDB})` | `sendMessage(text)` / `clearHistory(petId)` |
 | `stores/windowStore.ts` | 3 窗口位置、尺寸、Z-order、当前可见性 | `persist(name="spiritpal:window", 明文即可，位置不敏感)` | `setPetWindowPos(x,y)` / `toggleChatWindow()` |
 | `stores/themeStore.ts` | 主题（light/dark/跟随系统）、主色调 Token 覆盖 | `persist(name="spiritpal:theme")` 明文 | `setTheme("dark")` / `setPrimaryColor("#a78bfa")` |
@@ -459,6 +458,9 @@ Scope 建议：`pet-window` / `chat` / `settings` / `rust-encryption` / `i18n` /
 | 17 | **窗口边缘吸附判定不能用「窗口中心点」，必须用「窗口边缘距屏幕边」** | v1.7 实现实时磁吸时用中心点判定 + `max(40, 窗口宽×20%)` 阈值 | 默认 300px 窗口半宽 150 > 阈值 60，放大到 600px 后半宽 300 > 阈值 120——窗口中心永远到不了阈值范围，**吸附整体失效**（小窗口也不吸） | 判定改为窗口边缘距屏幕边缘 < 阈值（`x - screenX < thresh` / `screenX+screenW-(x+winW) < thresh`），窗口贴边时边缘距边为 0 恒满足；中心点只用于防卡屏（鼠标距中心超窗口尺寸时跳过吸附） | 2026-08-19 |
 | 18 | **宠物头顶气泡（bottom-full 定位）在窗口高度只按精灵尺寸计算时被顶部裁剪** | 滚轮把宠物放大到 3×（精灵 624 高），handleWheel 的 needH = spriteH+32，宠物顶部只剩 24px | 气泡显示在宠物容器正上方，被窗口顶部物理裁剪，文字/图形显示不全 | 窗口目标高度预留气泡空间：`needH = max(WIN_H, spriteH + 32 + BUBBLE_TOP_SPACE(64))`，宠物 pos.y 相应下移；小窗口（默认 400）不受影响 | 2026-08-19 |
 | 19 | **Tauri v2 的 `currentMonitor()` 是顶层函数，Window 实例没有该方法** | usePetDragging 写 `(win as any).currentMonitor()` 获取当前显示器 | 拖动开始缓存屏幕环境时抛 `TypeError: win.currentMonitor is not a function` → catch 吞掉 → dragEnvRef 恒为 null → **边缘吸附永不生效**（实时磁吸+释放吸附全部失效）；单测 mock 了 currentMonitor 掩盖此 bug，真实环境必现 | 用顶层函数：`import { currentMonitor } from '@tauri-apps/api/window'` 后直接 `currentMonitor()`；写 Tauri API 调用前先确认是模块函数还是实例方法（window.js 导出表）；排此类"功能不生效"先查运行时 console（CDP 注入日志最快） | 2026-08-19 |
+| 20 | **气泡/浮层驱动的窗口自适应不能依赖「未贴边」状态——贴边停靠是常态，守卫会静默跳过导致长文本照旧被裁剪** | v2.7 气泡窗口自适应加 `if (dockDirRef.current) return` 守卫（担心贴边时改窗口尺寸和吸附抢位置） | 用户反馈长段说话仍被窗口顶部裁剪：宠物被拖到屏幕边缘（或启动时窗口移动 400ms 后 onMoved 自动 snapToEdge）→ dockDir 非空 → 气泡放大被静默跳过；底部停靠的宠物视觉上"正常站立"，极难察觉已贴边 | ① 自适应逻辑不要用 dockDir 做守卫（贴边时照常放大/恢复，改尺寸不解除吸附）；② applyWindowSize 锚定改为贴边感知：dir=left/right/top/bottom 时固定对应屏幕边缘（newX = dir==='left'? pos.x : dir==='right'? pos.x+dW : pos.x+round(dW/2)；newY = dir==='top'? pos.y : pos.y+dH），未贴边时保持中心 X/底部 Y——底部贴边时窗口向上生长、宠物原地不动；③ 验证手法：PowerShell GetWindowRect 每 2s 采样窗口矩形，观察气泡出现时高度增长、关闭后恢复，底边锚定恒定 | 2026-08-22 |
+| 21 | **eslint react-hooks v7 的 purity 规则对「事件处理器内 Date.now/Math.random」的判定随组件结构变化而漂移** | v2.8 大改 PetWindow（新增面板/处理器/渲染分支）后 lint 从 0 报错变成 8 个 purity 错误：onDragStart/onDragEnd/pickBubble/triggerPet/handleFeed/handlePlay 等多年未动的代码全被标「Cannot call impure function during render」；且同一批 handler 中 handleBathe 没被标、handleStartPomodoro 被标，判定不一致 | 反复出现「改动前 eslint 全过、改动后老代码报错」且报错位置与改动无关，无法从代码语义推断规律 | ① 先修 React Compiler 的 memoization 报错（如 showBubble 依赖补 `setBubble`，稳定 setter 加进 deps 无害），编译器恢复完整分析后事件处理器通常不再被误伤；② 剩余报错按行逐个补 `// eslint-disable-next-line react-hooks/purity -- 仅事件处理器执行路径（xxx），非渲染路径`（与既有 onClick 注释同模式），不要批量加；③ 加完跑 lint 把 unused directive 的删掉（编译器判定漂移会导致部分豁免多余）；④ 判定基准 = 当前 eslint 实跑结果，不是代码语义 | 2026-08-22 |
+| 22 | **宠物行走目标范围硬编码窗口尺寸，窗口/布局变化后宠物游走越界（"被挤到边缘"的假象）** | v2.10 面板并排布局后，用户反馈「打开左侧状态卡后宠物被挤到边缘」 | 根因：usePetBehavior 行走目标 `minX=8 / maxX=WIN_W(300)-SPRITE_W-8` 写死旧窗口宽；面板展开后窗口 444 宽、宠物本应在 x=188 列间区，但行走仍把它带向 x∈[8,100]——正好走到左侧状态卡后面，视觉上"被挤到边缘" | 行走范围改为由调用方注入 `getWalkBounds`（面板展开时返回列间缝隙区间，区间 <24px 则跳过行走改 idle；收起态返回 null 用默认范围）；任何改变宠物活动区域的布局（面板、窗口自适应）都要同步约束行走范围，宠物位置（pos.x）与行走目标必须同一坐标系 | 2026-08-22 |
 
 ---
 
@@ -483,5 +485,38 @@ Scope 建议：`pet-window` / `chat` / `settings` / `rust-encryption` / `i18n` /
 | v2.4 | 2026-08-19 | 窗口随宠物缩小（边框预览暴露的最小尺寸问题） | 用户反馈：宠物缩小时边框依然巨大（0.5× 时窗口仍 300×400）。根因：handleWheel 保底 WIN_W/H(300/400) + Rust min_inner_size 280×320 都过大。修复：新增 WIN_MIN_W/H(160×200) 对齐 Rust min_inner_size(160×200)，handleWheel 保底改小——窗口随宠物缩放（0.5× 时 160×200，1.0× 时 224×304，3.0× 时 608×720），边框贴合宠物；面板钳位 clampPanelPos/panelDisplayPos 改用动态 winH（替代固定 WIN_H）；吸附判定基于窗口边缘，窗口≈宠物后触发时机自然；vitest 1826 通过 / tsc 0 / eslint 0 / cargo check 0 | v0.1.0 |
 | v2.5 | 2026-08-19 | 右键菜单适配小窗口 + 状态面板拆分为独立窗口 | ① 菜单溢出：宠物 0.5× 时窗口 160 宽 < 菜单默认 192 宽，菜单横向溢出被裁剪且覆盖宠物——adjustedPos 加 maxW = min(192, winW-8)，菜单随窗口收窄；② 面板分离：新增独立 panel-window（透明置顶小窗，216×176，index.html#/panel 路由 + PanelWindow 组件），显示角色状态（等级/心情/饱食/活力/金币）+ 聊天/设置按钮，标题行 data-tauri-drag-region 拖动、透明区像素穿透；PetWindow 移除窗口内 S 档状态栏与 M/L 档面板（含面板拖拽全套代码/winTier/DockStat），启动时创建面板窗口并每 2s 经 windowEventBus 'pet-stats' 同步状态；capabilities default.json windows 加 panel-window；vitest 1826 通过 / tsc 0 / eslint 0 / cargo check 0 | v0.1.0 |
 | v2.6 | 2026-08-21 | README 文档问题全面修复 + AGENTS 同步修正 | README：消除「Git 分支说明」两段互相矛盾的内容，合并为单一准确的「本地 main + 远程 public」双分支策略（远端确有 public 分支）；修正目录树（去除不存在的 `Pet/spiritpal-app/` 外层包装，改为实际根目录布局）；AGENTS：同步 Tailwind 版本 v3.4→v4.2（`@tailwindcss/vite`，package.json 确认 `^4.2.2`）、窗口模型 3→4（新增 panel-window，capabilities 清单改为 `default.json`(+panel)/`chat-window.json`/`settings-window.json`） | v0.1.0 |
+| v2.7 | 2026-08-22 | 状态面板窗口合并回宠物窗口 + 气泡驱动窗口自适应（用户反馈：状态栏与宠物窗口分离导致问题，要求单窗口 + 默认尺寸贴合 + 说话内容自适应） | ① 取消独立 panel-window：删除 PanelWindow 组件（回收站）、appWindows panel 配置、App.tsx /panel 路由、windowEventBus 'pet-stats' 事件与 PetStatsPayload、capabilities default.json 的 panel-window 条目；状态卡改为宠物窗口内嵌（右上角折叠胶囊 ↔ 完整卡片，含心情/饱食/活力/金币 + 聊天/设置入口，z-30 高于顶部拖拽条，data-spiritpal-panel 入像素穿透白名单）；② 默认窗口尺寸贴合宠物：Rust inner_size 300×400→224×304（1.0× 基准适配），前端挂载按持久化 petSize 校正（新纯函数模块 `lib/petWindowSizing.ts`：computeWindowSizeFor/computeBubbleWindowSize/computePetPosInWindow，15 个单测）；③ 气泡驱动窗口自适应：PetBubble 增加 measureRef，气泡出现时测量实际尺寸→窗口自动放大（锚定中心 X/底部 Y），关闭后恢复 max(放大前尺寸, 基准适配)（尊重手动放大）；滚轮缩放叠加气泡尺寸；拖拽时跳过；**第二轮修复（用户实测长文本仍被裁剪）**：根因=贴边停靠（onMoved 400ms 自动 snapToEdge 触发）时 dockDir 守卫静默跳过放大——移除 dockDir 守卫 + applyWindowSize 改贴边感知锚定（贴边固定对应屏幕边缘，未贴边保持中心 X/底部 Y），GetWindowRect 采样实测窗口 200→296→200 自动放大/恢复、底边锚定恒定；新增 Gotcha 20；全量回归 vitest 1868 通过 / tsc 0 / eslint 0 / cargo check 0 | v0.1.0 |
+| v2.8 | 2026-08-22 | 宠物窗口三区布局（用户要求：对话顶中 + 状态左侧 + 右侧放右键菜单动作列表） | 平时收起只显示宠物（小窗）；悬停宠物/点击右上角胶囊展开三区面板，光标离开交互区 600ms 防抖收起（复用 usePixelClickThrough 新增的 onHoverInteractiveChange 回调，覆盖「从透明缝隙移出窗口」的 mouseleave 盲区）：① 顶部对话区=PetBubble 新 anchor='top-center'（窗口顶中，随内容自适应），收起态仍为贴宠物头顶气泡；② 左侧状态卡（名称/等级/心情/饱食/活力/金币 + 聊天/设置）；③ 右侧动作列表（摸摸/喂食/玩耍/洗澡/对话/番茄钟/截图/聊天/设置/切换角色/退出，喂食·番茄钟·切角色可内联展开）；④ petWindowSizing 新增 computePanelWindowSize（可选 actionsH/statusH 实测高度覆盖估算）+ 面板常量，面板打开/子菜单展开后 rAF 实测两栏高度校准窗口；⑤ 气泡 effect 模式感知（panelOpen 入依赖 + prevModeRef 跨模式强制重测）；面板两栏宽度改常量内联 style 保持尺寸单一来源；新增 Gotcha 21（eslint purity 判定漂移，showBubble 依赖补 setBubble + 按报错行逐个补豁免）；全量回归 vitest 1873 通过 / tsc 0 / 改动文件 eslint 0 | v0.1.0 |
+| v2.9 | 2026-08-22 | 交互模型细化（用户四条规则：默认只显示宠物 / 右键展开右侧动作列表 / 对话区随说话自动显示 / 状态卡可配置显示位置） | ① 删除常驻胶囊与独立右键菜单：PetContextMenu 组件+测试移入回收站，右键宠物改为 handleContextMenu→handlePanelModeChange(true)（展开面板动作列表），Escape 改收起面板；② 顶部对话区（PetBubble anchor=top-center）移出 panelOpen 块常驻渲染——宠物说话时自动显示、窗口随内容自适应，收起态不再有贴宠物头顶气泡；③ 状态卡可配置：AppSettings/settingsStore 新增 statusCardMode: 'off'（默认）| 'left' | 'top-right'，动作列表新增「状态卡」子菜单（关闭/左侧/右上方）+ 换装/漫游/窗口边框三项补全（右键菜单功能全量迁移）；'off' 时默认只显示宠物（无胶囊无卡片），'top-right' 时收起态显示右上胶囊+展开态卡片右上方（动作列表下移，style top=statusHMeasured+10）；④ computePanelWindowSize 增加 statusMode 参数分三档计算（off=仅动作栏 160 宽 / left=左卡+右栏 342 宽 / top-right=右卡+其下动作堆叠 188 宽）；全量回归 vitest 1856 通过 / tsc 0 / 改动文件 eslint 0 | v0.1.0 |
+| v2.10 | 2026-08-22 | 用户反馈修正：悬停展开严重影响使用（须立刻删除）；动作列表须与宠物并排右侧而非上下堆叠 | ① 删除悬停展开：移除 handlePanelMouseEnter/root onMouseEnter，handlePanelInteractiveChange 只保留「光标离开交互区防抖收起」（面板仅右键/右上胶囊触发展开，收起仍可自动）；② 面板布局改并排行：宠物与动作列表同排（'off'=宠物左+列表右 / 'left'=状态左+宠物中+列表右 / 'top-right'=宠物左+右侧状态卡与列表堆叠），新增 computePanelPetPos（行内垂直居中），重写 computePanelWindowSize 行布局公式（'left' 0.5× =444×302，'off' =262×302）；③ 对话区高度 state（dialogueZoneH）驱动动作列表/左状态卡随气泡下移（避免气泡遮挡卡片）；全量回归 vitest 1856 通过 / tsc 0 / 改动文件 eslint 0 | v0.1.0 |
+| v2.11 | 2026-08-22 | 用户反馈：① 打开左侧状态卡后宠物被挤到边缘；② 边缘吸附太强（差不多到边缘就被强制吸附）；③ 状态卡左侧模式没有胶囊（不对称）；④ 命名统一为左侧/右侧（去掉"上方"） | ① 行走范围面板感知：根因=usePetBehavior 行走目标硬编码 `WIN_W=300`，面板展开（窗口 444 宽）后宠物仍走向 x∈[8,100] 被"挤"到状态卡后面——新增 getWalkBounds 注入（面板展开时返回列间缝隙，区间 <24px 跳过行走改 idle；收起态 null 用默认），修复"宠物被挤到边缘"；② 吸附阈值收紧：DOCK_THRESHOLD_RATIO 20%→8%、MIN_PX 40→16（仅真正贴边才吸附）；③ 胶囊双模式：收起态胶囊在 statusCardMode≠'off' 时都显示（left=左上/right=右上），点击展开面板；④ 命名统一：'top-right'→'right'（标签「右上方」→「右侧」），类型/尺寸函数/测试同步；新增 Gotcha 22；全量回归 vitest 1859 通过 / tsc 0 / 改动文件 eslint 0 | v0.1.0 |
+
+| v2.12 | 2026-08-22 | 上帝视角评审后全量修复：文档与现实同步 + 死代码清理 + 权限最小化 + 行走范围彻底修复 + 构建脚本化 | ① **文档同步**：修正 AGENTS.md 虚假声明——`forbid(unsafe_code)` 实际不存在（get_mouse_pos 含 unsafe 块）、偏好设置实为明文 localStorage（非 secureStore 加密）、command 数 12→30、Rust 测试 32→105、lib 模块 13→159；② **死代码清理**：petStore.panelPosition/setPanelPosition（v1.3 遗留无消费者）与其测试、communityApi 模块+测试（未引用占位）删除；③ **capabilities 最小化**：default.json 移除前端未使用的 global-shortcut 4 项（22→18；store/sql/notification/dialog 均被 pet 窗口实际使用保留）；④ **行走范围彻底修复**：收起态改用实际窗口宽（computeWalkBounds 纯函数，修复 1.0×/3.0× 宠物只走左半区残留），展开态返回列间缝隙，6 个新单测；⑤ 新增 `scripts/build-win.ps1`（构建+产物替换+进程锁处理脚本化）；全量回归 vitest / tsc / eslint / cargo 全过，生产构建通过 | v0.1.0 |
 
 <!-- 🔄 下次更新 AGENTS.md 时，在上面表格末尾追加新一行，不要删除历史记录 -->
+
+## 📂 文件归档与放置规范（重要：新增文件必须遵守）
+
+> 本仓库目录已于 2026-08-23 系统整理（见 `docs/整理记录_20260823.md`）。后续任何新增/生成文件，**先判断类型再放置**，不要随意丢在仓库根目录或其他位置。
+
+**docs/ 分类（项目文档）**
+- `docs/project/`：需求(PRD)、架构、API、技术选型、设计上下文
+- `docs/plans/`：实施计划、路线图、指南(Guide)、待办(TASKS)
+- `docs/reports/`：评估/审计/安全/测试/优化报告、Lessons
+- `docs/repo-analysis/`：仓库学习报告（命名 `{仓库名}_技术学习报告.md`）
+- `docs/_devarchive/`：历史/一次性开发产物、交接方案、旧版本文档（**归档而非删除**）
+
+**根目录只允许放置**
+- 标准仓库文件：README、LICENSE、CHANGELOG、AGENTS、SECURITY、PRIVACY_POLICY、CONTRIBUTING
+- 构建与配置：package.json、pnpm-*.yaml、tsconfig*.json、vite.config.ts、vitest.config.ts、playwright*.config.ts、eslint.config.js、stryker.config.json、.env(.example)、.npmrc/.prettier*、index.html、启动脚本(install/start)
+- 明确被 build/CI 或文档要求从根目录运行的工具
+
+**禁止事项（防止回归混乱）**
+- ❌ 一次性调试脚本/截图/日志/草稿 → 放 `scripts/` 或 `docs/_devarchive/`，绝不堆在根目录
+- ❌ 文档散落到 src/tests/perf 等业务目录 → 归入 `docs/` 对应分类
+- ❌ 移动/删除 gitignored 运行时产物（`tsconfig.tsbuildinfo` 等）
+- ❌ 删除旧版本文档 → 需要留档移入 `docs/_devarchive/`
+
+> 本仓库特别说明：`docs/repo_research/` 是克隆的第三方仓库源码，属研究资料，**不**归入文档分类；
+> PRD v0.1/v0.2、记忆系统各轮评估等版本文档保留在原分类（未删除）。
+> 新增文件前若不确定归属，先询问，不要自作主张放置。
