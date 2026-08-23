@@ -55,6 +55,9 @@
         ]
       }
     },
+    "externalBin": [
+      "binaries/spiritpal-mcp"
+    ],
     "resources": [
       "../public/pets"
     ],

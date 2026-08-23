@@ -38,6 +38,7 @@ import rehypeSanitize from 'rehype-sanitize'
 import { Send, Square, Trash2, Bot, User, Search, X, ChevronUp, ChevronDown, Flag, AlertTriangle, RefreshCw } from 'lucide-react'
 import { useChatStore } from '../stores/chatStore'
 import { usePetStore } from '../stores/petStore'
+import { usePetTTS } from '../hooks/usePetTTS'
 import { emit } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { getCharacter } from '../lib/characters'
@@ -121,6 +122,29 @@ export default function ChatWindow() {
   const [searchIndex, setSearchIndex] = useState(0)
   // 当前正在重新生成的消息 id（用于禁用按钮、显示加载态）
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
+  // 语音朗读（TTS）：仅朗读"刚结束流式"的助手回复，避免朗读历史/重复朗读
+  const { speak } = usePetTTS()
+  const prevStreamingIds = useRef<ReadonlySet<string>>(new Set())
+  const spokenIds = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    const stillStreaming = new Set<string>()
+    for (const m of messages) {
+      if (m.isStreaming) stillStreaming.add(m.id)
+    }
+    const newlyFinished = messages.filter(
+      (m) => !m.isStreaming && prevStreamingIds.current.has(m.id) && !spokenIds.current.has(m.id),
+    )
+    for (const m of newlyFinished) {
+      // 仅朗读有实质内容的助手回复，跳过系统/空内容
+      if (m.content) {
+        spokenIds.current.add(m.id)
+        speak(m.content)
+      } else {
+        spokenIds.current.add(m.id)
+      }
+    }
+    prevStreamingIds.current = stillStreaming
+  }, [messages, speak])
   const scrollRef = useRef<HTMLDivElement>(null)
   const chatStageMgr = getChatStageManager()
 

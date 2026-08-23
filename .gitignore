@@ -106,3 +106,5 @@ src-tauri/keys/*.key.pub
 
 # 疑似 API 密钥轮换记录（sk-...==>sk-...），严禁入库；确认无效后删除该文件即可
 expressions.txt
+docs/repo_research/
+

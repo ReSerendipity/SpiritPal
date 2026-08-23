@@ -1,6 +1,6 @@
 // MobileNurturingView smoke 测试（审计 P3-10 S1）
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render } from '@testing-library/react'
 import { MobileNurturingView } from './MobileNurturingView'
 
 // items 模块依赖角色数据，mock 成固定商店数据
@@ -15,12 +15,7 @@ vi.mock('../lib/items', () => ({
 
 describe('MobileNurturingView', () => {
   it('渲染商店/背包区域不崩溃', () => {
-    render(<MobileNurturingView isDark={false} />)
-    expect(document.body).toBeTruthy()
-  })
-
-  it('深色模式下可渲染', () => {
-    render(<MobileNurturingView isDark={true} />)
+    render(<MobileNurturingView />)
     expect(document.body).toBeTruthy()
   })
 })

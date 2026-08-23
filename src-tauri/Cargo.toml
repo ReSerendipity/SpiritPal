@@ -53,6 +53,8 @@ tauri-plugin-single-instance = "2"
 rdev = { git = "https://github.com/kunkunsh/rdev" }
 # R-12 v2.0: 字符串字面量混淆（Release 构建时字符串在 .rodata 中不可直接搜出明文）
 obfstr = "0.4"
+# MCP 命令桥：bridge 服务器引擎（应用监听端）；crate 名即 lib 名 spiritpal_mcp
+spiritpal-mcp = { path = "mcp-server" }
 
 # macOS 平台专用依赖：仅在 macOS 编译时引入。
 # 提供 NSPanel 支持：将宠物窗口转为 NSPanel，实现不抢焦点、跨 Space、全屏可见浮层。

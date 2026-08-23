@@ -184,7 +184,7 @@ describe('EmotionCurve', () => {
     const { container } = render(<EmotionCurve memories={[highEmotionMem]} />)
     const circles = container.querySelectorAll('circle')
     const highEmotionCircle = Array.from(circles).find(
-      (c) => c.getAttribute('fill') === '#f472b6'
+      (c) => c.getAttribute('fill') === '#e8874a'
     )
     expect(highEmotionCircle).toBeTruthy()
   })

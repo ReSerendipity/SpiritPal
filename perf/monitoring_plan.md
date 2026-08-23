@@ -1,4 +1,4 @@
-﻿# SpiritPal 性能监控计划
+# SpiritPal 性能监控计划
 
 ## 📊 监控指标
 - **启动时间**: 应用从点击到界面可交互的耗时
@@ -9,7 +9,7 @@
 ## 🚀 使用方法
 `ash
 cd C:\Users\Doro\SpiritPal
-python perf_monitor.py
+python scripts/perf_monitor.py
 `
 
 ## 📁 输出位置

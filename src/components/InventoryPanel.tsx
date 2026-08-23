@@ -19,6 +19,7 @@ import { usePetStore } from '../stores/petStore'
 import type { AnchorPoint, WornDecoration } from '../lib/types'
 import { getRarityDisplay } from '../lib/foodEffectContract'
 import { trackItemUse } from '../lib/analytics'
+import { CollectionTab } from './CollectionTab'
 
 const EMPTY_DECORATIONS: WornDecoration[] = []
 const selectInventory = (s: ReturnType<typeof usePetStore.getState>) => s.inventory
@@ -47,6 +48,7 @@ export function InventoryPanel() {
   const wearDecoration = usePetStore(selectWearDecoration)
   const removeDecoration = usePetStore(selectRemoveDecoration)
   const [toast, setToast] = useState<string | null>(null)
+  const [tab, setTab] = useState<'inventory' | 'collection'>('inventory')
 
   function showToast(msg: string) {
     setToast(msg)
@@ -73,8 +75,35 @@ export function InventoryPanel() {
     return wornDecorations.find((d) => d.itemId === itemId)?.anchor
   }
 
+  const tabBar = (
+    <div className="mb-2 flex gap-1">
+      <button
+        onClick={() => setTab('inventory')}
+        className={`rounded px-2 py-0.5 text-[11px] ${tab === 'inventory' ? 'bg-blue-600' : 'bg-ink-faint'}`}
+      >
+        背包
+      </button>
+      <button
+        onClick={() => setTab('collection')}
+        className={`rounded px-2 py-0.5 text-[11px] ${tab === 'collection' ? 'bg-blue-600' : 'bg-ink-faint'}`}
+      >
+        收藏
+      </button>
+    </div>
+  )
+
+  if (tab === 'collection') {
+    return (
+      <div className="relative w-full">
+        {tabBar}
+        <CollectionTab />
+      </div>
+    )
+  }
+
   return (
     <div className="relative w-full rounded-xl bg-surface/95 p-3 text-white shadow-xl">
+      {tabBar}
       <div className="mb-3 flex items-center justify-between">
         <span className="text-sm font-semibold">🎒 背包</span>
         <span className="text-xs text-ink-muted">共 {inventory.length} 种</span>

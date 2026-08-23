@@ -1,6 +1,6 @@
 // MobileSettingsView smoke 测试（审计 P3-10 S1）
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render } from '@testing-library/react'
 import { MobileSettingsView } from './MobileSettingsView'
 
 // settingsStore 依赖 characters 的 getDefaultCharacter，mock 需完整
@@ -12,12 +12,7 @@ vi.mock('../lib/characters', () => ({
 
 describe('MobileSettingsView', () => {
   it('渲染设置项列表不崩溃', () => {
-    render(<MobileSettingsView isDark={false} />)
-    expect(document.body).toBeTruthy()
-  })
-
-  it('深色模式下可渲染', () => {
-    render(<MobileSettingsView isDark={true} />)
+    render(<MobileSettingsView />)
     expect(document.body).toBeTruthy()
   })
 })

@@ -10,14 +10,9 @@ vi.mock('react-markdown', () => ({
 
 describe('MobileChatView', () => {
   it('渲染消息列表与输入区（无消息时为空态）', () => {
-    render(<MobileChatView isDark={false} />)
+    render(<MobileChatView />)
     // 输入框存在即可用
     const input = screen.queryByPlaceholderText(/输入|消息/i) ?? screen.queryByRole('textbox')
     expect(input).toBeTruthy()
-  })
-
-  it('深色模式下可渲染', () => {
-    render(<MobileChatView isDark={true} />)
-    expect(document.body).toBeTruthy()
   })
 })
