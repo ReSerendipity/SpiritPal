@@ -73,6 +73,8 @@ import { checkConsistency, generateCorrectionPrompt } from '../lib/characterCons
 import { WindowControls } from './WindowControls'
 import { FramelessResizeHandles } from './FramelessChrome'
 import type { ChatMessage } from '../lib/types'
+// 2.1: 视觉感知「看看」
+import { getVisualPerceptionManager } from '../lib/visualPerception'
 
 /**
  * 创建聊天消息对象
@@ -310,6 +312,60 @@ export default function ChatWindow() {
         .join('；')
       const droppedSummary = `（更早还有 ${droppedCount} 条对话因篇幅未展示${contentSnippets ? '，主要聊过：' + contentSnippets : ''}，如需回顾可询问具体内容）`
       prevMessages.unshift(mkMsg('system', droppedSummary))
+    }
+
+    // ===== 2.1: 视觉感知「看看」指令检测 =====
+    // 用户说「看看屏幕」「你看看」「看看我在干什么」时触发截屏分析
+    const lookKeywords = /^(看看|你看看|看一下|瞅瞅|瞄一眼|看看屏幕|看看我在|看看我正|看一眼|帮我看看|看看现在)/
+    if (lookKeywords.test(text)) {
+      setLoading(true)
+      chatStageMgr.setStage('waiting')
+      try {
+        const vpMgr = getVisualPerceptionManager()
+        const analysis = await vpMgr.triggerAnalysis()
+        if (analysis) {
+          // 将屏幕分析结果作为系统提示注入对话
+          const screenContext = `【视觉感知】宠物刚刚看了一眼屏幕，观察到：${analysis.userActivity}（工作状态：${analysis.inferredWorkState}，置信度：${((analysis.confidence ?? 0) * 100).toFixed(0)}%）${analysis.sceneDetails ? ' 场景详情：' + analysis.sceneDetails : ''}`
+          const vpConfig = await loadAIConfig()
+          const vpClient = getLLMClient(vpConfig)
+          const vpMessages: ChatMessage[] = [
+            mkMsg('system', character.systemPrompt + '\n' + EMOTION_PROMPT_FRAGMENT),
+            mkMsg('system', screenContext),
+            ...character.fewShotExamples.flatMap((ex) => [
+              mkMsg('user', ex.user),
+              mkMsg('assistant', ex.assistant),
+            ]),
+            mkMsg('user', text),
+          ]
+          const vpResult = await vpClient.chat(vpMessages, undefined, undefined)
+          appendAssistantChunk(assistantId, vpResult)
+          chatStageMgr.setStage('reply')
+          // 写入记忆
+          const vpMemory = getEnhancedMemoryManager(currentCharacterId)
+          vpMemory.addExchange(text, vpResult)
+          getAchievementManager().recordChat()
+          // 记录视觉记忆
+          try {
+            const { getVisualMemoryManager } = await import('../lib/visualMemoryManager')
+            const vmMgr = getVisualMemoryManager(currentCharacterId)
+            vmMgr.record('scene', analysis.userActivity, 'neutral')
+          } catch {
+            // 视觉记忆记录失败不影响主流程
+          }
+        } else {
+          // 截屏或分析失败，降级提示
+          appendAssistantChunk(assistantId, '[think]让我看看…[/think] 嗯…我现在的视力好像不太好，没法看清楚屏幕呢。也许你可以告诉我你在做什么？ [shy]')
+          chatStageMgr.setStage('reply')
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : '未知错误'
+        setError(`视觉感知失败：${msg}`)
+        appendAssistantChunk(assistantId, `[视觉感知失败：${msg}]`)
+        chatStageMgr.setStage('error')
+      } finally {
+        finishStreaming(assistantId)
+      }
+      return
     }
 
     // 构建 API 消息：系统提示 → few-shot → 记忆上下文 → 历史 → 当前用户消息
