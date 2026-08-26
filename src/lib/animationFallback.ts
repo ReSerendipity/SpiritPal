@@ -52,28 +52,20 @@ export interface FallbackReason {
  * 定义了每个状态在不同 tier 下的回退路径
  */
 const STATE_COMPATIBILITY: Record<PetState, PetState[]> = {
-  // 开心：happy → idle → sit → walk
   happy:   ['happy', 'idle', 'sit', 'walk'],
-  // 闲着：idle → sit → walk → happy
   idle:    ['idle', 'sit', 'walk', 'happy'],
-  // 行走：walk → idle → sit → happy
   walk:    ['walk', 'idle', 'sit', 'happy'],
-  // 坐着：sit → idle → walk → happy
   sit:     ['sit', 'idle', 'walk', 'happy'],
-  // 吃饭：eat → happy → idle → sit
   eat:     ['eat', 'happy', 'idle', 'sit'],
-  // 睡觉：sleep → sit → idle（睡觉不需要兼容高活力状态）
   sleep:   ['sleep', 'sit', 'idle'],
-  // 抚摸：pet → happy → idle → sit
   pet:     ['pet', 'happy', 'idle', 'sit'],
-  // 拖拽：drag → walk → idle → sit
   drag:    ['drag', 'walk', 'idle', 'sit'],
-  // 悲伤：sad → idle → sit → walk
   sad:     ['sad', 'idle', 'sit', 'walk'],
-  // 生病：sick → sad → idle（生病最低优先级，只能向同类回退）
   sick:    ['sick', 'sad', 'idle'],
-  // 2.4: 躲藏：hide → idle → sit（无专用素材时回退到 idle）
   hide:    ['hide', 'idle', 'sit'],
+  climbing: ['climbing', 'walk', 'idle'],      // 爬墙可回退到行走或闲着
+  peeking: ['peeking', 'idle', 'sit'],         // 探头回退到闲着
+  hiding_wall: ['hiding_wall', 'hide', 'idle'], // 躲藏回退到隐藏或闲着
 }
 
 /**
