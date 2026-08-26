@@ -41,7 +41,7 @@ export const ATLAS = { cellW: 192, cellH: 208, cols: 8, rows: 9 } as const
  * 宠物可见状态机类型
  * 定义宠物所有可能的动画/行为状态
  */
-export type PetState = 'idle' | 'walk' | 'sleep' | 'sit' | 'eat' | 'drag' | 'happy' | 'sad' | 'sick' | 'pet' | 'hide'
+export type PetState = 'idle' | 'walk' | 'sleep' | 'sit' | 'eat' | 'drag' | 'happy' | 'sad' | 'sick' | 'pet' | 'hide' | 'climbing' | 'peeking' | 'hiding_wall'
 
 /**
  * 单行动画描述接口
