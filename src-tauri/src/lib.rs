@@ -79,6 +79,8 @@ mod tray;
 pub mod validation;
 mod win32;
 mod mcp_bridge;
+// P1-2: 角色包导入命令（scan_character_directory / read_text_file）
+mod character_import;
 // R-11: SRI 哈希（构建时自动生成）
 // clippy::incompatible_msrv: LazyLock 需要 1.80.0，但项目 MSRV 设为 1.77.2，此处允许
 // dead_code: 生成的 get_hash 函数可能未被当前代码引用
@@ -157,6 +159,31 @@ fn open_path(path: String) -> Result<(), String> {
         let _ = path;
         Err("当前平台暂不支持自动打开目录".to_string())
     }
+}
+
+// ============================================================
+// P1-2: 角色包导入命令（scan_character_directory / read_text_file）
+// ============================================================
+
+/// 扫描角色资源目录，返回包含 pet.json 的子目录路径列表
+///
+/// 安全措施：拒绝 `..` 路径组件，防止目录穿越攻击。
+///
+/// 前端调用方式：`invoke('scan_character_directory', { path: string })`
+#[tauri::command]
+fn scan_character_directory(path: String) -> Result<Vec<String>, String> {
+    character_import::scan_character_directory(&path)
+}
+
+/// 读取文本文件内容（限定为角色包 JSON/文本）
+///
+/// 安全措施：拒绝 `..` 路径组件，防止目录穿越攻击。
+/// 文件大小限制 1MB，防止读取超大文件导致内存溢出。
+///
+/// 前端调用方式：`invoke('read_text_file', { path: string })`
+#[tauri::command]
+fn read_text_file(path: String) -> Result<String, String> {
+    character_import::read_text_file(&path)
 }
 
 /// 前端错误日志记录 — 将 JS 错误写入 Rust log 文件
@@ -929,6 +956,9 @@ pub fn run() {
                     decrypt_db_at_rest,
                     // MCP 命令桥：webview 回调挂起的工具调用
                     mcp_respond,
+                    // P1-2: 角色包导入
+                    scan_character_directory,
+                    read_text_file,
                 ]
             }
             #[cfg(not(desktop))]
@@ -946,6 +976,9 @@ pub fn run() {
                     scan_mods_directory,
                     // 上传文件魔数校验
                     validate_upload_magic,
+                    // P1-2: 角色包导入
+                    scan_character_directory,
+                    read_text_file,
                 ]
             }
         });
