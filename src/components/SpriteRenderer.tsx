@@ -10,18 +10,23 @@
  *   2. 不在切换时清除旧缓冲区src
  *   3. 使用visibility而非opacity淡入淡出
  *   4. 后缓冲区使用visibility:hidden保持解码
+ * - 色度键兜底（Windows WebView2 丢 VP9 alpha 通道）：
+ *   视频加载后自动检测（或按角色 chromaKey 配置强制/禁用）；
+ *   启用后 <video> 仅作解码源（隐藏），canvas 逐帧取帧 → 离屏抠像
+ *   （近黑像素 maxRgb<=12 置透明，参考 OC-Claw）→ contain 绘制显示。
  * - 支持size缩放、自定义className和style
  *
  * 核心Hooks/状态：
- * - useState: 当前帧号、激活缓冲区、视频源
- * - useRef: RAF句柄、上一帧时间、双缓冲video元素引用、激活缓冲区引用
- * - useEffect: RAF动画循环、视频源切换、状态变化处理
+ * - useState: 当前帧号、激活缓冲区、视频源、色度键模式
+ * - useRef: RAF句柄、上一帧时间、双缓冲video元素引用、激活缓冲区引用、离屏canvas
+ * - useEffect: RAF动画循环、视频源切换、状态变化处理、色度键绘制循环
  * - useCallback: 帧渲染函数
  */
 import { useEffect, useRef, useState, useCallback } from 'react'
 import type { CSSProperties } from 'react'
 import { ATLAS, ANIMATION_ROWS, type PetState } from '../lib/types'
 import { getCharacter } from '../lib/characters'
+import { detectVideoChromaKeyNeed, drawChromaKeyFrame } from '../lib/chromaKey'
 
 /** 精灵渲染器Props */
 interface SpriteRendererProps {
@@ -109,6 +114,13 @@ export function SpriteRenderer({
   const [activeBuffer, setActiveBuffer] = useState<0 | 1>(0)
   const prevVideoUrlRef = useRef<string | undefined>(undefined)
 
+  // ===== 色度键兜底（Windows WebView2 丢 VP9 alpha） =====
+  // null=未检测 / true=canvas 抠像渲染 / false=正常 video 播放
+  const [chromaKeyMode, setChromaKeyMode] = useState<boolean | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const offscreenRef = useRef<HTMLCanvasElement | null>(null)
+  const chromaRafRef = useRef<number>(0)
+
   const animKey = stateToAnimKey(state)
   const animRow = ANIMATION_ROWS[animKey] ?? ANIMATION_ROWS.idle
 
@@ -117,6 +129,13 @@ export function SpriteRenderer({
   if (prevAnimKey !== animKey) {
     setPrevAnimKey(animKey)
     setFrame(0)
+  }
+
+  // 角色切换时重置色度键检测状态（渲染期同步调整，触发新角色视频的重新检测）
+  const [prevCharacterId, setPrevCharacterId] = useState(characterId)
+  if (prevCharacterId !== characterId) {
+    setPrevCharacterId(characterId)
+    setChromaKeyMode(null)
   }
 
   // 视频类型：视频 URL 为派生值（每次渲染直接计算；字符串原语值比较，下游 effect 不受影响）
@@ -195,6 +214,8 @@ export function SpriteRenderer({
   )
 
   // 视频双缓冲效果：URL 变化时在后缓冲加载，播放后交换
+  // 每次加载就绪后顺带做色度键检测（函数式 setState 天然去重：
+  // 已有检测结果则跳过；角色切换重置为 null 后新视频会重新检测）
   useEffect(() => {
     if (character?.spriteType !== 'video' || !videoSrc) {
       prevVideoUrlRef.current = undefined
@@ -216,15 +237,57 @@ export function SpriteRenderer({
     const isFirstLoad = prevVideoUrlRef.current === undefined
     prevVideoUrlRef.current = videoSrc
 
+    // 色度键检测：角色 chromaKey 配置优先，否则运行时自动检测
+    // 检测结果在 setState 之外计算（updater 内不应有 DOM 副作用），
+    // 并用函数式 setState 去重：prev 非 null 说明已有结果，跳过重复检测
+    const detectChromaKeyNeed = (video: HTMLVideoElement): boolean => {
+      const config = character?.chromaKey ?? 'auto'
+      if (config === true) return true
+      if (config === false) return false
+      return detectVideoChromaKeyNeed(video)
+    }
+    const maybeDetectChromaKey = (video: HTMLVideoElement) => {
+      const result = detectChromaKeyNeed(video)
+      setChromaKeyMode((prev) => (prev !== null ? prev : result))
+    }
+
     if (isFirstLoad) {
       // 首次加载：直接在前缓冲播放
-      loadWithFallback(front, videoSrc, () => {}, () => {})
+      loadWithFallback(front, videoSrc, () => maybeDetectChromaKey(front), () => {})
       return
     }
 
     // 非首次：在后缓冲加载新视频，播放就绪后交换到前缓冲
-    loadWithFallback(back, videoSrc, () => finishSwap(backIdx), () => {})
-  }, [videoSrc, character?.spriteType, finishSwap, loadWithFallback])
+    loadWithFallback(back, videoSrc, () => {
+      maybeDetectChromaKey(back)
+      finishSwap(backIdx)
+    }, () => {})
+  }, [videoSrc, character, finishSwap, loadWithFallback])
+
+  // ===== 色度键绘制循环 =====
+  // 启用色度键后：RAF 每帧从当前前缓冲视频取帧 → 离屏抠像 → contain 绘制到显示 canvas
+  useEffect(() => {
+    if (character?.spriteType !== 'video' || chromaKeyMode !== true) return
+    let mounted = true
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    if (!ctx) return
+
+    const loop = () => {
+      if (!mounted) return
+      const front = activeBufferRef.current === 0 ? videoRefA.current : videoRefB.current
+      if (front && front.readyState >= 2 && front.videoWidth > 0) {
+        drawChromaKeyFrame(ctx, canvas, front, offscreenRef)
+      }
+      chromaRafRef.current = requestAnimationFrame(loop)
+    }
+    chromaRafRef.current = requestAnimationFrame(loop)
+    return () => {
+      mounted = false
+      cancelAnimationFrame(chromaRafRef.current)
+    }
+  }, [character?.spriteType, chromaKeyMode])
 
   if (!character) return null
 
@@ -259,10 +322,13 @@ export function SpriteRenderer({
     )
   }
 
-  // 视频类型：双缓冲 <video> 播放
-  // 两个 <video> 元素堆叠，使用 visibility 控制可见性
-  // visibility:hidden（非 display:none）让浏览器继续解码帧
+  // 视频类型：双缓冲 <video> 播放（解码源）+ 可选 canvas 色度键显示层
+  // 色度键模式（chromaKeyMode === true）：
+  //   两个 <video> 均隐藏（visibility:hidden 保持解码），canvas 显示抠像帧
+  // 普通模式：两个 <video> 堆叠，使用 visibility 控制可见性
+  //   visibility:hidden（非 display:none）让浏览器继续解码帧
   if (character.spriteType === 'video') {
+    const chromaActive = chromaKeyMode === true
     const videoStyle = (isFront: boolean): CSSProperties => ({
       position: 'absolute',
       top: 0,
@@ -271,8 +337,8 @@ export function SpriteRenderer({
       height: displayH,
       objectFit: 'contain',
       filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.25))',
-      // 使用 visibility 而非 opacity —— opacity 会让两个元素在过渡期间都半透明
-      visibility: isFront ? 'visible' : 'hidden',
+      // 色度键模式下 video 仅作解码源，一律隐藏；普通模式按双缓冲前后切换
+      visibility: chromaActive ? 'hidden' : (isFront ? 'visible' : 'hidden'),
       pointerEvents: 'none',
       ...style,
     })
@@ -286,6 +352,22 @@ export function SpriteRenderer({
           height: displayH,
         }}
       >
+        {chromaActive && (
+          <canvas
+            ref={canvasRef}
+            width={Math.max(1, Math.round(displayW))}
+            height={Math.max(1, Math.round(displayH))}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: displayW,
+              height: displayH,
+              filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.25))',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
         <video
           ref={videoRefA}
           style={videoStyle(activeBuffer === 0)}
