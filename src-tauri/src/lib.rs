@@ -81,6 +81,8 @@ mod win32;
 mod mcp_bridge;
 // P1-2: 角色包导入命令（scan_character_directory / read_text_file）
 mod character_import;
+// P2: 素材管线命令（detect_asset_tools / run_asset_pipeline）
+mod asset_pipeline;
 // R-11: SRI 哈希（构建时自动生成）
 // clippy::incompatible_msrv: LazyLock 需要 1.80.0，但项目 MSRV 设为 1.77.2，此处允许
 // dead_code: 生成的 get_hash 函数可能未被当前代码引用
@@ -161,10 +163,7 @@ fn open_path(path: String) -> Result<(), String> {
     }
 }
 
-// ============================================================
-// P1-2: 角色包导入命令（scan_character_directory / read_text_file）
-// ============================================================
-
+// P1-2: 角色包导入命令
 /// 扫描角色资源目录，返回包含 pet.json 的子目录路径列表
 ///
 /// 安全措施：拒绝 `..` 路径组件，防止目录穿越攻击。
@@ -184,6 +183,18 @@ fn scan_character_directory(path: String) -> Result<Vec<String>, String> {
 #[tauri::command]
 fn read_text_file(path: String) -> Result<String, String> {
     character_import::read_text_file(&path)
+}
+
+/// P2: 检测本机 python / ffmpeg 是否在 PATH
+#[tauri::command]
+fn detect_asset_tools() -> asset_pipeline::ToolDetectionResult {
+    asset_pipeline::detect_asset_tools()
+}
+
+/// P2: 安全执行 asset-pipeline 脚本（白名单 + 参数强校验）
+#[tauri::command]
+fn run_asset_pipeline(script_name: String, args: Vec<String>) -> Result<asset_pipeline::PipelineRunResult, String> {
+    asset_pipeline::run_asset_pipeline(&script_name, &args)
 }
 
 /// 前端错误日志记录 — 将 JS 错误写入 Rust log 文件
@@ -959,6 +970,9 @@ pub fn run() {
                     // P1-2: 角色包导入
                     scan_character_directory,
                     read_text_file,
+                    // P2: 素材管线
+                    detect_asset_tools,
+                    run_asset_pipeline,
                 ]
             }
             #[cfg(not(desktop))]
@@ -979,6 +993,9 @@ pub fn run() {
                     // P1-2: 角色包导入
                     scan_character_directory,
                     read_text_file,
+                    // P2: 素材管线
+                    detect_asset_tools,
+                    run_asset_pipeline,
                 ]
             }
         });
