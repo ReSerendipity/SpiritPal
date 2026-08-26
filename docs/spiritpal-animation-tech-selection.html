@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpiritPal 桌宠动画类型选型报告</title>
+<style>
+  :root {
+    --bg: #0f1117; --panel: #171a23; --card: #1d2130; --line: #2a2f42;
+    --text: #e8eaf2; --muted: #9aa1b5; --accent: #ffb6c1; --green: #7fe8df; --yellow: #ffd700;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif; line-height: 1.75; padding: 32px 20px 60px; }
+  .wrap { max-width: 1000px; margin: 0 auto; }
+  header { text-align: center; padding: 24px 0 8px; }
+  header h1 { font-size: 28px; letter-spacing: 1px; }
+  header .sub { color: var(--muted); margin-top: 8px; font-size: 14px; }
+  .verdict { background: linear-gradient(135deg, rgba(255,182,193,.12), rgba(127,232,223,.08)); border: 1px solid var(--line); border-radius: 14px; padding: 18px 22px; margin: 24px 0; }
+  .verdict b { color: var(--accent); }
+  h2 { font-size: 20px; margin: 40px 0 14px; padding-left: 12px; border-left: 4px solid var(--accent); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin: 12px 0; }
+  .card h3 { font-size: 16px; color: var(--green); margin-bottom: 8px; }
+  .card h3 span.tag { color: var(--accent); font-size: 13px; margin-left: 8px; font-weight: normal; }
+  .card ul { padding-left: 20px; font-size: 14px; }
+  .card li { margin: 4px 0; }
+  .muted { color: var(--muted); font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13.5px; }
+  th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--panel); color: var(--green); white-space: nowrap; }
+  tr:nth-child(even) td { background: rgba(255,255,255,.02); }
+  .stage { display: grid; grid-template-columns: 120px 1fr 2fr; gap: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin: 14px 0; }
+  .stage > div { padding: 12px 14px; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .stage > div:last-child { border-bottom: none; }
+  .stage .s { background: var(--panel); color: var(--accent); font-weight: bold; }
+  .stage .r { color: var(--green); font-weight: bold; }
+  .check { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; margin: 12px 0; }
+  .check p { font-size: 14px; margin: 6px 0; }
+  .check b { color: var(--accent); }
+  .ref { font-size: 13.5px; }
+  .ref a { color: var(--green); text-decoration: none; word-break: break-all; }
+  .ref a:hover { text-decoration: underline; }
+  footer { margin-top: 40px; color: var(--muted); font-size: 12px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>SpiritPal 桌宠动画类型选型报告</h1>
+    <div class="sub">2026-08-26 · 桌面宠物动画 / 渲染技术选型</div>
+  </header>
+
+  <div class="verdict">
+    <b>结论：</b>没有唯一正确答案，按「角色风格 × 美术产能 × 体积」三轴分档选择——默认 MVP 走<b>精灵图</b>，二次元角色追求鲜活感上 <b>Live2D</b>，手绘动画量大走 <b>WebM</b>，体积敏感用 <b>Lottie</b>，远期 3D / VTuber 联动选 <b>VRM</b>。
+  </div>
+
+  <h2>一、选型总览</h2>
+  <table>
+    <tr><th>你的诉求</th><th>推荐方案</th><th>理由</th><th>生态参照</th></tr>
+    <tr><td>像素风 / 多角色 / 低资源占用</td><td><b>精灵图</b></td><td>OpenPets、WindowPet 生态验证充分，体积性能最优</td><td>OpenPets、WindowPet、desktop-pet</td></tr>
+    <tr><td>手绘流畅动画、动作数量大</td><td><b>WebM</b></td><td>dsh-pet 91 动作证明可行，但需色度键兜底 Windows 透明</td><td>dsh-pet</td></tr>
+    <tr><td>二次元角色、要呼吸/眨眼/表情</td><td><b>Live2D</b></td><td>市面 AI 桌宠主流答案，实时形变无需逐帧资产</td><td>dsh-live2d-pets 等</td></tr>
+    <tr><td>体积敏感、要矢量缩放清晰</td><td><b>Lottie</b></td><td>ai-bubu 验证，SVG 动画 JSON 驱动，几 KB~几十 KB</td><td>ai-bubu</td></tr>
+    <tr><td>2D 角色要骨骼形变又不想 3D</td><td><b>Spine</b></td><td>DyberPet 计划中的升级方向，运行时小</td><td>DyberPet</td></tr>
+    <tr><td>3D 角色 / VTuber 联动</td><td><b>VRM / 3D</b></td><td>SuperAgentParty 已验证路线，也可接 VTube Studio</td><td>Super Agent Party</td></tr>
+    <tr><td>没有美术、只有分层 PSD</td><td><b>PSD 自动建模</b></td><td>Petra 的 Anime2.5DRig：拖入 PSD 自动生成 2.5D 角色</td><td>Anime2.5DRig</td></tr>
+  </table>
+
+  <h2>二、逐方案分析</h2>
+
+  <div class="card">
+    <h3>1. 精灵图 Sprite Sheet <span class="tag">默认 MVP 首选</span></h3>
+    <ul>
+      <li><b>适用：</b>像素风、Q 版多角色、低配机器、安装包/内存敏感。</li>
+      <li><b>优势：</b>生态最成熟（OpenPets 宠物包 = 精灵图 + 动画映射 + 元数据）；加载即播放、无解码开销；体积性能最优。</li>
+      <li><b>代价：</b>逐帧资产成本高——动作数量 × 帧数线性膨胀；放大模糊；多角色需维护多套精灵表。</li>
+      <li><b>落地：</b>沿用 desktop-pet 生态的 8×9 精灵表行映射约定；AI 生图 → 绿幕抠图 → 拼精灵表的自动化管线已被社区验证。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>2. WebM 透明视频 <span class="tag">手绘动画量大时最优</span></h3>
+    <ul>
+      <li><b>适用：</b>手绘流畅动画、动作数量大（几十上百个动作）。</li>
+      <li><b>优势：</b>dsh-pet 以 91 个动作证明可行；手绘逐帧动画转视频后资产成本远低于精灵图；衔接顺滑。</li>
+      <li><b>风险：</b>Windows 透明通道不保证，需色度键（绿幕/紫幕）抠像兜底；首帧解码有内存尖峰；循环需掐帧。</li>
+      <li><b>落地：</b>素材统一绿幕录制 → 运行时抠像；动作切换前预加载下一段视频。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>3. Live2D <span class="tag">二次元体验上限最高</span></h3>
+    <ul>
+      <li><b>适用：</b>二次元立绘角色，要求呼吸、眨眼、表情、口型。</li>
+      <li><b>优势：</b>市面 AI 桌宠的主流答案；实时网格形变，一套模型驱动全部表情，无需逐帧资产。</li>
+      <li><b>代价：</b>模型制作门槛高（.model3.json 需 Cubism 编辑器，成本大）；SDK 有授权条款。</li>
+      <li><b>落地：</b>角色若是现成 Live2D 模型（或团队能产），这是 2D 方案中表现力上限最高的选择。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>4. Lottie <span class="tag">体积敏感 / 轻量吉祥物</span></h3>
+    <ul>
+      <li><b>适用：</b>体积敏感、需要矢量无限缩放的简洁吉祥物 / UI 角色。</li>
+      <li><b>优势：</b>JSON 驱动、单文件几 KB~几十 KB；矢量任意缩放清晰；程序可控性强（进度、颜色、播放状态）；ai-bubu（Tauri + Vue 3）已验证。</li>
+      <li><b>局限：</b>复杂角色、骨骼形变、细腻表情表达弱——适合「轻量吉祥物」而非「高表现力角色」。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>5. Spine 2D 骨骼 <span class="tag">游戏动作型 2D</span></h3>
+    <ul>
+      <li><b>适用：</b>2D 角色要骨骼形变、网格动画，又不想上 3D。</li>
+      <li><b>优势：</b>游戏行业 2D 骨骼动画标准；运行时小；骨骼/网格形变比 Live2D 更自由，动作库可复用换皮；DyberPet 已将其列为计划中的升级方向。</li>
+      <li><b>代价：</b>Spine 编辑器（Pro）授权费用；需要会摆骨骼、K 动画的美术。</li>
+      <li><b>与 Live2D 的区别：</b>Spine 偏「游戏角色动画」（跑跳攻击），Live2D 偏「立绘形变表现」（呼吸眨眼口型）。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>6. VRM / 3D <span class="tag">远期 / VTuber 联动</span></h3>
+    <ul>
+      <li><b>适用：</b>3D 角色、VTuber 联动、多视角展示。</li>
+      <li><b>优势：</b>Super Agent Party（Electron + Python/FastAPI，支持 VRM 桌宠自定义、3D/2D 虚拟角色）已验证完整路线；模型资产丰富（VRoid Hub 等）；可接 VTube Studio 联动直播。</li>
+      <li><b>代价：</b>3D 渲染开销（GPU、内存）；模型面数/穿模/捏脸调优成本；桌面常驻场景资源占用显著高于 2D 方案。</li>
+      <li><b>落地：</b>three.js / PixiJS + VRM Loader。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>7. PSD 自动建模 Anime2.5DRig <span class="tag">无美术产能的兜底</span></h3>
+    <ul>
+      <li><b>适用：</b>没有美术产能、只有分图层 PSD 的团队/个人。</li>
+      <li><b>优势：</b>852wa/Anime2.5DRig 将分图层 PSD 拖入浏览器即自动 rigging 生成 2.5D 动画，门槛最低；dsh-anime25d-pets 插件已接入 DSH 桌宠（原 Live2D 方案模型制作门槛高，本方案只需一张分图层 PSD）。</li>
+      <li><b>代价：</b>动画质量受自动 rigging 限制，复杂动作需手动调；图层命名/拆分规范决定成品质量。</li>
+    </ul>
+  </div>
+
+  <h2>三、组合策略建议（按阶段）</h2>
+  <div class="stage">
+    <div class="s">MVP</div><div class="r">精灵图</div><div>生态验证最充分、接入最快；无动画产能时用 PSD 自动建模或社区现成素材</div>
+    <div class="s">一期</div><div class="r">Live2D / Spine / WebM</div><div>二次元立绘 → Live2D；游戏动作型 → Spine；手绘素材量大 → WebM</div>
+    <div class="s">远期</div><div class="r">VRM / 3D</div><div>VTuber 联动、多视角、直播场景；SuperAgentParty 路线可参考</div>
+    <div class="s">兜底</div><div class="r">PSD 自动建模</div><div>Anime2.5DRig 一条命令级别的接入成本</div>
+  </div>
+
+  <h3>方案横向评分（主观权重，供决策参考）</h3>
+  <table>
+    <tr><th>评估维度</th><th>精灵图</th><th>WebM</th><th>Live2D</th><th>Lottie</th><th>Spine</th><th>VRM/3D</th><th>PSD 自动</th></tr>
+    <tr><td>上手成本</td><td>★★★★★</td><td>★★★★</td><td>★★</td><td>★★★★</td><td>★★★</td><td>★★</td><td>★★★★★</td></tr>
+    <tr><td>动画表现力</td><td>★★</td><td>★★★★</td><td>★★★★★</td><td>★★</td><td>★★★★</td><td>★★★★★</td><td>★★★</td></tr>
+    <tr><td>体积 / 性能</td><td>★★★★★</td><td>★★★</td><td>★★★★</td><td>★★★★★</td><td>★★★★</td><td>★★</td><td>★★★★</td></tr>
+    <tr><td>生态成熟度</td><td>★★★★★</td><td>★★★</td><td>★★★★</td><td>★★★★</td><td>★★★★</td><td>★★★</td><td>★★★</td></tr>
+    <tr><td>多角色扩展</td><td>★★★★★</td><td>★★★</td><td>★★★★</td><td>★★★★</td><td>★★★</td><td>★★★</td><td>★★★★</td></tr>
+  </table>
+
+  <h2>四、决策检查清单</h2>
+  <div class="check">
+    <p><b>1.</b> 有没有美术/动画产能？没有 → PSD 自动建模（Anime2.5DRig）或精灵图生态现成素材</p>
+    <p><b>2.</b> 角色是像素风/简洁吉祥物？是 → 精灵图；体积敏感且要矢量缩放 → Lottie</p>
+    <p><b>3.</b> 二次元立绘、要呼吸/眨眼/表情？是 → Live2D</p>
+    <p><b>4.</b> 手绘动画素材量大（几十个动作）？是 → WebM（配绿幕抠像兜底）</p>
+    <p><b>5.</b> 要骨骼形变但不上 3D？是 → Spine</p>
+    <p><b>6.</b> 要 3D / VTuber 联动？是 → VRM（SuperAgentParty 路线，可接 VTube Studio）</p>
+  </div>
+
+  <h2>五、参考项目与链接（均已核实）</h2>
+  <table class="ref">
+    <tr><th>项目</th><th>链接</th><th>说明</th></tr>
+    <tr><td>OpenPets</td><td><a href="https://github.com/alvinunreal/openpets">github.com/alvinunreal/openpets</a> · <a href="https://openpets.dev/zh">openpets.dev/zh</a></td><td>宠物包 = 精灵图 + 动画映射 + 元数据，生态验证充分</td></tr>
+    <tr><td>WindowPet</td><td><a href="https://juejin.cn/post/7600326291552583686">juejin.cn/post/7600326291552583686</a></td><td>Tauri + React 跨平台桌宠叠加应用（掘金介绍，GitHub 仓库未直接核实）</td></tr>
+    <tr><td>desktop-pet</td><td><a href="https://github.com/duzexu/desktop-pet">github.com/duzexu/desktop-pet</a></td><td>Electron 跨平台桌宠，精灵图行映射约定来源</td></tr>
+    <tr><td>dsh-pet</td><td><a href="https://github.com/PC2005-cloud/dsh-pet">github.com/PC2005-cloud/dsh-pet</a></td><td>DSH 桌宠，91 动作 WebM 方案验证</td></tr>
+    <tr><td>ai-bubu</td><td><a href="https://github.com/funAgent/ai-bubu">github.com/funAgent/ai-bubu</a></td><td>Tauri + Vue 3 桌宠，Lottie 方案参照</td></tr>
+    <tr><td>DyberPet</td><td><a href="https://github.com/ChaozhongLiu/DyberPet">github.com/ChaozhongLiu/DyberPet</a></td><td>PySide6 桌宠框架，Spine 为计划升级方向</td></tr>
+    <tr><td>Super Agent Party</td><td><a href="https://github.com/heshengtao/super-agent-party">github.com/heshengtao/super-agent-party</a></td><td>Electron + Python/FastAPI，VRM 桌宠 + 3D/2D 虚拟角色</td></tr>
+    <tr><td>Anime2.5DRig</td><td><a href="https://github.com/852wa/Anime2.5DRig">github.com/852wa/Anime2.5DRig</a></td><td>分图层 PSD 自动 rigging 生成 2.5D 角色</td></tr>
+    <tr><td>dsh-anime25d-pets</td><td><a href="https://www.dsh.so/artifact/dsh-anime25d-pets">dsh.so/artifact/dsh-anime25d-pets</a></td><td>Anime2.5DRig × DSH 桌宠接入先例</td></tr>
+  </table>
+
+  <footer>SpiritPal · 动画类型选型报告 · 2026-08-26</footer>
+</div>
+</body>
+</html>
