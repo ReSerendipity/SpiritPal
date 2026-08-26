@@ -115,6 +115,11 @@ describe('createApiTTSGenerate', () => {
       blob: () => Promise.resolve(mockBlob),
     })
     vi.stubGlobal('fetch', mockFetch)
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: vi.fn().mockReturnValue('blob:mock-url'),
+      revokeObjectURL: vi.fn(),
+    })
 
     const config: TTSEngineConfig = {
       engine: 'api',
