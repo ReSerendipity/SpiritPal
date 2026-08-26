@@ -59,8 +59,8 @@ type EnvironmentAnim =
 type CodingAnim =
   | 'thinking' | 'editing' | 'testing' | 'success' | 'error' | 'celebrating'
 
-// 特殊/稀有（4 种）
-type SpecialAnim = 'anniversary' | 'birthday' | 'dream' | 'daydream'
+// 特殊/稀有（5 种，含 2.4 新增 hide）
+type SpecialAnim = 'anniversary' | 'birthday' | 'dream' | 'daydream' | 'hide'
 
 export type AnimationId =
   | BasicAnim | EmotionAnim | InteractionAnim | NurtureAnim
@@ -171,11 +171,13 @@ export const ANIMATION_CATALOG: AnimationDef[] = [
   { id: 'error', name: '构建失败', category: 'coding', triggers: ['coding: error', 'build: failed'], duration: 3000, priority: 8, spriteState: 'sad', motionGroup: 'FlickHead' },
   { id: 'celebrating', name: '里程碑达成', category: 'coding', triggers: ['coding: celebrating', 'milestone: achieved'], duration: 4000, priority: 9, spriteState: 'happy', motionGroup: 'TapBody' },
 
-  // ===== 特殊/稀有（4 种）=====
+  // ===== 特殊/稀有（5 种，含 2.4 hide）=====
   { id: 'anniversary', name: '纪念日', category: 'special', triggers: ['anniversary date'], duration: 4000, priority: 9, spriteState: 'happy', motionGroup: 'TapBody' },
   { id: 'birthday', name: '生日', category: 'special', triggers: ['birthday date'], duration: 4000, priority: 9, spriteState: 'happy', motionGroup: 'TapBody' },
   { id: 'dream', name: '做梦', category: 'special', triggers: ['sleeping >5min'], duration: 5000, priority: 3, spriteState: 'sleep', motionGroup: 'Sleep' },
   { id: 'daydream', name: '发呆', category: 'special', triggers: ['idle >2min'], duration: 4000, priority: 2, spriteState: 'idle', motionGroup: 'Idle' },
+  // 2.4: 隐藏互动状态——贴边时偶发触发，素材缺失时回退 idle
+  { id: 'hide', name: '躲藏', category: 'special', triggers: ['docked at edge', 'random 5% when docked'], duration: 6000, priority: 3, spriteState: 'hide', motionGroup: 'Idle' },
 ]
 
 // 动画总数（验证 ≥50）
