@@ -235,6 +235,9 @@ export interface CharacterProfile {
   // Phase 1.6: 自定义精灵图集布局（shimeji 角色为 128×128，内置角色用全局 ATLAS）
   /** 自定义精灵图集布局 */
   atlasLayout?: { cellW: number; cellH: number; cols: number; rows: number }
+  // 色度键兜底（Windows WebView2 丢 VP9 alpha）：true 强制 / false 禁用 / auto 自动检测（默认）
+  /** 色度键（Chroma Key）兜底配置 */
+  chromaKey?: boolean | 'auto'
   // Phase 1.6: 角色类型标记（builtin / community / mod）
   /** 角色类型 */
   type?: 'builtin' | 'community' | 'mod'
@@ -663,3 +666,4 @@ export type BubbleType =
   | 'pet'            // 被摸头
   | 'feed'           // 被喂食
   | 'custom'         // 自定义气泡（如倒计时等）
+

@@ -162,3 +162,5 @@ describe('computePetPosInWindow（宠物位置：水平居中 + 底部 8px 边�
     expect(pos.y).toBeGreaterThanOrEqual(0)
   })
 })
+
+
