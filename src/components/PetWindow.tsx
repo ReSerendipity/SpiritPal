@@ -394,6 +394,7 @@ export default function PetWindow() {
     workStateRef: workStatePlaceholderRef,
     musicSwayingRef: musicPlaceholderRef,
     getWalkBounds,
+    dockDirRef,
   })
 
   // 上下文感知（音乐/天气/网络/工作/日程/情绪/闲置）
@@ -1611,17 +1612,19 @@ export default function PetWindow() {
               width: spriteW, height: spriteH,
               cursor: dragging ? 'grabbing' : 'grab',
               transform: useLive2D
-                ? `scale(${clickScale}) rotate(${dragging ? 8 : 0}deg)`
-                : `scaleX(${facing === 'left' ? -1 : 1}) scale(${clickScale}) rotate(${dragging ? 8 : 0}deg)`,
+                ? `scale(${clickScale * (petState === 'hide' ? 0.6 : 1)}) rotate(${dragging ? 8 : 0}deg)`
+                : `scaleX(${facing === 'left' ? -1 : 1}) scale(${clickScale * (petState === 'hide' ? 0.6 : 1)}) rotate(${dragging ? 8 : 0}deg)`,
               transformOrigin: 'bottom center',
-              transition: dragging ? 'none' : 'transform 0.15s ease',
+              transition: dragging ? 'none' : 'transform 0.3s ease, opacity 0.3s ease',
+              opacity: petState === 'hide' ? Math.min(petOpacity, 0.3) : petOpacity,
             }}
             role="img"
             aria-label={`${character.displayName}，当前状态：${
               petState === 'idle' ? '待机' : petState === 'happy' ? '开心' :
               petState === 'sleep' ? '睡觉' : petState === 'drag' ? '被拖拽' :
               petState === 'eat' ? '吃东西' : petState === 'sad' ? '难过' :
-              petState === 'sit' ? '坐着' : petState
+              petState === 'sit' ? '坐着' : petState === 'hide' ? '躲藏' :
+              petState
             }`}
           >
             {useLive2D && live2dModelPath ? (
