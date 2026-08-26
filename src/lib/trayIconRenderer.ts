@@ -30,6 +30,8 @@ function petStateToAnimKey(state: PetState): string {
     case 'sad': return 'failed'
     case 'sick': return 'failed'
     case 'pet': return 'waving'
+    // 2.4: hide 状态复用 idle 动画行
+    case 'hide': return 'idle'
     default: return 'idle'
   }
 }

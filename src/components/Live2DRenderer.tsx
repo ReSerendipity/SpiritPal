@@ -99,6 +99,8 @@ const DEFAULT_STATE_MOTION_MAP: Record<PetState, string> = {
   sad: 'FlickHead',
   sick: 'Sick',
   pet: 'FlickHead',
+  // 2.4: hide 状态复用 Idle motion（无专用隐藏动画）
+  hide: 'Idle',
 }
 
 /**
