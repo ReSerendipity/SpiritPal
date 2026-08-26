@@ -29,7 +29,7 @@ import { appDataDir } from '@tauri-apps/api/path'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import {
 X, Bot, Palette, Settings as SettingsIcon, Info,
-Heart, ShoppingBag, Backpack, Brain, SlidersHorizontal, Trophy, Calendar, Package, Camera, Database, Sliders, Grid3x3, Activity, Sparkles, Users,
+Heart, ShoppingBag, Backpack, Brain, SlidersHorizontal, Trophy, Calendar, Package, Camera, Database, Sliders, Grid3x3, Activity, Sparkles, Users, Upload,
 } from 'lucide-react'
 import { enable, disable } from '@tauri-apps/plugin-autostart'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -55,6 +55,7 @@ import { QuickControlsPanel } from './QuickControlsPanel'
 import { SpriteSheetPanel } from './SpriteSheetPanel'
 import { CharacterCreationWizard } from './CharacterCreationWizard'
 import { CharacterCreator } from './CharacterCreator'
+import { CharacterImportWizard } from './CharacterImportWizard'
 import { GifToSpriteTool } from './GifToSpriteTool'
 import { LegalDocument } from './LegalDocument'
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from '../lib/legalDocuments'
@@ -143,6 +144,8 @@ export default function SettingsWindow() {
   const [showWizard, setShowWizard] = useState(false)
   // 可视化角色创作工具
   const [showCreator, setShowCreator] = useState(false)
+// 角色导入向导
+const [showImporter, setShowImporter] = useState(false)
   // GIF 转精灵图工具
   const [showGifTool, setShowGifTool] = useState(false)
   // 法律文档弹窗
@@ -654,6 +657,12 @@ export default function SettingsWindow() {
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-dashed border-tangerine/40 px-3 py-2 text-sm text-tangerine-deep hover:bg-tangerine/10"
                 >
                   <Sparkles size={14} /> AI 创建角色
+                </button>
+                <button
+                  onClick={() => setShowImporter(true)}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-dashed border-tangerine/40 px-3 py-2 text-sm text-tangerine-deep hover:bg-tangerine/10"
+                >
+                  <Upload size={14} /> 导入角色
                 </button>
               </div>
             </div>
@@ -1193,10 +1202,15 @@ export default function SettingsWindow() {
         <CharacterCreationWizard onClose={() => setShowWizard(false)} />
       )}
 
-      {/* 可视化角色创作工具 */}
-      {showCreator && (
-        <CharacterCreator onClose={() => setShowCreator(false)} />
-      )}
+{/* 可视化角色创作工具 */}
+{showCreator && (
+<CharacterCreator onClose={() => setShowCreator(false)} />
+)}
+
+{/* 角色导入向导 */}
+{showImporter && (
+<CharacterImportWizard onClose={() => setShowImporter(false)} />
+)}
 
       {/* GIF 转精灵图工具 */}
       {showGifTool && (
