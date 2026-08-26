@@ -108,3 +108,7 @@ src-tauri/keys/*.key.pub
 expressions.txt
 docs/repo_research/
 
+
+# Python
+__pycache__/
+*.py[cod]
