@@ -32,7 +32,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { PERSONALITY_LABELS } from '../lib/personalityEngine'
 import { PERSONALITY_TEMPLATES } from '../lib/personalityTemplates'
 import { FOODS_BY_CHARACTER, TOYS, MEDICINES } from '../lib/items'
-import { ANIMATION_ROWS, ATLAS } from '../lib/types'
+import { ATLAS } from '../lib/types'
 import type { CharacterProfile, Personality } from '../lib/types'
 
 // ============ 五维雷达图（SVG）============
@@ -244,9 +244,6 @@ export function CharacterCreator({ onClose }: Props) {
   const [profile, setProfile] = useState<CharacterProfile>(createBlankProfile)
   const [newPhrase, setNewPhrase] = useState('')
   const [animPreset, setAnimPreset] = useState<'default' | 'simple' | 'custom'>('default')
-  const [customAnimRows, setCustomAnimRows] = useState<{ name: string; frames: number }[]>(
-    Object.entries(ANIMATION_ROWS).map(([name, v]) => ({ name, frames: v.frames })),
-  )
   const [savedTip, setSavedTip] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [importOk, setImportOk] = useState(false)
@@ -674,41 +671,10 @@ export function CharacterCreator({ onClose }: Props) {
                   ))}
                 </div>
 
-                {/* 自定义动画行编辑 */}
-                {animPreset === 'custom' && (
-                  <div className="mt-3 space-y-1.5">
-                    <div className="text-[10px] text-gray-500">
-                      单格尺寸 {ATLAS.cellW}×{ATLAS.cellH}，共 {ATLAS.cols} 列
-                    </div>
-                    {customAnimRows.map((row, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <span className="w-6 text-[10px] text-gray-500">行{idx}</span>
-                        <input
-                          value={row.name}
-                          onChange={(e) => {
-                            const next = [...customAnimRows]
-                            next[idx] = { ...next[idx], name: e.target.value }
-                            setCustomAnimRows(next)
-                          }}
-                          className="flex-1 rounded bg-gray-800 px-2 py-1 text-xs"
-                        />
-                        <input
-                          type="number"
-                          min={1}
-                          max={ATLAS.cols}
-                          value={row.frames}
-                          onChange={(e) => {
-                            const next = [...customAnimRows]
-                            next[idx] = { ...next[idx], frames: parseInt(e.target.value) || 1 }
-                            setCustomAnimRows(next)
-                          }}
-                          className="w-14 rounded bg-gray-800 px-2 py-1 text-xs"
-                        />
-                        <span className="text-[9px] text-gray-500">帧</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {/* TODO: 自定义动画行编辑功能将在 P1-3 导入向导中统一实现，
+                     届时 customAnimRows 将写回 atlasLayout 并持久化。
+                     当前该 UI 未写回 atlasLayout，为避免误导用户暂时移除。
+                     原始代码见 docs/_devarchive/removed-components/CustomPetForm.tsx */}
 
                 {/* 精灵图资源路径 */}
                 <div className="mt-3">
