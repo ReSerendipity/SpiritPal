@@ -17,7 +17,7 @@
  */
 
 import type { CharacterProfile } from './types'
-import { parseCharacterPack, parseCharacterPackFromJSON, type PackParseResult } from './characterPack'
+import { parseCharacterPackFromJSON, type PackParseResult } from './characterPack'
 import { saveCustomCharacter } from './characters'
 import {
   extractCharCardFromPNG,
