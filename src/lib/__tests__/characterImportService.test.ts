@@ -7,7 +7,6 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { importCharacter, type ImportSource } from '../characterImportService'
-import type { CharacterProfile } from '../types'
 
 // Mock saveCustomCharacter to avoid localStorage side effects
 vi.mock('../characters', () => ({
