@@ -21,7 +21,6 @@ import { loadShimejiCharacters } from './lib/shimejiLoader'
 const MobileApp = lazy(() => import('./mobile/MobileApp'))
 const SettingsWindow = lazy(() => import('./components/SettingsWindow'))
 const ChatWindow = lazy(() => import('./components/ChatWindow'))
-const RoamWindow = lazy(() => import('./components/RoamWindow'))
 
 function detectMobile(): boolean {
   if (typeof navigator === 'undefined') return false
@@ -119,15 +118,6 @@ export default function App() {
       <Suspense fallback={<div className="flex h-screen w-screen items-center justify-center bg-gray-900 text-white">Loading…</div>}>
         <ErrorBoundary>
           <ChatWindow />
-        </ErrorBoundary>
-      </Suspense>
-    )
-  }
-  if (route.startsWith('/roam')) {
-    return (
-      <Suspense fallback={<div className="h-screen w-screen bg-transparent" />}>
-        <ErrorBoundary>
-          <RoamWindow />
         </ErrorBoundary>
       </Suspense>
     )
