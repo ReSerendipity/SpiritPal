@@ -328,7 +328,7 @@ Scope 建议：`pet-window` / `chat` / `settings` / `rust-encryption` / `i18n` /
 |---------------|------|--------|
 | `ci.yml` | push 到 main / develop，所有 PR | 3 个 Job 并行：<br>1. `lint-and-test`：pnpm lint + pnpm test:unit（Vitest coverage 阈值）<br>2. `rust-test`：`cargo test`（32 个 Rust 单元 + 加密一致性）<br>3. `build`：3 个 matrix（windows-latest / macos-14 / ubuntu-latest）并行 `pnpm build`，产出 .msi / .dmg / .AppImage 上传 artifact（保留 7 天） |
 | `release.yml` | 手动 `Run workflow`（选分支），或 Git Tag push v*.*.* | 调用 ci.yml build job + 自动创建 GitHub Release + 上传 3 平台安装包（自动更新签名的 private key 在 GitHub Secrets，不会泄露） |
-| `e2e.yml` | 每周 Cron + PR tag `e2e` | Playwright for Tauri 跑完整 E2E（需要 macOS self-hosted runner，因为 GitHub hosted 不支持 GUI Tauri） |
+| `e2e.yml` | ⚠️ **实际不存在**（AGENTS.md 之前描述与实际不符） | E2E 测试文件存在（`tests/e2e/*.spec.ts` + `setup/tauri-helper.ts`），但 `.github/workflows/e2e.yml` 未创建。E2E 需 GUI 环境（GitHub hosted 不支持 Tauri GUI），需 self-hosted runner。当前 E2E 仅本地可跑 |
 
 ---
 
