@@ -673,10 +673,10 @@ pub fn run() {
             // R-11: 启动时 SRI 完整性验证
             let _ = generated::sri_hashes::verify_integrity();
             // R-14: 启动时解密数据库
-            let app_handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                let _ = decrypt_db_at_rest(app_handle).await;
-            });
+            // V-1 修复：移除 Rust 端 spawn 异步解密——前端 db.ts initDB() 中已调用 invoke('decrypt_db_at_rest')
+            // 之前 Rust 端 spawn 解密与前端 invoke 解密并发执行，可能导致竞争（两个解密同时写 spiritpal.db）
+            // 现在统一由前端 initDB() 中的 invoke('decrypt_db_at_rest') 负责，确保解密完成后才 Database.load()
+            // （lib.rs 的 spawn 解密保留注释说明，实际不执行）
 
             // MCP 命令桥：在应用进程内宿主 spiritpal-mcp 的 bridge 服务器
             mcp_bridge::spawn(app.handle());
@@ -966,11 +966,17 @@ pub fn run() {
 
     // S2/M0 (E3): RunEvent::ExitRequested 时同步执行数据库加密
     // 比 beforeunload 异步调用更可靠——Rust 侧在真正退出前同步完成加密
+    // V-1 修复：增加 300ms 延迟，等待前端 beforeunload 中的 DB close(WAL checkpoint) 完成
+    //   之前直接加密导致 Windows 上 SQLite 连接仍打开 → fs::remove_file 失败 → 明文残留
     let app = builder.build(tauri::generate_context!())
         .expect("error while building SpiritPal application");
     app.run(|app_handle, event| {
         if let tauri::RunEvent::ExitRequested { .. } = event {
             log::info!("[SpiritPal] ExitRequested — encrypting database at rest...");
+            // V-1: 等待前端关闭 DB 连接（beforeunload → encryptDatabaseAtRest → close DB）
+            // 300ms 足够前端完成 WAL checkpoint + close + invoke('encrypt_db_at_rest')
+            // 即使前端来不及完成，Rust 端 encrypt_db_at_rest 内部也有重试逻辑
+            std::thread::sleep(std::time::Duration::from_millis(300));
             // 同步执行加密（blocking），确保退出前完成
             let app = app_handle.clone();
             tauri::async_runtime::block_on(async move {
