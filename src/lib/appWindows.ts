@@ -1,10 +1,9 @@
 /**
  * 应用窗口管理（共享窗口配置与创建逻辑）
  *
- * 供 usePetWindows（窗口管理 Hook）与 petForm（形态切换）复用，
- * 避免漫游窗口创建逻辑在两处重复维护。
+ * 供 usePetWindows（窗口管理 Hook）与 petForm（形态切换）复用。
  */
-import { getAllWindows, primaryMonitor, type Window } from '@tauri-apps/api/window'
+import { getAllWindows, type Window } from '@tauri-apps/api/window'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 
 export interface WindowConfig {
@@ -48,23 +47,10 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
     minWidth: 320,
     minHeight: 400,
   },
-  'roam-window': {
-    title: 'SpiritPal 漫游',
-    width: 520,
-    height: 320,
-    url: 'index.html#/roam',
-    transparent: true,
-    decorations: false,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    backgroundColor: '#00000000',
-    resizable: false,
-  },
 }
 
 /**
  * 确保窗口存在（不存在则创建），返回窗口实例或 null。
- * 漫游窗口创建时自动定位到主屏底部居中。
  */
 export async function ensureAppWindow(label: string): Promise<Window | null> {
   try {
@@ -75,32 +61,10 @@ export async function ensureAppWindow(label: string): Promise<Window | null> {
     const config = WINDOW_CONFIGS[label]
     if (!config) return null
 
-    let x: number | undefined
-    let y: number | undefined
-    let width = config.width
-    let height = config.height
-    if (label === 'roam-window') {
-      // 真漫游：漫游窗口铺满主屏（透明+点击穿透），宠物在整个桌面上行走
-      try {
-        const primary = await primaryMonitor()
-        if (primary) {
-          const sf = primary.scaleFactor || 1
-          width = Math.round(primary.size.width / sf)
-          height = Math.round(primary.size.height / sf)
-          x = 0
-          y = 0
-        }
-      } catch {
-        // 定位失败则使用默认尺寸与位置
-      }
-    }
-
     return new WebviewWindow(label, {
       title: config.title,
-      width,
-      height,
-      x,
-      y,
+      width: config.width,
+      height: config.height,
       minWidth: config.minWidth,
       minHeight: config.minHeight,
       resizable: config.resizable ?? false,

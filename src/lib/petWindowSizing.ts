@@ -181,3 +181,5 @@ export function computePetPosInWindow(win: WindowSize, petSize: number): { x: nu
     y: Math.max(0, Math.round(win.h - sh - 8)),
   }
 }
+
+
