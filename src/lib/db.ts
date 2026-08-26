@@ -128,11 +128,15 @@ export async function encryptDatabaseAtRest(): Promise<void> {
 }
 
 // R-14: 注册 beforeunload 事件，在应用关闭时加密数据库
+// V-1 修复：beforeunload 必须先关闭 DB 连接（WAL checkpoint + close），再调用加密
+// 之前直接 invoke('encrypt_db_at_rest') 导致 Rust 端读取 DB 时连接仍打开 →
+//   Windows 上 fs::remove_file 失败（文件锁定）→ 明文 DB 残留
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', () => {
-    // 使用 sendBeacon 或同步 invoke 确保加密执行
-    // 由于 beforeunload 中 async 操作可能不完整，此处做最大努力尝试
-    invoke('encrypt_db_at_rest').catch(() => {})
+    // beforeunload 中 async 操作不可靠（浏览器可能不等待 Promise）
+    // 但 encryptDatabaseAtRest 内部会先 close DB 再 invoke 加密
+    // 即使 beforeunload 的 Promise 被截断，Rust 端 ExitRequested 也会再次尝试
+    encryptDatabaseAtRest().catch(() => {})
   })
 }
 
