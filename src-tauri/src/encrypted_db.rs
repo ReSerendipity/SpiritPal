@@ -76,12 +76,40 @@ fn atomic_write(target: &PathBuf, content: &[u8]) -> Result<(), String> {
     })
 }
 
+/// V-1 修复：带重试的文件删除（Windows 上 SQLite 连接关闭后文件锁可能需要几毫秒释放）
+fn remove_file_with_retry(path: &PathBuf, max_retries: u32) -> Result<(), String> {
+    for attempt in 0..max_retries {
+        match fs::remove_file(path) {
+            Ok(()) => return Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                log::debug!(
+                    "[encrypted_db] File locked (attempt {}/{}), retrying in 100ms...",
+                    attempt + 1,
+                    max_retries
+                );
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+            Err(e) => return Err(format!("删除文件失败: {}", e)),
+        }
+    }
+    Err(format!(
+        "文件被锁定，重试 {} 次后仍无法删除: {}",
+        max_retries,
+        path.display()
+    ))
+}
+
 /// R-14: 加密数据库文件（应用关闭时调用）
 ///
 /// S2/M0 加固：
 /// - E1: WAL checkpoint(TRUNCATE) 通过 tauri-plugin-sql 在前端执行
 ///       此处负责删除 -wal/-shm 残留文件
 /// - E2: 先写 .enc.tmp → rename 原子替换 → 再删明文
+///
+/// V-1 修复：
+/// - 增加文件读取重试（Windows 上 SQLite 连接关闭后文件锁释放有延迟）
+/// - 增加明文删除重试（同上）
+/// - 加密失败时保留明文（不删除），避免数据丢失
 ///
 /// 读取 spiritpal.db 明文，使用 AES-256-GCM 加密，写入 spiritpal.db.enc
 /// 加密成功后删除明文 spiritpal.db
@@ -99,8 +127,34 @@ pub async fn encrypt_db_at_rest(app: AppHandle) -> Result<bool, String> {
     // E1: 删除 WAL/SHM 残留文件（WAL checkpoint 应已在前端执行）
     cleanup_wal_files(&db_path);
 
-    // 读取数据库文件
-    let content = fs::read(&db_path).map_err(|e| format!("读取数据库失败: {}", e))?;
+    // V-1: 带重试的文件读取（Windows 上 SQLite 连接关闭后文件锁释放有延迟）
+    let content = {
+        let mut last_err = String::new();
+        let mut result: Option<Vec<u8>> = None;
+        for attempt in 0..5u32 {
+            match fs::read(&db_path) {
+                Ok(data) => {
+                    result = Some(data);
+                    break;
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                    log::debug!(
+                        "[encrypted_db] DB file locked (attempt {}/5), retrying in 100ms...",
+                        attempt + 1
+                    );
+                    last_err = format!("文件被锁定: {}", e);
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                }
+                Err(e) => {
+                    return Err(format!("读取数据库失败: {}", e));
+                }
+            }
+        }
+        match result {
+            Some(data) => data,
+            None => return Err(format!("读取数据库失败（重试 5 次后仍被锁定）: {}", last_err)),
+        }
+    };
 
     // 转为 base64 用于加密（encrypt_data 接受 String）
     let content_b64 = base64::engine::general_purpose::STANDARD.encode(&content);
@@ -114,8 +168,8 @@ pub async fn encrypt_db_at_rest(app: AppHandle) -> Result<bool, String> {
     }
     atomic_write(&enc_path, encrypted.as_bytes())?;
 
-    // 删除明文数据库
-    fs::remove_file(&db_path).map_err(|e| format!("删除明文数据库失败: {}", e))?;
+    // V-1: 带重试的明文删除（Windows 上文件锁释放有延迟）
+    remove_file_with_retry(&db_path, 5)?;
 
     // E1: 再次清理（确保无残留）
     cleanup_wal_files(&db_path);
