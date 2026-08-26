@@ -36,6 +36,8 @@ export interface UsePetBehaviorOptions {
   musicSwayingRef?: React.MutableRefObject<boolean>
   /** 行走目标 x 范围（面板展开时限定为面板内宠物区，避免宠物游走到状态卡/动作列表后面；null=用默认窗口范围） */
   getWalkBounds?: () => { minX: number; maxX: number } | null
+  /** 2.4: 贴边方向 ref（非空=已贴边，可触发隐藏动作） */
+  dockDirRef?: React.MutableRefObject<'left' | 'right' | 'top' | 'bottom' | null>
 }
 
 export interface UsePetBehaviorReturn {
@@ -68,7 +70,7 @@ export interface UsePetBehaviorReturn {
 }
 
 export function usePetBehavior(options: UsePetBehaviorOptions): UsePetBehaviorReturn {
-  const { showBubble, workStateRef, musicSwayingRef: externalMusicRef, getWalkBounds } = options
+  const { showBubble, workStateRef, musicSwayingRef: externalMusicRef, getWalkBounds, dockDirRef } = options
 
   const [petState, setPetState] = useState<PetState>('idle')
   const [currentAnimId, setCurrentAnimId] = useState<AnimationId>('idle')
@@ -119,6 +121,13 @@ export function usePetBehavior(options: UsePetBehaviorOptions): UsePetBehaviorRe
       scheduleNextBehavior()
       return
     }
+    // 2.4: 贴边时 5% 概率触发隐藏动作（素材缺失时 SpriteRenderer 回退 idle）
+    if (dockDirRef?.current && Math.random() < 0.05) {
+      setPetState('hide')
+      showBubble('我藏起来啦~')
+      scheduleNextBehavior()
+      return
+    }
     const cur = usePetStore.getState().getCurrentStats()
     const ctx: AnimationContext = {
       petState: petStateRef.current,
@@ -154,7 +163,7 @@ export function usePetBehavior(options: UsePetBehaviorOptions): UsePetBehaviorRe
     }
     setPetState(renderState)
     scheduleNextBehavior()
-  }, [scheduleNextBehavior, showBubble, animStateMachine, workStateRef, activeMusicRef])
+  }, [scheduleNextBehavior, showBubble, animStateMachine, workStateRef, activeMusicRef, dockDirRef])
 
   // 每次渲染后同步最新 pickBehavior（供定时器回调调用）
   useEffect(() => {
