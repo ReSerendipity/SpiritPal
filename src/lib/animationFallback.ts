@@ -72,6 +72,8 @@ const STATE_COMPATIBILITY: Record<PetState, PetState[]> = {
   sad:     ['sad', 'idle', 'sit', 'walk'],
   // 生病：sick → sad → idle（生病最低优先级，只能向同类回退）
   sick:    ['sick', 'sad', 'idle'],
+  // 2.4: 躲藏：hide → idle → sit（无专用素材时回退到 idle）
+  hide:    ['hide', 'idle', 'sit'],
 }
 
 /**

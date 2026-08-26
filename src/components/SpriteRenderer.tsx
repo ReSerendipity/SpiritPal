@@ -59,6 +59,8 @@ function stateToAnimKey(state: PetState): string {
     case 'sad': return 'failed'
     case 'sick': return 'failed'
     case 'pet': return 'waving'
+    // 2.4: hide 状态复用 idle 动画行（无专用素材时回退）
+    case 'hide': return 'idle'
     default: return 'idle'
   }
 }
@@ -78,6 +80,8 @@ function stateToVideoFile(state: PetState): string {
     case 'sad': return 'rest.webm'
     case 'sick': return 'angry.webm'
     case 'pet': return 'headpat.webm'
+    // 2.4: hide 状态复用 idle 视频（无专用素材时回退）
+    case 'hide': return 'idle.webm'
     default: return 'idle.webm'
   }
 }
@@ -113,6 +117,22 @@ export function SpriteRenderer({
   const activeBufferRef = useRef<0 | 1>(0)
   const [activeBuffer, setActiveBuffer] = useState<0 | 1>(0)
   const prevVideoUrlRef = useRef<string | undefined>(undefined)
+
+  // ===== 2.3: 动画多级回退状态 =====
+  // 视频加载失败时逐级回退：video → idle video → atlas → svg
+  // fallbackToAtlas=true 时跳出 video 分支，改用图集渲染
+  const [fallbackToAtlas, setFallbackToAtlas] = useState(false)
+
+  // 视频加载失败计数：同一角色连续失败 2 次（当前状态 + idle）后触发图集回退
+  const [videoFailCount, setVideoFailCount] = useState(0)
+
+  // 角色切换时重置回退状态（渲染期调整，非 effect——避免级联渲染）
+  const [prevCharForFallback, setPrevCharForFallback] = useState(characterId)
+  if (prevCharForFallback !== characterId) {
+    setPrevCharForFallback(characterId)
+    setFallbackToAtlas(false)
+    setVideoFailCount(0)
+  }
 
   // ===== 色度键兜底（Windows WebView2 丢 VP9 alpha） =====
   // null=未检测 / true=canvas 抠像渲染 / false=正常 video 播放
@@ -251,9 +271,30 @@ export function SpriteRenderer({
       setChromaKeyMode((prev) => (prev !== null ? prev : result))
     }
 
+    // 2.3: 视频加载失败时的回退回调（普通函数，非 useCallback——在 effect 内部定义）
+    // 第一次失败：回退到 idle 视频（如果是非 idle 状态）
+    // 第二次失败（idle 也失败）：触发图集回退
+    const handleVideoFailed = () => {
+      setVideoFailCount((prev) => {
+        const next = prev + 1
+        if (next >= 2) {
+          console.warn(`[SpriteRenderer] Video failed ${next}x, falling back to atlas`)
+          setFallbackToAtlas(true)
+        } else if (state !== 'idle') {
+          // 回退到 idle 视频（最基础动画，几乎所有角色都有）
+          console.warn(`[SpriteRenderer] Video "${videoSrc}" failed, trying idle.webm`)
+          prevVideoUrlRef.current = undefined // 强制重新加载
+        } else {
+          // idle 本身就失败了，直接图集回退
+          setFallbackToAtlas(true)
+        }
+        return next
+      })
+    }
+
     if (isFirstLoad) {
       // 首次加载：直接在前缓冲播放
-      loadWithFallback(front, videoSrc, () => maybeDetectChromaKey(front), () => {})
+      loadWithFallback(front, videoSrc, () => maybeDetectChromaKey(front), handleVideoFailed)
       return
     }
 
@@ -261,7 +302,7 @@ export function SpriteRenderer({
     loadWithFallback(back, videoSrc, () => {
       maybeDetectChromaKey(back)
       finishSwap(backIdx)
-    }, () => {})
+    }, handleVideoFailed)
   }, [videoSrc, character, finishSwap, loadWithFallback])
 
   // ===== 色度键绘制循环 =====
@@ -288,6 +329,28 @@ export function SpriteRenderer({
       cancelAnimationFrame(chromaRafRef.current)
     }
   }, [character?.spriteType, chromaKeyMode])
+
+  // 2.3: 视频加载失败时回退到图集渲染（fallbackToAtlas=true）
+  if (character && character.spriteType === 'video' && fallbackToAtlas) {
+    const bgX = -(frame % ATLAS.cols) * ATLAS.cellW * size
+    const bgY = -animRow.row * ATLAS.cellH * size
+    return (
+      <div
+        className={className}
+        style={{
+          width: ATLAS.cellW * size,
+          height: ATLAS.cellH * size,
+          backgroundImage: `url(${character.spriteAsset.replace(/\/[^/]*$/, '/atlas.png')})`,
+          backgroundPosition: `${bgX}px ${bgY}px`,
+          backgroundSize: `${ATLAS.cols * ATLAS.cellW * size}px ${ATLAS.rows * ATLAS.cellH * size}px`,
+          backgroundRepeat: 'no-repeat',
+          imageRendering: 'pixelated',
+          filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.25))',
+          ...style,
+        }}
+      />
+    )
+  }
 
   if (!character) return null
 
