@@ -573,7 +573,7 @@ export interface ChatMessage {
 }
 
 /**
- * 记忆条目接口
+ * 记忆条目接口（基础文本版本）
  */
 export interface MemoryEntry {
   /** 创建时间（ISO 字符串） */
@@ -583,6 +583,9 @@ export interface MemoryEntry {
   /** AI 回复 */
   assistant: string
 }
+
+/** 多模态记忆扩展字段（与 multimodalMemory.ts 配合使用） */
+export type MemoryType = 'text' | 'voice' | 'image' | 'mixed'
 
 /**
  * 记忆数据接口
