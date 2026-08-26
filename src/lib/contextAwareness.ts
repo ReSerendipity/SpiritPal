@@ -34,6 +34,11 @@ import {
   getMusicAwarenessManager,
   type MusicStatus,
 } from './musicAwareness'
+import {
+  getWindowTitleExtractor,
+  type WindowInfo,
+  type ExtractedWindowInfo,
+} from './windowTitleExtractor'
 
 // ============ 工作状态 ============
 
@@ -52,6 +57,9 @@ export interface WorkStateInfo {
   musicPlaying: boolean
   music: MusicStatus | null
   online: boolean
+  // P1-1: 窗口信息增强（标题提取 + 关键文本高亮）
+  windowInfo?: WindowInfo
+  extractedWindowInfo?: ExtractedWindowInfo
 }
 
 // ============ 网络状态类型 ============
@@ -129,6 +137,11 @@ export class ContextAwarenessManager {
   private currentWindowState: WorkState = 'unknown'
   // [P2-14] 平台支持检测：首次调用后缓存结果，不支持时跳过轮询
   private windowDetectionSupported: boolean | null = null
+  
+  // P1-1: 窗口标题提取器
+  private windowTitleExtractor = getWindowTitleExtractor()
+  private cachedWindowInfo: WindowInfo | null = null
+  private cachedExtractedInfo: ExtractedWindowInfo | null = null
 
   // 配置
   private readonly WORK_REMIND_INTERVAL = 45 * 60 * 1000  // 45分钟提醒休息
@@ -231,6 +244,9 @@ export class ContextAwarenessManager {
       musicPlaying: this.cachedMusic?.state === 'playing',
       music: this.cachedMusic,
       online: this.online,
+      // P1-1: 附加窗口信息
+      windowInfo: this.cachedWindowInfo ?? undefined,
+      extractedWindowInfo: this.cachedExtractedInfo ?? undefined,
     }
     this.listeners.forEach((fn) => fn(info))
   }
@@ -301,6 +317,9 @@ export class ContextAwarenessManager {
       musicPlaying: this.cachedMusic?.state === 'playing',
       music: this.cachedMusic,
       online: this.online,
+      // P1-1: 附加窗口信息
+      windowInfo: this.cachedWindowInfo ?? undefined,
+      extractedWindowInfo: this.cachedExtractedInfo ?? undefined,
     }
 
     this.listeners.forEach((fn) => fn(info))
@@ -335,6 +354,26 @@ export class ContextAwarenessManager {
       const info = await invoke<{ title: string; process_name: string }>('get_active_window')
       const title = info?.title ?? ''
       const processName = info?.process_name ?? ''
+
+      // P1-1: 提取窗口标题中的关键信息
+      if (title) {
+        this.cachedWindowInfo = {
+          title,
+          processName,
+        }
+        
+        // 使用提取器解析结构化信息
+        try {
+          const extracted = this.windowTitleExtractor.extractKeyInfo(title, processName)
+          this.cachedExtractedInfo = extracted
+          
+          // 更新 cachedWindowInfo 的扩展字段
+          this.cachedWindowInfo.appName = this.windowTitleExtractor.inferAppName(processName)
+          this.cachedWindowInfo.extractedInfo = extracted
+        } catch {
+          // 提取失败不影响主流程
+        }
+      }
 
       // [P2-14] 首次调用：检测平台是否支持窗口检测
       // macOS: osascript 始终可用；Linux: xdotool 可能未安装
@@ -405,6 +444,33 @@ export class ContextAwarenessManager {
   /// 返回 null 表示尚未检测（首次 pollWorkState 前未知）
   isWindowDetectionSupported(): boolean | null {
     return this.windowDetectionSupported
+  }
+
+  // ============ P1-1: 窗口信息相关方法 ============
+
+  /**
+   * 获取当前缓存的窗口信息
+   */
+  getCachedWindowInfo(): WindowInfo | null {
+    return this.cachedWindowInfo
+  }
+
+  /**
+   * 获取当前提取的结构化窗口信息
+   */
+  getExtractedWindowInfo(): ExtractedWindowInfo | null {
+    return this.cachedExtractedInfo
+  }
+
+  /**
+   * 立即获取最新窗口信息（跳过缓存）
+   */
+  async refreshWindowInfo(): Promise<WindowInfo> {
+    const extractor = getWindowTitleExtractor()
+    const info = await extractor.getActiveWindow()
+    this.cachedWindowInfo = info
+    this.cachedExtractedInfo = info.extractedInfo ?? null
+    return info
   }
 }
 
@@ -546,3 +612,7 @@ export function getNotificationManager(): NotificationManager {
   }
   return notifMgr
 }
+
+// P1-1: 导出窗口信息相关类型和函数
+export type { WindowInfo, ExtractedWindowInfo } from './windowTitleExtractor'
+export { getWindowTitleExtractor } from './windowTitleExtractor'
