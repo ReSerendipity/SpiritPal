@@ -134,6 +134,36 @@ export interface RetrievalResult {
   fusedScore: number
 }
 
+// ============ 2.2: 时间范围过滤类型 ============
+
+/** 时间范围过滤选项（用于检索和聚合查询） */
+export interface TimeRangeFilter {
+  /** 起始时间（ISO 字符串或时间戳 ms），可选 */
+  startTime?: string | number
+  /** 结束时间（ISO 字符串或时间戳 ms），可选 */
+  endTime?: string | number
+}
+
+/** 记忆时间线条目（按日/周聚合） */
+export interface MemoryTimelineEntry {
+  /** 时间键（格式取决于聚合粒度："2026-08-26" 或 "2026-W35"） */
+  dateKey: string
+  /** 该时间段内的记忆数量 */
+  count: number
+  /** 该时间段内的记忆列表 */
+  memories: EnhancedMemory[]
+  /** 聚合粒度 */
+  granularity: 'day' | 'week' | 'month'
+}
+
+/** 检索选项（支持时间范围过滤） */
+export interface RetrieveOptions {
+  /** 检索目的（用于去重策略，预留接口） */
+  purpose?: 'chat' | 'trigger' | 'proactive'
+  /** 时间范围过滤 */
+  timeRange?: TimeRangeFilter
+}
+
 // ============ 四段式记忆管理器 ============
 
 /** 保存防抖间隔（毫秒）— 避免频繁写入 SQLite */
@@ -1655,28 +1685,32 @@ export class EnhancedMemoryManager {
    * S3：统一检索 API —— checkTriggers 与 getContextForChat 共享同一次检索结果
    * 消除 D7（每轮对话两次向量检索无复用）
    * P0-1 改进：返回带真实检索分的 RetrievalResult 而非裸记忆数组
+   * 2.2 改进：支持时间范围过滤（timeRange 参数）
    *
    * @param query 查询文本
    * @param limit 返回条数
-   * @param _opts 选项（purpose 用于去重策略，预留接口暂未实现）
+   * @param opts 选项（purpose 用于去重策略，timeRange 用于时间范围过滤）
    * @returns 检索结果列表（按综合得分排序，含真实分数）
    */
-  async retrieve(query: string, limit: number = 5, _opts?: { purpose?: 'chat' | 'trigger' | 'proactive' }): Promise<RetrievalResult[]> {
+  async retrieve(query: string, limit: number = 5, opts?: RetrieveOptions): Promise<RetrievalResult[]> {
     if (!query || query.trim().length === 0) return []
 
     // S3：同一查询 5 秒内复用缓存结果（消除 D7）
+    // 2.2：带 timeRange 时不走缓存（时间范围每次可能不同）
     const now = Date.now()
-    if (this.lastRetrievalQuery === query && now - this.lastRetrievalTimestamp < 5_000) {
+    if (!opts?.timeRange && this.lastRetrievalQuery === query && now - this.lastRetrievalTimestamp < 5_000) {
       return this.lastRetrievalResultWithScores.slice(0, limit)
     }
 
-    const results = await this.searchEpisodicWithScores(query, Math.max(limit, 5))
+    const results = await this.searchEpisodicWithScores(query, Math.max(limit, 5), opts?.timeRange)
 
-    // 缓存结果
-    this.lastRetrievalQuery = query
-    this.lastRetrievalResultWithScores = results
-    this.lastRetrievalResult = results.map(r => r.memory)
-    this.lastRetrievalTimestamp = now
+    // 缓存结果（仅无 timeRange 时缓存，避免时间范围污染后续无范围查询）
+    if (!opts?.timeRange) {
+      this.lastRetrievalQuery = query
+      this.lastRetrievalResultWithScores = results
+      this.lastRetrievalResult = results.map(r => r.memory)
+      this.lastRetrievalTimestamp = now
+    }
 
     return results.slice(0, limit)
   }
@@ -1700,15 +1734,50 @@ export class EnhancedMemoryManager {
     })
   }
 
-  private async searchEpisodic(query: string, limit: number): Promise<EnhancedMemory[]> {
+  /**
+   * 2.2：将 TimeRangeFilter 转换为 start/end 时间戳（ms）
+   * 支持 ISO 字符串和数字时间戳，无效值返回 null
+   */
+  private static timeRangeToTimestamps(timeRange?: TimeRangeFilter): { start: number; end: number } | null {
+    if (!timeRange) return null
+    if (!timeRange.startTime && !timeRange.endTime) return null
+    const start = timeRange.startTime
+      ? (typeof timeRange.startTime === 'number' ? timeRange.startTime : new Date(timeRange.startTime).getTime())
+      : 0
+    const end = timeRange.endTime
+      ? (typeof timeRange.endTime === 'number' ? timeRange.endTime : new Date(timeRange.endTime).getTime())
+      : Date.now()
+    if (isNaN(start) || isNaN(end)) return null
+    return { start, end }
+  }
+
+  /**
+   * 2.2：检查记忆是否在时间范围内
+   */
+  private static isWithinTimeRange(mem: EnhancedMemory, range: { start: number; end: number } | null): boolean {
+    if (!range) return true
+    const ts = new Date(mem.created_at).getTime()
+    if (isNaN(ts)) return false
+    return ts >= range.start && ts <= range.end
+  }
+
+  private async searchEpisodic(query: string, limit: number, timeRange?: TimeRangeFilter): Promise<EnhancedMemory[]> {
     if (this.episodicMemory.length === 0 || !query) return []
+    // 2.2：时间范围过滤候选集
+    const range = EnhancedMemoryManager.timeRangeToTimestamps(timeRange)
+    const candidatePool = range
+      ? this.episodicMemory.filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
+      : this.episodicMemory
+    if (candidatePool.length === 0) return []
+
     const queryTokens = new Set(tokenize(query))
-    if (queryTokens.size === 0) return this.episodicMemory.slice(-limit)
+    if (queryTokens.size === 0) return candidatePool.slice(-limit)
 
     // F2：尝试获取当前用户情绪，传入 moodFit 计算
     const currentMood = this.getCurrentMood()
 
     // P3-1：优先使用 RAG 混合检索（BM25+向量+RRF 多信号融合）
+    // 2.2：RAG 索引基于全量记忆构建，检索后做时间范围过滤
     if (this.ragIndexBuilt && this.ragRetriever) {
       try {
         const ragResults: RAGResult[] = await this.ragRetriever.retrieve(query, this.embeddingCache)
@@ -1716,18 +1785,21 @@ export class EnhancedMemoryManager {
           // P0-3 修复：RRF 归一化改为标准 rank-based 公式（移除 *61 hack）
           // 标准 RRF: score = 1 / (k + rank)，k=60 为 DEFAULT_RAG_CONFIG.rrfK
           const now = Date.now()
-          const scored = ragResults.map((r, idx) => {
-            const mem = r.memory
-            const rank = idx + 1
-            // P0-3：rank-based 归一化（Reciprocal Rank Fusion 标准公式）
-            const normalizedRRF = 1 / (DEFAULT_RAG_CONFIG.rrfK + rank)
-            // F2：传入 currentMood
-            const fusedScore = this.computeMultiFactorScore(normalizedRRF, mem, query, now, currentMood)
-            return { mem, fusedScore }
-          }).sort((a, b) => b.fusedScore - a.fusedScore)
+          const scored = ragResults
+            .filter(r => EnhancedMemoryManager.isWithinTimeRange(r.memory, range))
+            .map((r, idx) => {
+              const mem = r.memory
+              const rank = idx + 1
+              // P0-3：rank-based 归一化（Reciprocal Rank Fusion 标准公式）
+              const normalizedRRF = 1 / (DEFAULT_RAG_CONFIG.rrfK + rank)
+              // F2：传入 currentMood
+              const fusedScore = this.computeMultiFactorScore(normalizedRRF, mem, query, now, currentMood)
+              return { mem, fusedScore }
+            }).sort((a, b) => b.fusedScore - a.fusedScore)
 
           // F7：接入 entityLinking——通过实体名查找关联记忆，补充到结果中
-          const entityLinked = await this.getEntityLinkedMemories(query, limit)
+          const entityLinked = (await this.getEntityLinkedMemories(query, limit))
+            .filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
           const existingIds = new Set(scored.map(s => s.mem.id))
           const entityExtras = entityLinked
             .filter(m => !existingIds.has(m.id))
@@ -1737,6 +1809,7 @@ export class EnhancedMemoryManager {
             }))
           // T-5：接入视觉记忆——最近的视觉快照与查询语义相关时并入（观察类线索）
           const visualExtras = (await this.getVisualMemoryCandidates(query, limit))
+            .filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
             .filter(m => !existingIds.has(m.id))
             .map(mem => ({
               mem,
@@ -1762,13 +1835,13 @@ export class EnhancedMemoryManager {
       }
     }
 
-    // 次选：向量检索
-    const vectorResults = await this.vectorSearchInMemories(query, this.episodicMemory, limit)
+    // 次选：向量检索（使用时间过滤后的候选池）
+    const vectorResults = await this.vectorSearchInMemories(query, candidatePool, limit)
     if (vectorResults.length > 0) return vectorResults
 
-    // Fallback: LCS + 关键词检索（原始逻辑）
+    // Fallback: LCS + 关键词检索（使用时间过滤后的候选池）
     const queryLower = query.toLowerCase()
-    const scored = this.episodicMemory.map((mem) => {
+    const scored = candidatePool.map((mem) => {
       const text = `${mem.user} ${mem.assistant}`.toLowerCase()
       let overlap = 0
       queryTokens.forEach((t) => {
@@ -1795,11 +1868,19 @@ export class EnhancedMemoryManager {
   /**
    * P0-1: 带分数的情景记忆检索 —— 返回 RetrievalResult[] 包含真实检索分
    * 核心：RAG/向量/LCS 三路检索，每路都返回带分数的结果
+   * 2.2: 支持 timeRange 时间范围过滤
    */
-  private async searchEpisodicWithScores(query: string, limit: number): Promise<RetrievalResult[]> {
+  private async searchEpisodicWithScores(query: string, limit: number, timeRange?: TimeRangeFilter): Promise<RetrievalResult[]> {
     if (this.episodicMemory.length === 0 || !query) return []
+    // 2.2：时间范围过滤候选集
+    const range = EnhancedMemoryManager.timeRangeToTimestamps(timeRange)
+    const candidatePool = range
+      ? this.episodicMemory.filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
+      : this.episodicMemory
+    if (candidatePool.length === 0) return []
+
     const queryTokens = new Set(tokenize(query))
-    if (queryTokens.size === 0) return this.episodicMemory.slice(-limit).map(mem => ({
+    if (queryTokens.size === 0) return candidatePool.slice(-limit).map(mem => ({
       memory: mem, score: 0.5, baseScore: 0.5, fusedScore: 0.5
     }))
 
@@ -1807,21 +1888,25 @@ export class EnhancedMemoryManager {
     const now = Date.now()
 
     // P3-1：优先使用 RAG 混合检索
+    // 2.2：RAG 检索后做时间范围过滤
     if (this.ragIndexBuilt && this.ragRetriever) {
       try {
         const ragResults: RAGResult[] = await this.ragRetriever.retrieve(query, this.embeddingCache)
         if (ragResults.length > 0) {
           // P0-3 修复：RRF rank-based 归一化
-          const scored = ragResults.map((r, idx) => {
-            const mem = r.memory
-            const rank = idx + 1
-            const normalizedRRF = 1 / (DEFAULT_RAG_CONFIG.rrfK + rank)
-            const fusedScore = this.computeMultiFactorScore(normalizedRRF, mem, query, now, currentMood)
-            return { memory: mem, score: fusedScore, baseScore: normalizedRRF, fusedScore }
-          }).sort((a, b) => b.fusedScore - a.fusedScore)
+          const scored = ragResults
+            .filter(r => EnhancedMemoryManager.isWithinTimeRange(r.memory, range))
+            .map((r, idx) => {
+              const mem = r.memory
+              const rank = idx + 1
+              const normalizedRRF = 1 / (DEFAULT_RAG_CONFIG.rrfK + rank)
+              const fusedScore = this.computeMultiFactorScore(normalizedRRF, mem, query, now, currentMood)
+              return { memory: mem, score: fusedScore, baseScore: normalizedRRF, fusedScore }
+            }).sort((a, b) => b.fusedScore - a.fusedScore)
 
           // F7：接入 entityLinking
-          const entityLinked = await this.getEntityLinkedMemories(query, limit)
+          const entityLinked = (await this.getEntityLinkedMemories(query, limit))
+            .filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
           const existingIds = new Set(scored.map(s => s.memory.id))
           const entityExtras = entityLinked
             .filter(m => !existingIds.has(m.id))
@@ -1832,6 +1917,7 @@ export class EnhancedMemoryManager {
 
           // T-5：接入视觉记忆
           const visualExtras = (await this.getVisualMemoryCandidates(query, limit))
+            .filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
             .filter(m => !existingIds.has(m.id))
             .map(mem => {
               const base = 0.25
@@ -1857,13 +1943,13 @@ export class EnhancedMemoryManager {
       }
     }
 
-    // 次选：向量检索
-    const vectorResults = await this.vectorSearchInMemoriesWithScores(query, this.episodicMemory, limit, currentMood)
+    // 次选：向量检索（使用时间过滤后的候选池）
+    const vectorResults = await this.vectorSearchInMemoriesWithScores(query, candidatePool, limit, currentMood)
     if (vectorResults.length > 0) return vectorResults
 
-    // Fallback: LCS + 关键词检索
+    // Fallback: LCS + 关键词检索（使用时间过滤后的候选池）
     const queryLower = query.toLowerCase()
-    const lcsScored = this.episodicMemory.map((mem) => {
+    const lcsScored = candidatePool.map((mem) => {
       const text = `${mem.user} ${mem.assistant}`.toLowerCase()
       let overlap = 0
       queryTokens.forEach((t) => { if (text.includes(t)) overlap++ })
@@ -1916,6 +2002,85 @@ export class EnhancedMemoryManager {
       ...this.episodicMemory,
       ...this.workingMemory,
     ]
+  }
+
+  // ============ 2.2: 记忆时间线索引 ============
+
+  /**
+   * 按日/周/月聚合记忆，返回时间线条目列表
+   *
+   * @param granularity 聚合粒度：'day' | 'week' | 'month'（默认 'day'）
+   * @param timeRange 可选时间范围过滤
+   * @returns 按时间排序的时间线条目列表（新→旧）
+   */
+  getMemoryTimeline(granularity: 'day' | 'week' | 'month' = 'day', timeRange?: TimeRangeFilter): MemoryTimelineEntry[] {
+    const range = EnhancedMemoryManager.timeRangeToTimestamps(timeRange)
+    const allMemories = this.getAllMemories()
+    const filtered = range
+      ? allMemories.filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
+      : allMemories
+    if (filtered.length === 0) return []
+
+    const map = new Map<string, EnhancedMemory[]>()
+    for (const mem of filtered) {
+      const date = new Date(mem.created_at)
+      if (isNaN(date.getTime())) continue
+      const key = EnhancedMemoryManager.getDateKey(date, granularity)
+      const existing = map.get(key)
+      if (existing) {
+        existing.push(mem)
+      } else {
+        map.set(key, [mem])
+      }
+    }
+
+    return Array.from(map.entries())
+      .map(([dateKey, memories]) => ({
+        dateKey,
+        count: memories.length,
+        memories: memories.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+        granularity,
+      }))
+      .sort((a, b) => b.dateKey.localeCompare(a.dateKey)) // 新→旧
+  }
+
+  /**
+   * 按日期键格式化（内部工具方法）
+   * day: "2026-08-26"
+   * week: "2026-W35"
+   * month: "2026-08"
+   */
+  private static getDateKey(date: Date, granularity: 'day' | 'week' | 'month'): string {
+    const y = date.getFullYear()
+    const m = String(date.getMonth() + 1).padStart(2, '0')
+    const d = String(date.getDate()).padStart(2, '0')
+    if (granularity === 'day') return `${y}-${m}-${d}`
+    if (granularity === 'month') return `${y}-${m}`
+    // week: ISO 周数
+    const tmp = new Date(date.valueOf())
+    const dayNr = (date.getDay() + 6) % 7 // 周一=0
+    tmp.setDate(tmp.getDate() - dayNr + 3) // 当周四
+    const firstThursday = tmp.valueOf()
+    tmp.setMonth(0, 1)
+    if (tmp.getDay() !== 4) {
+      tmp.setMonth(0, 1 + ((4 - tmp.getDay()) + 7) % 7)
+    }
+    const weekNum = 1 + Math.ceil((firstThursday - tmp.valueOf()) / 604800000)
+    return `${y}-W${String(weekNum).padStart(2, '0')}`
+  }
+
+  /**
+   * 按时间范围筛选记忆（公开方法，供 UI 使用）
+   *
+   * @param timeRange 时间范围过滤
+   * @returns 符合时间范围的记忆列表（按创建时间降序）
+   */
+  getMemoriesByTimeRange(timeRange: TimeRangeFilter): EnhancedMemory[] {
+    const range = EnhancedMemoryManager.timeRangeToTimestamps(timeRange)
+    if (!range) return this.getAllMemories()
+    return this.getAllMemories()
+      .filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
   }
 
   getAutobiographicalMemories(): EnhancedMemory[] {
