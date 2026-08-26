@@ -544,6 +544,10 @@ export interface AppSettings {
   statusCardMode: 'off' | 'left' | 'right'
   /** 边缘吸附开关（拖到屏幕边缘自动贴边；可在面板动作列表切换） */
   edgeSnapEnabled: boolean
+  /** P2-14: 静默模式开关（禁用宠物说话和气泡消息） */
+  silentModeEnabled: boolean
+  /** P2-14: 静默模式自动恢复时长（分钟，null 表示永久静音） */
+  silentModeDuration?: number | null
 }
 
 // ============ 聊天消息 ============

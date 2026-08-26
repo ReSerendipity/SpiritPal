@@ -26,6 +26,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   showWindowBorder: false,
   statusCardMode: 'off',
   edgeSnapEnabled: true,
+  silentModeEnabled: false,
+  silentModeDuration: null,
 }
 
 /**
