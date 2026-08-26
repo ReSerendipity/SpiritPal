@@ -10,8 +10,8 @@
  * 核心Hooks/状态：
  * - useMemo: 计算标签频率、每日情感聚合、月度记忆计数
  */
-import { useMemo, useState } from 'react'
-import { Tag, TrendingUp, BarChart3 } from 'lucide-react'
+import { useMemo, useState, useCallback } from 'react'
+import { Tag, TrendingUp, BarChart3, Calendar } from 'lucide-react'
 import type { EnhancedMemory } from '../lib/enhancedMemory'
 
 // ============ 标签云 ============
@@ -284,6 +284,10 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
 interface TimeDensityChartProps {
   /** 记忆列表 */
   memories: EnhancedMemory[]
+  /** 选择月份回调（点击柱子时触发） */
+  onSelectMonth?: (yearMonth: string | null) => void
+  /** 当前选中的月份（YYYY-MM 格式） */
+  selectedMonth?: string | null
 }
 
 /**
@@ -291,8 +295,9 @@ interface TimeDensityChartProps {
  *
  * 使用CSS柱状图展示近12个月每月记忆条目数量，
  * 柱子高度和颜色深浅表示记忆密度。
+ * 2.2 增强：支持点击柱子筛选该月记忆，选中月份高亮显示。
  */
-export function TimeDensityChart({ memories }: TimeDensityChartProps) {
+export function TimeDensityChart({ memories, onSelectMonth, selectedMonth }: TimeDensityChartProps) {
   const monthlyData = useMemo(() => {
     const map = new Map<string, number>()
     for (const mem of memories) {
@@ -304,6 +309,13 @@ export function TimeDensityChart({ memories }: TimeDensityChartProps) {
       .sort((a, b) => a[0].localeCompare(b[0]))
       .slice(-12) // 最近 12 个月
   }, [memories])
+
+  const handleClick = useCallback((month: string) => {
+    if (onSelectMonth) {
+      // 再次点击同一个月 → 取消选择
+      onSelectMonth(selectedMonth === month ? null : month)
+    }
+  }, [onSelectMonth, selectedMonth])
 
   if (monthlyData.length === 0) {
     return (
@@ -325,32 +337,46 @@ export function TimeDensityChart({ memories }: TimeDensityChartProps) {
       <div className="mb-2 flex items-center gap-2">
         <BarChart3 size={14} className="text-tangerine" />
         <h4 className="text-xs font-semibold text-ink">记忆密度（近 12 个月）</h4>
+        {selectedMonth && (
+          <button
+            onClick={() => onSelectMonth?.(null)}
+            className="ml-auto flex items-center gap-1 rounded bg-ink/5 px-1.5 py-0.5 text-[10px] text-ink-muted transition-colors hover:bg-ink/10"
+          >
+            <Calendar size={10} />
+            {selectedMonth}
+            <span className="text-ink-faint">✕</span>
+          </button>
+        )}
       </div>
 
       <div className="flex items-end gap-1" style={{ height: barHeight + 16 }}>
         {monthlyData.map(([month, count]) => {
           const height = Math.max(2, (count / maxCount) * barHeight)
           const ratio = count / maxCount
+          const isSelected = selectedMonth === month
           const color =
-            ratio > 0.7
+            isSelected
+              ? 'bg-tangerine ring-2 ring-tangerine/30'
+              : ratio > 0.7
               ? 'bg-tangerine'
               : ratio > 0.4
               ? 'bg-tangerine/70'
               : 'bg-tangerine-deep/50'
           return (
-            <div
+            <button
               key={month}
-              className="flex flex-1 flex-col items-center"
-              title={`${month}: ${count} 条记忆`}
+              onClick={() => handleClick(month)}
+              className="flex flex-1 flex-col items-center transition-transform hover:scale-105"
+              title={`${month}: ${count} 条记忆${onSelectMonth ? '（点击筛选）' : ''}`}
             >
               <div
-                className={`w-full rounded-t ${color} transition-all hover:opacity-80`}
+                className={`w-full rounded-t ${color} transition-all`}
                 style={{ height }}
               />
-              <span className="mt-1 text-[8px] text-ink-faint">
+              <span className={`mt-1 text-[8px] ${isSelected ? 'font-bold text-tangerine' : 'text-ink-faint'}`}>
                 {month.slice(5)}
               </span>
-            </div>
+            </button>
           )
         })}
       </div>
