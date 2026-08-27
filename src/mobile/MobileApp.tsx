@@ -25,7 +25,7 @@
  * @see {@link ../lib/syncManager} 同步管理器
  */
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { Cat, MessageCircle, Heart, Settings as SettingsIcon, Sun, Moon } from 'lucide-react'
+import { Cat, MessageCircle, Heart, Settings as SettingsIcon, Sun, Moon, Brain } from 'lucide-react'
 import { themeManager, type EffectiveTheme, type ThemeMode } from '../lib/themeManager'
 import { syncManager, type SyncStatus } from '../lib/syncManager'
 import { usePetStore } from '../stores/petStore'
@@ -33,9 +33,10 @@ import { MobilePetView } from './MobilePetView'
 import { MobileChatView } from './MobileChatView'
 import { MobileNurturingView } from './MobileNurturingView'
 import { MobileSettingsView } from './MobileSettingsView'
+import { MobileMemoryView } from './MobileMemoryView'
 
 /** Tab 页 ID 类型 */
-type TabId = 'pet' | 'chat' | 'nurture' | 'settings'
+type TabId = 'pet' | 'chat' | 'nurture' | 'memory' | 'settings'
 
 /**
  * Tab 定义接口
@@ -54,6 +55,7 @@ const TABS: TabDef[] = [
   { id: 'pet', label: '宠物', icon: Cat },
   { id: 'chat', label: '聊天', icon: MessageCircle },
   { id: 'nurture', label: '养成', icon: Heart },
+  { id: 'memory', label: '记忆', icon: Brain },
   { id: 'settings', label: '设置', icon: SettingsIcon },
 ]
 
@@ -194,6 +196,13 @@ export default function MobileApp() {
         {activeTab === 'nurture' && (
           <div className="absolute inset-0 z-20 overflow-y-auto">
             <MobileNurturingView />
+          </div>
+        )}
+
+        {/* 记忆视图（M-4: 移动端功能对齐——补齐记忆入口） */}
+        {activeTab === 'memory' && (
+          <div className="absolute inset-0 z-20">
+            <MobileMemoryView />
           </div>
         )}
 
