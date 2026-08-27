@@ -188,7 +188,10 @@ export function usePetTimers(options: UsePetTimersOptions): UsePetTimersReturn {
         const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
         // 如果今天还没有日记，且对话轮数达标，则生成
         if (!diaryMgr.getDiary(today) && diaryMgr.getTodayExchangeCount() >= 3) {
-          void diaryMgr.generateDiary().catch(() => {})
+          void diaryMgr.generateDiary().catch((e: unknown) => {
+            // M-2: 日记生成失败记录
+            console.warn('[usePetTimers] generateDiary failed:', e instanceof Error ? e.message : e)
+          })
         }
       }
     }, 60 * 1000) // 每分钟检查一次

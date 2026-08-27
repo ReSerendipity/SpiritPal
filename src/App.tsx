@@ -148,42 +148,49 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     const fullMsg = `${error.message}\n\nComponent Stack:\n${errorInfo.componentStack ?? ''}`
     console.error('[SpiritPal ErrorBoundary]', fullMsg)
-    invoke('log_frontend_error', { level: 'error', message: fullMsg }).catch(() => {})
+    invoke('log_frontend_error', { level: 'error', message: fullMsg }).catch((e: unknown) => {
+      // M-2: 日志上报失败不应阻断 ErrorBoundary，但需记录
+      console.warn('[ErrorBoundary] log_frontend_error failed:', e instanceof Error ? e.message : e)
+    })
   }
 
   handleCopy = () => {
     if (!this.state.error) return
     const text = `${this.state.error.message}\n`
-    navigator.clipboard.writeText(text).catch(() => {})
+    navigator.clipboard.writeText(text).catch((e: unknown) => {
+      // M-2: clipboard 写入失败记录
+      console.warn('[App] clipboard.writeText failed:', e instanceof Error ? e.message : e)
+    })
   }
 
   render() {
     if (this.state.error) {
       const { error } = this.state
       return (
-        <div style={{ 
-          background: '#1a0000', color: '#ff6b6b', padding: 20, 
+        <div style={{
+          background: 'var(--color-error-bg, #1a0000)', color: 'var(--color-stat-bad, #ef4444)', padding: 20,
           fontFamily: 'Consolas, monospace', fontSize: 13, lineHeight: 1.6,
           minHeight: '100vh', userSelect: 'text', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
           overflow: 'auto'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-            <span style={{ fontSize: 18, fontWeight: 'bold', color: '#ff4444' }}>SpiritPal Error</span>
-            <button 
+            <span style={{ fontSize: 18, fontWeight: 'bold', color: 'var(--color-stat-bad, #ef4444)' }}>SpiritPal Error</span>
+            <button
               onClick={this.handleCopy}
+              aria-label="Copy error message to clipboard"
               style={{
-                marginLeft: 16, padding: '4px 12px', background: '#333', color: '#fff',
-                border: '1px solid #666', borderRadius: 4, cursor: 'pointer', fontSize: 12
+                marginLeft: 16, padding: '4px 12px', background: 'var(--color-ink, #333)', color: 'var(--color-surface, #fff)',
+                border: '1px solid var(--color-ink-muted, #666)', borderRadius: 4, cursor: 'pointer', fontSize: 12
               }}
             >
               Copy Error
             </button>
-            <span style={{ marginLeft: 12, color: '#888', fontSize: 11 }}>
+            <span style={{ marginLeft: 12, color: 'var(--color-ink-faint, #888)', fontSize: 11 }}>
               Log saved to: %APPDATA%/com.spiritpal.desktop-pet/logs/spiritpal.log
             </span>
           </div>
           <div style={{ marginBottom: 8 }}>{error.message}</div>
-          <div style={{ color: '#888' }}>{error.stack}</div>
+          <div style={{ color: 'var(--color-ink-faint, #888)' }}>{error.stack}</div>
         </div>
       )
     }
