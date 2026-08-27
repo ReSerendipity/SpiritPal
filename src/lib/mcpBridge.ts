@@ -1,5 +1,5 @@
 /**
- * MCP 工具桥接核心 — 集中 6 个 spiritpal_* 工具的真实执行逻辑
+ * MCP 工具桥接核心 — 集中 7 个 spiritpal_* 工具的真实执行逻辑
  *
  * 用途：作为"命令桥"的 TS 侧执行端。外部 Agent → `spiritpal-mcp`(Rust) →
  * bridge（本地 HTTP）→ 本模块执行真实工具逻辑（直接读写 petStore / enhancedMemory），
@@ -9,10 +9,12 @@
  * 供桥接层与测试复用。
  */
 import { usePetStore } from '../stores/petStore'
-import { getEnhancedMemoryManager } from './enhancedMemory'
 import { ANIMATION_CATALOG } from './animationConfig'
-import { OPENPETS_REACTION_MAP } from './types'
+import { getEnhancedMemoryManager } from './enhancedMemory'
 import { createBubbleMessageSchema, createValidatedIdSchema } from './mcpInputValidator'
+import { isToolAllowed } from './mcpPermissions'
+import { createMemoryEditor } from './memoryEditor'
+import { OPENPETS_REACTION_MAP } from './types'
 
 /** MCP 工具调用返回结构（与 SDK 的 result.content 一致） */
 export interface McpToolResult {
@@ -35,6 +37,11 @@ function dispatch(event: string, detail?: unknown): void {
 
 /** 执行一个 spiritpal_* 工具（真实状态/动作），返回 MCP 格式结果 */
 export async function executeMcpTool(name: string, args: Record<string, unknown> = {}): Promise<McpToolResult> {
+  // 设置页「MCP 管理」可禁用单个工具；被禁用的工具返回诚实的权限错误
+  if (!isToolAllowed(name)) {
+    return text(`PERMISSION_DENIED: Tool '${name}' is disabled in SpiritPal settings`, true)
+  }
+
   switch (name) {
     case 'spiritpal_status': {
       try {
@@ -148,6 +155,73 @@ export async function executeMcpTool(name: string, args: Record<string, unknown>
       }
     }
 
+    case 'spiritpal_memory_edit': {
+      try {
+        const store = usePetStore.getState()
+        const characterId = String(args.characterId ?? store.currentCharacterId)
+        const mgr = getEnhancedMemoryManager(characterId)
+        await mgr.ensureLoaded()
+        const editor = createMemoryEditor(mgr)
+
+        const action = String(args.action ?? '')
+        switch (action) {
+          case 'create': {
+            const content = String(args.content ?? '')
+            if (!content.trim()) return text('Error: content required for create', true)
+            const result = await editor.createMemory(content, {
+              category: args.category !== undefined ? String(args.category) : undefined,
+              importance: args.importance !== undefined ? Number(args.importance) : undefined,
+              tags: Array.isArray(args.tags) ? (args.tags as unknown[]).map(String) : undefined,
+            })
+            return text(JSON.stringify(result), !result.success)
+          }
+          case 'read': {
+            const memoryId = String(args.memoryId ?? '')
+            if (!memoryId) return text('Error: memoryId required for read', true)
+            const result = await editor.readMemory(memoryId)
+            if (!result.success) return text(JSON.stringify(result), true)
+            const mem = (result.details as { memory?: Record<string, unknown> })?.memory
+            // 输出裁剪：只回传可读字段，避免把整条内部结构灌给外部 Agent
+            return text(JSON.stringify({
+              id: mem?.id,
+              user: mem?.user,
+              assistant: mem?.assistant,
+              created_at: mem?.created_at,
+              category: mem?.category,
+              tags: mem?.tags,
+              importance: mem?.importance,
+            }))
+          }
+          case 'update': {
+            const memoryId = String(args.memoryId ?? '')
+            if (!memoryId) return text('Error: memoryId required for update', true)
+            const updates: Record<string, unknown> = {}
+            if (args.content !== undefined) updates.content = String(args.content)
+            if (args.category !== undefined) updates.category = String(args.category)
+            if (args.importance !== undefined) updates.importance = Number(args.importance)
+            if (Array.isArray(args.tags)) updates.tags = (args.tags as unknown[]).map(String)
+            if (Object.keys(updates).length === 0) return text('Error: no fields to update', true)
+            const result = await editor.updateMemory(memoryId, updates as Parameters<typeof editor.updateMemory>[1])
+            return text(JSON.stringify(result), !result.success)
+          }
+          case 'delete': {
+            const memoryId = String(args.memoryId ?? '')
+            if (!memoryId) return text('Error: memoryId required for delete', true)
+            const result = await editor.deleteMemory(memoryId)
+            return text(JSON.stringify(result), !result.success)
+          }
+          case 'stats': {
+            const result = await editor.getMemoryStats()
+            return text(JSON.stringify(result.details?.stats ?? result), !result.success)
+          }
+          default:
+            return text(`Unknown action: ${action}. Supported: create, read, update, delete, stats`, true)
+        }
+      } catch (err) {
+        return text(`Error: ${err}`, true)
+      }
+    }
+
     default:
       return text(`Unknown tool: ${name}`, true)
   }
@@ -159,6 +233,7 @@ export const MCP_TOOL_NAMES = [
   'spiritpal_react',
   'spiritpal_say',
   'spiritpal_memory',
+  'spiritpal_memory_edit',
   'spiritpal_feed',
   'spiritpal_pet',
 ] as const

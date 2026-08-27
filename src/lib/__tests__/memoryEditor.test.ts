@@ -20,6 +20,11 @@ vi.mock('../enhancedMemory', () => ({
   EnhancedMemoryManager: vi.fn(),
 }))
 
+// Mock db 行级持久化（updateMemory 带 dbId 时使用）
+vi.mock('../db', () => ({
+  updateMemoryRow: vi.fn().mockResolvedValue(undefined),
+}))
+
 describe('MemoryEditor', () => {
   let memoryEditor: MemoryEditor
   let mockMemoryManager: EnhancedMemoryManager
@@ -84,9 +89,35 @@ describe('MemoryEditor', () => {
       },
     ]
 
-    // Mock EnhancedMemoryManager 实例
+    // Mock EnhancedMemoryManager 实例（与真实管理器接口对齐：addExchange/deleteMemory 真实持久化入口）
     mockMemoryManager = {
       getAllMemories: vi.fn().mockReturnValue(mockMemories),
+      addExchange: vi.fn((user: string) => {
+        const mem: EnhancedMemory = {
+          id: 'mem-new-1',
+          created_at: new Date().toISOString(),
+          user,
+          assistant: '',
+          importance: 50,
+          emotionalIntensity: 0,
+          category: '日常',
+          tags: [],
+          accessCount: 0,
+          lastAccessed: Date.now(),
+          decayFactor: 1.0,
+          isAutobiographical: false,
+          emotionalValence: 0,
+          emotionalArousal: 0.3,
+          strength: 1.0,
+          sourceKind: 'exchange',
+        }
+        mockMemories.push(mem)
+        return mem
+      }),
+      deleteMemory: vi.fn((id: string) => {
+        const idx = mockMemories.findIndex(m => m.id === id)
+        if (idx !== -1) mockMemories.splice(idx, 1)
+      }),
     } as unknown as EnhancedMemoryManager
 
     vi.clearAllMocks()
