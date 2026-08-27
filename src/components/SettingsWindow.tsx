@@ -29,7 +29,7 @@ import { appDataDir } from '@tauri-apps/api/path'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import {
 X, Bot, Palette, Settings as SettingsIcon, Info,
-Heart, ShoppingBag, Backpack, Brain, SlidersHorizontal, Trophy, Calendar, Package, Camera, Database, Sliders, Grid3x3, Activity, Sparkles, Users, Upload, Plug,
+Heart, ShoppingBag, Backpack, Brain, SlidersHorizontal, Trophy, Calendar, Package, Camera, Database, Sliders, Grid3x3, Activity, Sparkles, Users, Upload, Plug, BookOpen,
 } from 'lucide-react'
 import { enable, disable } from '@tauri-apps/plugin-autostart'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -62,6 +62,7 @@ import { LegalDocument } from './LegalDocument'
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from '../lib/legalDocuments'
 import { CommunityPanel } from './CommunityPanel'
 import { McpSettingsPanel } from './McpSettingsPanel'
+import { JournalPanel } from './JournalPanel'
 import { DecorationEditor } from './DecorationEditor'
 import { LeaderboardPanel } from './LeaderboardPanel'
 import { WindowControls } from './WindowControls'
@@ -80,7 +81,7 @@ const selectInitCharacter = (s: ReturnType<typeof usePetStore.getState>) => s.in
 const selectBackground = (s: ReturnType<typeof usePetStore.getState>) => s.background
 const selectSetBackground = (s: ReturnType<typeof usePetStore.getState>) => s.setBackground
 
-type Tab = 'ai' | 'appearance' | 'personality' | 'personalityEditor' | 'nurturing' | 'shop' | 'inventory' | 'memory' | 'achievements' | 'leaderboard' | 'schedule' | 'mods' | 'album' | 'data' | 'quick' | 'sprite' | 'mcp' | 'community' | 'general' | 'about'
+type Tab = 'ai' | 'appearance' | 'personality' | 'personalityEditor' | 'nurturing' | 'shop' | 'inventory' | 'memory' | 'achievements' | 'leaderboard' | 'schedule' | 'journal' | 'mods' | 'album' | 'data' | 'quick' | 'sprite' | 'mcp' | 'community' | 'general' | 'about'
 type ToggleKey = 'autoStart' | 'startMinimized' | 'notifications' | 'showWindowBorder'
 
 /** H-3: Tab 分组定义（3 大类：基础 / 高级 / 关于） */
@@ -112,6 +113,7 @@ const TAB_GROUPS: TabGroup[] = [
       { key: 'achievements', label: '成就', icon: Trophy },
       { key: 'leaderboard', label: '排行', icon: Trophy },
       { key: 'schedule', label: '日程', icon: Calendar },
+      { key: 'journal', label: '日记', icon: BookOpen },
       { key: 'album', label: '相册', icon: Camera },
       { key: 'community', label: '社区', icon: Users },
     ],
@@ -914,6 +916,10 @@ const [showImporter, setShowImporter] = useState(false)
             <h2 className="mb-4 text-lg font-semibold">日程管理</h2>
             <SchedulePanel />
           </div>
+        )}
+
+        {tab === 'journal' && (
+          <JournalPanel />
         )}
 
         {tab === 'mods' && (

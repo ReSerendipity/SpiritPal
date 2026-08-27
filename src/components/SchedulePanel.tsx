@@ -18,7 +18,9 @@
  */
 import { useEffect, useState } from 'react'
 import { Plus, Trash2, Check, Calendar, Clock } from 'lucide-react'
-import { getScheduleManager, type EnhancedScheduleEvent } from '../lib/scheduleManager'
+import { getScheduleManager, type EnhancedScheduleEvent, type ImportedCalendarEvent } from '../lib/scheduleManager'
+import { getTimezoneManager } from '../lib/timezoneSync'
+import { formatDateTime } from '../lib/i18n'
 
 /**
  * 日程管理面板
@@ -27,8 +29,10 @@ import { getScheduleManager, type EnhancedScheduleEvent } from '../lib/scheduleM
  */
 export function SchedulePanel() {
   const mgr = getScheduleManager()
+  const tz = getTimezoneManager().getCurrentTimeZone()
   // 初始值来自管理器快照（惰性初始化），避免在 effect 中同步 setState
   const [events, setEvents] = useState<EnhancedScheduleEvent[]>(() => mgr.getEvents())
+  const [calendarEvents, setCalendarEvents] = useState<ImportedCalendarEvent[]>([])
   const [showAdd, setShowAdd] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newTime, setNewTime] = useState('')
@@ -36,6 +40,13 @@ export function SchedulePanel() {
   useEffect(() => {
     // 仅订阅变更，回调由管理器在变更时触发（非同步 setState）
     return mgr.onChange(() => setEvents(mgr.getEvents()))
+  }, [mgr])
+
+  useEffect(() => {
+    // A-8 D-2：拉取已注册外部日历源事件（当前无源时为空白数组）
+    let alive = true
+    mgr.getImportedCalendarEvents().then((evs) => { if (alive) setCalendarEvents(evs) }).catch(() => {})
+    return () => { alive = false }
   }, [mgr])
 
   function handleAdd() {
@@ -84,7 +95,10 @@ export function SchedulePanel() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold">📅 日程管理</span>
+        <span className="flex items-center gap-2 text-sm font-semibold">
+          📅 日程管理
+          <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] text-ink-muted">🌐 {tz.abbreviation} {tz.timeZoneId}</span>
+        </span>
         <button
           onClick={() => setShowAdd(!showAdd)}
           className="flex items-center gap-1 rounded-lg bg-amber-500 px-2 py-1 text-xs text-gray-900 hover:bg-amber-400"
@@ -177,6 +191,27 @@ export function SchedulePanel() {
                 >
                   <Trash2 size={14} />
                 </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 外部日历汇入（A-8 D-2 插件；当前无已注册源时此区块不渲染） */}
+      {calendarEvents.length > 0 && (
+        <div>
+          <div className="mb-1 text-[11px] text-ink-muted">外部日历（{calendarEvents.length}）</div>
+          <div className="space-y-1.5">
+            {calendarEvents.map((e) => (
+              <div key={e.id} className="flex items-center gap-2 rounded-lg bg-surface/50 p-2">
+                <Calendar size={14} className="flex-shrink-0 text-sky-400" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm text-ink">{e.title}</div>
+                  <div className="text-[10px] text-ink-muted">
+                    {formatDateTime(new Date(e.startTime))}
+                    <span className="ml-1 text-sky-400">{e.sourceLabel}</span>
+                  </div>
+                </div>
               </div>
             ))}
           </div>

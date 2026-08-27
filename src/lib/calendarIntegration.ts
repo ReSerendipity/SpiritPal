@@ -1,5 +1,8 @@
 /**
  * @file calendarIntegration.ts
+ * @note 本模块依赖 Node 内置模块（child_process），仅 Node 运行时可用；作为 scheduleManager 日历数据源
+ *       插件（CalendarSourceAdapter）的 Node 侧参考实现，需经 Tauri 命令桥接后在 webview 侧注册适配器
+ *       （见 lib/scheduleManager.ts 的 CalendarSourceAdapter 接口）。
  * @description 日程集成 — 读取系统日历 + 智能提醒
  * 
  * 实现功能：

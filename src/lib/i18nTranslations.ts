@@ -1,12 +1,9 @@
 /**
  * @file i18nTranslations.ts
- * @description 多语言翻译数据集 — 中文/英文/日文/韩文
- * 
- * 支持的语言：
- * - zh-CN: 简体中文（默认）
- * - en-US: 美式英语
- * - ja-JP: 日语
- * - ko-KR: 韩语
+ * @deprecated 自 2026-08-27（批次二 A-9）起废弃。翻译资源已由 `lib/i18n.ts` 的 react-i18next 资源
+ * （zh/en/ja/ko/zh-TW 内联对象 + `public/locales` JSON）统一承载。本文件仅为 `i18nManager.ts` 的历史依赖，
+ * 二者均无运行链路消费方，禁止在新代码中 import。
+ * @description 多语言翻译数据集（历史实现，已废弃）— 中文/英文/日文/韩文
  */
 
 export type Locale = 'zh-CN' | 'en-US' | 'ja-JP' | 'ko-KR'

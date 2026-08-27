@@ -1,14 +1,11 @@
 /**
  * @file i18nManager.ts
- * @description 国际化（i18n）管理器
- * 
- * 实现功能：
- * - 运行时语言切换
- * - 自动检测系统语言
- * - 时区与日期格式本地化
- * - RTL 布局支持预留（阿拉伯语/希伯来语）
- * - 复数形式处理
- * - 动态插值参数
+ * @deprecated 自 2026-08-27（批次二 A-9）起废弃。生产 i18n 由 `lib/i18n.ts`（react-i18next）统一承担，
+ * 其 Intl 本地化格式化能力（formatDate/formatTime/formatRelativeTime/formatNumber/formatCurrency/getTextDirection）
+ * 已并入 `lib/i18n.ts`。本文件仅作为历史兼容存根保留，禁止在新代码中 import。
+ * @description 国际化（i18n）管理器（历史实现，已废弃）
+ *
+ * 曾实现：运行时语言切换、自动检测系统语言、时区与日期格式本地化、RTL 布局预留、复数处理、动态插值。
  */
 
 import type { Locale, TranslationBundle } from './i18nTranslations'

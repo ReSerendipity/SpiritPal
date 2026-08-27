@@ -3,7 +3,7 @@
 > 版本：v0.1（草案）  
 > 生成日期：2026-08-27  
 > 依据：《剩余任务交接报告.md》（2026-08-27 实测）、《学习成果落地分析报告.md》  
-> 状态：**批次一已执行完成（2026-08-27）**。审核通过后已落地 A-1~A-5，全部通过 `tsc -b` + 全量 vitest（2125 passed / 0 failed）+ lint。
+> 状态：**批次一、批次二均已执行完成（2026-08-27）**。批次一落地 A-1~A-5，批次二落地 A-9 i18n 收敛 / A-8 日记日程 / A-10 情绪引擎，两批全部通过 `tsc -b` + 全量 vitest（2125 passed / 0 failed）+ lint（0 错误）。
 
 ---
 
@@ -23,7 +23,20 @@
 - **A-5 仅接手动+计划(23–7)静音**：`silentModeManager` 的 meeting/focus 自动静音与 F9 快捷键是其模块内 TODO 空实现，未虚构。见 gotcha #29。
 - **A-2 未造新状态写入路径**：直接复用 `hiddenStateManager` 的 CustomEvent → petState 链路，未新增 store action（避免假实现，符合铁律 #6）。
 
-> 批次二（决策与统一：A-9 i18n / A-8 日记日程 / A-10 情绪引擎）待后续启动。
+### 批次二 · 决策与统一 —— ✅ 完成（2026-08-27）
+
+| 任务 | 落地方式 | 验收 |
+|------|----------|------|
+| **A-9 i18n 收敛** | 方案 B：将 `i18nManager` 的 Intl 格式化能力（formatDate/Time/RelativeTime/Number/Currency/getTextDirection）并入生产 `i18n.ts`，作为全仓唯一 locale-aware 格式化来源；`i18nManager`/`i18nTranslations` 标记 `@deprecated`（用户拒绝删除，保留为历史兼容存根）；`emojiCultureData` 解耦对 `i18nTranslations` 的类型依赖 | tsc -b 通过；残留 2 文件为废弃存根，运行期仍仅 `i18n.ts` 一个被接线模块 |
+| **A-8 日记/日程** | D-2：`scheduleManager` 新增 `CalendarSourceAdapter` 插件接口（`registerCalendarSource`/`getImportedCalendarEvents`），webview 安全、不引入 Node 依赖；`timezoneSync` 接入 `SchedulePanel` 显示时区（消除孤岛）；设置页新增 `journal` Tab + `JournalPanel`（基于 chatStore + i18n 格式化器，点击生成/导出 Markdown，webview 安全） | SettingsWindow 日记 Tab「生成今日日记 / 导出 Markdown」可用；tsc/vitest 全绿 |
+| **A-10 情绪引擎** | `emotionTagsToMood` 改为委托 `emotionEngine.moodFromEmotionTags`（同一调用点升级替换，下游 `updateMemoryMood` 零破坏）；ChatWindow 每轮回复将文本送入 `getEmotionStateManager().update(analyze(...))`，驱动 MemoryPanel 分布/每日曲线 | tsc/vitest 全绿（2125 passed） |
+
+**关键偏差（已记入 KNOWN_GOTCHAS）**：
+- **A-8 架构阻塞（诚实降级）**：`dailyJournal.ts`/`calendarIntegration.ts` 依赖 Node 内置模块（`fs`/`child_process`），无法在 Tauri webview 直接 import（顶层 `exec`/`fs` 加载即报错）。故日记采用 webview 安全实现（Blob 下载 + chatStore 数据），`calendarIntegration` 仅作为 `scheduleManager` 日历插件的 **Node 侧参考适配器**，待经 Tauri 命令桥接后在 webview 注册。见 gotcha #30。
+- **A-9 文件未删除**：用户拒绝删除 `i18nManager`/`i18nTranslations`，改为 `@deprecated` 标记 + 指向 `i18n.ts`；双轨在「活动实现」层面收敛，文件待后续人工清理。
+- **A-10 评分来源收敛**：情绪标签→坐标的评分表统一收敛到 `emotionEngine.EMOTION_SCORES`，`emotionTagsToMood` 退化为薄适配层（保留签名兼容既有记忆回写）。
+
+> 批次三（能力补全：A-7 memoryExporter 导出 / A-6 事实归档 / A-11 记忆搜索性能）待后续启动。
 
 ---
 

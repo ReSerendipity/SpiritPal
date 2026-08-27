@@ -61,6 +61,7 @@ import { getDiarySystemManager } from '../lib/diarySystem'
 import { getAntiRepetitionManager } from '../lib/antiRepetition'
 // P1-5：情绪标签提示词 + 好感度解析
 import { EMOTION_PROMPT_FRAGMENT, extractAffectionDeltas, sumAffectionDeltas, emotionTagsToMood } from '../lib/emotionExtractor'
+import { getEmotionAnalyzer, getEmotionStateManager } from '../lib/emotionEngine'
 // P2-1：结构化用户画像层
 import { getOwnerFactsManager } from '../lib/ownerFacts'
 // P2-4：宠物共同经历记忆
@@ -580,6 +581,9 @@ export default function ChatWindow() {
       if (moodTag) {
         memory.updateMemoryMood(exchangedMem.id, moodTag.valence, moodTag.arousal)
       }
+      // A-10: 同一调用点升级替换为 emotionEngine —— 将回复文本送入情绪引擎状态机，
+      // 驱动 MemoryPanel 情绪分布 / 每日情绪曲线（情绪落库单链贯通）
+      getEmotionStateManager().update(getEmotionAnalyzer().analyze(cleanFinal))
       // P1-6：记录回复到防重复管理器
       antiRepMgr.recordResponse(cleanFinal)
       // P1-1：记录对话到日记系统
