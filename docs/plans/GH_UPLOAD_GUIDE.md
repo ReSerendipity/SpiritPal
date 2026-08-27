@@ -72,6 +72,6 @@ git push --tags
 ## 相关文档
 
 - 发布流程与私钥风险：`docs/RELEASE_NOTES.md`
-- 合规备忘：`docs/COMPLIANCE_NOTES.md`
+- 合规备忘：`docs/COMPLIANCE_CHECKLIST.md`
 
 *本文档为操作指引，不构成法律意见。*
