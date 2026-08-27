@@ -11,7 +11,7 @@ export { useDisposable, useEventListener } from './useDisposable'
 export type { UsePetGazeOptions, UsePetGazeReturn } from './usePetGaze'
 export { usePetGaze } from './usePetGaze'
 
-// Pet 相关 Hooks（从 PetWindow.tsx 拆分，共 8 个）
+// Pet 相关 Hooks（从 PetWindow.tsx 拆分，共 9 个）
 export {
   usePetDragging,
   usePetWalk,
@@ -21,6 +21,7 @@ export {
   usePetWindows,
   usePetTimers,
   usePetMemoryTriggers,
+  useRoamWalk,
 } from './pet'
 export type {
   UsePetDraggingOptions,
@@ -39,4 +40,5 @@ export type {
   UsePetTimersOptions,
   UsePetTimersReturn,
   UsePetMemoryTriggersOptions,
+  UseRoamWalkOptions,
 } from './pet'
