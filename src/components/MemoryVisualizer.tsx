@@ -155,6 +155,7 @@ const TimelineView: React.FC = () => {
     return keyframeMem.getAllFrames().sort((a, b) => b.timestamp - a.timestamp)
   }, [])
 
+  // eslint-disable-next-line react-hooks/purity -- Date.now() 用于时间范围查询，仅在渲染期调用一次
   const timeRange = getMemoryByTimeRange(Date.now() - 24 * 60 * 60 * 1000, Date.now())
 
   const formatTime = (ts: number): string => {
@@ -216,8 +217,10 @@ const SearchView: React.FC = () => {
   useEffect(() => {
     if (query.trim()) {
       const found = searchMemory(query)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 搜索结果需要同步更新到 UI
       setResults(found)
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 清空搜索结果
       setResults([])
     }
   }, [query])
@@ -292,6 +295,7 @@ const EmotionView: React.FC = () => {
       tired: Math.random() * 20 + 5,    // 5-25%
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 初始化模拟数据，仅执行一次
     setEmotionStats(stats)
   }, [])
 
@@ -349,6 +353,7 @@ const GraphView: React.FC = () => {
 
   useEffect(() => {
     // 模拟知识图谱数据（实际应从 enhanced memory 提取实体关系）
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 初始化模拟图谱数据，仅执行一次
     setNodes([
       { id: 'user', label: '主人', category: 'person' },
       { id: 'pet', label: 'SpiritPal', category: 'pet' },

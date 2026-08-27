@@ -183,7 +183,7 @@ export class DailyJournalManager {
   ): Promise<JournalEntry[]> {
     const entries: JournalEntry[] = []
     
-    let currentDate = new Date(startDate)
+    const currentDate = new Date(startDate)
     const end = new Date(endDate)
     
     while (currentDate <= end) {
