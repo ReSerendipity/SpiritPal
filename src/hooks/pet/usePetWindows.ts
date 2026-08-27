@@ -170,7 +170,10 @@ export function usePetWindows(options: UsePetWindowsOptions): UsePetWindowsRetur
     } else if (hunger < 30) {
       trayState = 'hungry'
     }
-    invoke('update_tray_icon', { state: trayState }).catch(() => {})
+    invoke('update_tray_icon', { state: trayState }).catch((e: unknown) => {
+  // M-2: tray icon 更新失败记录
+  console.warn('[usePetWindows] update_tray_icon failed:', e instanceof Error ? e.message : e)
+})
   }, [petState, hunger])
 
   return { showWindow, hideWindow }
