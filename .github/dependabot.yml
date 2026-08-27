@@ -1,21 +1,51 @@
-# Dependabot 自动依赖更新（weekly）
+# Dependabot 配置 — 自动依赖更新
+# M-3: 依赖与供应链安全改进
+
 version: 2
-
 updates:
-  - package-ecosystem: npm
+  # 前端 npm 依赖
+  - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: weekly
+      interval: "weekly"
+      day: "monday"
     open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "frontend"
+    # 安全更新优先
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    # 忽略 dev 依赖的大版本升级（避免破坏性变更）
+    ignore:
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
 
-  - package-ecosystem: cargo
-    directory: "src-tauri"
+  # Rust cargo 依赖
+  - package-ecosystem: "cargo"
+    directory: "/src-tauri"
     schedule:
-      interval: weekly
+      interval: "weekly"
+      day: "monday"
     open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "rust"
 
-  - package-ecosystem: github-actions
+  # GitHub Actions 依赖
+  - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 10
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci"

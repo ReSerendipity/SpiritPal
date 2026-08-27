@@ -24,11 +24,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ['javascript-typescript']
+        language: ['javascript-typescript', 'rust']
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (for CodeQL Rust analysis)
+        if: matrix.language == 'rust'
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3

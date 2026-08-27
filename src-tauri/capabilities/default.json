@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "SpiritPal pet-window permissions (minimal: window mgmt + event listening + tray)",
+  "description": "SpiritPal pet-window permissions (M-7: 精简至实际所需 — window mgmt + event listening + tray, 移除未直接使用的 store/sql/notification/dialog)",
   "windows": ["pet-window"],
   "permissions": [
     "core:default",
@@ -22,26 +22,9 @@
     "core:window:allow-current-monitor",
     "core:window:allow-available-monitors",
     "core:window:allow-primary-monitor",
-    "store:default",
-    "store:allow-load",
-    "store:allow-save",
-    "store:allow-get",
-    "store:allow-set",
-    "store:allow-delete",
-    "store:allow-clear",
-    "sql:default",
-    "sql:allow-execute",
-    "sql:allow-close",
-    "sql:allow-load",
-    "notification:default",
-    "notification:allow-request-permission",
-    "notification:allow-notify",
-    "notification:allow-get-active",
-    "notification:allow-register-action-types",
     "core:app:default",
     "core:app:allow-name",
     "core:app:allow-version",
-    "core:event:default",
-    "dialog:default"
+    "core:event:default"
   ]
 }
