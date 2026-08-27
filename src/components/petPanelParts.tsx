@@ -18,12 +18,12 @@ export function StatRow({ label, value, color }: { label: string; value: number;
   )
 }
 
-/** 数值 → 状态色（≥70 绿 / ≥40 黄 / 其余红） */
+/** 数值 → 状态色语义 Token（≥70 好 / ≥40 中 / <40 差） */
 // eslint-disable-next-line react-refresh/only-export-components -- 纯函数工具，与小组件同文件导出供 PetWindow 复用
 export function tierColor(v: number): string {
-  if (v >= 70) return '#22c55e'
-  if (v >= 40) return '#eab308'
-  return '#ef4444'
+  if (v >= 70) return 'var(--color-stat-good)'
+  if (v >= 40) return 'var(--color-stat-mid)'
+  return 'var(--color-stat-bad)'
 }
 
 /** 展开态动作列表单行按钮 */
@@ -44,6 +44,7 @@ export function ActionButton({
     <div>
       <button
         onClick={onClick}
+        aria-label={label}
         className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-[3px] text-[11px] text-ink transition-colors hover:bg-ink/8"
       >
         <span className="text-ink-muted" style={{ display: 'inline-flex' }}>{icon}</span>
@@ -70,6 +71,7 @@ export function ActionRow({
   return (
     <button
       onClick={onClick}
+      aria-label={typeof children === 'string' ? children : undefined}
       className={`flex w-full items-center gap-1.5 rounded-md px-1.5 py-[3px] transition-colors ${
         highlight ? 'bg-tangerine/15 text-ink font-medium' : 'text-ink-muted hover:bg-ink/8'
       }`}
