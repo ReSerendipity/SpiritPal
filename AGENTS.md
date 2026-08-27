@@ -1,6 +1,6 @@
 # SpiritPal AGENTS.md — AI 辅助开发指南
 
-> 🧬 **自进化协议版本**：v2.22  
+> 🧬 **自进化协议版本**：v2.24  
 > 📅 **最后更新日期**：2026-08-27  
 > 🎯 **对应项目版本**：v0.1.0（闭源）
 
@@ -143,7 +143,7 @@ import "./PetWindow.css"
 | `src/lib/encryption/` | AES-GCM 加密 + Argon2 密钥派生（和 Rust 端保持一致算法） | 严禁改算法参数（IV 12字节、盐 16字节、Argon2 m=65536 t=3 p=1），否则旧数据解不开 |
 | `src/lib/storage/` | IndexedDB 包装（聊天历史 + 宠物日记） | 写 schema 迁移脚本要同时改 Rust 端 migrations（防止两边不一致） |
 | `src/lib/live2dManager.ts` | Live2D 模型加载、表情/动作触发 | 模型文件后缀 `.model3.json`，加载失败回退 DefaultModel |
-| `src/lib/chatService.ts` | 聊天记录 CRUD + 前端 LRU 缓存（1000 条） | 所有写入必须先 Rust 端 AES 加密再入库 |
+| `src/lib/dataManager.ts` + `src/lib/db.ts` | 聊天记录 CRUD + 前端 LRU 缓存（1000 条）；`db.ts` 负责 SQLite 读写接入与 beforeunload 时先 checkpoint 再交 Rust 端加密 | 所有写入必须先 Rust 端 AES 加密再入库 |
 | `src/lib/types/` | 全局 TS 类型：Pet / ChatMessage / Settings / WindowConfig | 任何类型变动，同步改 `src-tauri/src/types.rs` 的 Rust struct |
 | `src/lib/tauriInvoker.ts` | `invoke<T>()` 统一封装：超时 30s + 错误处理 + retry 1 次 | 所有 Tauri command 必须通过这个调用，不要直接 `import { invoke }` |
 | `src/lib/petBehaviorEngine.ts` | FSM（有限状态机）：idle/happy/sad/sleeping/eating | 状态转移图 `pet_transitions.png`（见 docs），严禁跨状态跳转 |
@@ -151,7 +151,7 @@ import "./PetWindow.css"
 | `src/lib/i18n.ts` | i18next 初始化（react-i18next） + 语言检测 | 语言切换同步写 settingsStore persist，刷新后保留 |
 | `src/lib/utils/` | 纯函数工具：formatTime / classNames merge / 防抖节流 | 必须 100% Vitest 覆盖，不许有副作用 |
 | `src/lib/constants.ts` | 全局常量：窗口尺寸 / 动画时长 / 图片 URL 前缀 | 不许散落魔法数字，全集中在这里 |
-| `src/lib/errorBoundary.tsx` | React ErrorBoundary（错误边界）+ 兜底页面（「宠物离家出走了」） | 线上生产构建必须开启 SourceMaps upload（Sentry） |
+| `src/App.tsx`（内联 `ErrorBoundary` 类组件，无独立文件） | React ErrorBoundary（错误边界）+ 兜底错误页（「SpiritPal Error」调试卡片：错误信息 + Copy Error + 日志路径提示） | 线上生产构建必须开启 SourceMaps upload（Sentry） |
 
 ### 3.3 Rust 后端（`src-tauri/` 下）
 | 目录 | 职责 |
@@ -160,7 +160,7 @@ import "./PetWindow.css"
 | `src-tauri/src/lib.rs` | Tauri `Builder::default()` 启动入口 + capabilities 配置加载 + 窗口/托盘/系统事件（⚠️ 无 forbid(unsafe_code) 声明） |
 | `src-tauri/src/commands/` | **30 个 Tauri Commands**（⚠️ 实际数；一一对应前端 `src/lib/ipcTypes.ts` 的命令名）：<br>`pet`（档案 CRUD）/ `chat`（历史加密读写）/ `settings`（偏好 secureStore）/ `backup`（JSON 导入导出）/ `window`（置顶/穿透）/ `update`（自动更新签名校验）/ `encryption`（Argon2 派生测试）/ `system-tray`（托盘菜单事件）/ `live2d-cache`（模型缓存清理）/ `log`（日志滚动）/ `analytics`（本地统计，不上传）/ `diagnose`（用户一键导出故障诊断包） |
 | `src-tauri/src/encryption.rs` | 与前端 `lib/encryption/` **算法严格一致**：AES-256-GCM + Argon2id，互测通过才允许 |
-| `src-tauri/src/db.rs` | SQLx + SQLite（含 7 个 migration 脚本），DB 路径 `app_data_dir().join("spiritpal.db")` |
+| `src-tauri/src/encrypted_db.rs` | SQLite 数据库文件级静态加密（at-rest）：AES-256-GCM + PBKDF2 机器 ID 派生密钥，关闭时 `spiritpal.db` → `spiritpal.db.enc`、启动时反向解密；数据库本体经 tauri-plugin-sql 打开，DB 路径 `app_data_dir().join("spiritpal.db")` |
 | `src-tauri/src/types.rs` | Rust struct（对应前端 `lib/types.ts`）：`Pet`、`ChatMessage`、`Settings` |
 | `src-tauri/src/tests.rs`（或 `tests/` 目录） | **105 个单元测试**（⚠️ 实际数）：加密一致性 / DB 迁移 / command 参数校验 / 路径穿越攻击测试 |
 | `src-tauri/capabilities/` | Tauri v2 capabilities JSON（安全权限白名单）：`default.json`（pet-window）/ `chat-window.json` / `settings-window.json` | **修改必须人工 review**，capability 过大会导致跨窗口 IPC 安全漏洞 |
@@ -178,7 +178,7 @@ import "./PetWindow.css"
 | `stores/petStore.ts` | 当前选中的宠物（activePetId）、所有宠物列表、好感度、饥饿值 | `persist(name="spiritpal:pet", partialize: {档案+好感度走 AES-GCM 持久化，瞬时状态（当前表情）仅内存})` | `setActivePet(id)` / `feedPet(id, food)` / `updatePetMood(id, -5)` |
 | `stores/settingsStore.ts` | 语言、启动行为、窗口置顶、Live2D 画质、自动更新开关 | `persist(name="spiritpal:settings", encryptedStorage 加密)`（H-1 修复后已接入 Rust 端 AES-256-GCM 加密，Tauri 不可用时降级明文） | `setLanguage("zh-CN")` / `setAlwaysOnTop(true)` |
 | `stores/chatStore.ts` | 当前对话、未读数、草稿、表情包列表 | `persist(name="spiritpal:chat", partialize: {messages走加密写入DB，草稿存IndexedDB})` | `sendMessage(text)` / `clearHistory(petId)` |
-| `stores/windowStore.ts` | 3 窗口位置、尺寸、Z-order、当前可见性 | `persist(name="spiritpal:window", 明文即可，位置不敏感)` | `setPetWindowPos(x,y)` / `toggleChatWindow()` |
+| ⚠️ 窗口状态**尚无独立 Zustand store**（原声称的 `windowStore.ts` 未实现），实际由 `src/lib/windowManager.ts` 的 `windowManager` 单例承担 | 3 窗口位置、尺寸、Z-order、当前可见性 | 不走 Zustand `persist`（windowManager 直接调 Tauri 窗口 API；位置信息不敏感，如需持久化再补 store） | `windowManager` 实例方法 + `enableWindowsPinMode()` / `isWindowsPinModeActive()` |
 | `stores/themeStore.ts` | 主题（light/dark/跟随系统）、主色调 Token 覆盖 | `persist(name="spiritpal:theme")` 明文 | `setTheme("dark")` / `setPrimaryColor("#a78bfa")` |
 
 ---
@@ -233,7 +233,7 @@ describe("useTauriInvoke", () => {
 | `pnpm build` | **生产构建**（Windows .exe / macOS .dmg / Linux .AppImage） | ⚠️ **重要：先看下面 Build After Code Changes 章节** |
 | `pnpm test:unit` | Vitest 前端单元（含覆盖率报告） | CI 每次跑 |
 | `pnpm test:rust` | `cargo test` Rust 单元（32 个用例） | CI 每次跑 |
-| `pnpm test:e2e` | Playwright E2E（需要 GUI 环境） | CI `e2e.yml` workflow 专门跑，不参与 PR CI |
+| `pnpm test:e2e` | Playwright E2E | 在 CI 的 `ci.yml` 中由 `e2e` job（name: E2E Tests (Playwright)）跑，参与 PR CI；真实 Tauri GUI 冒烟仍需本地/self-hosted |
 | `pnpm test:perf` | 性能脚本（生成 HTML 报告） | 发版前人工跑一次 |
 | `pnpm lint` | ESLint（含 import 排序 + tailwind 顺序）+ TypeScript 严格检查（`tsc --noEmit`） | CI 必过 |
 | `pnpm format` | Prettier 格式化（.ts / .tsx / .json / .md） | 提交前跑一次 |
@@ -328,7 +328,7 @@ Scope 建议：`pet-window` / `chat` / `settings` / `rust-encryption` / `i18n` /
 |---------------|------|--------|
 | `ci.yml` | push 到 main / develop，所有 PR | 3 个 Job 并行：<br>1. `lint-and-test`：pnpm lint + pnpm test:unit（Vitest coverage 阈值）<br>2. `rust-test`：`cargo test`（32 个 Rust 单元 + 加密一致性）<br>3. `build`：3 个 matrix（windows-latest / macos-14 / ubuntu-latest）并行 `pnpm build`，产出 .msi / .dmg / .AppImage 上传 artifact（保留 7 天） |
 | `release.yml` | 手动 `Run workflow`（选分支），或 Git Tag push v*.*.* | 调用 ci.yml build job + 自动创建 GitHub Release + 上传 3 平台安装包（自动更新签名的 private key 在 GitHub Secrets，不会泄露） |
-| `e2e.yml` | ⚠️ **实际不存在**（AGENTS.md 之前描述与实际不符） | E2E 测试文件存在（`tests/e2e/*.spec.ts` + `setup/tauri-helper.ts`），但 `.github/workflows/e2e.yml` 未创建。E2E 需 GUI 环境（GitHub hosted 不支持 Tauri GUI），需 self-hosted runner。当前 E2E 仅本地可跑 |
+| `ci.yml` → `e2e` job（⚠️ 不存在独立的 e2e workflow 文件；此前文档声称的独立 workflow 为幻影，已纠正） | 同 `ci.yml` 触发（push 到 main / develop + 所有 PR） | E2E 实际以 `ci.yml` 内的 `e2e` job（name: E2E Tests (Playwright)）运行：ubuntu-latest 上 `pnpm exec playwright install --with-deps chromium` 后跑 `tests/e2e/` 下 5 个 spec（app-loading / pet-interaction / accessibility / memory-system / inventory-system），失败时上传 report + 视频 artifact。涉及真实 Tauri 桌面二进制的 GUI 冒烟仍需本地（或 self-hosted runner）执行 |
 
 ---
 
@@ -410,9 +410,12 @@ Scope 建议：`pet-window` / `chat` / `settings` / `rust-encryption` / `i18n` /
 4. 如果 store 里字段要参与 Rust 端 backup/restore 流程 → 同步改 `commands/backup.rs` 的 schema。
 
 #### SOP-3: 新增一个宠物角色（例如新增 Miko 小狐狸 Live2D 模型）
-1. 把新的 Live2D 模型文件（`.model3.json` + `.moc3` + 贴图 + 动作 motion3.json）放到 `public/assets/live2d/miko/` 目录
+
+> ⚠️ 前置条件：本仓库不内置 Live2D 模型资产。需自行放置 `public/assets/live2d/<model>/<model>.model3.json`，否则本步骤无法执行。
+
+1. 把新的 Live2D 模型文件（`.model3.json` + `.moc3` + 贴图 + 动作 motion3.json）放到 `public/assets/live2d/<model>/` 目录（例：`miko`）
 2. `src/lib/types.ts` 的 `PetSpecies` enum 加 `miko: "fox"` 变体（同步 Rust `types.rs`）
-3. `src/stores/petStore.ts` 初始化 `availablePets` 数组里加一条 `{ id: "miko-001", species: "fox", name: "Miko", modelPath: "/assets/live2d/miko/miko.model3.json" }`
+3. `src/stores/petStore.ts` 初始化 `availablePets` 数组里加一条 `{ id: "miko-001", species: "fox", name: "Miko", modelPath: "/assets/live2d/<model>/<model>.model3.json" }`（路径与步骤 1 实际放置的模型目录一致）
 4. `src/lib/petBehaviorEngine.ts` 的 FSM 表里加一条 fox 物种的专属动作映射（fox 兴奋时触发 `motion("jump")` 而不是 `motion("wag_tail")`，dog 才 wag tail）
 5. **测试**：pnpm dev → 启动后设置里选 Miko → 手动验证：Idle 动画循环正常、点她触发 tap motion、表情切换正常（happy/sad）
 6. 性能验证：打开「性能统计面板」(devtools)，确保 Miko FPS 稳定 30 且 30 分钟不泄漏内存（`pnpm test:perf` 单独跑）
@@ -509,6 +512,8 @@ Scope 建议：`pet-window` / `chat` / `settings` / `rust-encryption` / `i18n` /
 | v2.20 | 2026-08-26 | 任务 2.6 P3 打磨收尾 + 依赖修复 | ① **P3 全量回归**：vitest 1915 passed / 10 skipped（0 failed）/ tsc 0 error / eslint 0 error / 79 warning（既有未使用变量）/ cargo check 0；② **依赖修复**（`d419c14` 提交意外删除多个测试依赖）：补回 `@testing-library/jest-dom` `@testing-library/react` `jsdom` `sql.js` `playwright`；升级 `eslint-plugin-react-hooks` v5→v7（v7 含 purity/immutability 规则，v5 缺失导致 eslint-disable 注释引用不存在规则报 12 error）；修复 `ttsEngine.test.ts` 缺少 `URL.createObjectURL` mock（jsdom 不支持）；③ **出包**：`pnpm tauri build` 成功 → artifacts 替换（setup 23.5MB / portable 18.9MB），旧版备份 artifacts/backup-20260826-p3/ | v0.1.0 |
 | v2.21 | 2026-08-27 | MLOps 评估报告全量改进落地（P0-P3） | ① **P0-1 LLM 输出质量自动评估**：新建 `lib/qualityMonitor.ts`（隐式反馈信号 + 启发式评分 + LLM-as-judge），13 个单测；② **P0-2 Sentry 真实接入**：重写 `lib/sentry.ts`（动态加载 @sentry/react + Mock 降级 + 本地错误日志 localStorage 持久化 + PII 脱敏），12 个单测；③ **P1-1 Prompt 版本管理**：新建 `lib/promptRegistry.ts`（9 个 Prompt 集中定义 + 版本号 + 变更日志），aiAgent/llmClient/memorySummarizer/proactiveSpeak/characterCardImporter/visionPerception 7 个文件硬编码 Prompt 全部替换为 `getPrompt()` 调用，11 个单测；④ **P1-2 灰度发布**：新建 `lib/gradualRollout.ts`（确定性哈希灰度判定 + 配置覆盖 + 回退），11 个单测；⑤ **P1-3 Agent 工具参数 Zod schema 校验**：新建 `lib/toolParamValidator.ts`（7 个工具 Zod schema + shell 注入防护 + 路径穿越防护 + 长度限制），24 个单测；⑥ **P2-1 延迟 SLO + 自动降级**：新建 `lib/latencySLO.ts`（P95 阈值降级 + hysteresis 设计 + 3 级降级），8 个单测；⑦ **P2-2 记忆质量校验**：新建 `lib/memoryQualityCheck.ts`（关键词覆盖率 + 语义相似度 + 信息密度 + 幻觉检测），6 个单测；⑧ **P2-3 毒性过滤**：新建 `lib/toxicityFilter.ts`（本地毒性关键词黑名单 + PII 脱敏 + 控制字符清除 + 3 级严重程度），10 个单测；⑨ **P3-1 僵尸代码清理**：`modelHotLoader.ts` 移入 `docs/_devarchive/`；⑩ **P3-2 AGENTS.md 同步**：settingsStore 加密描述更新（H-1 修复后已接入 encryptedStorage）；总计 95 个新单测全通过 | v0.1.0 |
 | v2.22 | 2026-08-27 | 安全与合规体系完整性落地（安全评估报告全量改进 H-1~L-1） | **高优先级**：① H-1 settingsStore 明文 localStorage → AES-256-GCM 加密持久化（encryptedStorage.ts 适配器 + 11 测试）；② H-2 SRI verify_integrity 落地实际校验（读取 dist/assets/ 文件计算 SHA-256 对比嵌入哈希）；③ H-3 Sentry Mock → 真实 SDK 动态加载（RealSentryHub Proxy）；④ H-4 审计日志模块（audit_log.rs 哈希链 + auditLogger.ts + 6 Rust 测试）；⑤ H-5 CodeQL 矩阵增加 Rust；**中优先级**：⑥ M-1 STRIDE 威胁建模文档（19 威胁）；⑦ M-2 静默 catch 块修复（swallowedCatch.ts 工具 + 6 处修复）；⑧ M-3 Dependabot 配置；⑨ M-4 Git Fork 评估报告；⑩ M-5 SBOM 生成 CI（CycloneDX）；⑪ M-6 漏洞响应 SLA 文档；⑫ M-7 pet-window capability 精简（移除 store/sql/notification/dialog）；⑬ M-8 PBKDF2 salt 随机化（OS CSPRNG 替代确定性派生）；**低优先级**：⑭ CSP connect-src 收紧（通配 https: → 7 个已知 LLM API 域名白名单）；回归 vitest 2025 passed / cargo test 全通过（133）；新增 Gotcha 30~32；5 批 Git 提交 | v0.1.0 |
+| v2.24 | 2026-08-27 | UX 设计体系成熟度评估报告全量改进落地（H-1~M-6） | ① H-1 统一设计令牌：合并三套并行 CSS 变量（--color-* / --pet-* / --color-primary）为单一语义令牌体系，--pet-* 和 --color-primary 统一映射到 --color-* 主令牌；② H-2 创建 components/ui/ 基础 UI Kit（BrandButton/BrandSwitch/BrandSlider/BrandSelect/BrandInput，全部使用语义 Token + WCAG 可访问性）；③ H-3 设置页信息架构重构：19 个平级 Tab 分组为 4 大类别（基础/养成/高级工具/关于）；④ H-4 PetBubble 硬编码颜色修复（bg-white→bg-surface, text-gray-800→text-ink）+ spiritpal-pet-voice 字体；⑤ H-5 空 catch 块修复：PetWindow/WindowControls/FramelessChrome/SpriteRenderer/ChatWindow 共 12 处 .catch(()=>{}) 替换为 swallowedCatch(context)；⑥ H-7 可访问性：ink-faint 对比度提升（#b3a18c→#9d8a72 WCAG AA）、PetBubble 添加 role=status + aria-live=polite、移除全局 user-select:none 改为限定交互装饰元素；⑦ M-1 首次引导增强：角色确认后衔接 AI 配置引导提示（不阻断可跳过）；⑧ M-2 数据出境弹窗布局修复：复选框移到按钮上方避免误触；⑨ M-3 AI 配置表单优化：温度滑块加刻度标注（精确/平衡/创意）+ API Key 加可见性切换 + 模型选择统一为 BrandSelect；⑩ M-4 移动端功能对齐：补齐记忆 Tab 入口（MobileMemoryView.tsx）；⑪ M-6 UX 关键路径埋点：新增 7 个事件类型（firstrun_complete/skip, error_occurred, panel_open/close, roam_toggle, edge_snap_toggle）；⑫ L-1 CI 性能测试已集成（perf-baseline + perf-stress job）；i18n 5 语言同步新增 settings.group.* 和 firstrun.ai_hint_* 共 13 个 key；回归 tsc 0 error / eslint 0 error（747 warning 均为既有）/ vitest 2115 passed（3 failed 为 dirtyDataTracker 预存问题）；5 批 Git 提交 | v0.1.0 |
+| v2.23 | 2026-08-27 | 幻影引用审计整改（家族规范治理 Phase A · T2，触发原因 = 幻影引用审计） | ① **模块清单表 4 处路径改真**（RETARGET）：Rust 表 db.rs 行改指 encrypted_db.rs（并按文件级 at-rest 加密真实职责改写描述）；前端表 chatService.ts 行改指 dataManager.ts + db.ts；stores 表 windowStore.ts 行如实标注「Zustand store 尚未实现」，实际承担者改指 windowManager 单例（不再虚构 setPetWindowPos/toggleChatWindow）；errorBoundary.tsx 行改指 App.tsx（ErrorBoundary 为内联类组件，兜底页按实际「SpiritPal Error」卡片改写）；② **Live2D 模型幻影删除**：SOP-3 增加显式前置条件块（本仓不内置模型资产），步骤 1/3 具体 miko 路径改 `<model>` 占位模板；③ **假 workflow 纠正**：独立 e2e workflow 幻影改述为 ci.yml 内 `e2e` job（name: E2E Tests (Playwright)，参与 PR CI，5 个 spec 实测存在），§7 命令表同步；④ **死链修复**：学习成果落地分析报告.md 开发经验教训链接改指 docs/reports/ 子目录 | v0.1.0 |
 
 <!-- 🔄 下次更新 AGENTS.md 时，在上面表格末尾追加新一行，不要删除历史记录 -->
 
