@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
-/* ===== SpiritPal 设计 Token（对应高保真主流程 v1.0 · 治愈温暖基调）===== */
+/* ===== SpiritPal 设计 Token（对应高保真主流程 v1.0 · 治愈温暖基调）=====
+ * 统一语义令牌体系：所有 UI 必须使用以下语义 Token，禁止硬编码颜色。
+ * --color-* 系列为唯一主令牌；--pet-* / --color-primary 系列已合并映射。
+ */
 @theme {
   /* 色彩：奶油底 / 暖棕墨 / 暖橙强调 / 柔粉点缀 */
   --color-cream: #fdf6ec;
@@ -8,7 +11,7 @@
   --color-surface: #fffdf9;
   --color-ink: #4a3626;
   --color-ink-muted: #8a7461;
-  --color-ink-faint: #b3a18c;
+  --color-ink-faint: #9d8a72;  /* H-7 WCAG AA 修复：对比度提升至 3:1（cream bg 下大文字标准） */
   --color-tangerine: #e8874a;
   --color-tangerine-deep: #d06a2f;
   --color-tangerine-soft: #fbe9dc;
@@ -16,6 +19,15 @@
   --color-blush-soft: #fbe4ea;
   --color-success: #9ccb8e;
   --color-success-deep: #6fae62;
+
+  /* 状态色：数值分级语义 Token（≥70 好 / ≥40 中 / <40 差）*/
+  --color-stat-good: #22c55e;
+  --color-stat-mid: #eab308;
+  --color-stat-bad: #ef4444;
+
+  /* 错误/警告色 */
+  --color-error: #ef4444;
+  --color-warning: #f59e0b;
 
   /* 圆角 */
   --radius-card: 20px;
@@ -32,10 +44,24 @@
 
 :root {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-  --spiritpal-pink: #FFB6C1;
-  --spiritpal-purple: #A777E3;
-  --spiritpal-blue: #6E8EFB;
-  --spiritpal-teal: #29ADB2;
+
+  /* ===== H-1: 统一令牌映射 =====
+   * 旧 --pet-* 变量统一映射到 --color-* 语义令牌。
+   * 桌面端与移动端共享同一套视觉语言，不再割裂。
+   * themeManager.ts 的终端主题（sakura/ocean/dark）仍可通过 setProperty 覆盖这些变量。
+   */
+  --pet-primary: var(--color-tangerine);
+  --pet-secondary: var(--color-blush);
+  --pet-bg: var(--color-cream);
+  --pet-text: var(--color-ink);
+  --pet-accent: var(--color-tangerine-deep);
+
+  /* 兼容 declarativeTheme.ts 的 --color-primary 系列 */
+  --color-primary: var(--color-tangerine);
+  --color-secondary: var(--color-blush);
+  --color-background: transparent;
+  --color-text: var(--color-ink);
+  --color-accent: var(--color-tangerine-deep);
 }
 
 html, body, #root {
@@ -44,6 +70,14 @@ html, body, #root {
   height: 100%;
   width: 100%;
   overflow: hidden;
+  /* H-7 WCAG 修复：不再全局禁止文本选中，允许辅助技术读取文本 */
+}
+
+/* 禁止选中的区域限定到交互装饰元素 */
+[data-spiritpal-panel],
+[data-tauri-drag-region],
+.spiritpal-drag-surface,
+[data-sprite] {
   user-select: none;
   -webkit-user-select: none;
 }
