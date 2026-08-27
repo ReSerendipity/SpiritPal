@@ -12,6 +12,7 @@
  */
 import { useCallback } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { swallowedCatch } from '@/lib/swallowedCatch'
 
 /** 拖拽面标记类（配合 data-tauri-drag-region + 点击穿透交互白名单使用） */
 export const DRAG_SURFACE_CLASS = 'spiritpal-drag-surface'
@@ -52,7 +53,7 @@ export function FramelessResizeHandles() {
     if (e.button !== 0) return
     e.preventDefault()
     e.stopPropagation()
-    void getCurrentWindow().startResizeDragging(dir).catch(() => {})
+    void getCurrentWindow().startResizeDragging(dir).catch(swallowedCatch('FramelessResizeHandles.startResizeDragging'))
   }, [])
 
   return (

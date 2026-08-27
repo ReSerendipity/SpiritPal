@@ -58,6 +58,7 @@ import type { InventoryItem } from '../lib/types'
 import { getDialogueManager } from '../lib/dialogueManager'
 import { pickPetReaction } from '../lib/behaviorEngine'
 import { trackPetInteraction, trackTomatoComplete, trackImageSwitch } from '../lib/analytics'
+import { swallowedCatch } from '@/lib/swallowedCatch'
 import { LevelUpOverlay } from './LevelUpOverlay'
 import { getScreenshotManager } from '../lib/screenshotManager'
 import { DecorationLayer } from './DecorationLayer'
@@ -74,9 +75,10 @@ import {
   usePetWindows,
   usePetTimers,
   usePetMemoryTriggers,
+  useRoamWalk,
 } from '../hooks'
 import type { DockDir } from '../hooks/pet/usePetDragging'
-import { getCurrentWindow, primaryMonitor, PhysicalPosition, PhysicalSize } from '@tauri-apps/api/window'
+import { getCurrentWindow, PhysicalPosition, PhysicalSize } from '@tauri-apps/api/window'
 import { invoke } from '@tauri-apps/api/core'
 import { switchPetForm } from '../lib/petForm'
 import { windowEventBus, useWindowEvent } from '../lib/windowEventBus'
@@ -242,13 +244,13 @@ export default function PetWindow() {
           setWinW(w)
           setWinH(h)
         })
-        .catch(() => {})
+        .catch(swallowedCatch('PetWindow.syncWinSize'))
     }
     sync()
     let unlistenFn: (() => void) | null = null
     win.onResized(() => { sync() })
       .then((fn) => { unlistenFn = fn; if (disposed) fn() })
-      .catch(() => {})
+      .catch(swallowedCatch('PetWindow.onResized'))
     // 兜底：resize 事件可能因权限/时序丢失，周期轮询同步窗口尺寸
     const timer = window.setInterval(sync, 2000)
     return () => { disposed = true; unlistenFn?.(); window.clearInterval(timer) }
@@ -322,6 +324,8 @@ export default function PetWindow() {
   const dockDirRef = useRef<DockDir>(null)
   // 展开态面板状态镜像（悬停事件处理器用即时值判断）
   const panelOpenRef = useRef(false)
+  // 鼠标悬停状态镜像（漫游行走控制器用即时值判断，悬停时暂停行走；在事件处理器中同步）
+  const hoveredRef = useRef(false)
   // 收起防抖定时器（鼠标移出后延迟收起，避免宠物↔面板间移动闪烁）
   const panelCollapseTimerRef = useRef(0)
   // 展开态两栏 DOM 测量 refs（窗口尺寸计算用实测高度替代估算）
@@ -333,10 +337,12 @@ export default function PetWindow() {
   const prevModeRef = useRef<boolean>(false)
 
   // 渲染期禁止写 ref，改为 effect 中同步（事件处理器在渲染后执行，行为等价）
+  // 无依赖数组 = 每次渲染后执行；用于将 state 镜像到 ref，事件处理器需要即时值而非触发重渲染
   useEffect(() => {
     posRef.current = pos
     clickScaleRef.current = clickScale
     panelOpenRef.current = panelOpen
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 刻意每次渲染同步 ref 镜像，加依赖会导致 ref 过期
   })
 
   const showBubble = useCallback((msg: string) => {
@@ -520,7 +526,7 @@ export default function PetWindow() {
     const arr = character?.bubbleMessages?.[cat as keyof NonNullable<typeof character>['bubbleMessages']]
     if (!arr || arr.length === 0) return ''
     // eslint-disable-next-line react-hooks/purity -- pickBubble 仅在事件处理器中调用（onClick/触发宠物等），非渲染路径
-    return arr[Math.floor(Math.random() * arr.length)]
+    return arr[Math.floor(Math.random() * arr.length)] ?? ''
   }
 
   // 初始化与周期定时器
@@ -551,111 +557,16 @@ export default function PetWindow() {
     setPosition(pos)
   }, [pos, setPosition])
 
-  // ========== 漫游行走控制器（借鉴 Dororo move.gd：窗口在桌面移动，宠物随窗口走动） ==========
-  // 进入漫游后，interval 驱动窗口 setPosition 向屏幕内随机目标点移动（~90px/s）；
-  // 移动中播放 walk 动画并朝向目标，到达后 30% 休息 1.5~4s 再换目标。
-  // 用户交互优先（Dororo move_lock）：拖拽中/面板展开/鼠标悬停宠物时暂停行走。
-  // 随机目标避开屏幕边缘 40px，避免到达后触发贴边吸附；退出漫游（isRoam=false）时停止。
-  useEffect(() => {
-    if (!isRoam) return
-    let disposed = false
-    const win = getCurrentWindow()
-    const EDGE = 40
-    let screen = { x: 0, y: 0, w: 1920, h: 1080 }
-    let target = { x: 0, y: 0 }
-    let restUntil = 0
-
-    const pickTarget = async () => {
-      // 目标 = 窗口左上角的屏幕坐标；范围考虑窗口尺寸（窗口整体保持在屏幕内，
-      // 且距边缘 ≥ EDGE，避免面板展开窗口变宽时超出屏幕或触发贴边吸附）
-      const winW = winSizeRef.current.w
-      const winH = winSizeRef.current.h
-      const minX = screen.x + EDGE
-      const minY = screen.y + EDGE
-      const maxX = Math.max(minX + 1, screen.x + screen.w - winW - EDGE)
-      const maxY = Math.max(minY + 1, screen.y + screen.h - winH - EDGE)
-      // 鼠标屏幕坐标（用于避开鼠标：宠物不主动走到鼠标下，避免"鼠标被宠物盖住/漂移"感）
-      let mouseX = Infinity
-      let mouseY = Infinity
-      try {
-        const [cx, cy] = await invoke<[number, number]>('get_mouse_pos')
-        const [pos, sf] = await Promise.all([win.outerPosition(), win.scaleFactor()])
-        mouseX = pos.x / sf + cx
-        mouseY = pos.y / sf + cy
-      } catch {
-        // 无法获取鼠标位置时不做避让
-      }
-      const MIN_DIST = 200
-      for (let i = 0; i < 8; i++) {
-        const x = Math.round(minX + Math.random() * (maxX - minX))
-        const y = Math.round(minY + Math.random() * (maxY - minY))
-        if (Math.hypot(x - mouseX, y - mouseY) >= MIN_DIST || i === 7) {
-          target = { x, y }
-          return
-        }
-      }
-    }
-
-    // 初始化屏幕可用区（逻辑坐标）
-    void primaryMonitor()
-      .then((m) => {
-        if (disposed || !m) return
-        const sf = m.scaleFactor || 1
-        screen = {
-          x: Math.round(m.position.x / sf),
-          y: Math.round(m.position.y / sf),
-          w: Math.round(m.size.width / sf),
-          h: Math.round(m.size.height / sf),
-        }
-        void pickTarget()
-      })
-      .catch(() => {})
-
-    // 66ms/帧（~15 次/秒 setPosition IPC，比 33ms 减半；步进 6px 保持 ~90px/s 速度）
-    const id = window.setInterval(() => {
-      if (disposed) return
-      // 交互优先：拖拽中/面板展开/鼠标悬停宠物 → 暂停行走（Dororo move_lock）
-      if (draggingRef.current || panelOpenRef.current || hoveredRef.current) return
-      const now = Date.now()
-      if (now < restUntil) {
-        setPetState('idle')
-        return
-      }
-      void Promise.all([win.outerPosition(), win.scaleFactor()])
-        .then(([pos, sf]) => {
-          if (disposed) return
-          const dx = target.x - pos.x / sf
-          const dy = target.y - pos.y / sf
-          const dist = Math.hypot(dx, dy)
-          const step = 6 // px/帧（逻辑），~90px/s @ 66ms
-          if (dist < step + 1) {
-            // 到达目标：30% 休息 1.5~4s，否则换新目标
-            setPetState('idle')
-            if (Math.random() < 0.3) {
-              restUntil = now + 1500 + Math.random() * 2500
-            } else {
-              void pickTarget()
-            }
-            return
-          }
-          const nx = pos.x + Math.round(Math.sign(dx) * Math.min(step * sf, Math.abs(dx) * sf))
-          const ny = pos.y + Math.round(Math.sign(dy) * Math.min(step * sf, Math.abs(dy) * sf))
-          void win.setPosition(new PhysicalPosition(nx, ny)).catch(() => {})
-          setFacing(dx > 0 ? 'right' : 'left')
-          // 行走动画由 petState 驱动（AnimationId 无 walk 行）
-          setPetState('walk')
-        })
-        .catch(() => {})
-    }, 66)
-
-    return () => {
-      disposed = true
-      window.clearInterval(id)
-      // 退出漫游：恢复待机动画
-      setPetState('idle')
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- isRoam 切换即挂载/卸载；内部 ref/state setter 稳定
-  }, [isRoam])
+  // ========== 漫游行走控制器（提取为 useRoamWalk hook）==========
+  useRoamWalk({
+    isRoam,
+    draggingRef,
+    panelOpenRef,
+    hoveredRef,
+    winSizeRef,
+    setPetState,
+    setFacing,
+  })
 
   // 调整窗口物理尺寸并锚定：未贴边时保持窗口中心 X 与底部 Y 不变（宠物像"站在原地长大/缩小"）；
   // 已贴边停靠（dockDir 非空）时锚定对应的屏幕边缘（左贴边固定左缘、底贴边固定底缘…），
@@ -675,7 +586,7 @@ export default function PetWindow() {
         await win.setSize(new PhysicalSize(physW, physH))
         await win.setPosition(new PhysicalPosition(newX, newY))
       })
-      .catch(() => {})
+      .catch(swallowedCatch('PetWindow.snapToEdge'))
   }, [])
 
   // ========== 展开态三区面板（对话顶中 + 状态左侧 + 动作右侧） ==========
@@ -768,7 +679,7 @@ export default function PetWindow() {
         await win.setPosition(new PhysicalPosition(newX, newY))
         if (!disposed) setPos(computePetPosInWindow(target, petSize))
       })
-      .catch(() => {})
+      .catch(swallowedCatch('PetWindow.petPosSync'))
     return () => { disposed = true }
   }, [])
 
@@ -972,7 +883,7 @@ export default function PetWindow() {
     const win = getCurrentWindow()
     Promise.all([win.outerPosition(), win.scaleFactor()]).then(([p, sf]) => {
       bgDragRef.current = { winX: p.x, winY: p.y, mouseX: e.screenX * sf, mouseY: e.screenY * sf, sf }
-    }).catch(() => {})
+    }).catch(swallowedCatch('PetWindow.bgDragSetup'))
   }
 
   function handleBgMouseMove(e: React.MouseEvent) {
@@ -980,7 +891,7 @@ export default function PetWindow() {
     if (!origin) return
     const newX = Math.round(origin.winX + (e.screenX * origin.sf - origin.mouseX))
     const newY = Math.round(origin.winY + (e.screenY * origin.sf - origin.mouseY))
-    getCurrentWindow().setPosition(new PhysicalPosition(newX, newY)).catch(() => {})
+    getCurrentWindow().setPosition(new PhysicalPosition(newX, newY)).catch(swallowedCatch('PetWindow.roamMove'))
   }
 
   function handleBgMouseUp() {
@@ -989,8 +900,6 @@ export default function PetWindow() {
 
   // ========== 停靠（贴边）视觉反馈 —— 对齐 Dororo 边缘吸附交互 ==========
   const [hovered, setHovered] = useState(false)
-  // 鼠标悬停状态镜像（漫游行走控制器用即时值判断，悬停时暂停行走；在事件处理器中同步）
-  const hoveredRef = useRef(false)
   const prevDockDirRef = useRef<DockDir>(null)
 
   // 停靠贴边变换：吸附的是「窗口」，但用户看到的是「宠物本体」——
@@ -1038,10 +947,10 @@ export default function PetWindow() {
       void renderPetTrayIcon(currentCharacterId, petState, trayFrameRef.current)
         .then((png) => {
           if (png && !disposed) {
-            void invoke('set_tray_icon_png', { png }).catch(() => {})
+            void invoke('set_tray_icon_png', { png }).catch(swallowedCatch('PetWindow.setTrayIcon'))
           }
         })
-        .catch(() => {})
+        .catch(swallowedCatch('PetWindow.syncWinSize'))
     }
     update()
     timer = window.setInterval(update, 3000)
@@ -1147,6 +1056,7 @@ export default function PetWindow() {
     const graphs = getDialogueManager().getRegisteredGraphIds()
     if (graphs.length === 0) return
     const graphId = graphs[Math.floor(Math.random() * graphs.length)]
+    if (!graphId) return
     setDialogueGraphId(graphId)
   }
 
