@@ -38,6 +38,8 @@ export interface UsePetBehaviorOptions {
   getWalkBounds?: () => { minX: number; maxX: number } | null
   /** 2.4: 贴边方向 ref（非空=已贴边，可触发隐藏动作） */
   dockDirRef?: React.MutableRefObject<'left' | 'right' | 'top' | 'bottom' | null>
+  /** 行为暂停 ref（隐藏互动状态期间置 true，暂停自动行为调度，避免与 hiddenStateManager 抢 petState） */
+  pauseRef?: React.MutableRefObject<boolean>
 }
 
 export interface UsePetBehaviorReturn {
@@ -70,7 +72,7 @@ export interface UsePetBehaviorReturn {
 }
 
 export function usePetBehavior(options: UsePetBehaviorOptions): UsePetBehaviorReturn {
-  const { showBubble, workStateRef, musicSwayingRef: externalMusicRef, getWalkBounds, dockDirRef } = options
+  const { showBubble, workStateRef, musicSwayingRef: externalMusicRef, getWalkBounds, dockDirRef, pauseRef } = options
 
   const [petState, setPetState] = useState<PetState>('idle')
   const [currentAnimId, setCurrentAnimId] = useState<AnimationId>('idle')
@@ -114,6 +116,11 @@ export function usePetBehavior(options: UsePetBehaviorOptions): UsePetBehaviorRe
   }, [workStateRef])
 
   const pickBehavior = useCallback(() => {
+    // 隐藏互动状态（爬墙/探头/躲藏）期间暂停自动行为调度，避免与 hiddenStateManager 抢 petState
+    if (pauseRef?.current) {
+      scheduleNextBehavior()
+      return
+    }
     if (dragCountRef.current >= 3) {
       setPetState('sad')
       showBubble('晕晕的……别再晃我啦')

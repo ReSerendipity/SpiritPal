@@ -32,6 +32,8 @@ import { getDiarySystemManager } from '../../lib/diarySystem'
 import { getContextEpisodeManager } from '../../lib/contextEpisodeManager'
 // R1：情境感知管理器（用于状态变迁订阅）
 import { getContextAwarenessManager } from '../../lib/contextAwareness'
+// A-5：静默模式管理器（抑制宠物自发开口）
+import { getSilentModeManager } from '../../lib/silentModeManager'
 import type { PetState } from '../../lib/types'
 import type { AnimationId } from '../../lib/animationConfig'
 
@@ -133,6 +135,8 @@ export function usePetTimers(options: UsePetTimersOptions): UsePetTimersReturn {
     // 阶段3：统一走 BubbleManager 发送（收编全局纪律）
     const proactiveMgr = getProactiveSpeakManager()
     const unsubProactive = proactiveMgr.onProactiveSpeak((message) => {
+      // A-5：静默模式下抑制宠物自发开口
+      if (getSilentModeManager().isSilent()) return
       getBubbleManager().sendMessage(message, MessagePriority.Proactive)
     })
 
