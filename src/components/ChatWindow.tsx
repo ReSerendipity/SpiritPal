@@ -42,6 +42,7 @@ import { usePetTTS } from '../hooks/usePetTTS'
 import { emit } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { getCharacter } from '../lib/characters'
+import { getSilentModeManager } from '../lib/silentModeManager'
 import { trackChatSend, trackChatReceive, trackMemoryTrigger } from '../lib/analytics'
 import { swallowedCatch } from '@/lib/swallowedCatch'
 import { getEnhancedMemoryManager } from '../lib/enhancedMemory'
@@ -141,7 +142,8 @@ export default function ChatWindow() {
       // 仅朗读有实质内容的助手回复，跳过系统/空内容
       if (m.content) {
         spokenIds.current.add(m.id)
-        speak(m.content)
+        // A-5：静默模式下不朗读助手回复（"对话不再说话"）
+        if (!getSilentModeManager().isSilent()) speak(m.content)
       } else {
         spokenIds.current.add(m.id)
       }
