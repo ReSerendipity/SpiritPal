@@ -570,7 +570,8 @@ export async function setSetting(key: string, value: string): Promise<void> {
   cacheInvalidate(key)
   cacheSet(key, value)
   // P1-2: 通知其他窗口清除该 key 的缓存（多窗口 settingsCache 一致性）
-  emit('spiritpal:settings-changed', { key }).catch(() => {
+  // 用 Promise.resolve 包裹确保 .catch 可用（防止 mock 环境返回非 Promise）
+  Promise.resolve(emit('spiritpal:settings-changed', { key })).catch(() => {
     // 非关键路径：事件发送失败不影响数据写入
   })
 }
@@ -581,7 +582,7 @@ export async function removeSetting(key: string): Promise<void> {
   await db.execute('DELETE FROM settings WHERE key = $1', [key])
   cacheInvalidate(key)
   // P1-2: 通知其他窗口清除该 key 的缓存
-  emit('spiritpal:settings-changed', { key }).catch(() => {
+  Promise.resolve(emit('spiritpal:settings-changed', { key })).catch(() => {
     // 非关键路径：事件发送失败不影响数据删除
   })
 }
