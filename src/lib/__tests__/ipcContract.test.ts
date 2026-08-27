@@ -21,9 +21,8 @@ import * as path from 'node:path'
 // ============================================================
 
 const KNOWN_PLUGIN_COMMANDS = new Set([
-  // Tauri plugin-fs 命令
+  // Tauri plugin-fs 命令（注意：read_text_file 已由 SpiritPal 自定义实现，不在排除列表中）
   'write_file',
-  'read_text_file',
   'read_file',
   // Tauri plugin-store 命令
   'plugin_storage_set',
@@ -35,7 +34,7 @@ const KNOWN_PLUGIN_COMMANDS = new Set([
   'plugin_ai_analyze',
   'plugin_ai_extract_memories',
   // 计划中但尚未实现的命令
-  'scan_character_directory',
+  // 注：scan_character_directory 已在 lib.rs 实现，不再排除
   'uninstall_mod',
   'set_system_volume',
   'set_system_brightness',
@@ -52,6 +51,14 @@ const KNOWN_PLUGIN_COMMANDS = new Set([
   'pack_petmod',
   'validate_petmod',
   'install_petmod',
+  // 窗口操作命令（miniModeManager 调用，计划中尚未实现为 #[tauri::command]）
+  'switch_mini_mode',
+  'set_window_always_on_top',
+  'set_window_opacity',
+  'set_window_decorations',
+  'resize_window',
+  // 视觉感知命令（visionPerception 调用，计划中尚未实现）
+  'analyze_screen_content',
 ])
 
 // ============================================================
@@ -171,6 +178,127 @@ const COMMAND_CONTRACTS: CommandContract[] = [
     expectedParams: [{ name: 'state', type: 'string' }],
     expectedReturnType: 'void',
     // Rust 端参数名 app 被 Tauri 框架注入，实际业务参数为 state
+  },
+  // ===== 补充契约：覆盖率 17→30+ 命令（评估报告 P0-2） =====
+  {
+    command: 'greet',
+    description: '测试问候命令',
+    expectedParams: [],
+    expectedReturnType: 'string',
+  },
+  {
+    command: 'open_path',
+    description: '打开文件管理器定位到路径',
+    expectedParams: [{ name: 'path', type: 'string' }],
+    expectedReturnType: 'void',
+  },
+  {
+    command: 'log_frontend_error',
+    description: '前端错误日志桥接到 Rust 日志系统',
+    expectedParams: [
+      { name: 'level', type: 'string' },
+      { name: 'message', type: 'string' },
+    ],
+    expectedReturnType: 'void',
+  },
+  {
+    command: 'validate_upload_magic',
+    description: '上传文件魔数校验（防伪装文件）',
+    expectedParams: [
+      { name: 'contents', type: 'array' },
+      { name: 'file_ext', type: 'string' },
+    ],
+    expectedReturnType: 'boolean',
+  },
+  {
+    command: 'scan_character_directory',
+    description: '扫描角色资源目录（返回含 pet.json 的子目录列表）',
+    expectedParams: [{ name: 'path', type: 'string' }],
+    expectedReturnType: 'array',
+  },
+  {
+    command: 'read_text_file',
+    description: '读取文本文件内容（限 1MB，防目录穿越）',
+    expectedParams: [{ name: 'path', type: 'string' }],
+    expectedReturnType: 'string',
+  },
+  {
+    command: 'detect_asset_tools',
+    description: '检测本机 python / ffmpeg 可用性',
+    expectedParams: [],
+    expectedReturnType: 'object',
+  },
+  {
+    command: 'run_asset_pipeline',
+    description: '安全执行 asset-pipeline 脚本（白名单+参数校验）',
+    expectedParams: [
+      { name: 'script_name', type: 'string' },
+      { name: 'args', type: 'array' },
+    ],
+    expectedReturnType: 'object',
+  },
+  {
+    command: 'set_tray_icon_png',
+    description: '设置托盘图标（base64 PNG 输入）',
+    expectedParams: [{ name: 'png', type: 'string' }],
+    expectedReturnType: 'void',
+  },
+  {
+    command: 'encrypt_db_at_rest',
+    description: '加密数据库文件到 spiritpal.db.enc',
+    expectedParams: [],
+    expectedReturnType: 'boolean',
+  },
+  {
+    command: 'decrypt_db_at_rest',
+    description: '解密数据库文件 spiritpal.db.enc → spiritpal.db',
+    expectedParams: [],
+    expectedReturnType: 'boolean',
+  },
+  {
+    command: 'mcp_respond',
+    description: 'webview 回调完成挂起的 MCP 工具调用',
+    expectedParams: [
+      { name: 'id', type: 'string' },
+      { name: 'result', type: 'string' },
+    ],
+    expectedReturnType: 'boolean',
+  },
+  {
+    command: 'show_pet_window',
+    description: '显示宠物窗口（macOS NSPanel / 其他平台 Tauri show）',
+    expectedParams: [],
+    expectedReturnType: 'void',
+  },
+  {
+    command: 'hide_pet_window',
+    description: '隐藏宠物窗口',
+    expectedParams: [],
+    expectedReturnType: 'void',
+  },
+  {
+    command: 'set_pet_always_on_top',
+    description: '设置宠物窗口置顶',
+    expectedParams: [{ name: 'always_on_top', type: 'boolean' }],
+    expectedReturnType: 'void',
+  },
+  {
+    command: 'start_topmost_keepalive',
+    description: '启动窗口置顶轮询保活（Windows）',
+    expectedParams: [],
+    expectedReturnType: 'void',
+  },
+  {
+    command: 'start_device_listening',
+    description: '启动全局键鼠监听（宠物注视光标效果）',
+    expectedParams: [],
+    expectedReturnType: 'void',
+  },
+  {
+    command: 'stop_device_listening',
+    description: '停止全局键鼠监听',
+    expectedParams: [],
+    expectedReturnType: 'void',
   },
 ]
 
