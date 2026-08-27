@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   release:
     name: Release (${{ matrix.platform }})
@@ -19,6 +22,7 @@ jobs:
           - platform: macos-latest
             args: ''
     runs-on: ${{ matrix.platform }}
+    timeout-minutes: 30
 
     steps:
       - name: Checkout code
@@ -72,6 +76,7 @@ jobs:
     name: Performance Test (Windows - Cold Start & Memory)
     needs: release
     runs-on: windows-latest
+    timeout-minutes: 30
     # T-08: 性能测试阻断发布 — 不再 continue-on-error
 
     steps:
@@ -116,6 +121,7 @@ jobs:
     name: Performance Test (Ubuntu - FPS & Package Size)
     needs: release
     runs-on: ubuntu-22.04
+    timeout-minutes: 30
     # T-08: 性能测试阻断发布 — 不再 continue-on-error
 
     steps:
