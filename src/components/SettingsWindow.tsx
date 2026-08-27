@@ -44,6 +44,7 @@ import { NurturingPanel } from './NurturingPanel'
 import { ShopPanel } from './ShopPanel'
 import { InventoryPanel } from './InventoryPanel'
 import { MemoryPanel } from './MemoryPanel'
+import { MemoryVisualizer } from './MemoryVisualizer'
 import { PersonalityPanel } from './PersonalityPanel'
 import { PersonalityEditor } from './PersonalityEditor'
 import { AchievementPanel } from './AchievementPanel'
@@ -168,6 +169,8 @@ export default function SettingsWindow() {
   const setBackground = usePetStore(selectSetBackground)
 
   const [tab, setTab] = useState<Tab>('ai')
+  // A-4：记忆 Tab 视图模式（精简折叠列表 / 可视化）。默认精简，不回归旧行为
+  const [memoryView, setMemoryView] = useState<'compact' | 'visual'>('compact')
   const [ai, setAI] = useState<AIConfig>(loadAIConfig)
   const [savedTip, setSavedTip] = useState(false)
   // Ollama 本地服务检测状态与运行时模型列表
@@ -863,8 +866,32 @@ const [showImporter, setShowImporter] = useState(false)
 
         {tab === 'memory' && (
           <div className="max-w-md">
-            <h2 className="mb-4 text-lg font-semibold">记忆管理</h2>
-            <MemoryPanel />
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">记忆管理</h2>
+              <div className="flex overflow-hidden rounded-lg border border-pet-outline">
+                <button
+                  type="button"
+                  onClick={() => setMemoryView('compact')}
+                  className={`px-3 py-1 text-sm ${memoryView === 'compact' ? 'bg-pet-primary text-pet-on-primary' : 'text-pet-muted hover:bg-pet-surface'}`}
+                >
+                  精简
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMemoryView('visual')}
+                  className={`px-3 py-1 text-sm ${memoryView === 'visual' ? 'bg-pet-primary text-pet-on-primary' : 'text-pet-muted hover:bg-pet-surface'}`}
+                >
+                  可视化
+                </button>
+              </div>
+            </div>
+            {memoryView === 'compact' ? (
+              <MemoryPanel />
+            ) : (
+              <div className="overflow-auto">
+                <MemoryVisualizer />
+              </div>
+            )}
           </div>
         )}
 

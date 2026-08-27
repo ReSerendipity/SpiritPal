@@ -44,6 +44,8 @@ import {
   Frame,
   Eye,
   Magnet,
+  Volume2,
+  VolumeX,
 } from 'lucide-react'
 import { getModManager } from '../lib/modManager'
 import { ActionButton, ActionRow, StatRow, tierColor } from './petPanelParts'
@@ -61,6 +63,7 @@ import { trackPetInteraction, trackTomatoComplete, trackImageSwitch } from '../l
 import { swallowedCatch } from '@/lib/swallowedCatch'
 import { LevelUpOverlay } from './LevelUpOverlay'
 import { getScreenshotManager } from '../lib/screenshotManager'
+import { getVisualPerceptionManager } from '../lib/visualPerception'
 import { DecorationLayer } from './DecorationLayer'
 import { getAchievementManager } from '../lib/achievementSystem'
 import { getEmotionManager } from '../lib/emotionManager'
@@ -77,6 +80,9 @@ import {
   usePetMemoryTriggers,
   useRoamWalk,
 } from '../hooks'
+import { useDockVisualFeedback } from '../hooks/pet/useDockVisualFeedback'
+import { getHiddenStateManager } from '../lib/hiddenStateManager'
+import { getSilentModeManager } from '../lib/silentModeManager'
 import type { DockDir } from '../hooks/pet/usePetDragging'
 import { getCurrentWindow, PhysicalPosition, PhysicalSize } from '@tauri-apps/api/window'
 import { invoke } from '@tauri-apps/api/core'
@@ -322,6 +328,10 @@ export default function PetWindow() {
   const winSizeRef = useRef<{ w: number; h: number }>({ w: WIN_W, h: WIN_H })
   // dockDir 镜像（自适应 effect 不依赖 dockDir 状态，避免贴边状态变化触发重跑）
   const dockDirRef = useRef<DockDir>(null)
+  // A-2：隐藏互动状态（爬墙/探头/躲藏）期间暂停自动行为调度，避免与 hiddenStateManager 抢 petState
+  const hiddenPauseRef = useRef(false)
+  // A-5：静默模式开关状态（订阅 silentModeManager 以同步右键菜单标签）
+  const [silentActive, setSilentActive] = useState(getSilentModeManager().isSilent())
   // 展开态面板状态镜像（悬停事件处理器用即时值判断）
   const panelOpenRef = useRef(false)
   // 鼠标悬停状态镜像（漫游行走控制器用即时值判断，悬停时暂停行走；在事件处理器中同步）
@@ -401,6 +411,7 @@ export default function PetWindow() {
     musicSwayingRef: musicPlaceholderRef,
     getWalkBounds,
     dockDirRef,
+    pauseRef: hiddenPauseRef,
   })
 
   // 上下文感知（音乐/天气/网络/工作/日程/情绪/闲置）
@@ -503,6 +514,53 @@ export default function PetWindow() {
   useEffect(() => {
     dockDirRef.current = dockDir
   }, [dockDir])
+
+  // A-3：贴边吸附视觉反馈（探头缩放 / 表情 / 朝向）。useDockVisualFeedback 内部对 [data-sprite] 的
+  // 直接 transform 写入在 React 受控元素上无效（被渲染覆盖），核心可见输出为 peekScale / expression / triggerPeek。
+  const { peekScale: dockPeekScale, expression: dockExpression, triggerPeek: triggerDockPeek } =
+    useDockVisualFeedback({ containerRef, dockDir, dragging, facingRef })
+
+  // A-2：启动隐藏状态管理器并监听其状态变化，映射到宠物状态机。
+  // hiddenStateManager 仅在窗口贴边时切换 climbing/peeking/hiding_wall，并 dispatch CustomEvent。
+  useEffect(() => {
+    const mgr = getHiddenStateManager()
+    mgr.start()
+    const onHidden = (e: Event) => {
+      const detail = (e as CustomEvent<{ state: string; edgeDir?: string }>).detail
+      const hidden = detail.state !== 'normal'
+      hiddenPauseRef.current = hidden
+      if (detail.state === 'climbing') {
+        setPetState('climbing')
+        setBubble('我在爬墙~')
+      } else if (detail.state === 'peeking') {
+        setPetState('peeking')
+        setBubble('偷偷看你~')
+      } else if (detail.state === 'hiding_wall') {
+        setPetState('hiding_wall')
+        setBubble('我躲起来啦~')
+      } else if (petStateRef.current !== 'idle' && petStateRef.current !== 'drag') {
+        setPetState('idle')
+      }
+    }
+    window.addEventListener('spiritpal:hidden-state-change', onHidden)
+    return () => {
+      window.removeEventListener('spiritpal:hidden-state-change', onHidden)
+      mgr.stop()
+    }
+  }, [setPetState, setBubble, petStateRef])
+
+  // A-5：订阅静默模式状态变化，同步右键菜单标签
+  useEffect(() => {
+    const mgr = getSilentModeManager()
+    const unsub = mgr.onStateChange((s) => setSilentActive(s.isActive))
+    return unsub
+  }, [setSilentActive])
+
+  // A-5：切换静默模式（右键菜单）
+  async function handleSilence(): Promise<void> {
+    await getSilentModeManager().toggleSilentMode()
+    setBubble(getSilentModeManager().isSilent() ? '嘘——我安静啦~' : '我又能说话啦~')
+  }
 
   // 连接拖拽中断到行走动画
   useEffect(() => {
@@ -927,12 +985,16 @@ export default function PetWindow() {
     const prev = prevDockDirRef.current
     prevDockDirRef.current = dockDir
     if (dockDir && !prev && !dragging) {
+      triggerDockPeek()
       const t = window.setTimeout(() => {
-        setBubble('贴边休息一下～')
+        const text =
+          dockExpression === 'alert' ? '边缘探测中…' :
+          dockExpression === 'curious' ? '咦，上面有什么？' : '贴边休息一下～'
+        setBubble(text)
       }, 0)
       return () => window.clearTimeout(t)
     }
-  }, [dockDir, dragging, setBubble])
+  }, [dockDir, dragging, setBubble, triggerDockPeek, dockExpression])
 
   // ========== 托盘图标实时渲染（参考 ai-bubu：宠物当前帧 → 托盘图标） ==========
   // 当前精灵帧号（SpriteRenderer.onFrameChange 回传，图集动画帧变化时更新）
@@ -1036,6 +1098,38 @@ export default function PetWindow() {
       setBubble(ss ? '截图已保存到相册～' : '截图失败…')
     } else {
       setBubble('截图失败…')
+    }
+  }
+
+  // A-1：视觉感知「看看」——接入生产级视觉感知链路（与 ChatWindow 共用 getVisualPerceptionManager）。
+  // take_screenshot 为「计划中尚未实现」命令，缺失时 manager 自动降级为仅活动窗口分析；LLM 未配置时返回 null。
+  // 因此这里始终优雅兜底，绝不假实现或崩溃。
+  const lookBusyRef = useRef(false)
+  async function handleLook(): Promise<void> {
+    if (lookBusyRef.current) return
+    lookBusyRef.current = true
+    try {
+      setBubble('让我看看你在做什么…')
+      const analysis = await getVisualPerceptionManager().triggerAnalysis()
+      if (analysis) {
+        const detail = [analysis.userActivity, analysis.sceneDetails]
+          .filter((s): s is string => typeof s === 'string' && s.length > 0)
+          .join('，')
+        setBubble(detail || '我没有看清屏幕上的内容呢～')
+        // 复用现有视觉记忆链路，与 ChatWindow 行为一致，避免新建状态写入路径
+        try {
+          const { getVisualMemoryManager } = await import('../lib/visualMemoryManager')
+          getVisualMemoryManager(currentCharacterId).record('scene', analysis.userActivity ?? 'screen', 'neutral')
+        } catch {
+          /* 视觉记忆记录失败不影响「看看」主流程 */
+        }
+      } else {
+        setBubble('我现在的视力有点模糊，看不清屏幕～你和我说说在做什么吧？')
+      }
+    } catch {
+      setBubble('看一眼的时候出了点小问题～')
+    } finally {
+      lookBusyRef.current = false
     }
   }
 
@@ -1380,6 +1474,12 @@ export default function PetWindow() {
               ))}
             </ActionButton>
             <ActionButton icon={<Camera size={13} />} label="截图" onClick={() => handleScreenshot()} />
+            <ActionButton icon={<Eye size={13} />} label="看看" onClick={() => void handleLook()} />
+            <ActionButton
+              icon={silentActive ? <VolumeX size={13} /> : <Volume2 size={13} />}
+              label={silentActive ? '取消静默' : '静默'}
+              onClick={() => void handleSilence()}
+            />
             <ActionButton
               icon={<MessageCircle size={13} />}
               label="聊天"
@@ -1522,8 +1622,8 @@ export default function PetWindow() {
               width: spriteW, height: spriteH,
               cursor: dragging ? 'grabbing' : 'grab',
               transform: useLive2D
-                ? `scale(${clickScale * (petState === 'hide' ? 0.6 : 1)}) rotate(${dragging ? 8 : 0}deg)`
-                : `scaleX(${facing === 'left' ? -1 : 1}) scale(${clickScale * (petState === 'hide' ? 0.6 : 1)}) rotate(${dragging ? 8 : 0}deg)`,
+                ? `scale(${clickScale * dockPeekScale * (petState === 'hide' ? 0.6 : 1)}) rotate(${dragging ? 8 : 0}deg)`
+                : `scaleX(${facing === 'left' ? -1 : 1}) scale(${clickScale * dockPeekScale * (petState === 'hide' ? 0.6 : 1)}) rotate(${dragging ? 8 : 0}deg)`,
               transformOrigin: 'bottom center',
               transition: dragging ? 'none' : 'transform 0.3s ease, opacity 0.3s ease',
               opacity: petState === 'hide' ? Math.min(petOpacity, 0.3) : petOpacity,
