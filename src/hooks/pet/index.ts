@@ -28,3 +28,6 @@ export type { UsePetTimersOptions, UsePetTimersReturn } from './usePetTimers'
 
 export { usePetMemoryTriggers } from './usePetMemoryTriggers'
 export type { UsePetMemoryTriggersOptions } from './usePetMemoryTriggers'
+
+export { useRoamWalk } from './useRoamWalk'
+export type { UseRoamWalkOptions } from './useRoamWalk'
