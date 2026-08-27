@@ -94,10 +94,10 @@ function renderFatalErrorToRoot(title: string, detail: string) {
   const rootEl = document.getElementById('root')
   if (rootEl) {
     rootEl.innerHTML =
-      '<div style="padding:24px;color:#ff6b6b;background:#1a0000;min-height:100vh;font-family:Consolas,monospace;font-size:13px;line-height:1.6;overflow:auto;">' +
-      '<h3 style="color:#ff4444;margin:0 0 12px 0;">' + title + '</h3>' +
+      '<div style="padding:24px;color:var(--color-stat-bad,#ef4444);background:var(--color-error-bg,#1a0000);min-height:100vh;font-family:Consolas,monospace;font-size:13px;line-height:1.6;overflow:auto;">' +
+      '<h3 style="color:var(--color-stat-bad,#ef4444);margin:0 0 12px 0;">' + title + '</h3>' +
       '<div style="white-space:pre-wrap;word-break:break-all;">' + detail + '</div>' +
-      '<div style="margin-top:16px;color:#888;font-size:11px;">日志路径：%LOCALAPPDATA%\\com.spiritpal.desktop-pet\\logs\\spiritpal.log</div>' +
+      '<div style="margin-top:16px;color:var(--color-ink-faint,#888);font-size:11px;">日志路径：%LOCALAPPDATA%\\com.spiritpal.desktop-pet\\logs\\spiritpal.log</div>' +
       '</div>'
   }
   void safeInvoke('log_frontend_error', {
@@ -166,6 +166,9 @@ try {
     const lang = parsed?.state?.language
     if (lang === 'zh' || lang === 'en' || lang === 'ja' || lang === 'ko' || lang === 'zh-TW') {
       i18nSetLanguage(lang)
+      // 同步 index.html lang 属性以支持无障碍工具与浏览器语言检测
+      const langMap: Record<string, string> = { 'zh': 'zh-CN', 'en': 'en-US', 'ja': 'ja-JP', 'ko': 'ko-KR', 'zh-TW': 'zh-TW' }
+      document.documentElement.lang = langMap[lang] ?? 'zh-CN'
     }
   }
 } catch {
