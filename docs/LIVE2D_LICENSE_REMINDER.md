@@ -26,7 +26,7 @@
 
 ## 检查点
 
-- [ ] `docs/COMPLIANCE_NOTES.md` §2 的 Live2D 段落已更新
+- [ ] `docs/COMPLIANCE_CHECKLIST.md` §2 的 Live2D 段落已更新
 - [ ] 设置 → 关于 → Live2D 指引中的官网链接有效
 - [ ] 发行许可已申请（本文档主 TODO）
 

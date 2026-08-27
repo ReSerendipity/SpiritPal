@@ -47,4 +47,4 @@ git push -u origin main
 ## 6. 注意
 
 - 项目当前**无 LICENSE**（私有仓库可接受）；将来转公开前必须补（若内置角色涉及第三方 IP 设定，转公开前需另行评估）；
-- 合规备忘：`docs/COMPLIANCE_NOTES.md`；Live2D 发行许可提醒：`docs/LIVE2D_LICENSE_REMINDER.md`。
+- 合规备忘：`docs/COMPLIANCE_CHECKLIST.md`；Live2D 发行许可提醒：`docs/LIVE2D_LICENSE_REMINDER.md`。
