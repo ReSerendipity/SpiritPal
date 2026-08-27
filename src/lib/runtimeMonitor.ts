@@ -362,6 +362,14 @@ export class RuntimeMonitor {
     })
   }
 
+  /**
+   * 公开代理方法 — 允许其他模块通过 runtimeMonitor 发出告警
+   * 用于 qualityMonitor 等外部模块的告警分发
+   */
+  emitAlertProxy(type: string, data: Record<string, unknown>): void {
+    this.emitAlert(type, data)
+  }
+
   // ============ 快照 ============
 
   /**
