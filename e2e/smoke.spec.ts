@@ -1,4 +1,7 @@
 // 冒烟测试 — 验证应用基础加载和路由
+// @see PRD-13.1-AC1  透明窗口中 Live2D 宠物正常显示
+// @see PRD-13.1-AC2  点击/拖拽/喂食/摸头均有即时反馈
+// @see .trae/specs/prd-v02-full-completion/checklist.md Phase 1 - 宠物渲染
 import { test, expect } from './fixtures/base'
 
 test.describe('冒烟测试', () => {

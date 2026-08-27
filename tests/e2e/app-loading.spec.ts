@@ -3,6 +3,8 @@ import { waitForSpiritPalApp, isPetReady } from './setup/tauri-helper';
 
 /**
  * 应用加载流程测试
+ * @see PRD-13.1-AC1  透明窗口中 Live2D 宠物正常显示
+ * @see PRD-13.1-AC3  宠物在空闲时自动随机动作
  */
 
 test.describe('SpiritPal 应用加载', () => {
