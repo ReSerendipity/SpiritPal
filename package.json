@@ -25,7 +25,8 @@
     "perf:stress": "node perf/stress-test.mjs",
     "perf:penetration": "node perf/penetration-test.mjs",
     "perf:baseline": "node perf/baseline-trend.mjs",
-    "perf:report": "node perf/benchmark-report.mjs"
+    "perf:report": "node perf/benchmark-report.mjs",
+    "metrics:dashboard": "node scripts/generate-metrics-dashboard.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -68,6 +69,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^9.22.0",
+    "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
