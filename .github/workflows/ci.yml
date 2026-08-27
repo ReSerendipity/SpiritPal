@@ -99,15 +99,12 @@ jobs:
 
       - name: Run core E2E tests
         run: pnpm exec playwright test tests/e2e/app-loading.spec.ts tests/e2e/pet-interaction.spec.ts
-        continue-on-error: true
 
       - name: Run accessibility tests
         run: pnpm exec playwright test tests/e2e/accessibility.spec.ts
-        continue-on-error: true
 
       - name: Run system tests
         run: pnpm exec playwright test tests/e2e/memory-system.spec.ts tests/e2e/inventory-system.spec.ts
-        continue-on-error: true
 
       - name: Upload Playwright report
         if: always()
