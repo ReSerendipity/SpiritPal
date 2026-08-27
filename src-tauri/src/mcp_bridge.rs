@@ -69,7 +69,12 @@ pub fn spawn(app: &AppHandle) {
             // 等待 webview 通过 mcp_respond 回调；超时返回诚实错误
             match rx.recv_timeout(Duration::from_secs(10)) {
                 Ok(reply) => reply,
-                Err(_) => r#"{"error":"webview response timeout"}"#.to_string(),
+                Err(_) => {
+                    // 超时后必须从 PENDING 中移除挂起条目，防止内存泄漏。
+                    // 不移除会导致 id→sender 永久残留在 HashMap 中（sender 已 drop 但条目不清理）。
+                    pending().lock().unwrap().remove(&id);
+                    r#"{"error":"webview response timeout"}"#.to_string()
+                }
             }
         });
     });
