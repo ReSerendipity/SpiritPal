@@ -29,6 +29,8 @@
 import Database from '@tauri-apps/plugin-sql'
 // R-14: 数据库文件级加密
 import { invoke } from '@tauri-apps/api/core'
+// P1-2: 多窗口 settingsCache 一致性 — 监听跨窗口设置变更事件
+import { emit, listen } from '@tauri-apps/api/event'
 
 // ============ 数据库单例 ============
 
@@ -98,6 +100,43 @@ export function closeDatabase(): void {
   settingsCache.clear()
 }
 
+// ============ P1-2: 多窗口 settingsCache 一致性 ============
+
+/**
+ * 跨窗口设置变更事件监听器（模块级单例）。
+ *
+ * 问题场景：SpiritPal 有 3+ 个窗口（pet/settings/chat），每个窗口有独立的 JS 上下文
+ * 和独立的 settingsCache Map。窗口 A 修改设置后，窗口 B/C 的缓存仍持有旧值。
+ *
+ * 修复方案：setSetting/removeSetting 写入后通过 Tauri emit 广播事件，
+ * 其他窗口收到事件后清除对应 key 的缓存，下次读取时从 SQLite 获取最新值。
+ */
+let settingsChangeListenerSetup = false
+
+/**
+ * 注册跨窗口设置变更监听器（幂等，多次调用安全）。
+ * 应在应用启动时调用（如 initDB 完成后）。
+ */
+export async function setupSettingsCacheListener(): Promise<void> {
+  if (settingsChangeListenerSetup) return
+  settingsChangeListenerSetup = true
+
+  try {
+    await listen<{ key: string }>('spiritpal:settings-changed', (event) => {
+      const key = event.payload?.key
+      if (key) {
+        cacheInvalidate(key)
+      } else {
+        // 无 key 时清空整个缓存（全量刷新）
+        settingsCache.clear()
+      }
+    })
+  } catch {
+    // 非关键路径：监听器注册失败不影响正常读写
+    settingsChangeListenerSetup = false
+  }
+}
+
 /**
  * R-14: 加密数据库文件（应用关闭时调用）
  * 将明文 spiritpal.db 加密为 spiritpal.db.enc，删除明文文件。
@@ -136,7 +175,10 @@ if (typeof window !== 'undefined') {
     // beforeunload 中 async 操作不可靠（浏览器可能不等待 Promise）
     // 但 encryptDatabaseAtRest 内部会先 close DB 再 invoke 加密
     // 即使 beforeunload 的 Promise 被截断，Rust 端 ExitRequested 也会再次尝试
-    encryptDatabaseAtRest().catch(() => {})
+    encryptDatabaseAtRest().catch((e: unknown) => {
+      // M-2: 不再静默吞错 — 加密失败需记录（虽然 Rust 端 ExitRequested 会重试）
+      console.error('[db] encryptDatabaseAtRest failed in beforeunload:', e instanceof Error ? e.message : e)
+    })
   })
 }
 
@@ -496,6 +538,9 @@ export async function initDB(): Promise<Database> {
   // ---- 执行 localStorage → SQLite 迁移（幂等）----
   await migrateFromLocalStorage()
 
+  // P1-2: 初始化跨窗口 settingsCache 一致性监听器
+  await setupSettingsCacheListener()
+
   return db
 }
 
@@ -524,6 +569,10 @@ export async function setSetting(key: string, value: string): Promise<void> {
   )
   cacheInvalidate(key)
   cacheSet(key, value)
+  // P1-2: 通知其他窗口清除该 key 的缓存（多窗口 settingsCache 一致性）
+  emit('spiritpal:settings-changed', { key }).catch(() => {
+    // 非关键路径：事件发送失败不影响数据写入
+  })
 }
 
 /** 删除 setting，同时清除缓存 */
@@ -531,6 +580,10 @@ export async function removeSetting(key: string): Promise<void> {
   const db = await getDb()
   await db.execute('DELETE FROM settings WHERE key = $1', [key])
   cacheInvalidate(key)
+  // P1-2: 通知其他窗口清除该 key 的缓存
+  emit('spiritpal:settings-changed', { key }).catch(() => {
+    // 非关键路径：事件发送失败不影响数据删除
+  })
 }
 
 // ============ characters 表操作 ============
