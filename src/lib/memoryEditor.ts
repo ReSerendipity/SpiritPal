@@ -17,9 +17,8 @@
  * - MemoryEditResult 接口：编辑结果定义
  */
 
+import { updateMemoryRow } from './db'
 import { EnhancedMemoryManager } from './enhancedMemory'
-import { type EnhancedMemory, type MemoryTier } from './memoryTypes'
-import { generateId } from './commonUtils'
 
 // ============ 类型定义 ============
 
@@ -127,7 +126,7 @@ export class MemoryEditor {
   // ============ 基础 CRUD 操作 ============
 
   /**
-   * 创建新记忆
+   * 创建新记忆（真实持久化：经 addExchange 写入记忆池并触发行/blob 存储）
    */
   async createMemory(
     content: string,
@@ -140,41 +139,29 @@ export class MemoryEditor {
     } = {},
   ): Promise<MemoryEditResult> {
     try {
-      // 获取所有记忆以生成唯一 ID
-      const allMemories = this.memoryManager.getAllMemories()
-      const newId = `mem-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-
-      const newMemory: EnhancedMemory = {
-        ...allMemories[0] || {
-          created_at: new Date().toISOString(),
-          assistant: '',
-          accessCount: 0,
-          lastAccessed: Date.now(),
-          decayFactor: 1.0,
-          emotionalValence: 0,
-          emotionalArousal: 0.3,
-          strength: 1.0,
-          sourceKind: 'exchange',
-          factText: undefined,
-        },
-        id: newId,
-        user: content,
-        importance: options.importance ?? 50,
-        emotionalIntensity: options.emotionalIntensity ?? 0,
-        category: options.category ?? '日常',
-        tags: options.tags ?? [],
-        isAutobiographical: options.isAutobiographical ?? false,
+      if (!content || !content.trim()) {
+        return { success: false, error: 'Memory content is required' }
       }
 
-      // 注意：实际保存需要调用 enhancedMemory.add() 或写入数据库
-      // 这里先记录日志用于测试
-      this.logOperation('create', newId, { content: content.slice(0, 50) })
+      // 真实创建：addExchange 会写入工作记忆池、调度 blob 保存与向量存储
+      const memory = this.memoryManager.addExchange(content.trim(), '')
+
+      // 覆盖调用方指定的字段（对象为记忆池中的引用，修改即刻生效，
+      // 随后 scheduleSave/行级写入会带上新值）
+      if (options.importance !== undefined) memory.importance = options.importance
+      if (options.category !== undefined) memory.category = options.category
+      if (options.tags !== undefined) memory.tags = options.tags
+      if (options.emotionalIntensity !== undefined) {
+        memory.emotionalIntensity = options.emotionalIntensity
+      }
+
+      this.logOperation('create', memory.id, { content: content.slice(0, 50) })
 
       return {
         success: true,
         affectedCount: 1,
         details: {
-          createdMemoryId: newId,
+          createdMemoryId: memory.id,
         },
       }
     } catch (error) {
@@ -215,7 +202,7 @@ export class MemoryEditor {
   }
 
   /**
-   * 更新记忆
+   * 更新记忆（内存引用即时生效 + dbId 行级持久化到 SQLite）
    */
   async updateMemory(
     memoryId: string,
@@ -229,27 +216,36 @@ export class MemoryEditor {
   ): Promise<MemoryEditResult> {
     try {
       const memories = this.memoryManager.getAllMemories()
-      const memoryIndex = memories.findIndex(m => m.id === memoryId)
+      const memory = memories.find(m => m.id === memoryId)
 
-      if (memoryIndex === -1) {
+      if (!memory) {
         return {
           success: false,
           error: `Memory with ID ${memoryId} not found`,
         }
       }
 
-      // 更新内存中的记忆
-      const updatedMemory = {
-        ...memories[memoryIndex],
-        user: updates.content ?? memories[memoryIndex].user,
-        category: updates.category ?? memories[memoryIndex].category,
-        tags: updates.tags ?? memories[memoryIndex].tags,
-        importance: updates.importance ?? memories[memoryIndex].importance,
-        emotionalIntensity: updates.emotionalIntensity ?? memories[memoryIndex].emotionalIntensity,
-      } as EnhancedMemory
+      // getAllMemories 返回记忆池引用，直接修改即时生效于检索/上下文注入
+      if (updates.content !== undefined) memory.user = updates.content
+      if (updates.category !== undefined) memory.category = updates.category
+      if (updates.tags !== undefined) memory.tags = updates.tags
+      if (updates.importance !== undefined) memory.importance = updates.importance
+      if (updates.emotionalIntensity !== undefined) {
+        memory.emotionalIntensity = updates.emotionalIntensity
+      }
 
-      // 在实际应用中，需要同步到数据库
-      memories[memoryIndex] = updatedMemory
+      // S2 行级持久化：有 dbId 时同步写 SQLite memories 行
+      if (memory.dbId !== undefined) {
+        void updateMemoryRow(memory.dbId, {
+          ...(updates.content !== undefined ? { content: updates.content } : {}),
+          ...(updates.category !== undefined ? { category: updates.category } : {}),
+          ...(updates.tags !== undefined ? { tags: JSON.stringify(updates.tags) } : {}),
+          ...(updates.importance !== undefined ? { importance: updates.importance } : {}),
+          ...(updates.emotionalIntensity !== undefined
+            ? { emotional_intensity: updates.emotionalIntensity }
+            : {}),
+        }).catch(() => { /* 行不存在等场景静默，内存态已生效 */ })
+      }
 
       this.logOperation('update', memoryId, updates)
 
@@ -269,7 +265,7 @@ export class MemoryEditor {
   }
 
   /**
-   * 删除记忆
+   * 删除记忆（委托 manager 真实删除：同步清理记忆池 + SQLite 行 + embedding + RAG 索引）
    */
   async deleteMemory(memoryId: string): Promise<MemoryEditResult> {
     try {
@@ -283,11 +279,8 @@ export class MemoryEditor {
         }
       }
 
-      // 从内存中删除
-      const index = memories.findIndex(m => m.id === memoryId)
-      if (index !== -1) {
-        memories.splice(index, 1)
-      }
+      // 真实删除：manager 内部会过滤三层记忆池并清理 SQLite 行/嵌入缓存
+      this.memoryManager.deleteMemory(memoryId)
 
       this.logOperation('delete', memoryId, { content: memory.user.slice(0, 50) })
 

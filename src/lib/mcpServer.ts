@@ -37,12 +37,13 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import { usePetStore } from '../stores/petStore'
-import type { AnimationId } from './animationConfig'
 import { ANIMATION_CATALOG } from './animationConfig'
-import { OPENPETS_REACTION_MAP } from './types'
 import { getEnhancedMemoryManager } from './enhancedMemory'
-import { LeaseManager } from './mcpLease'
 import { createBubbleMessageSchema, createValidatedIdSchema } from './mcpInputValidator'
+import { LeaseManager } from './mcpLease'
+import { createMemoryEditor } from './memoryEditor'
+import { OPENPETS_REACTION_MAP } from './types'
+import type { AnimationId } from './animationConfig'
 
 // ============ MCP Server 实例 ============
 
@@ -256,7 +257,88 @@ export function createMcpServer(): McpServer {
     },
   )
 
-  // ---- 工具 5: spiritpal_feed ----
+  // ---- 工具 5: spiritpal_memory_edit ----
+  // P0-4：把 memoryEditor 暴露为 MCP 工具（真实 CRUD + 持久化）
+  server.tool(
+    'spiritpal_memory_edit',
+    'Edit the pet memory system: create/read/update/delete memories or get stats',
+    {
+      action: z
+        .enum(['create', 'read', 'update', 'delete', 'stats'])
+        .describe('Edit action to perform'),
+      memoryId: z.string().optional().describe('Target memory ID (required for read/update/delete)'),
+      content: z.string().optional().describe('Memory content (create: new text; update: replacement)'),
+      category: z.string().optional().describe('Memory category (create/update)'),
+      importance: z.number().min(0).max(100).optional().describe('Importance 0-100 (create/update)'),
+      tags: z.array(z.string()).optional().describe('Tags list (create/update)'),
+    },
+    async ({ action, memoryId, content, category, importance, tags }) => {
+      try {
+        const store = usePetStore.getState()
+        const characterId = store.currentCharacterId
+        const mgr = getEnhancedMemoryManager(characterId)
+        await mgr.ensureLoaded()
+        const editor = createMemoryEditor(mgr)
+
+        switch (action) {
+          case 'create': {
+            if (!content) {
+              return { content: [{ type: 'text' as const, text: 'Error: content required' }], isError: true }
+            }
+            const result = await editor.createMemory(content, { category, importance, tags })
+            return {
+              content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+              isError: !result.success,
+            }
+          }
+          case 'read': {
+            if (!memoryId) {
+              return { content: [{ type: 'text' as const, text: 'Error: memoryId required' }], isError: true }
+            }
+            const result = await editor.readMemory(memoryId)
+            return {
+              content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+              isError: !result.success,
+            }
+          }
+          case 'update': {
+            if (!memoryId) {
+              return { content: [{ type: 'text' as const, text: 'Error: memoryId required' }], isError: true }
+            }
+            const result = await editor.updateMemory(memoryId, { content, category, importance, tags })
+            return {
+              content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+              isError: !result.success,
+            }
+          }
+          case 'delete': {
+            if (!memoryId) {
+              return { content: [{ type: 'text' as const, text: 'Error: memoryId required' }], isError: true }
+            }
+            const result = await editor.deleteMemory(memoryId)
+            return {
+              content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+              isError: !result.success,
+            }
+          }
+          case 'stats': {
+            const result = await editor.getMemoryStats()
+            return {
+              content: [{ type: 'text' as const, text: JSON.stringify(result.details?.stats ?? result) }],
+              isError: !result.success,
+            }
+          }
+        }
+      } catch (err) {
+        return {
+          content: [{ type: 'text' as const, text: `Error: ${err}` }],
+          isError: true,
+        }
+      }
+    },
+  )
+
+  // ---- 工具 6: spiritpal_feed ----
   // 喂食宠物
   server.tool(
     'spiritpal_feed',

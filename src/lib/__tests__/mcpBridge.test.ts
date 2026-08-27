@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { executeMcpTool } from '../mcpBridge'
+import { setToolAllowed } from '../mcpPermissions'
 import { usePetStore } from '../../stores/petStore'
+
+vi.mock('../db', () => ({
+  updateMemoryRow: vi.fn().mockResolvedValue(undefined),
+}))
 
 vi.mock('../enhancedMemory', () => ({
   getEnhancedMemoryManager: () => ({
@@ -10,6 +15,20 @@ vi.mock('../enhancedMemory', () => ({
     getWorkingMemories: () => [],
     getEpisodicMemories: () => [],
     getAutobiographicalMemories: () => [],
+    addExchange: vi.fn(() => ({
+      id: 'mem-test-1',
+      user: '测试记忆',
+      assistant: '',
+      created_at: new Date().toISOString(),
+      importance: 50,
+      emotionalIntensity: 0,
+      category: '日常',
+      tags: [],
+      accessCount: 0,
+      lastAccessed: Date.now(),
+      decayFactor: 1,
+    })),
+    deleteMemory: vi.fn(),
   }),
 }))
 
@@ -75,5 +94,39 @@ describe('executeMcpTool', () => {
     expect(res.isError).toBeFalsy()
     const data = JSON.parse(res.content[0].text)
     expect(typeof data.total).toBe('number')
+  })
+
+  it('spiritpal_memory_edit create 返回新记忆 ID', async () => {
+    const res = await executeMcpTool('spiritpal_memory_edit', {
+      action: 'create',
+      content: '主人喜欢吃火锅',
+      importance: 80,
+    })
+    expect(res.isError).toBeFalsy()
+    const data = JSON.parse(res.content[0].text)
+    expect(data.success).toBe(true)
+    expect(data.details.createdMemoryId).toBe('mem-test-1')
+  })
+
+  it('spiritpal_memory_edit create 缺内容返回错误', async () => {
+    const res = await executeMcpTool('spiritpal_memory_edit', { action: 'create', content: '' })
+    expect(res.isError).toBe(true)
+  })
+
+  it('spiritpal_memory_edit 未知 action 返回错误', async () => {
+    const res = await executeMcpTool('spiritpal_memory_edit', { action: 'purge' })
+    expect(res.isError).toBe(true)
+    expect(res.content[0].text).toContain('Supported: create, read, update, delete, stats')
+  })
+
+  it('被禁用的工具返回 PERMISSION_DENIED', async () => {
+    setToolAllowed('spiritpal_pet', false)
+    try {
+      const res = await executeMcpTool('spiritpal_pet')
+      expect(res.isError).toBe(true)
+      expect(res.content[0].text).toContain('PERMISSION_DENIED')
+    } finally {
+      setToolAllowed('spiritpal_pet', true)
+    }
   })
 })
