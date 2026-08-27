@@ -1,5 +1,7 @@
 /**
  * @file dailyJournal.ts
+ * @note 本模块依赖 Node 内置模块（fs/process），仅可在 Node 运行时（CLI / Rust 桥接）使用，
+ *       无法在 Tauri webview 直接 import。设置页「日记」Tab 采用 webview 安全实现（components/JournalPanel.tsx）。
  * @description 日记系统 — 每日自动摘要生成
  * 
  * 实现功能：

@@ -9,7 +9,8 @@
  * - 韩文：K-pop 影响，鲜艳色彩 + 可爱动物元素
  */
 
-import type { Locale } from './i18nTranslations'
+// A-9 收敛：原依赖已删除的 i18nTranslations.Locale，改为本地类型，避免双 i18n 体系残留
+export type CultureLocale = 'zh-CN' | 'en-US' | 'ja-JP' | 'ko-KR'
 
 // ============ 类型定义 ============
 
@@ -26,7 +27,7 @@ export interface EmojiSet {
 
 export interface CultureEmojiMap {
   [key: string]: {
-    primary: Record<Locale, EmojiSet>
+    primary: Record<CultureLocale, EmojiSet>
   }
 }
 
@@ -399,7 +400,7 @@ export const CULTURE_EMOJI_MAP: CultureEmojiMap = {
 /**
  * 获取当前文化的推荐表情
  */
-export function getCulturalEmoji(key: string, locale: Locale): EmojiSet {
+export function getCulturalEmoji(key: string, locale: CultureLocale): EmojiSet {
   const set = CULTURE_EMOJI_MAP[key]
   if (!set || !set.primary) {
     // Fallback to default culture
@@ -425,7 +426,7 @@ export function getRandomEmoji(emojiSet: EmojiSet): string {
 /**
  * 根据情感类别获取推荐表情
  */
-export function getEmojiByCategory(category: EmojiSet['category'], locale: Locale): EmojiSet | null {
+export function getEmojiByCategory(category: EmojiSet['category'], locale: CultureLocale): EmojiSet | null {
   for (const key in CULTURE_EMOJI_MAP) {
     const set = CULTURE_EMOJI_MAP[key].primary[locale]
     if (set && set.category === category) {

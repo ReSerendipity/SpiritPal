@@ -21,6 +21,7 @@
 
 import type { AnimationId } from './animationConfig'
 import { ANIMATION_CATALOG } from './animationConfig'
+import { moodFromEmotionTags } from './emotionEngine'
 
 // ============ 情绪关键词 → 动画 ID 映射 ============
 // 参考 Open-LLM-VTuber 的 emo_map，适配 SpiritPal 的 56 种动画
@@ -210,34 +211,20 @@ export function removeEmotionTags(text: string): string {
  * @param animations 从 LLM 输出提取的动画/情绪标签（如 happy/sad/excited）
  * @returns 情感三维 {valence: -1..1, arousal: 0..1}；无匹配时返回 undefined
  */
+/**
+ * 将 LLM 输出的情绪标签数组映射为 valence/arousal（情绪坐标）
+ *
+ * 用途：供 ChatWindow 写入四段式记忆的 when 维度情感字段（emotion.valence/arousal），
+ *       打通 emotionExtractor 与记忆侧情感体系。
+ *
+ * A-10（批次二）：实际映射已收敛到 emotionEngine（moodFromEmotionTags），
+ * 本函数保留签名以兼容既有记忆回写链路，避免双套情绪评分体系。
+ */
 export function emotionTagsToMood(
   animations: string[],
 ): { valence: number; arousal: number } | undefined {
-  if (!animations || animations.length === 0) return undefined
-  // 取最后一个情绪标签（对话结尾的情绪最能代表当轮基调）
-  const last = animations[animations.length - 1]
-  switch (last) {
-    case 'happy':
-    case 'laugh':
-    case 'giggle':
-    case 'excited':
-      return { valence: 0.8, arousal: 0.7 }
-    case 'sad':
-    case 'cry':
-      return { valence: -0.8, arousal: 0.5 }
-    case 'angry':
-    case 'annoyed':
-      return { valence: -0.6, arousal: 0.8 }
-    case 'surprised':
-      return { valence: 0, arousal: 0.9 }
-    case 'shy':
-    case 'embarrassed':
-      return { valence: 0.2, arousal: 0.4 }
-    case 'think':
-      return { valence: 0, arousal: 0.2 }
-    default:
-      return undefined
-  }
+  // A-10: 委托给 emotionEngine 单一情绪映射来源
+  return moodFromEmotionTags(animations)
 }
 
 // ============ 情绪标签提示词片段 ============
