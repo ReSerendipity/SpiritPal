@@ -86,6 +86,9 @@ export const useSettingsStore = create<SettingsStoreState>()(
 
       setLanguage: (lang) => {
         set({ language: lang })
+        // 同步 index.html lang 属性以支持无障碍工具与浏览器语言检测
+        const langMap: Record<string, string> = { 'zh': 'zh-CN', 'en': 'en-US', 'ja': 'ja-JP', 'ko': 'ko-KR', 'zh-TW': 'zh-TW' }
+        try { document.documentElement.lang = langMap[lang] ?? 'zh-CN' } catch { /* no-op */ }
       },
 
       resetSettings: () => {
