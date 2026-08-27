@@ -97,7 +97,7 @@ export class I18nManager {
    */
   detectSystemLanguage(): Locale {
     const navigatorLang = typeof navigator !== 'undefined'
-      ? (navigator.language || navigator.userLanguage).toLowerCase()
+      ? navigator.language.toLowerCase()
       : 'zh-cn'
     
     // 语言代码映射
@@ -204,20 +204,20 @@ export class I18nManager {
   formatDate(date: Date, formatType: 'short' | 'long' | 'full' = 'short'): string {
     const options: Intl.DateTimeFormatOptions = {
       short: {
-        year: '2-digit',
-        month: '2-digit',
-        day: '2-digit',
+        year: '2-digit' as const,
+        month: '2-digit' as const,
+        day: '2-digit' as const,
       },
       long: {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
+        year: 'numeric' as const,
+        month: 'long' as const,
+        day: 'numeric' as const,
       },
       full: {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        weekday: 'long',
+        year: 'numeric' as const,
+        month: 'long' as const,
+        day: 'numeric' as const,
+        weekday: 'long' as const,
       },
     }[formatType]
     
@@ -230,13 +230,13 @@ export class I18nManager {
   formatTime(date: Date, formatType: 'short' | 'long' = 'short'): string {
     const options: Intl.DateTimeFormatOptions = {
       short: {
-        hour: '2-digit',
-        minute: '2-digit',
+        hour: '2-digit' as const,
+        minute: '2-digit' as const,
       },
       long: {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
+        hour: '2-digit' as const,
+        minute: '2-digit' as const,
+        second: '2-digit' as const,
       },
     }[formatType]
     

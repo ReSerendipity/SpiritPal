@@ -77,8 +77,9 @@ async function handleMessageInit(message: WorkerMessage): Promise<void> {
       throw new Error('WebGL not available in worker')
     }
     
-    // 初始化粒子系统
-    particleSystem = new GPUParticleSystem(canvas)
+    // 初始化粒子系统（OffscreenCanvas）
+    const canvasEl = canvas as unknown as HTMLCanvasElement
+    particleSystem = new GPUParticleSystem(canvasEl)
     
     // 初始化批渲染器
     batchRenderer = new BatchRenderer({

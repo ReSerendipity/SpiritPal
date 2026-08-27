@@ -263,6 +263,6 @@ export class WebGLWorkerManager {
    * 检查 Worker 是否可用
    */
   isAvailable(): boolean {
-    return this.worker !== null && this.worker.readyState === Worker.HEADER_RECEIVED
+    return this.worker !== null
   }
 }

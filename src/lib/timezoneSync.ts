@@ -69,11 +69,14 @@ export class TimezoneManager {
     console.log(`[Timezone] Default timezone: ${this.currentTimeZoneId}`)
     
     // 监听系统时区变化（部分平台支持）
-    if (typeof window !== 'undefined' && 'ontimezonechange' in window) {
-      // @ts-expect-error - Non-standard event listener
-      window.addEventListener('timezonechange', () => {
-        this.handleSystemTimezoneChange()
-      })
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const win = window as any
+      if ('ontimezonechange' in win) {
+        win.addEventListener('timezonechange', () => {
+          this.handleSystemTimezoneChange()
+        })
+      }
     }
   }
 
