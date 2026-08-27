@@ -33,6 +33,7 @@
 import { getLLMClient } from './llmClient'
 import { loadAIConfig } from './aiConfig'
 import { extractJSONObject } from './jsonUtils'
+import { getPrompt } from './promptRegistry'
 import type { AIConfig, ChatMessage } from './types'
 import {
   toolOpenApplication,
@@ -183,31 +184,8 @@ export function detectAgentIntent(message: string): boolean {
 
 // ============ LLM 意图解析 ============
 
-const AGENT_SYSTEM_PROMPT = `你是一个 AI Agent 助手。根据用户的消息，选择合适的工具来执行操作。
-
-可用的工具：
-1. open_application - 打开应用程序
-   参数: app_name (string, required) - 应用程序名称（如 calc, notepad, explorer）
-2. search_web - 在浏览器中搜索
-   参数: query (string, required) - 搜索关键词
-3. set_reminder - 设置提醒
-   参数: message (string, required) - 提醒内容, time (string, optional) - 时间描述
-4. manage_schedule - 管理日程
-   参数: action (string, required) - "list" 或 "cancel", title (string, optional) - 取消时的标题
-5. adjust_pet_state - 调整宠物状态
-   参数: action (string, required) - "feed" / "play" / "bathe" / "pet" / "sleep"
-6. get_weather - 获取天气（无参数）
-7. get_pet_status - 获取宠物状态（无参数）
-
-常见应用名称映射：计算器→calc, 记事本→notepad, 画图→mspaint, 资源管理器→explorer, 任务管理器→taskmgr, 命令提示符→cmd
-
-请分析用户消息，返回 JSON 格式的工具调用：
-{"tool": "工具名称", "params": {"参数名": "参数值"}}
-
-如果不需要调用任何工具，返回：
-{"tool": "none", "params": {}}
-
-只返回 JSON，不要包含其他文本。`
+// Prompt 从 promptRegistry 加载（版本化管理）
+const AGENT_SYSTEM_PROMPT = getPrompt('agent.intent')
 
 /** 从 LLM 响应中提取 JSON */
 // [Quality Review] DRY 提取：使用 jsonUtils.ts 中的 extractJSONObject 替代本地实现
@@ -483,31 +461,7 @@ export interface ReActRound {
 }
 
 /** ReAct 循环的 LLM 提示词 */
-const REACT_SYSTEM_PROMPT = `你是一个使用 ReAct（Reasoning + Acting）模式的 AI Agent。
-
-在每一轮中，你需要：
-1. Thought: 思考当前状况，决定下一步行动
-2. Action: 选择一个工具执行
-3. Observation: 观察工具执行结果
-
-你可以使用以下工具：
-{tool_descriptions}
-
-请严格按照以下格式回复：
-
-Thought: [你的推理过程]
-Action: {"tool": "工具名", "params": {"参数名": "参数值"}}
-
-如果你已经有了最终答案，请回复：
-
-Thought: [最终推理]
-Answer: [你的最终回答]
-
-重要规则：
-- 每轮只执行一个工具
-- 根据观察结果调整下一步行动
-- 如果已经获得足够信息，直接给出最终答案
-- 不要重复执行相同的操作`
+const REACT_SYSTEM_PROMPT = getPrompt('agent.react')
 
 /** 解析 ReAct LLM 响应 */
 function parseReActResponse(
