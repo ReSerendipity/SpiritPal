@@ -67,6 +67,7 @@ import { FramelessResizeHandles } from './FramelessChrome'
 import { setLanguage as i18nSetLanguage } from '../lib/i18n'
 import { windowEventBus } from '../lib/windowEventBus'
 import { trackSettingChange, trackImageSwitch } from '../lib/analytics'
+import { BrandButton, BrandInput, BrandSelect, BrandSlider } from './ui'
 import type { AIConfig, AppSettings, BackgroundConfig, BackgroundType } from '../lib/types'
 
 const selectUpdateSettings = (s: ReturnType<typeof useSettingsStore.getState>) => s.updateSettings
@@ -80,28 +81,58 @@ const selectSetBackground = (s: ReturnType<typeof usePetStore.getState>) => s.se
 type Tab = 'ai' | 'appearance' | 'personality' | 'personalityEditor' | 'nurturing' | 'shop' | 'inventory' | 'memory' | 'achievements' | 'leaderboard' | 'schedule' | 'mods' | 'album' | 'data' | 'quick' | 'sprite' | 'community' | 'general' | 'about'
 type ToggleKey = 'autoStart' | 'startMinimized' | 'notifications' | 'showWindowBorder'
 
-/** 侧边栏标签页定义（模块级常量，供跨窗口「打开指定标签页」事件校验使用） */
-const TABS: { key: Tab; label: string; icon: typeof Bot }[] = [
-  { key: 'ai', label: 'AI', icon: Bot },
-  { key: 'appearance', label: '外观', icon: Palette },
-  { key: 'personality', label: '性格', icon: SlidersHorizontal },
-  { key: 'personalityEditor', label: '性格编辑', icon: Activity },
-  { key: 'nurturing', label: '养成', icon: Heart },
-  { key: 'shop', label: '商店', icon: ShoppingBag },
-  { key: 'inventory', label: '背包', icon: Backpack },
-  { key: 'memory', label: '记忆', icon: Brain },
-  { key: 'achievements', label: '成就', icon: Trophy },
-  { key: 'leaderboard', label: '排行', icon: Trophy },
-  { key: 'schedule', label: '日程', icon: Calendar },
-  { key: 'mods', label: '模组', icon: Package },
-  { key: 'album', label: '相册', icon: Camera },
-  { key: 'data', label: '数据', icon: Database },
-  { key: 'quick', label: '快捷', icon: Sliders },
-  { key: 'sprite', label: '精灵图', icon: Grid3x3 },
-  { key: 'community', label: '社区', icon: Users },
-  { key: 'general', label: '通用', icon: SettingsIcon },
-  { key: 'about', label: '关于', icon: Info },
+/** H-3: Tab 分组定义（3 大类：基础 / 高级 / 关于） */
+interface TabGroup {
+  /** 分组标题 i18n key */  groupLabel: string
+  /** 该组下的 Tab 列表 */
+  tabs: { key: Tab; label: string; icon: typeof Bot }[]
+}
+
+/** 侧边栏分组定义（模块级常量，供跨窗口「打开指定标签页」事件校验使用） */
+const TAB_GROUPS: TabGroup[] = [
+  {
+    groupLabel: 'settings.group.basic',
+    tabs: [
+      { key: 'ai', label: 'AI', icon: Bot },
+      { key: 'appearance', label: '外观', icon: Palette },
+      { key: 'personality', label: '性格', icon: SlidersHorizontal },
+      { key: 'personalityEditor', label: '性格编辑', icon: Activity },
+      { key: 'general', label: '通用', icon: SettingsIcon },
+    ],
+  },
+  {
+    groupLabel: 'settings.group.advanced',
+    tabs: [
+      { key: 'nurturing', label: '养成', icon: Heart },
+      { key: 'shop', label: '商店', icon: ShoppingBag },
+      { key: 'inventory', label: '背包', icon: Backpack },
+      { key: 'memory', label: '记忆', icon: Brain },
+      { key: 'achievements', label: '成就', icon: Trophy },
+      { key: 'leaderboard', label: '排行', icon: Trophy },
+      { key: 'schedule', label: '日程', icon: Calendar },
+      { key: 'album', label: '相册', icon: Camera },
+      { key: 'community', label: '社区', icon: Users },
+    ],
+  },
+  {
+    groupLabel: 'settings.group.tools',
+    tabs: [
+      { key: 'mods', label: '模组', icon: Package },
+      { key: 'data', label: '数据', icon: Database },
+      { key: 'quick', label: '快捷', icon: Sliders },
+      { key: 'sprite', label: '精灵图', icon: Grid3x3 },
+    ],
+  },
+  {
+    groupLabel: 'settings.group.about',
+    tabs: [
+      { key: 'about', label: '关于', icon: Info },
+    ],
+  },
 ]
+
+/** 兼容旧代码：扁平化 TABS 列表 */
+const TABS: { key: Tab; label: string; icon: typeof Bot }[] = TAB_GROUPS.flatMap((g) => g.tabs)
 
 const AI_CONFIG_KEY = 'spiritpal-ai-config'
 
@@ -409,26 +440,33 @@ const [showImporter, setShowImporter] = useState(false)
 
       <div className="flex flex-1 overflow-hidden">
         {/* 侧边栏 */}
-      <div className="flex w-40 flex-col overflow-y-auto border-r border-ink/10 bg-cream-deep/60 p-3">
+      <div className="flex w-44 flex-col overflow-y-auto border-r border-ink/10 bg-cream-deep/60 p-3">
         <div className="mb-4 px-2 text-sm font-bold text-tangerine-deep">SpiritPal 设置</div>
-        {TABS.map((t) => {
-          const Icon = t.icon
-          return (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              aria-current={tab === t.key ? 'page' : undefined}
-              aria-label={`${t.label} 标签页`}
-              className={`spiritpal-focusable mb-1 flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
-                tab === t.key
-                  ? 'bg-tangerine text-white'
-                  : 'text-ink-muted hover:bg-ink/5'
-              }`}
-            >
-              <Icon size={16} aria-hidden="true" /> {t.label}
-            </button>
-          )
-        })}
+        {TAB_GROUPS.map((group) => (
+          <div key={group.groupLabel} className="mb-3">
+            <div className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">
+              {group.groupLabel}
+            </div>
+            {group.tabs.map((t) => {
+              const Icon = t.icon
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  aria-current={tab === t.key ? 'page' : undefined}
+                  aria-label={`${t.label} 标签页`}
+                  className={`spiritpal-focusable mb-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                    tab === t.key
+                      ? 'bg-tangerine text-white'
+                      : 'text-ink-muted hover:bg-ink/5'
+                  }`}
+                >
+                  <Icon size={16} aria-hidden="true" /> {t.label}
+                </button>
+              )
+            })}
+          </div>
+        ))}
         <button
           onClick={handleClose}
           aria-label="关闭设置窗口"
@@ -446,29 +484,25 @@ const [showImporter, setShowImporter] = useState(false)
 
             <div>
               <label className="mb-1 block text-xs text-ink-faint">服务商</label>
-              <select
+              <BrandSelect
                 value={ai.provider}
-                onChange={(e) => handleProviderChange(e.target.value)}
-                className="w-full rounded-lg bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
-              >
-                {LLM_PROVIDERS.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => handleProviderChange(v)}
+                aria-label="AI 服务商"
+                options={LLM_PROVIDERS.map((p) => ({ value: p.id, label: p.name }))}
+              />
             </div>
 
             {/* API Key：Ollama 不需要，其余服务商显示 */}
             {getProvider(ai.provider)?.apiKeyRequired !== false && (
               <div>
                 <label className="mb-1 block text-xs text-ink-faint">API Key</label>
-                <input
+                {/* M-3: 使用 BrandInput 支持密码可见性切换 */}
+                <BrandInput
                   type="password"
                   value={ai.apiKey}
-                  onChange={(e) => setAI({ ...ai, apiKey: e.target.value })}
+                  onChange={(v) => setAI({ ...ai, apiKey: v })}
                   placeholder="sk-..."
-                  className="w-full rounded-lg bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
+                  aria-label="API Key"
                 />
               </div>
             )}
@@ -506,84 +540,69 @@ const [showImporter, setShowImporter] = useState(false)
 
             <div>
               <label className="mb-1 block text-xs text-ink-faint">接口地址</label>
-              <input
+              <BrandInput
                 value={ai.baseUrl}
-                onChange={(e) => setAI({ ...ai, baseUrl: e.target.value })}
-                className="w-full rounded-lg bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
+                onChange={(v) => setAI({ ...ai, baseUrl: v })}
+                aria-label="接口地址"
               />
             </div>
 
             <div>
               <label className="mb-1 block text-xs text-ink-faint">模型</label>
-              {/* Ollama：优先使用运行时拉取的模型列表，其次回退到预设模型 */}
+              {/* M-3: 模型选择统一为 BrandSelect */}
               {ai.provider === 'ollama' && ollamaModels.length > 0 ? (
-                <select
+                <BrandSelect
                   value={ai.model}
-                  onChange={(e) => setAI({ ...ai, model: e.target.value })}
-                  className="w-full rounded-lg bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
-                >
-                  {ollamaModels.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setAI({ ...ai, model: v })}
+                  aria-label="Ollama 模型"
+                  options={ollamaModels.map((m) => ({ value: m, label: m }))}
+                />
               ) : getProvider(ai.provider)?.models.length ? (
-                <select
+                <BrandSelect
                   value={ai.model}
-                  onChange={(e) => setAI({ ...ai, model: e.target.value })}
-                  className="w-full rounded-lg bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
-                >
-                  {getProvider(ai.provider)!.models.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setAI({ ...ai, model: v })}
+                  aria-label="预设模型"
+                  options={getProvider(ai.provider)!.models.map((m) => ({ value: m, label: m }))}
+                />
               ) : (
-                <input
+                <BrandInput
                   value={ai.model}
-                  onChange={(e) => setAI({ ...ai, model: e.target.value })}
+                  onChange={(v) => setAI({ ...ai, model: v })}
                   placeholder="model-name"
-                  className="w-full rounded-lg bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
+                  aria-label="模型名称"
                 />
               )}
             </div>
 
             <div>
-              <label className="mb-1 block text-xs text-ink-faint">
-                温度：{ai.temperature.toFixed(1)}
-              </label>
-              <input
-                type="range"
+              {/* M-3: 温度滑块加刻度标注和实时值显示 */}
+              <label className="mb-1 block text-xs text-ink-faint">温度</label>
+              <BrandSlider
+                value={ai.temperature}
                 min={0}
                 max={2}
                 step={0.1}
-                value={ai.temperature}
-                onChange={(e) => setAI({ ...ai, temperature: parseFloat(e.target.value) })}
-                className="w-full accent-tangerine"
+                onChange={(v) => setAI({ ...ai, temperature: v })}
+                formatValue={(v) => v.toFixed(1)}
+                showTicks
+                ticks={[{ value: 0, label: '精确' }, { value: 1, label: '平衡' }, { value: 2, label: '创意' }]}
               />
             </div>
 
             <div>
               <label className="mb-1 block text-xs text-ink-faint">最大 Token</label>
-              <input
+              <BrandInput
                 type="number"
-                min={64}
-                max={8192}
-                value={ai.maxTokens}
-                onChange={(e) => setAI({ ...ai, maxTokens: parseInt(e.target.value) || 1024 })}
-                className="w-full rounded-lg bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
+                value={String(ai.maxTokens)}
+                onChange={(v) => setAI({ ...ai, maxTokens: parseInt(v) || 1024 })}
+                aria-label="最大 Token"
               />
             </div>
 
-            <button
-              onClick={flashSaved}
-              aria-label="保存 AI 配置"
-              className="spiritpal-focusable rounded-lg bg-tangerine px-4 py-2 text-sm font-medium text-white hover:bg-tangerine-deep"
-            >
+            {/* M-3: 使用 BrandButton 替代原生按钮 */}
+            <BrandButton onClick={flashSaved} aria-label="保存 AI 配置">
               保存
-            </button>
+            </BrandButton>
           </div>
         )}
 
@@ -1149,11 +1168,21 @@ const [showImporter, setShowImporter] = useState(false)
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
             <div className="mx-4 max-w-sm rounded-2xl bg-surface p-5 shadow-xl">
               <div className="mb-2 text-base font-semibold">数据出境确认</div>
-              <p className="mb-4 text-sm text-ink-muted">
+              <p className="mb-3 text-sm text-ink-muted">
                 你选择的 {getProvider(pendingOverseasProvider)?.name ?? '服务商'} 位于境外，
                 使用后对话内容将传输至境外服务器。请勿输入敏感个人信息。
                 是否继续？
               </p>
+              {/* M-2: 复选框移到按钮上方，避免布局混乱误触 */}
+              <label className="mb-3 flex items-center gap-2 text-xs text-ink-muted">
+                <input
+                  type="checkbox"
+                  checked={rememberOverseas}
+                  onChange={(e) => setRememberOverseas(e.target.checked)}
+                  className="accent-tangerine"
+                />
+                记住我的选择（下次不再询问）
+              </label>
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setPendingOverseasProvider(null)}
@@ -1161,26 +1190,17 @@ const [showImporter, setShowImporter] = useState(false)
                 >
                   取消
                 </button>
-                <label className="mb-3 flex items-center gap-2 text-xs text-ink-muted">
-                  <input
-                    type="checkbox"
-                    checked={rememberOverseas}
-                    onChange={(e) => setRememberOverseas(e.target.checked)}
-                    className="accent-tangerine"
-                  />
-                  记住我的选择（下次不再询问）
-                </label>
                 <button
                   onClick={() => {
                     if (rememberOverseas) {
                       try {
                         localStorage.setItem(`spiritpal:overseas-consent:${pendingOverseasProvider}`, '1')
-                      } catch { /* ignore */ }
+                      } catch (e) { console.warn('[overseas-consent] failed to save:', e) }
                     }
                     applyProvider(pendingOverseasProvider)
                     setPendingOverseasProvider(null)
                   }}
-                  className="rounded-lg bg-tangerine px-4 py-2 text-sm text-white"
+                  className="rounded-lg bg-tangerine px-4 py-2 text-sm text-white hover:bg-tangerine-deep"
                 >
                   同意并继续
                 </button>

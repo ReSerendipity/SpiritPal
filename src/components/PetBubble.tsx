@@ -7,6 +7,8 @@
  * - 自动消失动画（淡出+上移）
  * - 带三角尾巴指向宠物
  * - pointer-events-none不阻挡交互
+ * - H-4: 硬编码颜色已替换为语义 Token（bg-surface / text-ink）
+ * - H-7: 添加 role="status" + aria-live="polite" 通知屏幕阅读器
  *
  * 核心Hooks/状态：
  * - useState: 关闭动画状态
@@ -54,11 +56,13 @@ export function PetBubble({ message, onClose, duration = 3000, measureRef, ancho
         closing ? 'opacity-0 -translate-y-1' : 'opacity-100'
       }`}
       style={{ pointerEvents: 'none' }}
+      role="status"
+      aria-live="polite"
     >
-      <div className="relative max-w-[220px] whitespace-pre-wrap break-words rounded-2xl bg-white px-3 py-2 text-center text-sm text-gray-800 shadow-lg">
+      <div className="spiritpal-pet-voice relative max-w-[220px] whitespace-pre-wrap break-words rounded-2xl border border-ink/10 bg-surface px-3 py-2 text-center text-sm text-ink shadow-soft">
         {message}
         {/* 气泡尾巴 */}
-        <div className="absolute left-1/2 -bottom-1 h-0 w-0 -translate-x-1/2 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-white" />
+        <div className="absolute left-1/2 -bottom-1 h-0 w-0 -translate-x-1/2 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-surface" />
       </div>
     </div>
   )
