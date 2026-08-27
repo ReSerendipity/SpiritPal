@@ -17,6 +17,17 @@ vi.mock('@tauri-apps/plugin-sql', () => ({
   },
 }))
 
+// P1-2: mock 跨窗口事件（emit/listen）
+vi.mock('@tauri-apps/api/event', () => ({
+  emit: vi.fn(() => Promise.resolve()),
+  listen: vi.fn(() => Promise.resolve(() => {})),
+}))
+
+// mock invoke（R-14 加密相关命令）
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn(() => Promise.resolve()),
+}))
+
 import {
   getDb,
   initDB,
