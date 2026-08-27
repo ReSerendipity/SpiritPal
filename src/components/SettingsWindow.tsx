@@ -1089,6 +1089,42 @@ const [showImporter, setShowImporter] = useState(false)
                 </a>
               </div>
             </div>
+            {/* 用户反馈入口 */}
+            <div className="rounded-xl bg-surface p-4">
+              <div className="mb-2 text-sm font-semibold text-tangerine-deep">反馈与建议</div>
+              <div className="mb-2 text-xs text-ink-muted">
+                遇到 Bug 或有功能建议？欢迎通过以下渠道反馈：
+              </div>
+              <div className="flex flex-wrap gap-2 text-sm">
+                <a
+                  href="https://github.com/ReSerendipity/SpiritPal/issues/new?template=bug_report.yml"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-lg bg-cream-deep px-3 py-1.5 text-ink-muted hover:bg-ink/5"
+                  title="提交 Bug"
+                >
+                  🐛 提交 Bug
+                </a>
+                <a
+                  href="https://github.com/ReSerendipity/SpiritPal/issues/new?template=feature_request.yml"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-lg bg-cream-deep px-3 py-1.5 text-ink-muted hover:bg-ink/5"
+                  title="功能建议"
+                >
+                  💡 功能建议
+                </a>
+                <a
+                  href="https://github.com/ReSerendipity/SpiritPal/discussions"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-lg bg-cream-deep px-3 py-1.5 text-ink-muted hover:bg-ink/5"
+                  title="讨论区"
+                >
+                  💬 讨论区
+                </a>
+              </div>
+            </div>
             <div className="rounded-xl bg-surface p-4 text-sm text-ink-muted">
               <div className="mb-1 font-semibold text-tangerine-deep">角色列表</div>
               {getAllCharacters().map((c) => (
