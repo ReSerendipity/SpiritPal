@@ -34,7 +34,7 @@ keyring = "3"
 # 任务 B：记忆数据 AES-256-GCM 加密
 aes-gcm = "0.10"
 sha2 = "0.10"
-base64 = "0.22"
+base64 = "0.23"
 getrandom = "0.2"
 # R-06: PBKDF2 密钥派生（替代单次 SHA-256）
 pbkdf2 = "0.12"
