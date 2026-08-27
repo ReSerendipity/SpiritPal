@@ -1,0 +1,58 @@
+# M-5: SBOM (Software Bill of Materials) 生成
+# 每次发布标签时生成 CycloneDX 格式的 SBOM 并上传为 artifact
+
+name: Generate SBOM
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  generate-sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate npm SBOM (CycloneDX)
+        run: |
+          npx @cyclonedx/cyclonedx-npm --output-file sbom-npm.json --output-format json
+          npx @cyclonedx/cyclonedx-npm --output-file sbom-npm.xml --output-format xml
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-cyclonedx
+        run: cargo install cargo-cyclonedx --locked
+
+      - name: Generate Rust SBOM (CycloneDX)
+        working-directory: src-tauri
+        run: cargo cyclonedx --format json --output-pattern package
+
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: |
+            sbom-npm.json
+            sbom-npm.xml
+            src-tauri/*.cdx.json
+          retention-days: 90
