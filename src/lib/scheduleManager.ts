@@ -282,6 +282,35 @@ const MIN_CHECK_INTERVAL = 5000
  * 4. 动态调整检查间隔（临近事件时更频繁检查）
  * 5. 更可靠的 ID 生成
  */
+// ============ 日历数据源插件（A-8 / D-2 决策落地）============
+// 说明：calendarIntegration 是 Node 侧参考适配器（依赖 child_process，无法在 webview 直接 import）。
+// 本接口定义 webview 安全的插件契约；运行时需经 Tauri 命令桥接后，由外部注册适配器，
+// scheduleManager 即可将外部日历事件汇入日程视图（统一在 SchedulePanel 展示）。
+
+export interface CalendarSourceEvent {
+  id: string
+  title: string
+  startTime: number
+  endTime?: number
+  description?: string
+}
+
+export interface CalendarSourceAdapter {
+  /** 适配器唯一标识 */
+  id: string
+  /** 展示名（用于 UI 标注来源） */
+  label: string
+  /** 拉取指定时间范围内的事件 */
+  fetchEvents(range: { start: number; end: number }): Promise<CalendarSourceEvent[]>
+}
+
+export interface ImportedCalendarEvent extends CalendarSourceEvent {
+  /** 来源适配器 id */
+  sourceId: string
+  /** 来源展示名 */
+  sourceLabel: string
+}
+
 export class ScheduleManager {
   /** 日程事件列表（始终按 triggerTime 升序排列） */
   private events: EnhancedScheduleEvent[] = []
@@ -295,6 +324,8 @@ export class ScheduleManager {
   private saveTimer: number | null = null
   /** 是否有未保存的更改 */
   private dirty = false
+  /** 日历数据源适配器列表（A-8 D-2） */
+  private calendarAdapters: CalendarSourceAdapter[] = []
 
   /**
    * 构造函数
@@ -382,6 +413,48 @@ export class ScheduleManager {
   onChange(listener: () => void): () => void {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
+  }
+
+  // ============ 日历数据源插件（A-8 D-2）============
+
+  /** 注册外部日历数据源（见 CalendarSourceAdapter 说明） */
+  registerCalendarSource(adapter: CalendarSourceAdapter): void {
+    if (this.calendarAdapters.some((a) => a.id === adapter.id)) return
+    this.calendarAdapters.push(adapter)
+    this.notifyListeners()
+  }
+
+  /** 注销外部日历数据源 */
+  unregisterCalendarSource(id: string): void {
+    const before = this.calendarAdapters.length
+    this.calendarAdapters = this.calendarAdapters.filter((a) => a.id !== id)
+    if (this.calendarAdapters.length !== before) this.notifyListeners()
+  }
+
+  /** 拉取所有已注册日历源的事件（按 startTime 升序），单个源异常不影响其它源 */
+  async getImportedCalendarEvents(range?: { start: number; end: number }): Promise<ImportedCalendarEvent[]> {
+    const now = Date.now()
+    const r = range ?? { start: now - 7 * 86400000, end: now + 30 * 86400000 }
+    const out: ImportedCalendarEvent[] = []
+    for (const a of this.calendarAdapters) {
+      try {
+        const evs = await a.fetchEvents(r)
+        for (const e of evs) {
+          out.push({
+            sourceId: a.id,
+            sourceLabel: a.label,
+            id: `${a.id}:${e.id}`,
+            title: e.title,
+            startTime: e.startTime,
+            endTime: e.endTime,
+            description: e.description,
+          })
+        }
+      } catch {
+        // 单个日历源异常不影响整体
+      }
+    }
+    return out.sort((x, y) => x.startTime - y.startTime)
   }
 
   /**

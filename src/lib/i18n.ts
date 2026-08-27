@@ -1143,3 +1143,81 @@ export default i18n
 // import { useTranslation } from 'react-i18next'
 // const { t } = useTranslation()
 export { useTranslation } from 'react-i18next'
+
+// ============ Intl 本地化格式化工具（A-9 收敛自 i18nManager 的增量能力）============
+// 说明：i18n.ts 是基于 react-i18next 的生产 i18n 模块；重复实现的 i18nManager.ts 已删除，
+// 其真正有用的 Intl 格式化能力在此统一提供，作为全仓唯一 locale-aware 格式化来源
+// （日记/日程等新增 UI 直接复用，避免再出现第二套 i18n 体系）。
+
+/** 将应用内语言码映射为 BCP-47 区域标签，供 Intl API 使用 */
+function toIntlLocale(lang: SupportedLang): string {
+  const map: Record<SupportedLang, string> = {
+    zh: 'zh-CN',
+    en: 'en-US',
+    ja: 'ja-JP',
+    ko: 'ko-KR',
+    'zh-TW': 'zh-TW',
+  }
+  return map[lang]
+}
+
+/** 取当前激活语言（react-i18next 已初始化语言） */
+function currentLang(): SupportedLang {
+  return (i18n.language as SupportedLang) || 'zh'
+}
+
+export type DateFormatType = 'short' | 'long' | 'full'
+
+/** 本地化日期 */
+export function formatDate(date: Date, formatType: DateFormatType = 'short', lang: SupportedLang = currentLang()): string {
+  const dateFormats: Record<DateFormatType, Intl.DateTimeFormatOptions> = {
+    short: { year: '2-digit', month: '2-digit', day: '2-digit' },
+    long: { year: 'numeric', month: 'long', day: 'numeric' },
+    full: { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' },
+  }
+  return new Intl.DateTimeFormat(toIntlLocale(lang), dateFormats[formatType]).format(date)
+}
+
+/** 本地化时间 */
+export function formatTime(date: Date, withSeconds = false, lang: SupportedLang = currentLang()): string {
+  const options: Intl.DateTimeFormatOptions = withSeconds
+    ? { hour: '2-digit', minute: '2-digit', second: '2-digit' }
+    : { hour: '2-digit', minute: '2-digit' }
+  return new Intl.DateTimeFormat(toIntlLocale(lang), options).format(date)
+}
+
+/** 本地化日期时间 */
+export function formatDateTime(date: Date, lang: SupportedLang = currentLang()): string {
+  return `${formatDate(date, 'short', lang)} ${formatTime(date, false, lang)}`
+}
+
+/** 相对时间（x 分钟前 / 3 天后 等），基于 Intl.RelativeTimeFormat */
+export function formatRelativeTime(date: Date, lang: SupportedLang = currentLang()): string {
+  const rtf = new Intl.RelativeTimeFormat(toIntlLocale(lang), { numeric: 'auto' })
+  const diffSec = Math.round((date.getTime() - Date.now()) / 1000)
+  const abs = Math.abs(diffSec)
+  if (abs < 60) return rtf.format(Math.trunc(diffSec), 'second')
+  const diffMin = Math.round(diffSec / 60)
+  if (Math.abs(diffMin) < 60) return rtf.format(diffMin, 'minute')
+  const diffHour = Math.round(diffMin / 60)
+  if (Math.abs(diffHour) < 24) return rtf.format(diffHour, 'hour')
+  const diffDay = Math.round(diffHour / 24)
+  return rtf.format(diffDay, 'day')
+}
+
+/** 本地化数字 */
+export function formatNumber(num: number, lang: SupportedLang = currentLang(), options?: Intl.NumberFormatOptions): string {
+  return new Intl.NumberFormat(toIntlLocale(lang), options).format(num)
+}
+
+/** 本地化货币 */
+export function formatCurrency(amount: number, lang: SupportedLang = currentLang(), currency = 'CNY'): string {
+  return formatNumber(amount, lang, { style: 'currency', currency })
+}
+
+/** 文本方向（LTR/RTL），便于 RTL 语言布局预留 */
+export function getTextDirection(lang: SupportedLang = currentLang()): 'ltr' | 'rtl' {
+  const rtlLangCodes = ['ar', 'he', 'fa', 'ur']
+  const code = lang.split('-')[0]
+  return rtlLangCodes.includes(code) ? 'rtl' : 'ltr'
+}

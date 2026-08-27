@@ -121,6 +121,56 @@ const EMOTION_SCORES: Record<string, number> = {
   angry: -0.8,
 }
 
+// ============ 与 LLM 情绪标签体系的桥接（A-10 收敛）============
+// 将 LLM 输出的英文情绪标签（emotionExtractor 提取的 animations）映射到 emotionEngine 的基础情绪，
+// 并经统一评分表 EMOTION_SCORES 产出记忆回写所需的 valence/arousal，
+// 使全仓「情绪标签 → 情绪坐标」映射收敛到 emotionEngine 单一来源。
+
+/** LLM 情绪标签 → emotionEngine 基础情绪的映射 */
+const LLM_TAG_TO_BASIC: Record<string, BasicEmotion> = {
+  happy: 'happy',
+  laugh: 'happy',
+  giggle: 'happy',
+  wave: 'happy',
+  excited: 'excited',
+  sad: 'sad',
+  cry: 'sad',
+  angry: 'angry',
+  annoyed: 'angry',
+  surprised: 'surprised',
+  shy: 'calm',
+  embarrassed: 'calm',
+  confused: 'confused',
+  think: 'neutral',
+  idle: 'neutral',
+}
+
+/** 各基础情绪对应的 arousal（激活度），与 EMOTION_SCORES 的 valence 配合使用 */
+const EMOTION_AROUSAL: Record<BasicEmotion, number> = {
+  happy: 0.7,
+  sad: 0.5,
+  angry: 0.8,
+  excited: 0.9,
+  calm: 0.3,
+  confused: 0.4,
+  tired: 0.3,
+  surprised: 0.9,
+  neutral: 0.2,
+}
+
+/** 由 LLM 情绪标签数组得到记忆回写所需的 { valence, arousal }（取最后一个标签） */
+export function moodFromEmotionTags(
+  animations: string[],
+): { valence: number; arousal: number } | undefined {
+  if (!animations || animations.length === 0) return undefined
+  const last = animations[animations.length - 1]
+  const emotion = LLM_TAG_TO_BASIC[last]
+  if (!emotion) return undefined
+  const valence = EMOTION_SCORES[emotion] ?? 0
+  const arousal = EMOTION_AROUSAL[emotion] ?? 0.4
+  return { valence, arousal }
+}
+
 // ============ 情绪分析器 ============
 
 export class EmotionAnalyzer {
