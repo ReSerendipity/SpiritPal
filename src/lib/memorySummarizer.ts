@@ -14,6 +14,7 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import type { MemoryEntry } from './types'
+import { getPrompt } from './promptRegistry'
 
 // ============ 类型定义 ============
 
@@ -203,14 +204,9 @@ export class MemorySummarizer {
     memories: Array<{ created_at: string; user: string; assistant: string }>,
     context?: string,
   ): string {
-    const systemPrompt = `你是一个专业的记忆总结助手。请根据以下对话记录生成简洁、全面的摘要。
-
-要求：
-1. 抓住核心主题和关键对话
-2. 突出重要事件和情感变化
-3. 保持客观中立，不添加个人判断
-4. 输出字数控制在${this.config.maxTokens} token 以内
-5. 使用${this.config.style === 'narrative' ? '叙述式' : this.config.style === 'detailed' ? '详细列举' : '精简概括'}风格`
+    const systemPrompt = getPrompt('memory.summarize')
+      .replace('{max_tokens}', String(this.config.maxTokens))
+      .replace('{style}', this.config.style === 'narrative' ? '叙述式' : this.config.style === 'detailed' ? '详细列举' : '精简概括')
 
     const userContent = memories.slice(-20).map((m, idx) => {
       const date = new Date(m.created_at).toLocaleString('zh-CN')
@@ -374,10 +370,11 @@ export class MemorySummarizer {
         case 'day':
           period = date.toISOString().split('T')[0] // YYYY-MM-DD
           break
-        case 'week':
+        case 'week': {
           const weekNum = Math.ceil(date.getDate() / 7)
           period = `${date.getFullYear()}-W${weekNum.toString().padStart(2, '0')}`
           break
+        }
         case 'month':
           period = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`
           break
