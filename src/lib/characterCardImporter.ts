@@ -28,6 +28,7 @@ import type { CharacterProfile, Personality } from './types'
 import { getLLMClient } from './llmClient'
 import type { AIConfig, ChatMessage } from './types'
 import { extractJSONString } from './jsonUtils'
+import { getPrompt } from './promptRegistry'
 
 // ============ SillyTavern 角色卡格式 ============
 
@@ -317,16 +318,7 @@ export async function inferPersonalityWithLLM(
 ): Promise<Personality | null> {
   if (!config) return null
 
-  const systemPrompt = `你是一个性格分析器。根据给定的角色描述，推断角色的五维性格参数。
-每个维度的值为 -1 到 1 之间的小数：
-- warmth: 温度（-1=冷漠, 1=温暖）
-- liveliness: 活泼（-1=沉静, 1=活泼）
-- dependence: 依赖（-1=独立, 1=粘人）
-- directness: 直率（-1=含蓄, 1=直率）
-- rationality: 理性（-1=感性, 1=理性）
-
-只返回 JSON 格式，不要包含其他文本。示例：
-{"warmth": 0.5, "liveliness": -0.3, "dependence": 0.2, "directness": 0.1, "rationality": -0.4}`
+  const systemPrompt = getPrompt('character.analyze_personality')
 
   try {
     const client = getLLMClient(config)

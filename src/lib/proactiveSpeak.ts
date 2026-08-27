@@ -31,6 +31,7 @@ import { getLLMClient } from './llmClient'
 import type { ChatMessage, NurturingStats } from './types'
 import { EMOTION_PROMPT_FRAGMENT } from './emotionExtractor'
 import { THINK_TAG_PROMPT_FRAGMENT } from './thinkTagParser'
+import { getPrompt } from './promptRegistry'
 // P1-2：接线记忆检索——主动说话时检索相关回忆拼入 prompt
 import { getEnhancedMemoryManager } from './enhancedMemory'
 // P1-2：从 contextAwareness 获取真实空闲时长
@@ -56,20 +57,8 @@ const CHECK_INTERVAL_MS = PROACTIVE_CONFIG.checkIntervalMs
 
 // ============ 主动说话提示词 ============
 // 参考 Open-LLM-VTuber proactive_speak_prompt.txt
-const PROACTIVE_SPEAK_SYSTEM_PROMPT = `你是 SpiritPal 桌面宠物，现在要主动对主人说一句话。
-要求：
-1. 简短自然，1-3 句话
-2. 根据当前情境选择合适的话题：
-   - 如果主人很久没互动：关心问候
-   - 如果主人正在工作：轻声鼓励
-   - 如果肚子饿了：委婉表达
-   - 如果心情好：分享趣事
-3. 保持角色性格一致性
-4. 不要提问需要回答的问题（主人可能在忙）
-
-${EMOTION_PROMPT_FRAGMENT}
-
-${THINK_TAG_PROMPT_FRAGMENT}`
+// Prompt 从 promptRegistry 加载（版本化管理），拼接动态片段
+const PROACTIVE_SPEAK_SYSTEM_PROMPT = `${getPrompt('proactive.speak')}\n\n${EMOTION_PROMPT_FRAGMENT}\n\n${THINK_TAG_PROMPT_FRAGMENT}`
 
 // ============ 单例（提前声明以便 dispose 访问）============
 let proactiveManager: ProactiveSpeakManager | null = null

@@ -33,6 +33,7 @@
  */
 import type { AIConfig, ChatMessage, CharacterProfile } from './types'
 import { OLLAMA_TAGS_URL } from './llmProviders'
+import { getPrompt } from './promptRegistry'
 // [Quality Review] DRY 提取：共享 SSE 流解析和 JSON 提取逻辑
 import { readTextStream, type StreamLineType } from './sseUtils'
 import { extractJSONString } from './jsonUtils'
@@ -707,10 +708,7 @@ export class LLMClient {
   ): Promise<string | null> {
     if (availableExpressions.length === 0) return null
 
-    const systemPrompt = `你是一个桌面宠物的情绪选择器。根据当前上下文，从可用表情列表中选择最合适的一个表情。
-只返回表情 ID，不要包含其他文本。
-
-可用表情：${availableExpressions.join(', ')}`
+    const systemPrompt = getPrompt('llm.emotion_select').replace('{available_expressions}', availableExpressions.join(', '))
 
     try {
       const messages: ChatMessage[] = [
@@ -737,11 +735,7 @@ export class LLMClient {
    * @returns 需要记忆的内容列表
    */
   async extractMemories(context: string): Promise<string[]> {
-    const systemPrompt = `你是一个记忆提取器。从给定的对话上下文中，提取值得长期记忆的信息。
-包括：用户偏好、重要事件、情感表达、习惯模式、人际关系等。
-返回 JSON 数组格式，每个元素是一条值得记忆的信息。
-如果没有值得记忆的信息，返回空数组 []。
-只返回 JSON，不要包含其他文本。`
+    const systemPrompt = getPrompt('llm.memory_extract')
 
     try {
       const messages: ChatMessage[] = [
@@ -792,28 +786,7 @@ export function getLLMClient(config?: AIConfig): LLMClient {
 // ============ AI 辅助生成角色配置 ============
 // 根据用户描述生成宠物角色配置（Partial<CharacterProfile>）
 // 使用当前配置的 LLM provider，非流式调用
-const CHARACTER_GEN_SYSTEM_PROMPT = `根据用户描述，生成一个宠物角色配置。返回 JSON 格式，包含 name, personality (五维参数), systemPrompt, catchphrase, background 字段。
-
-要求：
-1. name: 角色名称（简洁，2-4字）
-2. personality: 五维性格参数，每个值为 -1 到 1 之间的小数
-   - warmth: 温度（-1=冷漠, 1=温暖）
-   - liveliness: 活泼（-1=沉静, 1=活泼）
-   - dependence: 依赖（-1=独立, 1=粘人）
-   - directness: 直率（-1=含蓄, 1=直率）
-   - rationality: 理性（-1=感性, 1=理性）
-3. systemPrompt: 角色的 LLM System Prompt，详细描述角色性格、说话方式、背景故事
-4. catchphrase: 角色口头禅
-5. background: 角色背景故事（1-2句话）
-
-请严格按照 JSON 格式返回，不要包含其他文本。JSON 格式示例：
-{
-  "name": "小喵",
-  "personality": { "warmth": 0.8, "liveliness": 0.6, "dependence": 0.7, "directness": -0.2, "rationality": -0.3 },
-  "systemPrompt": "你是小喵...",
-  "catchphrase": "喵～",
-  "background": "一只来自..."
-}`
+const CHARACTER_GEN_SYSTEM_PROMPT = getPrompt('llm.character_generate')
 
 // [Quality Review] DRY 提取：使用 jsonUtils.ts 中的 extractJSONString 替代本地实现
 // 保留函数名以维持向后兼容

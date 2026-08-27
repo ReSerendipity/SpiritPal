@@ -20,6 +20,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { KeyframeMemory } from './keyframeMemory'
 import { getKeyframeMemory, KeyframeLevel } from './keyframeMemory'
+import { getPrompt } from './promptRegistry'
 
 // ============ 类型定义 ============
 
@@ -231,14 +232,7 @@ export class VisionPerceptionManager {
    * 构建 Vision LLM 提示词
    */
   private buildVisionPrompt(screenshot: ScreenshotResult): Array<{ role: string; content: any[] }> {
-    const systemPrompt = `你是一位桌面环境视觉分析师。请分析用户当前的屏幕截图，提取以下信息：
-1. 用户正在使用的应用程序
-2. 窗口标题和内容概述  
-3. 是否有代码编辑、会议、游戏等活动
-4. 关键文本信息（如有重要内容）
-5. 整体工作氛围（专注/放松/紧急等）
-
-基于分析结果，给出宠物应该采取的行为建议（如显示idle、walk、hide、happy等）。`
+    const systemPrompt = getPrompt('vision.analyze_screen')
 
     const userContent = [
       {
