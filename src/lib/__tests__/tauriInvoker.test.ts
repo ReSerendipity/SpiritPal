@@ -22,8 +22,10 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
 }))
 
-// 动态导入被 mock 的 invoke
-const { invoke: mockInvoke } = await import('@tauri-apps/api/core')
+// 动态导入被 mock 的 invoke（显式标注为 Mock 类型，使 mockResolvedValueOnce 等方法可用）
+const { invoke: mockInvoke } = (await import('@tauri-apps/api/core')) as unknown as {
+  invoke: import('vitest').Mock
+}
 
 describe('tauriInvoker', () => {
   beforeEach(() => {

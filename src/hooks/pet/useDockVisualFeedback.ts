@@ -55,34 +55,6 @@ export function useDockVisualFeedback(
   const [peekScale, setPeekScale] = useState(PEEK_SCALE_MAX)
   const peekTimeoutRef = useRef<number | null>(null)
 
-  // 吸附时更新表情和朝向
-  useEffect(() => {
-    if (!enabled || dragging) {
-      setIsDocked(false)
-      setExpression('normal')
-      setPeekScale(PEEK_SCALE_MAX)
-      return
-    }
-
-    if (dockDir) {
-      setIsDocked(true)
-      
-      // 根据边缘方向设置表情
-      if (dockDir === 'top' || dockDir === 'bottom') {
-        setExpression('curious') // 上下边缘 → 好奇表情
-      } else {
-        setExpression('alert') // 左右边缘 → 警惕表情
-      }
-
-      // 自动调整朝向屏幕中心
-      adjustFacingForDock(dockDir)
-    } else {
-      setIsDocked(false)
-      setExpression('normal')
-      setPeekScale(PEEK_SCALE_MAX)
-    }
-  }, [dockDir, dragging, enabled])
-
   /** 根据停靠方向调整朝向 */
   const adjustFacingForDock = useCallback((dir: DockDir) => {
     if (!facingRef.current || !dir) return
@@ -113,6 +85,35 @@ export function useDockVisualFeedback(
         break
     }
   }, [containerRef, facingRef])
+
+  // 吸附时更新表情和朝向
+  useEffect(() => {
+    if (!enabled || dragging) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 需要同步更新状态以响应 dockDir 变化
+      setIsDocked(false)
+      setExpression('normal')
+      setPeekScale(PEEK_SCALE_MAX)
+      return
+    }
+
+    if (dockDir) {
+      setIsDocked(true)
+      
+      // 根据边缘方向设置表情
+      if (dockDir === 'top' || dockDir === 'bottom') {
+        setExpression('curious') // 上下边缘 → 好奇表情
+      } else {
+        setExpression('alert') // 左右边缘 → 警惕表情
+      }
+
+      // 自动调整朝向屏幕中心
+      adjustFacingForDock(dockDir)
+    } else {
+      setIsDocked(false)
+      setExpression('normal')
+      setPeekScale(PEEK_SCALE_MAX)
+    }
+  }, [dockDir, dragging, enabled, adjustFacingForDock])
 
   /** 触发探头动画 */
   const triggerPeek = useCallback(() => {

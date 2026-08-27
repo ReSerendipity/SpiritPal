@@ -18,7 +18,7 @@ let batchRenderer: BatchRenderer | null = null
 
 let lastFrameTime: number = 0
 let frameCount: number = 0
-let stats = {
+const stats = {
   fps: 0,
   particles: 0,
   drawCalls: 0,
@@ -170,11 +170,12 @@ function executeRenderCommand(cmd: RenderCommand): void {
       }
       break
       
-    case 'clear':
+    case 'clear': {
       const color = cmd.params.color || [0, 0, 0, 0]
       gl.clearColor(color[0], color[1], color[2], color[3])
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
       break
+    }
       
     case 'present':
       // OffscreenCanvas 自动呈现
