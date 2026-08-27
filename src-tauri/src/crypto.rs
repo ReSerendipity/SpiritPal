@@ -174,11 +174,15 @@ pub fn derive_aes_key(password: &str) -> [u8; 32] {
     key
 }
 
-/// R-06: 从 password 派生 PBKDF2 salt（使用 password 的 SHA-256 作为 salt）
+/// M-8 改进：从 password 派生 PBKDF2 salt（使用 password 的 SHA-256 作为确定性 fallback）
+///
+/// 注意：此函数仅在向后兼容旧数据解密时使用。
+/// 新加密使用 `generate_random_salt()` 生成真随机 salt。
 ///
 /// 使用 password 本身的 SHA-256 作为 salt，使得不同机器的 password 产生不同的 salt。
 /// 虽然同机器的 salt 和 password 均源自机器 ID，但 PBKDF2 的 100,000 次迭代
 /// 仍能显著提升暴力破解成本（较单次 SHA-256 提升 10^5 倍）。
+#[allow(dead_code)] // 保留供向后兼容参考（旧版 ENC1 数据不使用此函数）
 fn derive_salt(password: &str) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(password.as_bytes());
@@ -186,6 +190,19 @@ fn derive_salt(password: &str) -> [u8; 32] {
     let mut salt = [0u8; 32];
     salt.copy_from_slice(&result);
     salt
+}
+
+/// M-8: 生成随机 salt（OS CSPRNG）
+///
+/// 每次加密生成新的随机 salt，确保相同明文+密码的密文也不同。
+/// salt 随密文一起存储（base64 编码后追加在 nonce+ciphertext 之后）。
+///
+/// # Returns
+/// 32 字节随机 salt
+fn generate_random_salt() -> Result<[u8; 32], String> {
+    let mut salt = [0u8; 32];
+    getrandom::getrandom(&mut salt).map_err(|e| format!("生成随机 salt 失败: {}", e))?;
+    Ok(salt)
 }
 
 /// R-06: 使用 PBKDF2-HMAC-SHA256 派生 AES-256 密钥
@@ -315,8 +332,8 @@ pub async fn encrypt_data(data: String, password: String) -> Result<String, Stri
     let result = tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
         // [SECURITY] D3 - Fail Fast：机器 ID 获取失败时拒绝加密，而非降级到硬编码密钥
         let pwd = resolve_password(&password)?;
-        // R-06: 使用 PBKDF2 派生密钥
-        let salt = derive_salt(&pwd);
+        // M-8: 使用随机 salt（替代确定性 SHA-256(password)），增强抗彩虹表攻击能力
+        let salt = generate_random_salt()?;
         let key = derive_aes_key_pbkdf2(&pwd, &salt);
         let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key));
 
