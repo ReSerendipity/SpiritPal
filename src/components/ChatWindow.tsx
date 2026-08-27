@@ -43,6 +43,7 @@ import { emit } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { getCharacter } from '../lib/characters'
 import { trackChatSend, trackChatReceive, trackMemoryTrigger } from '../lib/analytics'
+import { swallowedCatch } from '@/lib/swallowedCatch'
 import { getEnhancedMemoryManager } from '../lib/enhancedMemory'
 import { getLLMClient } from '../lib/llmClient'
 import { loadAIConfig } from '../lib/aiConfig'
@@ -228,6 +229,7 @@ export default function ChatWindow() {
     const working = mgr.getWorkingMemories()
     if (working.length === 0) return null
     const last = working[working.length - 1]
+    if (!last) return null
     const preview = last.user.length > 20 ? `${last.user.slice(0, 20)}…` : last.user
     return preview
     // eslint-disable-next-line react-hooks/exhaustive-deps -- messages 作为触发源用于在消息更新时刷新记忆预览，移除会导致预览陈旧
@@ -596,7 +598,7 @@ export default function ChatWindow() {
           // 仅在规则层未提示时追加 LLM 提取确认
           appendAssistantChunk(assistantId, '\n\n[我记住了关于你的新信息～]')
         }
-      }).catch(() => {})
+      }).catch(swallowedCatch('ChatWindow.autoExtractWithLLM'))
 
       // P2-5：检测"记住"指令——用户明确要求记住的内容以高置信度存储
       if (isRememberRequest) {
@@ -676,8 +678,9 @@ export default function ChatWindow() {
     const msgIndex = messages.findIndex((m) => m.id === messageId)
     let userText = ''
     for (let i = msgIndex - 1; i >= 0; i--) {
-      if (messages[i].role === 'user') {
-        userText = messages[i].content
+      const msg = messages[i]
+      if (msg && msg.role === 'user') {
+        userText = msg.content
         break
       }
     }
@@ -712,7 +715,7 @@ export default function ChatWindow() {
     // 添加标记消息之前的对话历史（排除 system 消息）
     for (let i = 0; i < msgIndex; i++) {
       const m = messages[i]
-      if (m.role !== 'system') {
+      if (m && m.role !== 'system') {
         apiMessages.push(mkMsg(m.role as 'user' | 'assistant', m.content))
       }
     }

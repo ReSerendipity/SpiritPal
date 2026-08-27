@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { Minus, Square, X, Copy } from 'lucide-react'
+import { swallowedCatch } from '@/lib/swallowedCatch'
 
 interface WindowControlsProps {
   /** 窗口标题文字 */
@@ -35,18 +36,18 @@ export function WindowControls({ title, className = '', onClose }: WindowControl
 
       win.isMaximized().then((max) => {
         if (!disposed) setIsMaximized(max)
-      }).catch(() => {})
+      }).catch(swallowedCatch('WindowControls.isMaximized'))
 
       const unlisten = win.onResized(() => {
         if (disposed) return
         win.isMaximized().then((max) => {
           if (!disposed) setIsMaximized(max)
-        }).catch(() => {})
+        }).catch(swallowedCatch('WindowControls.onResized.isMaximized'))
       })
 
       return () => {
         disposed = true
-        unlisten.then((fn) => fn()).catch(() => {})
+        unlisten.then((fn) => fn()).catch(swallowedCatch('WindowControls.unlisten'))
       }
     } catch {
       // 测试环境或非 Tauri 环境下 getCurrentWindow 可能不可用
