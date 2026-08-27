@@ -267,8 +267,9 @@ export class MemoryRecommendationEngine {
       })
     
     // 基于时间的推荐
+    // eslint-disable-next-line prefer-const -- suggestedTimeActivity is reassigned in each branch
     const currentHour = new Date().getHours()
-    let suggestedTimeActivity: { title: string; description: string } | null = null
+    let suggestedTimeActivity: { title: string; description: string }
     
     if (currentHour >= 6 && currentHour < 12) {
       suggestedTimeActivity = {

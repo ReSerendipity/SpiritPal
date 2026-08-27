@@ -152,7 +152,7 @@ export class WebGLWorkerManager {
    * 发送离屏画布（零拷贝传输）
    */
   async transferCanvas(canvas: HTMLCanvasElement): Promise<void> {
-    let offscreen: OffscreenCanvas | null = null
+    let offscreen: OffscreenCanvas | undefined
     
     if (this.config.useOffscreenCanvas && canvas.transferControlToOffscreen) {
       offscreen = canvas.transferControlToOffscreen()
