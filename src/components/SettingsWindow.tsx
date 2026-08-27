@@ -29,7 +29,7 @@ import { appDataDir } from '@tauri-apps/api/path'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import {
 X, Bot, Palette, Settings as SettingsIcon, Info,
-Heart, ShoppingBag, Backpack, Brain, SlidersHorizontal, Trophy, Calendar, Package, Camera, Database, Sliders, Grid3x3, Activity, Sparkles, Users, Upload,
+Heart, ShoppingBag, Backpack, Brain, SlidersHorizontal, Trophy, Calendar, Package, Camera, Database, Sliders, Grid3x3, Activity, Sparkles, Users, Upload, Plug,
 } from 'lucide-react'
 import { enable, disable } from '@tauri-apps/plugin-autostart'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -60,6 +60,7 @@ import { GifToSpriteTool } from './GifToSpriteTool'
 import { LegalDocument } from './LegalDocument'
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from '../lib/legalDocuments'
 import { CommunityPanel } from './CommunityPanel'
+import { McpSettingsPanel } from './McpSettingsPanel'
 import { DecorationEditor } from './DecorationEditor'
 import { LeaderboardPanel } from './LeaderboardPanel'
 import { WindowControls } from './WindowControls'
@@ -78,7 +79,7 @@ const selectInitCharacter = (s: ReturnType<typeof usePetStore.getState>) => s.in
 const selectBackground = (s: ReturnType<typeof usePetStore.getState>) => s.background
 const selectSetBackground = (s: ReturnType<typeof usePetStore.getState>) => s.setBackground
 
-type Tab = 'ai' | 'appearance' | 'personality' | 'personalityEditor' | 'nurturing' | 'shop' | 'inventory' | 'memory' | 'achievements' | 'leaderboard' | 'schedule' | 'mods' | 'album' | 'data' | 'quick' | 'sprite' | 'community' | 'general' | 'about'
+type Tab = 'ai' | 'appearance' | 'personality' | 'personalityEditor' | 'nurturing' | 'shop' | 'inventory' | 'memory' | 'achievements' | 'leaderboard' | 'schedule' | 'mods' | 'album' | 'data' | 'quick' | 'sprite' | 'mcp' | 'community' | 'general' | 'about'
 type ToggleKey = 'autoStart' | 'startMinimized' | 'notifications' | 'showWindowBorder'
 
 /** H-3: Tab 分组定义（3 大类：基础 / 高级 / 关于） */
@@ -121,6 +122,7 @@ const TAB_GROUPS: TabGroup[] = [
       { key: 'data', label: '数据', icon: Database },
       { key: 'quick', label: '快捷', icon: Sliders },
       { key: 'sprite', label: '精灵图', icon: Grid3x3 },
+      { key: 'mcp', label: 'MCP', icon: Plug },
     ],
   },
   {
@@ -930,6 +932,13 @@ const [showImporter, setShowImporter] = useState(false)
               将 GIF / 视频 / 图片转换为精灵图集，支持自定义行列数与帧尺寸，导出 PNG + JSON 元数据
             </div>
             <SpriteSheetPanel />
+          </div>
+        )}
+
+        {tab === 'mcp' && (
+          <div className="max-w-2xl">
+            <h2 className="mb-4 text-lg font-semibold">MCP 管理</h2>
+            <McpSettingsPanel />
           </div>
         )}
 

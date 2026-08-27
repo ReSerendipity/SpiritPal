@@ -3,7 +3,7 @@
 //! MCP（Model Context Protocol）stdio 服务核心：
 //! - 通过 stdin/stdout 以"换行分隔的 JSON-RPC 2.0"通信（MCP 官方用 Content-Length 帧，
 //!   本实现先用换行分隔便于独立验证；后续可换为 LSP 帧）。
-//! - `initialize` / `tools/list` 真实可用并返回 6 个 `spiritpal_*` 工具。
+//! - `initialize` / `tools/list` 真实可用并返回 7 个 `spiritpal_*` 工具。
 //! - `tools/call` 为"命令桥"接缝：工具需要有运行中的 SpiritPal 实例状态，
 //!   本核心不凭空伪造数据，统一返回 `SPIRITPAL_BRIDGE_UNAVAILABLE`，
 //!   由后续"桥接层"（→ 运行中的应用实例 → webview TS 工具逻辑）启用。
@@ -59,6 +59,22 @@ fn tools() -> Vec<ToolDef> {
                 "properties": {
                     "action": { "type": "string", "enum": ["search", "list"] },
                     "query": { "type": "string", "description": "search 时需要" }
+                },
+                "required": ["action"]
+            }),
+        },
+        ToolDef {
+            name: "spiritpal_memory_edit",
+            description: "编辑宠物记忆（create/read/update/delete/stats，真实持久化）",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "action": { "type": "string", "enum": ["create", "read", "update", "delete", "stats"] },
+                    "memoryId": { "type": "string", "description": "read/update/delete 时需要" },
+                    "content": { "type": "string", "description": "create 必填；update 可选" },
+                    "category": { "type": "string", "description": "记忆分类（create/update）" },
+                    "importance": { "type": "number", "minimum": 0, "maximum": 100, "description": "重要性 0-100" },
+                    "tags": { "type": "array", "items": { "type": "string" }, "description": "标签列表" }
                 },
                 "required": ["action"]
             }),
@@ -276,12 +292,13 @@ mod tests {
     }
 
     #[test]
-    fn tools_list_has_six_tools() {
+    fn tools_list_has_seven_tools() {
         let req = json!({"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}});
         let resp = handle_message(req);
         let tools = resp["result"]["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 6);
+        assert_eq!(tools.len(), 7);
         assert!(tools.iter().any(|t| t["name"] == "spiritpal_status"));
+        assert!(tools.iter().any(|t| t["name"] == "spiritpal_memory_edit"));
     }
 
     #[test]
