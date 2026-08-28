@@ -272,7 +272,15 @@ mod platform_impl {
                     // SAFETY: hwnd 是从 isize 重建的有效窗口句柄
                     // HWND_TOPMOST 是常量，SWP_NOMOVE/SWP_NOSIZE 是有效标志
                     // x/y/cx/cy 为 0 但被 SWP_NOMOVE/SWP_NOSIZE 忽略
-                    let _ = SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                    let _ = SetWindowPos(
+                        hwnd,
+                        HWND_TOPMOST,
+                        0,
+                        0,
+                        0,
+                        0,
+                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                    );
                 }
                 // 1000ms 轮询间隔：16ms（60fps）的 SetWindowPos 会在窗口重叠时高频抢占 Z 序
                 // 导致其他窗口（聊天/设置）反复重绘闪烁，且拖动时打断鼠标捕获造成"拖不动"。

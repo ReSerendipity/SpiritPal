@@ -90,7 +90,11 @@ pub fn run_asset_pipeline(script_name: &str, args: &[String]) -> Result<Pipeline
     // 3. 校验每个参数不含危险字符
     for (i, arg) in args.iter().enumerate() {
         if contains_dangerous_chars(arg) {
-            return Err(format!("参数 {} 包含非法字符: {}", i, sanitize_for_display(arg)));
+            return Err(format!(
+                "参数 {} 包含非法字符: {}",
+                i,
+                sanitize_for_display(arg)
+            ));
         }
         // 校验路径类参数不含 ..
         if Path::new(arg)
@@ -162,12 +166,16 @@ fn extract_version(output: &str, tool: &str) -> String {
 
 /// 判断字符串是否像版本号
 fn is_version_like(s: &str) -> bool {
-    if s.is_empty() { return false; }
+    if s.is_empty() {
+        return false;
+    }
     let parts: Vec<&str> = s.split('.').collect();
     if parts.len() < 2 {
         return false;
     }
-    parts.iter().all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()))
+    parts
+        .iter()
+        .all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()))
 }
 
 /// 检查字符串是否包含危险字符
@@ -258,14 +266,27 @@ mod tests {
         // 在没有 Python 的测试环境中可能 Err，也可能 Ok(success=false)
         // 关键是不应因白名单问题而 Err
         if let Err(ref e) = result {
-            assert!(!e.contains("不在白名单中"), "should not reject whitelisted script");
-            assert!(!e.contains("非法字符"), "should not reject clean script name");
+            assert!(
+                !e.contains("不在白名单中"),
+                "should not reject whitelisted script"
+            );
+            assert!(
+                !e.contains("非法字符"),
+                "should not reject clean script name"
+            );
         }
     }
 
     #[test]
     fn test_accept_valid_args() {
-        let result = run_asset_pipeline("normalize.py", &["input.webm".to_string(), "--width".to_string(), "512".to_string()]);
+        let result = run_asset_pipeline(
+            "normalize.py",
+            &[
+                "input.webm".to_string(),
+                "--width".to_string(),
+                "512".to_string(),
+            ],
+        );
         if let Err(ref e) = result {
             assert!(!e.contains("非法字符"), "should not reject clean args");
             assert!(!e.contains("非法路径组件"), "should not reject clean paths");

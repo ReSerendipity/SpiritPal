@@ -152,7 +152,12 @@ pub async fn encrypt_db_at_rest(app: AppHandle) -> Result<bool, String> {
         }
         match result {
             Some(data) => data,
-            None => return Err(format!("读取数据库失败（重试 5 次后仍被锁定）: {}", last_err)),
+            None => {
+                return Err(format!(
+                    "读取数据库失败（重试 5 次后仍被锁定）: {}",
+                    last_err
+                ))
+            }
         }
     };
 

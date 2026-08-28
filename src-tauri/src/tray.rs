@@ -148,7 +148,9 @@ pub fn update_tray_icon(app: tauri::AppHandle, state: String) -> Result<(), Stri
 #[tauri::command]
 pub fn set_tray_icon_png(app: tauri::AppHandle, png: String) -> Result<(), String> {
     use base64::{engine::general_purpose::STANDARD, Engine as _};
-    let bytes = STANDARD.decode(png).map_err(|e| format!("base64 decode failed: {e}"))?;
+    let bytes = STANDARD
+        .decode(png)
+        .map_err(|e| format!("base64 decode failed: {e}"))?;
     // tauri 的 Image::from_bytes 在 image-png feature 下按 PNG 解码
     let icon = tauri::image::Image::from_bytes(&bytes).map_err(|e| e.to_string())?;
     let tray = app

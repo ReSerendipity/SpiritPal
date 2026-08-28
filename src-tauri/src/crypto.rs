@@ -98,8 +98,7 @@ pub fn get_machine_id() -> Result<String, String> {
             "MachineGuid",
         ])
         .creation_flags(CREATE_NO_WINDOW);
-        if let Ok(output) = cmd.output()
-        {
+        if let Ok(output) = cmd.output() {
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 // 解析输出，查找 MachineGuid 值
@@ -497,9 +496,7 @@ fn encrypt_chunked_internal(pwd: &str, data: &str) -> Result<String, String> {
         let mut nonce_bytes = [0u8; NONCE_LEN];
         getrandom::getrandom(&mut nonce_bytes).map_err(|e| e.to_string())?;
         let nonce = Nonce::from_slice(&nonce_bytes);
-        let ciphertext = cipher
-            .encrypt(nonce, chunk)
-            .map_err(|e| e.to_string())?;
+        let ciphertext = cipher.encrypt(nonce, chunk).map_err(|e| e.to_string())?;
         out.extend_from_slice(&nonce_bytes);
         out.extend_from_slice(&ciphertext);
     }
@@ -1141,7 +1138,10 @@ mod tests {
     fn test_enc3_roundtrip_small_data() {
         let encrypted = encrypt_chunked_internal("pw", "你好，SpiritPal！").unwrap();
         assert!(encrypted.starts_with("ENC3:"));
-        assert_eq!(decrypt_chunked_internal("pw", &encrypted).unwrap(), "你好，SpiritPal！");
+        assert_eq!(
+            decrypt_chunked_internal("pw", &encrypted).unwrap(),
+            "你好，SpiritPal！"
+        );
     }
 
     #[test]
