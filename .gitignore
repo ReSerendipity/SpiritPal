@@ -116,3 +116,6 @@ __pycache__/
 # AI 规范（仅本地保留，不上传远程，2026-08-27）
 AGENTS.md
 LOCAL_RULES.md
+
+# 本地预检脚本（不入库）
+precheck.ps1
