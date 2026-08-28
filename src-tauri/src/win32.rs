@@ -606,6 +606,7 @@ pub fn start_topmost_keepalive(hwnd: HWND, running: std::sync::Arc<std::sync::at
 ///
 /// macOS/Linux 上 Tauri 的 alwaysOnTop 属性更稳定，不需要额外轮询。
 #[cfg(not(windows))]
+#[allow(dead_code)]
 pub fn start_topmost_keepalive() {
     // no-op: 非 Windows 平台不需要置顶保活
 }

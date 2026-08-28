@@ -321,9 +321,13 @@ pub struct ScreenshotResult {
 #[derive(serde::Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ScreenshotRegion {
+    #[allow(dead_code)]
     x: i32,
+    #[allow(dead_code)]
     y: i32,
+    #[allow(dead_code)]
     width: i32,
+    #[allow(dead_code)]
     height: i32,
 }
 
