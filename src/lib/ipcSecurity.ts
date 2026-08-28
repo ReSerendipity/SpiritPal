@@ -28,7 +28,8 @@
  */
 
 import { randomBytes, createHash } from 'crypto'
-import { EventEmitter } from 'events'
+// Gotcha #31: webview 非 Node 环境，禁止 import 'events'（构建期 externalize 报错）
+import { EventEmitter } from './typedEventEmitter'
 import { validateMcpInput, type TextValidationOptions } from './mcpInputValidator'
 
 // ============ 安全配置常量 ============

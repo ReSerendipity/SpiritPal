@@ -27,7 +27,8 @@
  * - 执行错误时的特殊反应动画
  */
 
-import { EventEmitter } from 'events'
+// Gotcha #31: webview 非 Node 环境，禁止 import 'events'（构建期 externalize 报错）
+import { EventEmitter } from './typedEventEmitter'
 import { type AnimationId, ANIMATION_CATALOG } from './animationConfig'
 import { getCodingReactionManager, type CodingReaction } from './codingReactionRows'
 import { getAgentStateLayer, type AgentState } from './agentStateLayer'

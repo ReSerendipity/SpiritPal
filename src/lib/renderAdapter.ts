@@ -30,7 +30,8 @@
  * Image也不可用 → Null适配器（空渲染，保证不崩溃）
  */
 
-import { EventEmitter } from 'events'
+// Gotcha #31: webview 非 Node 环境，禁止 import 'events'（构建期 externalize 报错）
+import { EventEmitter } from './typedEventEmitter'
 import type { AnimationId } from './animationConfig'
 
 // ============ 通用渲染接口 ============

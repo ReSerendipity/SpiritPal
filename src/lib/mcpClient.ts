@@ -32,7 +32,8 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
-import { EventEmitter } from 'events'
+// Gotcha #31: webview 非 Node 环境，禁止 import 'events'（构建期 externalize 报错）
+import { EventEmitter } from './typedEventEmitter'
 import { validateMcpInput, type TextValidationOptions } from './mcpInputValidator'
 
 // ============ 类型定义 ============

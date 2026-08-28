@@ -20,7 +20,8 @@
  * @module dragInteraction
  */
 
-import { EventEmitter } from 'events'
+// Gotcha #31: webview 非 Node 环境，禁止 import 'events'（构建期 externalize 报错）
+import { EventEmitter } from './typedEventEmitter'
 
 // ============ 配置常量 ============
 
