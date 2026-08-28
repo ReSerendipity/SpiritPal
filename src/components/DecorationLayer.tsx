@@ -15,7 +15,7 @@
 import type { CSSProperties } from 'react'
 import { usePetStore } from '../stores/petStore'
 import { ACCESSORIES } from '../lib/items'
-import type { WornDecoration, AnchorPoint } from '../lib/types'
+import type { WornDecoration, AnchorPoint, DecorationRotations } from '../lib/types'
 
 /** 装饰品层组件Props */
 interface DecorationLayerProps {
@@ -29,6 +29,8 @@ interface DecorationLayerProps {
   facing: 'left' | 'right'
   /** 点击缩放比例 */
   clickScale: number
+  /** A-13：伪物理摆角（度），未启用物理时为空对象 */
+  rotations?: DecorationRotations
 }
 
 // 各锚点相对于宠物精灵容器的定位
@@ -53,6 +55,7 @@ export function DecorationLayer({
   spriteW,
   facing,
   clickScale,
+  rotations,
 }: DecorationLayerProps) {
   const inventory = usePetStore((s) => s.inventory)
 
@@ -74,16 +77,21 @@ export function DecorationLayer({
         const anchorStyle = ANCHOR_STYLES[dec.anchor]
         const offsetX = dec.offset?.x ?? 0
         const offsetY = dec.offset?.y ?? 0
+        // A-13：伪物理摆角；scaleX(-1) 会翻转旋转方向，左朝向时取反以保持视觉一致
+        const swing = rotations?.[dec.anchor] ?? 0
+        const rotation = swing * (facing === 'left' ? -1 : 1)
         return (
           <div
             key={dec.itemId}
             className="pointer-events-none absolute select-none"
             style={{
               ...anchorStyle,
-              transform: `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px)) scaleX(${facing === 'left' ? -1 : 1}) scale(${clickScale})`,
+              transform: `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px)) scaleX(${facing === 'left' ? -1 : 1}) scale(${clickScale}) rotate(${rotation}deg)`,
+              // 以顶部为轴摆动，接近"悬挂饰品/发丝"的观感
+              transformOrigin: 'top center',
               fontSize: `${emojiSize}px`,
               lineHeight: 1,
-              transition: 'transform 0.15s ease',
+              transition: swing === 0 ? 'transform 0.15s ease' : 'none',
             }}
           >
             {icon}

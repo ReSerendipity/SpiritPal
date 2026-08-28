@@ -56,6 +56,12 @@ export interface CharacterPackConfig {
   }
   /** 动画映射：状态名 → 精灵图行号/帧数 */
   animations?: Record<string, { row: number; frames: number; fps?: number }>
+  /**
+   * physics3.json 路径（可选，相对于角色包根目录）。
+   * 用于非 Cubism 精灵图角色的"伪物理"：由 `live2dPhysicsParser` 解析，
+   * 驱动装饰部件（发饰/尾巴等）随宠物移动摆动。未提供时装饰层保持静态。
+   */
+  physicsPath?: string
   /** 音效映射：状态名 → 音频文件路径 */
   soundEffects?: Record<string, string>
   /** 主题色 */
@@ -228,6 +234,7 @@ export class CharacterResourceLoader {
       fewShotExamples: [],
       spriteAsset: config.spritePath,
       spriteType: config.spriteType,
+      physicsPath: config.physicsPath,
       themeColor: config.themeColor ?? { primary: '#4ECDC4', secondary: '#FF6B6B' },
       bubbleMessages: {
         idle: ['…'],

@@ -83,6 +83,8 @@ import {
 import { useDockVisualFeedback } from '../hooks/pet/useDockVisualFeedback'
 // A-7：抚摸时触发 GPU 粒子特效（WebGL 不可用时自动降级为 no-op）
 import { usePetParticles } from '../hooks/pet/usePetParticles'
+// A-13：装饰部件伪物理（physics3.json → 装饰摆角）
+import { useDecorationPhysics } from '../hooks/pet/useDecorationPhysics'
 import { getHiddenStateManager } from '../lib/hiddenStateManager'
 import { getSilentModeManager } from '../lib/silentModeManager'
 import type { DockDir } from '../hooks/pet/usePetDragging'
@@ -839,6 +841,14 @@ export default function PetWindow() {
 
   // A-7：GPU 粒子特效（WebGL 不可用时 burst 自动降级为空操作）
   const { canvasRef: particleCanvasRef, burst: burstParticles } = usePetParticles(spriteW, spriteH)
+
+  // A-13：装饰部件伪物理 —— 仅当角色包声明 physics3.json 时启用，默认角色保持静态
+  const decorationVelocityX =
+    dragging || petState === 'walk' ? (facing === 'left' ? -320 : 320) : 0
+  const decorationRotations = useDecorationPhysics({
+    physicsPath: character?.physicsPath,
+    velocityX: decorationVelocityX,
+  })
 
   // 升级检测（渲染期调整状态：检测到等级提升时触发一次升级动画）
   const [prevLevel, setPrevLevel] = useState(0)
@@ -1625,7 +1635,7 @@ export default function PetWindow() {
           style={{ width: spriteW, height: spriteH, position: 'relative' }}
         >
           <DecorationLayer decorations={backDecorations} spriteW={spriteW} spriteH={spriteH}
-            facing={facing} clickScale={clickScale} />
+            facing={facing} clickScale={clickScale} rotations={decorationRotations} />
 
           <div
             data-sprite=""
@@ -1671,7 +1681,7 @@ export default function PetWindow() {
           </div>
 
           <DecorationLayer decorations={frontDecorations} spriteW={spriteW} spriteH={spriteH}
-            facing={facing} clickScale={clickScale} />
+            facing={facing} clickScale={clickScale} rotations={decorationRotations} />
 
           {/* 天气视觉效果 */}
           {weatherAction !== 'normal' && (
