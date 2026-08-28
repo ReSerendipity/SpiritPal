@@ -223,8 +223,8 @@ export class VisionPerceptionManager {
     } catch (error) {
       console.error('[VisionPerception] Vision analysis failed:', error)
       
-      // 降级方案：基于截图文件名/元数据返回简单描述
-      return this.fallbackAnalysis(img)
+      // 降级方案：基于截图元数据 + 系统活动窗口信息返回简单描述
+      return await this.fallbackAnalysis(img)
     }
   }
 
@@ -256,8 +256,26 @@ export class VisionPerceptionManager {
 
   /**
    * 降级分析（Vision LLM 不可用时返回简单描述）
+   *
+   * A-1：尝试用系统活动窗口信息增强描述（`analyze_screen_content` 命令仍为计划中，
+   * 但截屏 + 窗口信息已真实可用，降级描述也要给出有价值反馈而非固定文案）
    */
-  private fallbackAnalysis(screenshot: ScreenshotResult): VisualAnalysisResult {
+  private async fallbackAnalysis(screenshot: ScreenshotResult): Promise<VisualAnalysisResult> {
+    try {
+      const win = await invoke<{ title: string; processName: string }>('get_active_window')
+      if (win?.title) {
+        return {
+          description: `屏幕上有内容，你似乎在用「${win.title}」`,
+          activeApp: win.processName || undefined,
+          windowTitle: win.title,
+          confidence: 0.3,
+          suggestedPetBehavior: 'idle',
+        }
+      }
+    } catch {
+      // 窗口信息不可用时继续走通用描述
+    }
+
     return {
       description: '屏幕中有内容，但无法详细分析',
       confidence: 0.3,

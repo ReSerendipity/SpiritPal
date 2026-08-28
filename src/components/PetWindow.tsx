@@ -577,6 +577,8 @@ export default function PetWindow() {
     setBubble('嘘——5 分钟内我不说话~')
   }
 
+
+
   // 连接拖拽中断到行走动画
   useEffect(() => {
     setInterruptWalk(() => interruptWalk)
@@ -871,6 +873,7 @@ export default function PetWindow() {
   useEffect(() => {
     isMiniRef.current = isMini
   }, [isMini])
+
 
   // 升级检测（渲染期调整状态：检测到等级提升时触发一次升级动画）
   const [prevLevel, setPrevLevel] = useState(0)
