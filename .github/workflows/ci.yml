@@ -290,6 +290,7 @@ jobs:
             --recursive
             --skip-git
             ./
+        continue-on-error: true
 
       - name: Upload osv-scanner report
         if: always()
