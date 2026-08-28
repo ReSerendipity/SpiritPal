@@ -38,6 +38,8 @@ import { getEnhancedMemoryManager } from './enhancedMemory'
 import { getContextAwarenessManager } from './contextAwareness'
 // R2：约定跟进
 import { getCommitmentTracker } from './commitmentTracker'
+// A-11：记忆推荐——基于长期记忆生成个性化主动话题
+import { getMemoryRecommendationEngine } from './memoryRecommendation'
 // P2-1：接入 RecallEngine LLM 渲染，让主动说话时能自然地回忆而非只用模板
 import { getRecallEngine, buildRecallRenderPrompt } from './recallEngine'
 // T-12: 统一配置入口
@@ -198,6 +200,32 @@ export class ProactiveSpeakManager {
         // 约定追踪失败不影响主动说话
       }
 
+      // A-11：记忆推荐——基于长期记忆生成个性化话题建议，融入主动发言
+      let recommendationContext = ''
+      try {
+        const characterId = store?.characterId
+        if (characterId) {
+          const memMgr = getEnhancedMemoryManager(characterId)
+          await memMgr.ensureLoaded()
+          const hour = new Date().getHours()
+          const timeOfDay =
+            hour < 6 ? 'night' : hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening'
+          const recs = await getMemoryRecommendationEngine().generateRecommendations(
+            memMgr.getAllMemories(),
+            { userId: characterId, limit: 2, minScore: 0.3, context: { timeOfDay } },
+          )
+          if (recs.length > 0) {
+            const top = recs
+              .slice(0, 2)
+              .map((r) => `- ${r.title}：${r.description}`)
+              .join('\n')
+            recommendationContext = `\n\n【记忆推荐话题】你可以自然地提起这些基于过往记忆的建议：\n${top}`
+          }
+        }
+      } catch {
+        // 推荐失败不影响主动说话
+      }
+
       // P2-1：尝试通过 RecallEngine 生成更自然的回忆消息
       // RecallEngine 会检查预算、勿扰、空闲门槛，在合适时输出一条回忆
       try {
@@ -274,7 +302,7 @@ export class ProactiveSpeakManager {
         {
           id: 'proactive-context',
           role: 'user',
-          content: `当前情境：${contextHints}${memoryContext}${commitmentContext}\n请主动说一句话。`,
+          content: `当前情境：${contextHints}${memoryContext}${commitmentContext}${recommendationContext}\n请主动说一句话。`,
           timestamp: now,
         },
       ]

@@ -134,21 +134,21 @@ export class MemoryExporter {
    */
   private async fetchMemories(): Promise<MemoryEntry[]> {
     const memories: MemoryEntry[] = []
-    
+
     if (this.options.characterId) {
-      // 导出指定角色
+      // 导出指定角色：使用公开加载入口刷新内存后取全部记忆
       const manager = getEnhancedMemoryManager(this.options.characterId || 'default')
-      const data = await (manager as any).load?.()
-      memories.push(...(data?.entries || []))
+      await manager.ensureLoaded()
+      memories.push(...manager.getAllMemories())
     } else {
       // TODO: 导出所有角色（需要遍历所有角色）
       // 这里使用简化实现
       console.warn('[MemoryExporter] 未指定角色 ID，将使用默认角色')
       const manager = getEnhancedMemoryManager('default')
-      const data = await (manager as any).load?.()
-      memories.push(...(data?.entries || []))
+      await manager.ensureLoaded()
+      memories.push(...manager.getAllMemories())
     }
-    
+
     // 应用时间范围过滤
     if (this.options.timeRange) {
       const { start, end } = this.options.timeRange
@@ -157,7 +157,7 @@ export class MemoryExporter {
         return timestamp >= start && timestamp <= end
       })
     }
-    
+
     return memories
   }
 
