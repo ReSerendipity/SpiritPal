@@ -12,6 +12,12 @@
  * - 性能统计与监控
  * 
  * 参考：Pixi.js BatchRenderer / Unity SRP Batcher
+ *
+ * ⚠️ 接线状态（A-7 结论）：**本模块只做 CPU 侧的分组 / 剔除 / 顶点打包，不做 GPU 提交。**
+ * 项目当前的渲染由 Pixi（Live2D 链路）与 CSS 精灵图两条路径承担，本模块既没有
+ * 自己的着色器也没有纹理管理，原先的 `render(gl)` 只是把批次清零后打印一条
+ * 「N draw calls」日志——属于静默假实现，已移除。
+ * 需要真正落地的调用方请使用 `buildBatches()` 取走打包好的顶点数据自行提交。
  */
 
 // ============ 类型定义 ============
@@ -74,7 +80,9 @@ export interface RenderConfig {
 
 const DEFAULT_CONFIG: RenderConfig = {
   maxBatches: 16,
-  maxVerticesPerBatch: 65536, // 64K 顶点 per batch
+  // 4096 顶点 = 1024 个精灵 quad；批次在构造时一次性分配
+  // （16 × 4096 × 8 float × 4B ≈ 2MB），65536 会导致 32MB 常驻内存
+  maxVerticesPerBatch: 4096,
   enableCulling: true,
   viewport: { x: 0, y: 0, width: 1920, height: 1080 },
 }
@@ -92,6 +100,8 @@ export class BatchRenderer {
     totalVerticesSubmitted: 0,
     batchesCreated: 0,
     objectsCulled: 0,
+    /** 最近一次 buildBatches 的耗时（毫秒） */
+    lastBuildMs: 0,
   }
   
   constructor(config?: Partial<RenderConfig>) {
@@ -99,7 +109,8 @@ export class BatchRenderer {
     
     // 初始化批次池
     for (let i = 0; i < this.config.maxBatches; i++) {
-      const batchSize = this.config.maxVerticesPerBatch * 6 // 4 vertices per quad + index buffer
+      // 每个顶点 8 个 float：[x, y, u, v, r, g, b, a]
+      const batchSize = this.config.maxVerticesPerBatch * 8
       const vertices = new Float32Array(batchSize)
       
       this.batches.set(`batch_${i}`, {
@@ -144,7 +155,7 @@ export class BatchRenderer {
   /**
    * 批量渲染所有对象
    */
-  async render(gl: WebGLRenderingContext): Promise<void> {
+  buildBatches(): SpriteBatch[] {
     const startTime = performance.now()
     
     // 重置批次
@@ -154,7 +165,6 @@ export class BatchRenderer {
     const groups = this.groupByTexture()
     
     // 为每个组创建批次
-    let drawCalls = 0
     for (const [textureId, group] of groups.entries()) {
       const batch = this.allocateBatch(textureId)
       if (!batch) {
@@ -166,19 +176,21 @@ export class BatchRenderer {
       for (const renderable of group) {
         this.addToBatch(batch, renderable)
       }
-      
-      drawCalls++
     }
     
-    // 上传到 GPU
-    await this.uploadToGPU(gl)
+    const active = this.getActiveBatches()
     
     // 更新统计
-    this.stats.totalDrawCalls += drawCalls
+    this.stats.totalDrawCalls += active.length
     this.stats.totalVerticesSubmitted += this.getTotalVertexCount()
+    this.stats.lastBuildMs = performance.now() - startTime
     
-    const endTime = performance.now()
-    console.log(`[BatchRenderer] ${drawCalls} draw calls in ${(endTime - startTime).toFixed(2)}ms`)
+    return active
+  }
+
+  /** 取当前帧有内容的批次（顶点数据可直接交给自有的 GPU 提交逻辑） */
+  getActiveBatches(): SpriteBatch[] {
+    return Array.from(this.batches.values()).filter((b) => b.count > 0)
   }
 
   /**
@@ -273,7 +285,8 @@ export class BatchRenderer {
    * 添加对象到批次
    */
   private addToBatch(batch: SpriteBatch, obj: Renderable): void {
-    const idx = batch.vertexIndex * 4 // 4 vertices per quad
+    // vertexIndex 已经是「顶点数」（末尾 +4），因此起始顶点索引就是它本身
+    const idx = batch.vertexIndex
     
     if (idx + 4 > batch.maxVertices) {
       console.warn('[BatchRenderer] Batch overflow')
@@ -331,35 +344,6 @@ export class BatchRenderer {
     
     batch.vertexIndex += 4
     batch.count++
-  }
-
-  /**
-   * 上传到 GPU
-   */
-  private async uploadToGPU(gl: WebGLRenderingContext): Promise<void> {
-    for (const [, batch] of this.batches) {
-      if (batch.count === 0) continue
-      
-      // TODO: 绑定纹理
-      // TODO: 上传顶点缓冲
-      // TODO: 绘制批次
-      
-      // 示例代码（简化版）
-      /*
-      const vao = gl.createVertexArray()
-      gl.bindVertexArray(vao)
-      
-      const vbo = gl.createBuffer()
-      gl.bindBuffer(gl.ARRAY_BUFFER, vbo)
-      gl.bufferData(gl.ARRAY_BUFFER, batch.vertices.subarray(0, batch.vertexIndex * 8), gl.DYNAMIC_DRAW)
-      
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, batch.vertexIndex)
-      */
-      
-      // 清理批次
-      batch.vertexIndex = 0
-      batch.count = 0
-    }
   }
 
   /**

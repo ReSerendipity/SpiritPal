@@ -363,7 +363,11 @@ export class MemorySummarizer {
     const groups = new Map<string, Array<{ created_at: string; user: string; assistant: string }>>()
     
     memories.forEach(m => {
-      const date = new Date(m.created_at)
+      // 时间戳缺失或非法时跳过：Invalid Date 调 toISOString() 会抛 RangeError
+      const timestamp = Date.parse(m.created_at)
+      if (Number.isNaN(timestamp)) return
+
+      const date = new Date(timestamp)
       let period: string
       
       switch (granularity) {
