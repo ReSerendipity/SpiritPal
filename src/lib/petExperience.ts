@@ -30,7 +30,7 @@ import {
   isPetExperienceMigrated,
   setPetExperienceMigrated,
 } from './db'
-import { invoke } from '@tauri-apps/api/core'
+import { encryptBlob, decryptBlob } from './blobCrypto'
 import { generateId } from './commonUtils'
 
 // ============ 类型定义 ============
@@ -189,7 +189,7 @@ export class PetExperienceManager {
       // D1 修复：兼容 Rust 端新版 ENC2: 加密前缀，避免密文被当作明文解析而丢失共同经历数据
       if (raw.startsWith('ENC1:') || raw.startsWith('ENC2:')) {
         try {
-          jsonStr = await invoke<string>('decrypt_data', { encrypted: raw, password: '' })
+          jsonStr = await decryptBlob(raw)
         } catch (e) {
           console.warn(`[PetExperience] 解密失败:`, e)
           return
@@ -249,7 +249,7 @@ export class PetExperienceManager {
 
       let toStore: string
       try {
-        toStore = await invoke<string>('encrypt_data', { data: jsonStr, password: '' })
+        toStore = await encryptBlob(jsonStr)
       } catch (e) {
         console.error(`[PetExperience] 加密失败:`, e)
         return

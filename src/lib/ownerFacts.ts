@@ -22,7 +22,7 @@
  */
 
 import { getSetting, setSetting, getOwnerFacts, getOwnerFactsAsOf, getOwnerFactsHistory, upsertOwnerFact, deleteOwnerFact, clearOwnerFacts, isOwnerFactsMigrated, setOwnerFactsMigrated } from './db'
-import { invoke } from '@tauri-apps/api/core'
+import { encryptBlob, decryptBlob } from './blobCrypto'
 import { generateId } from './commonUtils'
 import { estimateTokens } from './stringSimilarity'
 
@@ -172,7 +172,7 @@ export class OwnerFactsManager {
       // D1 修复：兼容 Rust 端新版 ENC2: 加密前缀
       if (raw.startsWith('ENC1:') || raw.startsWith('ENC2:')) {
         try {
-          jsonStr = await invoke<string>('decrypt_data', { encrypted: raw, password: '' })
+          jsonStr = await decryptBlob(raw)
         } catch (e) {
           console.warn(`[OwnerFacts] 解密失败:`, e)
           return
@@ -240,7 +240,7 @@ export class OwnerFactsManager {
 
       let toStore: string
       try {
-        toStore = await invoke<string>('encrypt_data', { data: jsonStr, password: '' })
+        toStore = await encryptBlob(jsonStr)
       } catch (e) {
         console.error(`[OwnerFacts] 加密失败，拒绝写入明文:`, e)
         return
