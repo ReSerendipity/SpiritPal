@@ -41,7 +41,10 @@ fn body_of(request: &str) -> &str {
 
 /// 从请求提取 `Authorization: Bearer <token>`
 fn request_bearer(request: &str) -> Option<String> {
-    let head = request.split_once("\r\n\r\n").map(|(h, _)| h).unwrap_or(request);
+    let head = request
+        .split_once("\r\n\r\n")
+        .map(|(h, _)| h)
+        .unwrap_or(request);
     for line in head.lines() {
         if line.to_ascii_lowercase().starts_with("authorization:") {
             let value = line.split_once(':').map(|(_, v)| v.trim()).unwrap_or("");
@@ -97,7 +100,10 @@ where
     let request = read_request(&mut stream)?;
     let bearer = request_bearer(&request);
     if !bearer.as_deref().is_some_and(|b| b == token) {
-        return write_http_response(&mut stream, "{\"error\":\"unauthorized: 缺少或错误的 Bridge Token\"}");
+        return write_http_response(
+            &mut stream,
+            "{\"error\":\"unauthorized: 缺少或错误的 Bridge Token\"}",
+        );
     }
     let body = body_of(&request);
     let reply = match parse_mcp_call_body(body) {
@@ -191,7 +197,8 @@ mod tests {
 
     #[test]
     fn auth_rejects_missing_and_wrong_token() {
-        let mp: fn(&str, &Value) -> String = |t: &str, _| format!("{{\"ok\":true,\"tool\":\"{t}\"}}");
+        let mp: fn(&str, &Value) -> String =
+            |t: &str, _| format!("{{\"ok\":true,\"tool\":\"{t}\"}}");
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let real = listener.local_addr().unwrap().to_string();
         let server = thread::spawn(move || {
@@ -208,7 +215,8 @@ mod tests {
         assert!(r.contains("unauthorized"));
 
         // 正确 token
-        let mp2: fn(&str, &Value) -> String = |t: &str, _| format!("{{\"ok\":true,\"tool\":\"{t}\"}}");
+        let mp2: fn(&str, &Value) -> String =
+            |t: &str, _| format!("{{\"ok\":true,\"tool\":\"{t}\"}}");
         let listener2 = TcpListener::bind("127.0.0.1:0").unwrap();
         let real2 = listener2.local_addr().unwrap().to_string();
         let server2 = thread::spawn(move || {
