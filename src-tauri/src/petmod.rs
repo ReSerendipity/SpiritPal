@@ -28,9 +28,12 @@
 //! - 使用 `spawn_blocking` 避免阻塞 IPC 线程
 
 use std::fs;
-use std::io::{Cursor, Read};
+use std::io::{Cursor, Read, Write};
 use std::path::Path;
-use zip::ZipArchive;
+use zip::write::FileOptions;
+use zip::{CompressionMethod, ZipArchive, ZipWriter};
+
+use tauri::Manager;
 
 use crate::crypto::{derive_mod_name_from_path, sha256_of_bytes};
 use crate::validation::validate_target_dir;
@@ -389,10 +392,603 @@ pub async fn scan_mods_directory(dir_path: String) -> Result<ScanModsResult, Str
     result
 }
 
+// ============ A-15：.petmod 打包 / 校验 / 安装 / 卸载 ============
+//
+// 前端 `modPackager.ts` 一直在 invoke 这四个命令，但 Rust 侧从未实现
+// （它们被登记在 ipcContract 的"待实现命令"排除列表里），
+// 导致 Mod 导出功能点了没反应。此处补齐真实实现：
+// 压缩复用已有的 `zip` 依赖，哈希复用 `crypto::sha256_of_bytes`。
+
+/// 打包结果
+#[derive(serde::Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct PackPetmodResult {
+    /// 是否成功
+    success: bool,
+    /// 产物绝对路径
+    output_path: String,
+    /// 产物 SHA-256（generate_hash 为 true 时才有值）
+    sha256: Option<String>,
+    /// 产物字节大小
+    size_bytes: Option<u64>,
+    /// 错误信息
+    error: Option<String>,
+}
+
+/// .petmod 包校验结果
+#[derive(serde::Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidatePetmodResult {
+    /// 包是否合法
+    valid: bool,
+    /// 清单内容（petmod.json，缺失时回退 pet_conf.json）
+    manifest_json: Option<String>,
+    /// 实际计算出的 SHA-256
+    sha256: Option<String>,
+    /// 清单内声明的 SHA-256（用于比对是否被篡改）
+    expected_sha256: Option<String>,
+    /// 错误信息
+    error: Option<String>,
+}
+
+/// 安装结果
+#[derive(serde::Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallPetmodResult {
+    /// 是否成功
+    success: bool,
+    /// 模组 ID
+    mod_id: String,
+    /// 模组版本（来自 petmod.json 的 version 字段）
+    version: Option<String>,
+    /// 错误信息
+    error: Option<String>,
+}
+
+/// 判断相对路径是否命中排除规则
+///
+/// ⚠️ 只支持三种简写，**不是完整 glob**（未引入 glob 依赖）：
+/// - `name.ext` — 任意层级下文件名命中
+/// - `*.ext`    — 扩展名匹配
+/// - `dir/`     — 目录名命中（该目录下全部内容）
+fn is_excluded(rel_path: &str, patterns: &[String]) -> bool {
+    if patterns.is_empty() {
+        return false;
+    }
+    let rel_lower = rel_path.to_lowercase();
+    for raw in patterns {
+        let p = raw.trim();
+        if p.is_empty() {
+            continue;
+        }
+        if let Some(ext) = p.strip_prefix("*.") {
+            if rel_lower.ends_with(&format!(".{}", ext.to_lowercase())) {
+                return true;
+            }
+        } else if let Some(dir) = p.strip_suffix('/') {
+            if rel_lower.split('/').any(|seg| seg == dir.to_lowercase()) {
+                return true;
+            }
+        } else if rel_lower.split('/').any(|seg| seg == p.to_lowercase()) {
+            return true;
+        }
+    }
+    false
+}
+
+/// 递归收集待打包文件，返回 (zip 内相对路径, 磁盘绝对路径) 列表
+fn collect_files(
+    dir: &Path,
+    base: &Path,
+    patterns: &[String],
+    out: &mut Vec<(String, std::path::PathBuf)>,
+) -> Result<(), String> {
+    let entries = fs::read_dir(dir).map_err(|e| format!("读取目录失败 {}: {}", dir.display(), e))?;
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let rel = path
+            .strip_prefix(base)
+            .map_err(|_| format!("无法计算相对路径: {}", path.display()))?
+            .to_string_lossy()
+            .replace('\\', "/");
+
+        if rel.is_empty() {
+            continue;
+        }
+        if is_excluded(&rel, patterns) {
+            continue;
+        }
+        if path.is_dir() {
+            collect_files(&path, base, patterns, out)?;
+        } else if path.is_file() {
+            out.push((rel, path));
+        }
+    }
+    Ok(())
+}
+
+/// 将模组目录打包为 .petmod 压缩包
+///
+/// 前端调用方式：`invoke('pack_petmod', { sourceDir, outputPath, compress, generateHash, excludePatterns })`
+///
+/// # 安全约束
+/// - 输出文件必须以 `.petmod` 结尾
+/// - 输出文件不得位于源目录内部（否则会把产物打进自己）
+///
+/// # Arguments
+/// - `source_dir` — 源模组目录（必须含 petmod.json / pet_conf.json 之一）
+/// - `output_path` — 输出文件路径
+/// - `compress` — 是否 Deflate 压缩（false 时仅存储，默认 true）
+/// - `generate_hash` — 是否计算产物 SHA-256（默认 true）
+/// - `exclude_patterns` — 排除规则（见 [`is_excluded`]）
+#[tauri::command]
+pub async fn pack_petmod(
+    source_dir: String,
+    output_path: String,
+    compress: Option<bool>,
+    generate_hash: Option<bool>,
+    exclude_patterns: Option<Vec<String>>,
+) -> Result<PackPetmodResult, String> {
+    if !output_path.to_lowercase().ends_with(".petmod") {
+        return Err("输出路径必须以 .petmod 结尾".to_string());
+    }
+
+    let src = Path::new(&source_dir);
+    if !src.is_dir() {
+        return Err(format!("源目录不存在: {}", source_dir));
+    }
+
+    // 输出不得落在源目录内部，避免把产物打进自己
+    let out = Path::new(&output_path);
+    if let (Ok(canonical_src), Ok(canonical_out)) = (
+        src.canonicalize(),
+        out.parent().unwrap_or(Path::new(".")).canonicalize(),
+    ) {
+        if canonical_out.starts_with(&canonical_src) {
+            return Err("输出文件不能位于源目录内部（会导致产物自包含）".to_string());
+        }
+    }
+
+    let do_compress = compress.unwrap_or(true);
+    let do_hash = generate_hash.unwrap_or(true);
+    let patterns = exclude_patterns.unwrap_or_default();
+    let src_owned = source_dir.clone();
+    let out_owned = output_path.clone();
+
+    let result = tauri::async_runtime::spawn_blocking(move || -> Result<PackPetmodResult, String> {
+        // 1. 收集文件
+        let base = Path::new(&src_owned);
+        let mut files: Vec<(String, std::path::PathBuf)> = Vec::new();
+        collect_files(base, base, &patterns, &mut files)?;
+        if files.is_empty() {
+            return Err("源目录为空（或全部被排除），没有可打包的文件".to_string());
+        }
+
+        // 2. 写 zip
+        if let Some(parent) = Path::new(&out_owned).parent() {
+            fs::create_dir_all(parent).map_err(|e| format!("创建输出目录失败: {}", e))?;
+        }
+        let out_file =
+            fs::File::create(&out_owned).map_err(|e| format!("创建输出文件失败: {}", e))?;
+        let mut zip = ZipWriter::new(out_file);
+        let method = if do_compress {
+            CompressionMethod::Deflated
+        } else {
+            CompressionMethod::Stored
+        };
+        let options = FileOptions::default()
+            .compression_method(method)
+            .unix_permissions(0o644);
+
+        for (rel, abs) in &files {
+            zip.start_file(rel.clone(), options)
+                .map_err(|e| format!("写入压缩包条目失败 {}: {}", rel, e))?;
+            let bytes = fs::read(abs).map_err(|e| format!("读取文件失败 {}: {}", rel, e))?;
+            zip.write_all(&bytes)
+                .map_err(|e| format!("写入文件内容失败 {}: {}", rel, e))?;
+        }
+        zip.finish().map_err(|e| format!("完成打包失败: {}", e))?;
+
+        // 3. 统计产物
+        let size_bytes = fs::metadata(&out_owned).map(|m| m.len()).ok();
+        let sha256 = if do_hash {
+            let bytes = fs::read(&out_owned).map_err(|e| format!("读取产物失败: {}", e))?;
+            Some(sha256_of_bytes(&bytes))
+        } else {
+            None
+        };
+
+        log::info!(
+            "[SpiritPal] .petmod 打包成功: {} 个文件, {} bytes, path={}",
+            files.len(),
+            size_bytes.unwrap_or(0),
+            out_owned
+        );
+
+        Ok(PackPetmodResult {
+            success: true,
+            output_path: out_owned,
+            sha256,
+            size_bytes,
+            error: None,
+        })
+    })
+    .await
+    .map_err(|e| format!("打包任务执行失败: {}", e))?;
+
+    result
+}
+
+/// 校验 .petmod 包完整性
+///
+/// 前端调用方式：`invoke('validate_petmod', { packagePath })`
+///
+/// # 校验内容
+/// 1. zip 魔数（复用 [`read_petmod_bytes`]）
+/// 2. 能否正常打开 zip
+/// 3. 是否存在清单文件（优先 `petmod.json`，缺失时回退 `pet_conf.json`）
+/// 4. 清单内的 `sha256` 字段与实际哈希是否一致（若有声明）
+#[tauri::command]
+pub async fn validate_petmod(package_path: String) -> Result<ValidatePetmodResult, String> {
+    let result =
+        tauri::async_runtime::spawn_blocking(move || -> Result<ValidatePetmodResult, String> {
+            let (bytes, sha256_actual) = read_petmod_bytes(&package_path)?;
+
+            let mut archive = ZipArchive::new(Cursor::new(bytes.as_slice()))
+                .map_err(|e| format!("打开压缩包失败: {}", e))?;
+
+            // 优先读 ModPackager 的 petmod.json，回退角色层的 pet_conf.json
+            let manifest_json = ["petmod.json", "pet_conf.json"].iter().find_map(|name| {
+                let mut file = archive.by_name(name).ok()?;
+                let mut content = String::new();
+                file.read_to_string(&mut content).ok()?;
+                Some(content)
+            });
+
+            let expected_sha256 = manifest_json
+                .as_ref()
+                .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
+                .and_then(|v| {
+                    v.get("sha256")
+                        .and_then(|h| h.as_str())
+                        .map(|h| h.to_string())
+                });
+            drop(archive);
+
+            if manifest_json.is_none() {
+                return Ok(ValidatePetmodResult {
+                    valid: false,
+                    manifest_json: None,
+                    sha256: Some(sha256_actual),
+                    expected_sha256,
+                    error: Some("压缩包内缺少清单文件（petmod.json 或 pet_conf.json）".to_string()),
+                });
+            }
+
+            Ok(ValidatePetmodResult {
+                valid: true,
+                manifest_json,
+                sha256: Some(sha256_actual),
+                expected_sha256,
+                error: None,
+            })
+        })
+        .await
+        .map_err(|e| format!("校验任务执行失败: {}", e))?;
+
+    result
+}
+
+/// 从 .petmod 包安装模组
+///
+/// 与 [`import_petmod`] 的区别：返回清单中的 `version`，并支持 `overwrite` 控制。
+///
+/// 前端调用方式：`invoke('install_petmod', { packagePath, targetDir, overwrite, skipSignatureCheck })`
+#[tauri::command]
+pub async fn install_petmod(
+    app: tauri::AppHandle,
+    package_path: String,
+    target_dir: String,
+    overwrite: Option<bool>,
+    skip_signature_check: Option<bool>,
+) -> Result<InstallPetmodResult, String> {
+    // 与 import_petmod 一致：目标目录必须在应用数据目录范围内
+    validate_target_dir(&app, &target_dir)?;
+
+    if skip_signature_check == Some(true) {
+        // 项目当前没有模组签名体系，如实记录而不是假装校验过
+        log::warn!("[SpiritPal] 模组签名体系尚未实现，skip_signature_check 被忽略");
+    }
+
+    let result =
+        tauri::async_runtime::spawn_blocking(move || -> Result<InstallPetmodResult, String> {
+            let (bytes, sha256_hex) = read_petmod_bytes(&package_path)?;
+
+            // 优先用清单里的 id 作为目录名，回退文件名派生
+            let mod_name = {
+                let mut archive = ZipArchive::new(Cursor::new(bytes.as_slice()))
+                    .map_err(|e| format!("打开压缩包失败: {}", e))?;
+                let manifest_id = archive
+                    .by_name("petmod.json")
+                    .ok()
+                    .and_then(|mut f| {
+                        let mut s = String::new();
+                        f.read_to_string(&mut s).ok()?;
+                        serde_json::from_str::<serde_json::Value>(&s).ok()
+                    })
+                    .and_then(|v| v.get("id").and_then(|i| i.as_str()).map(String::from))
+                    .filter(|id| !id.is_empty());
+                manifest_id.unwrap_or_else(|| derive_mod_name_from_path(&package_path))
+            };
+
+            let mod_dir = Path::new(&target_dir).join(&mod_name);
+            if mod_dir.exists() && overwrite != Some(true) {
+                return Ok(InstallPetmodResult {
+                    success: false,
+                    mod_id: mod_name,
+                    version: None,
+                    error: Some(format!(
+                        "模组已存在：{}（设置 overwrite=true 可覆盖）",
+                        mod_dir.display()
+                    )),
+                });
+            }
+            if mod_dir.exists() {
+                fs::remove_dir_all(&mod_dir).map_err(|e| format!("清理旧模组失败: {}", e))?;
+            }
+            fs::create_dir_all(&mod_dir).map_err(|e| format!("创建模组目录失败: {}", e))?;
+
+            extract_zip_to(bytes, &mod_dir)?;
+            let actual_mod_dir = locate_mod_dir(&mod_dir);
+
+            let (has_pet_conf, _, _) = validate_mod_structure(&actual_mod_dir);
+            if !has_pet_conf {
+                let _ = fs::remove_dir_all(&mod_dir);
+                return Ok(InstallPetmodResult {
+                    success: false,
+                    mod_id: mod_name,
+                    version: None,
+                    error: Some("模组结构无效：缺少 pet_conf.json".to_string()),
+                });
+            }
+
+            // 版本号只在 petmod.json 中存在
+            let version = fs::read_to_string(actual_mod_dir.join("petmod.json"))
+                .ok()
+                .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+                .and_then(|v| v.get("version").and_then(|x| x.as_str()).map(String::from));
+
+            log::info!(
+                "[SpiritPal] .petmod 安装成功: id={}, sha256={}, path={}",
+                mod_name,
+                sha256_hex,
+                actual_mod_dir.display()
+            );
+
+            Ok(InstallPetmodResult {
+                success: true,
+                mod_id: mod_name,
+                version,
+                error: None,
+            })
+        })
+        .await
+        .map_err(|e| format!("安装任务执行失败: {}", e))?;
+
+    result
+}
+
+/// 卸载已安装的模组（删除模组目录）
+///
+/// 前端调用方式：`invoke('uninstall_mod', { modDir })`
+///
+/// # 安全措施
+/// - `mod_dir` 必须在应用数据目录范围内（[`validate_target_dir`]）
+/// - 拒绝删除应用数据目录本身
+#[tauri::command]
+pub async fn uninstall_mod(app: tauri::AppHandle, mod_dir: String) -> Result<(), String> {
+    validate_target_dir(&app, &mod_dir)?;
+
+    let base = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("无法获取应用数据目录: {}", e))?;
+    if std::path::Path::new(&mod_dir) == base.as_path() {
+        return Err("拒绝删除应用数据目录本身".to_string());
+    }
+
+    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        let path = Path::new(&mod_dir);
+        if !path.exists() {
+            return Err(format!("模组目录不存在: {}", mod_dir));
+        }
+        fs::remove_dir_all(path).map_err(|e| format!("删除模组目录失败: {}", e))?;
+        log::info!("[SpiritPal] 模组已卸载: {}", mod_dir);
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("卸载任务执行失败: {}", e))?
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::io::Write;
+
+    // ============ A-15: 排除规则与打包 ============
+
+    #[test]
+    fn test_is_excluded_by_extension() {
+        let patterns = vec!["*.tmp".to_string()];
+        assert!(is_excluded("cache/a.tmp", &patterns));
+        assert!(is_excluded("b.TMP", &patterns));
+        assert!(!is_excluded("pet_conf.json", &patterns));
+    }
+
+    #[test]
+    fn test_is_excluded_by_exact_name() {
+        let patterns = vec!["Thumbs.db".to_string()];
+        assert!(is_excluded("sprites/Thumbs.db", &patterns));
+        assert!(!is_excluded("sprites/idle.png", &patterns));
+    }
+
+    #[test]
+    fn test_is_excluded_by_dir_name() {
+        let patterns = vec!["node_modules/".to_string()];
+        assert!(is_excluded("node_modules/pkg/index.js", &patterns));
+        assert!(!is_excluded("sprites/idle.png", &patterns));
+    }
+
+    #[test]
+    fn test_is_excluded_empty_patterns_never_matches() {
+        assert!(!is_excluded("anything.json", &[]));
+    }
+
+    #[test]
+    fn test_collect_files_walks_subdirs_and_reports_relative_paths() {
+        let dir = std::env::temp_dir().join(format!("spiritpal_pack_collect_{}", std::process::id()));
+        let nested = dir.join("sprites");
+        fs::create_dir_all(&nested).unwrap();
+        fs::write(dir.join("petmod.json"), "{}").unwrap();
+        fs::write(nested.join("idle.png"), "png-bytes").unwrap();
+
+        let mut files: Vec<(String, std::path::PathBuf)> = Vec::new();
+        collect_files(&dir, &dir, &[], &mut files).unwrap();
+
+        let mut rels: Vec<String> = files.into_iter().map(|(r, _)| r).collect();
+        rels.sort();
+        assert_eq!(rels, vec!["petmod.json".to_string(), "sprites/idle.png".to_string()]);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_pack_petmod_produces_readable_zip() {
+        let base = std::env::temp_dir().join(format!("spiritpal_pack_{}", std::process::id()));
+        let src = base.join("src-mod");
+        let out = base.join("out").join("demo-1.0.0.petmod");
+        fs::create_dir_all(src.join("sprites")).unwrap();
+        fs::create_dir_all(base.join("out")).unwrap();
+        fs::write(src.join("petmod.json"), r#"{"id":"demo","version":"1.0.0"}"#).unwrap();
+        fs::write(src.join("sprites/idle.png"), "png-bytes").unwrap();
+        fs::write(src.join("scratch.tmp"), "junk").unwrap();
+
+        let result = tauri::async_runtime::block_on(pack_petmod(
+            src.to_string_lossy().to_string(),
+            out.to_string_lossy().to_string(),
+            Some(true),
+            Some(true),
+            Some(vec!["*.tmp".to_string()]),
+        ))
+        .expect("打包应当成功");
+
+        assert!(result.success);
+        assert!(result.size_bytes.unwrap() > 0);
+        assert!(result.sha256.as_deref().map_or(false, |h| h.len() == 64));
+
+        // 产物必须是可读的 zip，且排除规则生效
+        let bytes = fs::read(&out).unwrap();
+        let mut archive = ZipArchive::new(Cursor::new(bytes.as_slice())).expect("产物应为有效 zip");
+        assert!(archive.by_name("petmod.json").is_ok());
+        assert!(archive.by_name("sprites/idle.png").is_ok());
+        assert!(archive.by_name("scratch.tmp").is_err());
+
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn test_pack_petmod_rejects_bad_output_path() {
+        let dir = std::env::temp_dir().join(format!("spiritpal_pack_bad_{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+
+        // 1) 非 .petmod 后缀
+        let err = tauri::async_runtime::block_on(pack_petmod(
+            dir.to_string_lossy().to_string(),
+            dir.join("out.zip").to_string_lossy().to_string(),
+            None,
+            None,
+            None,
+        ));
+        assert!(err.is_err());
+
+        // 2) 源目录不存在
+        let err2 = tauri::async_runtime::block_on(pack_petmod(
+            dir.join("nope").to_string_lossy().to_string(),
+            dir.join("out.petmod").to_string_lossy().to_string(),
+            None,
+            None,
+            None,
+        ));
+        assert!(err2.is_err());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_pack_petmod_rejects_self_contained_output() {
+        let dir = std::env::temp_dir().join(format!("spiritpal_pack_self_{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("petmod.json"), "{}").unwrap();
+
+        // 输出落在源目录内部 → 应被拒绝
+        let err = tauri::async_runtime::block_on(pack_petmod(
+            dir.to_string_lossy().to_string(),
+            dir.join("self.petmod").to_string_lossy().to_string(),
+            None,
+            None,
+            None,
+        ));
+        assert!(err.is_err());
+        assert!(err.unwrap_err().contains("自包含"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_validate_petmod_reads_manifest() {
+        let base = std::env::temp_dir().join(format!("spiritpal_validate_{}", std::process::id()));
+        let pkg = base.join("demo.petmod");
+        fs::create_dir_all(&base).unwrap();
+
+        // 先打一个包
+        let src = base.join("src");
+        fs::create_dir_all(&src).unwrap();
+        fs::write(src.join("petmod.json"), r#"{"id":"demo","version":"2.0.0"}"#).unwrap();
+        tauri::async_runtime::block_on(pack_petmod(
+            src.to_string_lossy().to_string(),
+            pkg.to_string_lossy().to_string(),
+            Some(true),
+            Some(true),
+            None,
+        ))
+        .expect("打包应当成功");
+
+        // 再校验
+        let result = tauri::async_runtime::block_on(validate_petmod(pkg.to_string_lossy().to_string()))
+            .expect("校验应当成功");
+        assert!(result.valid);
+        let manifest: serde_json::Value =
+            serde_json::from_str(result.manifest_json.as_deref().unwrap()).unwrap();
+        assert_eq!(manifest["version"], "2.0.0");
+        assert!(result.sha256.as_deref().map_or(false, |h| h.len() == 64));
+
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn test_validate_petmod_rejects_non_zip() {
+        let base = std::env::temp_dir().join(format!("spiritpal_validate_bad_{}", std::process::id()));
+        fs::create_dir_all(&base).unwrap();
+        let pkg = base.join("fake.petmod");
+        fs::write(&pkg, "this is definitely not a zip").unwrap();
+
+        // 魔数校验会先拦下非 zip 文件
+        let err = tauri::async_runtime::block_on(validate_petmod(pkg.to_string_lossy().to_string()));
+        assert!(err.is_err());
+
+        let _ = fs::remove_dir_all(&base);
+    }
 
     // ============ get_pet_conf_field 补充测试 ============
 

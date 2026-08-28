@@ -97,7 +97,11 @@ mod generated {
 // Tauri 的 generate_handler! 宏接受函数标识符，需要先 use 导入
 
 use crypto::{compute_sha256, decrypt_data, encrypt_data};
-use petmod::{import_petmod, scan_mods_directory};
+// A-15: .petmod 打包 / 校验 / 安装 / 卸载（前端 modPackager 一直在调用）
+use petmod::{
+    import_petmod, install_petmod, pack_petmod, scan_mods_directory, uninstall_mod,
+    validate_petmod,
+};
 // R-14: 数据库加密命令
 use encrypted_db::{decrypt_db_at_rest, encrypt_db_at_rest};
 // H-4: 审计日志命令
@@ -361,7 +365,7 @@ fn remove_pet_click_through(window: WebviewWindow) -> Result<(), String> {
 /// 3. 减去窗口左上角位置得到客户区坐标
 #[cfg(desktop)]
 #[tauri::command]
-fn get_mouse_pos(app: tauri::AppHandle, window: WebviewWindow) -> Result<(f64, f64), String> {
+fn get_mouse_pos(_app: tauri::AppHandle, window: WebviewWindow) -> Result<(f64, f64), String> {
     #[cfg(windows)]
     {
         use windows::Win32::Foundation::POINT;
@@ -1176,6 +1180,11 @@ pub fn run() {
                     // 模组
                     import_petmod,
                     scan_mods_directory,
+                    // A-15: 模组打包链路（pack/validate/install/uninstall）
+                    pack_petmod,
+                    validate_petmod,
+                    install_petmod,
+                    uninstall_mod,
                     // 上传文件魔数校验
                     validate_upload_magic,
                     // 全局键鼠监听（宠物注视光标效果）
@@ -1213,6 +1222,11 @@ pub fn run() {
                     // 模组
                     import_petmod,
                     scan_mods_directory,
+                    // A-15: 模组打包链路（pack/validate/install/uninstall）
+                    pack_petmod,
+                    validate_petmod,
+                    install_petmod,
+                    uninstall_mod,
                     // 上传文件魔数校验
                     validate_upload_magic,
                     // P1-2: 角色包导入

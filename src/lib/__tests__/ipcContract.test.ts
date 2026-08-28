@@ -35,7 +35,8 @@ const KNOWN_PLUGIN_COMMANDS = new Set([
   'plugin_ai_extract_memories',
   // 计划中但尚未实现的命令
   // 注：scan_character_directory 已在 lib.rs 实现，不再排除
-  'uninstall_mod',
+  // A-15：pack_petmod / validate_petmod / install_petmod / uninstall_mod
+  // 已在 src-tauri/src/petmod.rs 实现，不再排除
   'set_system_volume',
   'set_system_brightness',
   'sync_widget_state',
@@ -47,10 +48,6 @@ const KNOWN_PLUGIN_COMMANDS = new Set([
   'get_running_processes',
   // 截图命令（计划中）
   'take_screenshot',
-  // 模组打包命令（计划中）
-  'pack_petmod',
-  'validate_petmod',
-  'install_petmod',
   // A-14 注：原 miniModeManager 的 switch_mini_mode / set_window_* / resize_window
   // 已随该模块移除 —— 迷你模式改用 Tauri 官方 window API（setSize/setPosition 等），
   // 无需自定义 Rust 命令，故不再出现在排除列表中。
