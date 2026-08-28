@@ -349,7 +349,10 @@ fn test_base64_roundtrip() {
 
 #[test]
 fn test_base64_known_value() {
-    assert_eq!(general_purpose::STANDARD.encode(b"SpiritPal"), "U3Bpcml0UGFs");
+    assert_eq!(
+        general_purpose::STANDARD.encode(b"SpiritPal"),
+        "U3Bpcml0UGFs"
+    );
 }
 
 #[test]

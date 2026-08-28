@@ -64,7 +64,10 @@ pub fn verify_integrity() -> bool {
 
     match assets_dir {
         Some(dir) => {
-            log::info!("[SRI] Verifying resource integrity against {}", dir.display());
+            log::info!(
+                "[SRI] Verifying resource integrity against {}",
+                dir.display()
+            );
 
             let mut mismatch_count = 0u32;
             let mut verified_count = 0u32;

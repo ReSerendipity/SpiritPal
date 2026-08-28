@@ -106,8 +106,7 @@ pub fn validate_magic(content: &[u8], file_ext: &str) -> Result<(), String> {
             continue;
         }
         matched = true;
-        if header.len() >= offset + magic.len()
-            && &header[*offset..*offset + magic.len()] == *magic
+        if header.len() >= offset + magic.len() && &header[*offset..*offset + magic.len()] == *magic
         {
             return Ok(());
         }
@@ -130,8 +129,7 @@ pub fn validate_magic(content: &[u8], file_ext: &str) -> Result<(), String> {
 pub fn detect_file_kind(content: &[u8]) -> Option<(FileKind, &'static str)> {
     let header = header_of(content);
     for (_sig_ext, magic, offset, kind) in MAGIC_SIGNATURES {
-        if header.len() >= offset + magic.len()
-            && &header[*offset..*offset + magic.len()] == *magic
+        if header.len() >= offset + magic.len() && &header[*offset..*offset + magic.len()] == *magic
         {
             return Some((*kind, kind.as_str()));
         }
@@ -186,7 +184,10 @@ mod tests {
     #[test]
     fn detect_kind_works() {
         assert_eq!(detect_file_kind(&png()), Some((FileKind::Image, "image")));
-        assert_eq!(detect_file_kind(&zip()), Some((FileKind::Archive, "archive")));
+        assert_eq!(
+            detect_file_kind(&zip()),
+            Some((FileKind::Archive, "archive"))
+        );
         assert_eq!(detect_file_kind(&fake_png()), None);
     }
 }

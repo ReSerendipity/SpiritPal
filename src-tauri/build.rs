@@ -6,7 +6,10 @@ fn main() {
     let target_triple = std::env::var("TARGET").unwrap_or_default();
     let bin_path = format!("binaries/spiritpal-mcp-{}", target_triple);
     if !std::path::Path::new(&bin_path).exists() {
-        println!("cargo:warning=MCP binary not found for target {}, creating placeholder", target_triple);
+        println!(
+            "cargo:warning=MCP binary not found for target {}, creating placeholder",
+            target_triple
+        );
         // 创建最小的有效 shell 脚本作为占位符
         let placeholder_content = b"#!/bin/sh\n# Placeholder for spiritpal-mcp - replace with actual binary for production\necho \"MCP server placeholder for {}\"\n";
         let _ = std::fs::write(&bin_path, placeholder_content);
