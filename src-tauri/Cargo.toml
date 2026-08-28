@@ -40,7 +40,7 @@ getrandom = "0.2"
 pbkdf2 = "0.12"
 hmac = "0.12"
 # .petmod 压缩包导入 — zip 解压
-zip = "0.6"
+zip = "4.6"
 # 文件系统操作 — 模组目录扫描
 tauri-plugin-fs = "2"
 # 文件选择对话框 — .petmod 文件导入
