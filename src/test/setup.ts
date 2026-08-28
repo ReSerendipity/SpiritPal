@@ -36,6 +36,27 @@ vi.mock('@tauri-apps/api/window', () => ({
     setFocus: vi.fn(),
     listen: vi.fn(() => Promise.resolve(() => {})),
     emit: vi.fn(),
+    // 迷你模式 / 窗口几何所需（A-14）
+    setSize: vi.fn(() => Promise.resolve()),
+    setPosition: vi.fn(() => Promise.resolve()),
+    outerPosition: vi.fn(() => Promise.resolve({ x: 100, y: 100 })),
+    scaleFactor: vi.fn(() => Promise.resolve(1)),
+    currentMonitor: vi.fn(() =>
+      Promise.resolve({
+        size: { width: 1920, height: 1080 },
+        position: { x: 0, y: 0 },
+        scaleFactor: 1,
+      }),
+    ),
+    availableMonitors: vi.fn(() =>
+      Promise.resolve([
+        {
+          size: { width: 1920, height: 1080 },
+          position: { x: 0, y: 0 },
+          scaleFactor: 1,
+        },
+      ]),
+    ),
   }),
   WebviewWindow: vi.fn(),
 }))
