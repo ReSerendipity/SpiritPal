@@ -41,7 +41,6 @@ export function MemoryPanel() {
   // 事实列表变化时同步到批量管理器（已删除项的选中态会自动失效）
   useEffect(() => {
     batch.updateItems(facts)
-    setSelVersion((v) => v + 1)
   }, [facts, batch])
 
   useEffect(() => {
@@ -164,7 +163,7 @@ export function MemoryPanel() {
   return (
     <div className="flex h-full flex-col gap-3 p-4">
       {/* A-12：工具条——导出 + 批量操作（仅事实页） */}
-      <div key={selVersion} className="flex flex-wrap items-center gap-2">
+      <div key={`toolbar-${facts.length}`} className="flex flex-wrap items-center gap-2">
         <span className="text-xs text-ink-faint">导出记忆</span>
         <button
           onClick={() => void handleExport('json')}
