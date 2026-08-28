@@ -45,6 +45,8 @@ zip = "0.6"
 tauri-plugin-fs = "2"
 # 文件选择对话框 — .petmod 文件导入
 tauri-plugin-dialog = "2"
+# C 类: take_screenshot 的 PNG 编码（最小依赖，仅编解码）
+png = "0.17"
 # [Tauri Review] 安全打开应用程序/URL，替代 cmd /C start 防止命令注入
 open = "5"
 # Phase 1.2: 单实例插件 — 防止多开，重复启动时激活设置窗口
@@ -81,6 +83,12 @@ windows = { version = "0.58", features = [
   "Win32_System_Diagnostics_Debug",
   # [Tauri Review] ShellExecuteW 用于安全打开应用程序/URL
   "Win32_UI_Shell",
+  # C 类: 进程快照（get_running_processes）
+  "Win32_System_Diagnostics_ToolHelp",
+  # C 类: WASAPI 主音量（set_system_volume）
+  "Win32_Media_Audio",
+  "Win32_Media_Audio_Endpoints",
+  "Win32_System_Com",
 ] }
 
 # Release 构建优化 — 参考 WindowPet 压缩配置

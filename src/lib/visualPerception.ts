@@ -328,16 +328,15 @@ export class VisualPerceptionManager {
       return this.callbacks.onCaptureScreen()
     }
 
-    // 默认实现：通过 Rust 后端截屏（如果已实现）
+    // 默认实现：通过 Rust 后端截屏（C 类: system_tools.rs 已实现）
     try {
-      // 尝试调用 Tauri 截屏命令（需要 Rust 后端支持）
-      const base64 = await invoke<string>('take_screenshot', {
-        maxWidth: 512,
-        quality: 30,
-      })
-      return base64
+      const result = await invoke<{ image_data: string; width: number; height: number }>(
+        'take_screenshot',
+        { maxWidth: 512, quality: 30 },
+      )
+      return result.image_data
     } catch {
-      // 截屏命令未实现时降级：仅记录窗口信息
+      // 截屏失败时降级：仅记录窗口信息
       return null
     }
   }
