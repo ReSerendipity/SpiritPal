@@ -53,6 +53,13 @@ vi.mock('../commitmentTracker', () => ({
   })),
 }))
 
+// A-5：静默模式短路（默认非静默，测试中可按需翻转）
+// 注意 vi.mock 会被提升到 import 之前，工厂内引用必须经 vi.hoisted 声明
+const { mockIsSilent } = vi.hoisted(() => ({ mockIsSilent: vi.fn(() => false) }))
+vi.mock('../silentModeManager', () => ({
+  isSilentMode: mockIsSilent,
+}))
+
 // Mock petStore
 vi.mock('../../stores/petStore', () => ({
   usePetStore: {
@@ -95,6 +102,20 @@ describe('ProactiveSpeakManager', () => {
 
     manager.stop()
     expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('A-5：静默模式下 checkAndSpeak 短路，不触发监听器', async () => {
+    mockIsSilent.mockReturnValue(true)
+    const listener = vi.fn()
+    manager.onProactiveSpeak(listener)
+    manager.start()
+
+    // 推进多个检查周期（CHECK_INTERVAL_MS + 自调度）
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    expect(mockIsSilent).toHaveBeenCalled()
+    expect(listener).not.toHaveBeenCalled()
+    mockIsSilent.mockReturnValue(false)
   })
 
   it('重复调用 start 不应创建多个定时器', () => {

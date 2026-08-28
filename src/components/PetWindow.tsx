@@ -44,6 +44,7 @@ import {
   Frame,
   Minimize2,
   Maximize2,
+  BellOff,
   Eye,
   Magnet,
   Volume2,
@@ -90,7 +91,7 @@ import { useDecorationPhysics } from '../hooks/pet/useDecorationPhysics'
 // A-14：迷你模式（Tauri 官方 window API，无自定义 Rust 命令）
 import { useMiniMode } from '../hooks/pet/useMiniMode'
 import { getHiddenStateManager } from '../lib/hiddenStateManager'
-import { getSilentModeManager } from '../lib/silentModeManager'
+import { getSilentModeManager, temporarySilence } from '../lib/silentModeManager'
 import type { DockDir } from '../hooks/pet/usePetDragging'
 import { getCurrentWindow, PhysicalPosition, PhysicalSize } from '@tauri-apps/api/window'
 import { invoke } from '@tauri-apps/api/core'
@@ -568,6 +569,12 @@ export default function PetWindow() {
   async function handleSilence(): Promise<void> {
     await getSilentModeManager().toggleSilentMode()
     setBubble(getSilentModeManager().isSilent() ? '嘘——我安静啦~' : '我又能说话啦~')
+  }
+
+  // A-5：临时静默 5 分钟（到期由 manager 内置计时自动恢复）
+  async function handleSilenceFive(): Promise<void> {
+    await temporarySilence(5)
+    setBubble('嘘——5 分钟内我不说话~')
   }
 
   // 连接拖拽中断到行走动画
@@ -1518,6 +1525,18 @@ export default function PetWindow() {
               icon={<MessageCircle size={13} />}
               label="聊天"
               onClick={() => void showWindow('chat-window')}
+            />
+            {/* A-5：静默 5 分钟 —— 临时静音，到期自动恢复 */}
+            <ActionButton
+              icon={<BellOff size={13} />}
+              label={silentActive ? '取消静默' : '静默5分钟'}
+              onClick={() => {
+                if (getSilentModeManager().isSilent()) {
+                  void handleSilence()
+                } else {
+                  void handleSilenceFive()
+                }
+              }}
             />
             {/* A-14：迷你模式 —— 窗口缩至 80×80 并吸附到最近边缘，悬停可预览 */}
             <ActionButton
