@@ -103,21 +103,21 @@ describe('cleanupZombieData', () => {
   it('普通清理只删除带时间戳且超期的 legacy', async () => {
     await cleanupZombieData()
 
-    const legacySelectCall = db.select.mock.calls.find(
-      (c: [string]) => c[0].includes('SELECT key FROM settings') && c[0].includes('%.legacy'),
+    const legacySelectCall = (db.select.mock.calls as string[][]).find(
+      (c) => c[0].includes('SELECT key FROM settings') && c[0].includes('%.legacy'),
     )
     expect(legacySelectCall).toBeTruthy()
-    expect(legacySelectCall[0]).toContain('updated_at > 0 AND updated_at < ?')
+    expect(legacySelectCall![0]).toContain('updated_at > 0 AND updated_at < ?')
   })
 
   it('forceLegacyCleanup 跳过时间戳守卫', async () => {
     await cleanupZombieData({ forceLegacyCleanup: true })
 
-    const legacySelectCall = db.select.mock.calls.find(
-      (c: [string]) => c[0].includes('SELECT key FROM settings') && c[0].includes('%.legacy'),
+    const legacySelectCall = (db.select.mock.calls as string[][]).find(
+      (c) => c[0].includes('SELECT key FROM settings') && c[0].includes('%.legacy'),
     )
     expect(legacySelectCall).toBeTruthy()
-    expect(legacySelectCall[0]).toContain('1=1')
+    expect(legacySelectCall![0]).toContain('1=1')
   })
 
   it('清理后返回各类计数', async () => {
