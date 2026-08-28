@@ -51,12 +51,9 @@ const KNOWN_PLUGIN_COMMANDS = new Set([
   'pack_petmod',
   'validate_petmod',
   'install_petmod',
-  // 窗口操作命令（miniModeManager 调用，计划中尚未实现为 #[tauri::command]）
-  'switch_mini_mode',
-  'set_window_always_on_top',
-  'set_window_opacity',
-  'set_window_decorations',
-  'resize_window',
+  // A-14 注：原 miniModeManager 的 switch_mini_mode / set_window_* / resize_window
+  // 已随该模块移除 —— 迷你模式改用 Tauri 官方 window API（setSize/setPosition 等），
+  // 无需自定义 Rust 命令，故不再出现在排除列表中。
   // 视觉感知命令（visionPerception 调用，计划中尚未实现）
   'analyze_screen_content',
 ])

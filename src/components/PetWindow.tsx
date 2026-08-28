@@ -42,6 +42,8 @@ import {
   Shirt,
   Footprints,
   Frame,
+  Minimize2,
+  Maximize2,
   Eye,
   Magnet,
   Volume2,
@@ -85,6 +87,8 @@ import { useDockVisualFeedback } from '../hooks/pet/useDockVisualFeedback'
 import { usePetParticles } from '../hooks/pet/usePetParticles'
 // A-13：装饰部件伪物理（physics3.json → 装饰摆角）
 import { useDecorationPhysics } from '../hooks/pet/useDecorationPhysics'
+// A-14：迷你模式（Tauri 官方 window API，无自定义 Rust 命令）
+import { useMiniMode } from '../hooks/pet/useMiniMode'
 import { getHiddenStateManager } from '../lib/hiddenStateManager'
 import { getSilentModeManager } from '../lib/silentModeManager'
 import type { DockDir } from '../hooks/pet/usePetDragging'
@@ -677,6 +681,8 @@ export default function PetWindow() {
 
   // 展开/收起切换：按目标尺寸改窗口 + 宠物按并排行定位（锚定由 applyWindowSize 按贴边方向处理）
   const handlePanelModeChange = useCallback((open: boolean) => {
+    // A-14：迷你态下窗口尺寸由 MiniModeManager 接管，展开面板会把窗口重新撑大
+    if (open && isMiniRef.current) return
     const petSize = useSettingsStore.getState().petSize
     const mode = useSettingsStore.getState().statusCardMode
     const el = bubbleMeasureRef.current
@@ -747,6 +753,8 @@ export default function PetWindow() {
 
   // ========== 气泡驱动窗口自适应（内容变长 → 窗口自动放大，气泡关闭 → 恢复） ==========
   useEffect(() => {
+    // A-14：迷你态下气泡不参与窗口尺寸计算，否则会把 80×80 的迷你窗口重新撑大
+    if (isMiniRef.current) return
     const text = bubble
     // 面板模式切换（展开↔收起）时即使气泡文本不变也要重新计算（对话区位置/窗口尺寸基准都变了）
     const modeChanged = panelOpen !== prevModeRef.current
@@ -850,6 +858,13 @@ export default function PetWindow() {
     velocityX: decorationVelocityX,
   })
 
+  // A-14：迷你模式（窗口缩至 80×80，尺寸由 MiniModeManager 接管）
+  const { isMini, toggle: toggleMiniMode, handleMouseEnter: miniMouseEnter, handleMouseLeave: miniMouseLeave } = useMiniMode()
+  const isMiniRef = useRef(isMini)
+  useEffect(() => {
+    isMiniRef.current = isMini
+  }, [isMini])
+
   // 升级检测（渲染期调整状态：检测到等级提升时触发一次升级动画）
   const [prevLevel, setPrevLevel] = useState(0)
   if (character && !levelUp && prevLevel > 0 && stats.level > prevLevel) {
@@ -924,6 +939,7 @@ export default function PetWindow() {
     setHovered(false)
     // eslint-disable-next-line react-hooks/immutability -- hoveredRef 是漫游行走控制器的即时状态镜像（与 posRef/panelOpenRef 镜像同理），事件处理器中同步，非渲染期
     hoveredRef.current = false
+    miniMouseLeave() // A-14：迷你态下延迟收回预览窗口
     if (draggingRef.current) {
       dragHandleMouseLeave()
       setPetState('idle')
@@ -937,6 +953,7 @@ export default function PetWindow() {
     setHovered(true)
     // eslint-disable-next-line react-hooks/immutability -- hoveredRef 是漫游行走控制器的即时状态镜像（与 posRef/panelOpenRef 镜像同理），事件处理器中同步，非渲染期
     hoveredRef.current = true
+    miniMouseEnter() // A-14：迷你态下延迟展开预览窗口
   }
 
   function handleContextMenu(e: React.MouseEvent) {
@@ -1501,6 +1518,16 @@ export default function PetWindow() {
               icon={<MessageCircle size={13} />}
               label="聊天"
               onClick={() => void showWindow('chat-window')}
+            />
+            {/* A-14：迷你模式 —— 窗口缩至 80×80 并吸附到最近边缘，悬停可预览 */}
+            <ActionButton
+              icon={isMini ? <Maximize2 size={13} /> : <Minimize2 size={13} />}
+              label={isMini ? '退出迷你' : '迷你模式'}
+              onClick={() => {
+                // 先收起面板，避免 MiniModeManager 缩窗后残留展开态尺寸
+                handlePanelModeChange(false)
+                void toggleMiniMode()
+              }}
             />
             <ActionButton
               icon={<Shirt size={13} />}
