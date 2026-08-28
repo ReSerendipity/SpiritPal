@@ -18,7 +18,7 @@
  * @module memoryMigrator
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { decryptBlob } from './blobCrypto'
 import {
   getDb,
   getSetting,
@@ -70,7 +70,7 @@ async function parseLegacyBlob(raw: string): Promise<Record<string, unknown> | n
   let jsonStr: string
   if (raw.startsWith('ENC1:') || raw.startsWith('ENC2:')) {
     try {
-      jsonStr = await invoke<string>('decrypt_data', { encrypted: raw, password: '' })
+      jsonStr = await decryptBlob(raw)
     } catch {
       // 解密失败，无法迁移
       return null

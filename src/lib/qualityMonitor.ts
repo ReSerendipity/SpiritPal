@@ -35,7 +35,7 @@
 import { getAnalytics } from './analytics'
 import { runtimeMonitor } from './runtimeMonitor'
 import { stringSimilarity, tokenize } from './stringSimilarity'
-import { invoke } from '@tauri-apps/api/core'
+import { encryptBlob, decryptBlob } from './blobCrypto'
 
 // ============ 常量 ============
 
@@ -611,7 +611,7 @@ AI 回复：${response.slice(0, 500)}
       let json: string
       if (raw.startsWith('ENC1:') || raw.startsWith('ENC2:')) {
         try {
-          json = await invoke<string>('decrypt_data', { encrypted: raw, password: '' })
+          json = await decryptBlob(raw)
         } catch {
           json = raw // 可能是明文
         }
@@ -631,7 +631,7 @@ AI 回复：${response.slice(0, 500)}
       const json = JSON.stringify(this.records)
       // 尝试加密
       try {
-        const ciphertext = await invoke<string>('encrypt_data', { data: json, password: '' })
+        const ciphertext = await encryptBlob(json)
         if (ciphertext) {
           localStorage.setItem(QUALITY_STORAGE_KEY, ciphertext)
           return

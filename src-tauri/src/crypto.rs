@@ -446,6 +446,157 @@ pub async fn decrypt_data(encrypted: String, password: String) -> Result<String,
     result
 }
 
+// ============ B-3: 大 blob 分块流式加密（ENC3） ============
+//
+// 背景：记忆/经历/视觉记忆等 blob 可达数 MB。ENC1/ENC2 是单块 AES-GCM：
+// ① 每次加解密都要重跑 10 万次 PBKDF2，大 blob 与 1KB 字符串成本相同却叠加
+//    全量 AES + base64（≈1.35×）双倍内存拷贝；② 单块格式无法增量处理。
+//
+// ENC3 设计：一次 PBKDF2 派生密钥，明文按块切分、每块独立随机 nonce +
+// AES-GCM 认证加密。任何一块被篡改都会导致整体解密失败（认证完整性不变）。
+//
+// 格式：`ENC3:base64(salt[32] || count[u32 LE] || (nonce[12] || ct+tag[16]) × count)`
+// 兼容性：仅新写入的大 blob 使用 ENC3；旧 ENC1/ENC2 数据继续走 decrypt_data，
+// 前端统一经 blobCrypto.ts 分派，无需数据迁移。
+
+/// 每块明文大小（1MB）。前端阈值为 5MB，超出即走分块。
+const ENC3_CHUNK_SIZE: usize = 1024 * 1024;
+/// AES-GCM 认证标签长度
+const ENC3_TAG_LEN: usize = 16;
+/// 分块数量上限（防止恶意构造的超大 count 触发无界内存分配）
+const ENC3_MAX_CHUNKS: usize = 10_000;
+
+/// 分块流式 AES-256-GCM 加密（ENC3 前缀），用于 MB 级大 blob
+///
+/// 前端调用方式：`invoke('encrypt_data_chunked', { data: string, password: string })`
+///
+/// # Arguments
+/// - `data` — 待加密的明文（可为任意 UTF-8，按字节切块，块边界不破坏多字节字符：
+///   解密侧先拼接完整字节序列再做一次 UTF-8 还原）
+/// - `password` — 加密密码，空字符串时使用机器 ID
+///
+/// # Returns
+/// - `Ok(String)` — `ENC3:base64(salt || count || (nonce||ct+tag)×N)`
+/// - `Err(String)` — 密码解析失败、随机数生成失败或加密失败
+/// 分块加密核心（同步，供命令与单测复用）
+fn encrypt_chunked_internal(pwd: &str, data: &str) -> Result<String, String> {
+    let salt = generate_random_salt()?;
+    let key = derive_aes_key_pbkdf2(pwd, &salt);
+    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key));
+
+    let bytes = data.as_bytes();
+    let count = bytes.len().div_ceil(ENC3_CHUNK_SIZE).max(1);
+
+    let mut out = Vec::with_capacity(
+        PBKDF2_SALT_LEN + 4 + count * (NONCE_LEN + ENC3_CHUNK_SIZE + ENC3_TAG_LEN),
+    );
+    out.extend_from_slice(&salt);
+    out.extend_from_slice(&(count as u32).to_le_bytes());
+
+    for chunk in bytes.chunks(ENC3_CHUNK_SIZE) {
+        let mut nonce_bytes = [0u8; NONCE_LEN];
+        getrandom::getrandom(&mut nonce_bytes).map_err(|e| e.to_string())?;
+        let nonce = Nonce::from_slice(&nonce_bytes);
+        let ciphertext = cipher
+            .encrypt(nonce, chunk)
+            .map_err(|e| e.to_string())?;
+        out.extend_from_slice(&nonce_bytes);
+        out.extend_from_slice(&ciphertext);
+    }
+
+    let b64 = general_purpose::STANDARD.encode(&out);
+    Ok(format!("{}{}", obfstr::obfstr!("ENC3:"), b64))
+}
+
+#[tauri::command]
+pub async fn encrypt_data_chunked(data: String, password: String) -> Result<String, String> {
+    let result = tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
+        let pwd = resolve_password(&password)?;
+        encrypt_chunked_internal(&pwd, &data)
+    })
+    .await
+    .map_err(|e| format!("分块加密任务执行失败: {}", e))?;
+
+    result
+}
+
+/// 分块流式 AES-256-GCM 解密（ENC3 前缀）
+///
+/// 前端调用方式：`invoke('decrypt_data_chunked', { encrypted: string, password: string })`
+///
+/// # Returns
+/// - `Ok(String)` — 解密后的明文
+/// - `Err(String)` — 前缀缺失、base64 解码失败、块数非法、任一块认证失败或 UTF-8 还原失败
+/// 分块解密核心（同步，供命令与单测复用）
+fn decrypt_chunked_internal(pwd: &str, encrypted: &str) -> Result<String, String> {
+    let stripped = encrypted
+        .strip_prefix(obfstr::obfstr!("ENC3:"))
+        .ok_or_else(|| obfstr::obfstr!("数据未包含 ENC3 前缀").to_string())?;
+    let combined = general_purpose::STANDARD
+        .decode(stripped)
+        .map_err(|e| e.to_string())?;
+
+    let header_len = PBKDF2_SALT_LEN + 4;
+    if combined.len() < header_len {
+        return Err("分块加密数据长度不足".to_string());
+    }
+
+    let salt = &combined[..PBKDF2_SALT_LEN];
+    let count_bytes: [u8; 4] = combined[PBKDF2_SALT_LEN..header_len]
+        .try_into()
+        .map_err(|_| "分块头解析失败".to_string())?;
+    let count = u32::from_le_bytes(count_bytes) as usize;
+    if count == 0 || count > ENC3_MAX_CHUNKS {
+        return Err(format!("分块数量非法: {}", count));
+    }
+
+    let key = derive_aes_key_pbkdf2(pwd, salt);
+    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key));
+
+    let mut plain = Vec::with_capacity(count * ENC3_CHUNK_SIZE);
+    let mut offset = header_len;
+
+    for i in 0..count {
+        if combined.len() < offset + NONCE_LEN {
+            return Err(format!("第 {} 块数据不完整", i + 1));
+        }
+        let nonce = Nonce::from_slice(&combined[offset..offset + NONCE_LEN]);
+        offset += NONCE_LEN;
+
+        // 非最后一块的密文长度固定为 chunk+tag；最后一块占剩余全部字节
+        let remaining = combined.len() - offset;
+        let ct_len = if i == count - 1 {
+            remaining
+        } else {
+            ENC3_CHUNK_SIZE + ENC3_TAG_LEN
+        };
+        if remaining < ct_len {
+            return Err(format!("第 {} 块密文长度不足", i + 1));
+        }
+        let ciphertext = &combined[offset..offset + ct_len];
+        offset += ct_len;
+
+        let plaintext = cipher
+            .decrypt(nonce, ciphertext)
+            .map_err(|_| format!("第 {} 块解密失败（密码错误或数据被篡改）", i + 1))?;
+        plain.extend_from_slice(&plaintext);
+    }
+
+    String::from_utf8(plain).map_err(|e| format!("解密结果不是有效的 UTF-8: {}", e))
+}
+
+#[tauri::command]
+pub async fn decrypt_data_chunked(encrypted: String, password: String) -> Result<String, String> {
+    let result = tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
+        let pwd = resolve_password(&password)?;
+        decrypt_chunked_internal(&pwd, &encrypted)
+    })
+    .await
+    .map_err(|e| format!("分块解密任务执行失败: {}", e))?;
+
+    result
+}
+
 // ============ 内部辅助：计算字节的 SHA-256（供 petmod 模块复用）============
 
 /// 计算字节切片的 SHA-256 十六进制值
@@ -982,5 +1133,63 @@ mod tests {
     #[test]
     fn test_nonce_length_standard() {
         assert_eq!(NONCE_LEN, 12, "AES-GCM nonce 标准长度为 12 字节");
+    }
+
+    // ============ B-3: ENC3 分块流式加密 ============
+
+    #[test]
+    fn test_enc3_roundtrip_small_data() {
+        let encrypted = encrypt_chunked_internal("pw", "你好，SpiritPal！").unwrap();
+        assert!(encrypted.starts_with("ENC3:"));
+        assert_eq!(decrypt_chunked_internal("pw", &encrypted).unwrap(), "你好，SpiritPal！");
+    }
+
+    #[test]
+    fn test_enc3_roundtrip_multibyte_crosses_chunk_boundary() {
+        // 2.8MB：跨 3 个块；用多字节字符填充确保块边界落在多字节字符中间
+        let unit = "喵🐾"; // 3+4 = 7 字节
+        let mut data = String::with_capacity(400_000 * 7);
+        for _ in 0..400_000 {
+            data.push_str(unit);
+        }
+        assert!(data.len() > 2 * ENC3_CHUNK_SIZE, "测试数据必须跨多块");
+
+        let encrypted = encrypt_chunked_internal("pw", &data).unwrap();
+        assert_eq!(decrypt_chunked_internal("pw", &encrypted).unwrap(), data);
+    }
+
+    #[test]
+    fn test_enc3_wrong_password_fails() {
+        let encrypted = encrypt_chunked_internal("right", "secret").unwrap();
+        assert!(decrypt_chunked_internal("wrong", &encrypted).is_err());
+    }
+
+    #[test]
+    fn test_enc3_tampered_ciphertext_fails() {
+        let encrypted = encrypt_chunked_internal("pw", "secret").unwrap();
+        let mut decoded = general_purpose::STANDARD
+            .decode(encrypted.strip_prefix("ENC3:").unwrap())
+            .unwrap();
+        // 篡改第一个密文字节（跳过 salt+count 头）
+        let last = decoded.len() - 1;
+        decoded[last] ^= 0xFF;
+        let tampered = format!("ENC3:{}", general_purpose::STANDARD.encode(&decoded));
+        assert!(decrypt_chunked_internal("pw", &tampered).is_err());
+    }
+
+    #[test]
+    fn test_enc3_invalid_chunk_count_rejected() {
+        // 构造 count=0 的非法包
+        let mut payload = vec![0u8; PBKDF2_SALT_LEN];
+        payload.extend_from_slice(&0u32.to_le_bytes());
+        let enc = format!("ENC3:{}", general_purpose::STANDARD.encode(&payload));
+        let err = decrypt_chunked_internal("pw", &enc).unwrap_err();
+        assert!(err.contains("分块数量非法"));
+    }
+
+    #[test]
+    fn test_enc3_rejects_non_enc3_input() {
+        assert!(decrypt_chunked_internal("pw", "ENC2:abcd").is_err());
+        assert!(decrypt_chunked_internal("pw", "plain").is_err());
     }
 }
