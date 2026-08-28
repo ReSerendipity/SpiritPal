@@ -1,0 +1,49 @@
+# 真机冒烟 Checklist（2026-08-28）
+
+> 背景：本会话 Rust 侧新增/修复了大量命令（system_tools / crypto ENC3 / petmod 打包链路 / 迷你模式），
+> 它们通过了编译与单元测试，但 **Win32 FFI 与 COM 的运行时路径只能真机验证**。
+> AI 无法替代人工执行，发版前请逐项勾选。
+>
+> 产物：`artifacts/SpiritPal_0.1.0_x64-setup.exe`（或直接 `pnpm dev` 冒烟）。
+
+## A. 新 Rust 命令（本会话 C 类补齐）
+
+- [ ] **take_screenshot（区域）**：让宠物「看看」或触发视觉感知 → 气泡出现对屏幕内容的描述
+      （预期：截屏成功；若虚拟屏指标为 0 的远程桌面环境需额外确认）
+- [ ] **take_screenshot（全屏 + maxWidth）**：`visualPerception.captureScreen` 路径 → 返回 512 宽 PNG
+- [ ] **get_running_processes**：AI 助手检测（打开/关闭某个 AI 助手窗口，观察检测结果变化）
+- [ ] **set_system_volume**：快速控制面板拖音量滑条 → 系统音量随之变化（0~100%）
+- [ ] **set_system_brightness**：调亮度滑条 → 笔记本内屏亮度变化
+      （预期：台式机外接屏会得到明确错误提示，而非静默失败 —— 属预期行为）
+- [ ] **search_files**：Agent 工具搜索（如有入口）→ 返回相对路径列表，node_modules/target 不出现
+- [ ] **execute_command（白名单内）**：`tasklist` / `ipconfig` → 返回输出，≤5 秒
+- [ ] **execute_command（白名单外）**：`del xxx` → 返回"不在只读白名单内"错误
+- [ ] **sync/read_widget_state**：小组件状态保存 → 重启后恢复
+
+## B. 本会话功能接线
+
+- [ ] **迷你模式（A-14）**：宠物面板「迷你模式」→ 窗口缩至 80×80 吸附边缘；悬停预览展开；再点退出恢复
+- [ ] **装饰伪物理（A-13）**：导入含 `physics3.json` 的社区角色 → 走动时饰品/发丝摆动且回正；
+      默认 Doro 角色无回归（无 physicsPath 时不启用物理）
+- [ ] **抚摸粒子（A-7）**：抚摸宠物 → 心形粒子 60fps 不掉帧（devtools Performance 粗查）
+- [ ] **Mod 打包（A-15）**：角色管理 → 导出 Mod → 产出 `.petmod` → 重新导入成功、manifest 校验通过
+- [ ] **数据治理（B-3）**：设置 → 数据 → 「数据治理」显示遗留副本统计 → 清理 → 二次确认后行数归零
+- [ ] **ENC3 大 blob（B-3）**：构造 >5MB 记忆数据（长对话积累或导入）→ 写入后重启能解密加载；
+      用文本编辑器打开 DB 中该值应为 `ENC3:` 前缀的 base64
+- [ ] **记忆导出（A-12）**：MemoryPanel 导出 JSON/CSV/Markdown → 字段齐全、PII 已打码
+
+## C. 批次一完成后补测（待填）
+
+- [ ] **静默模式（A-5）**：托盘/面板「静默 5 分钟」→ 主动发言停止；到期自动恢复；会议中自动静音
+- [ ] **看看（A-1）**：右键/面板「看看」→ 气泡显示屏幕描述；无 LLM 配置时显示引导文案不报错
+- [ ] **记忆可视化（A-4）**：设置 → 记忆 → 切「可视化」→ 时间线/情绪分布非空；切回「精简」无回归
+- [ ] **贴边互动（A-2/A-3）**：拖宠物到屏幕左/右边缘松手 → 贴边攀爬/探头姿态 + 旋转表情过渡；
+      拖回中央恢复；躲藏 N 分钟后自动探头回流
+
+## D. 已知预期内降级（不是 bug）
+
+| 现象 | 原因 |
+|---|---|
+| 「看看」显示启发式描述而非 LLM 分析 | `analyze_screen_content` 计划中（需 llmClient 多模态），走 fallbackAnalysis |
+| 亮度调节失败提示 WMI 不支持 | 台式机外接屏无 WMI 亮度通道，属明确错误提示 |
+| `set_system_volume/brightness` 在 macOS/Linux 报错 | Windows-only 命令，非 Windows 返回明确 Err |
