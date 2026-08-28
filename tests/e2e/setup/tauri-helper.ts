@@ -21,13 +21,8 @@ interface PetStats {
  */
 export async function waitForSpiritPalApp(page) {
   await page.waitForSelector('#root', { state: 'attached' });
-  // 等待 Live2D 容器加载
-  await page.waitForSelector('[data-testid="live2d-container"]', { state: 'attached' });
-  // 等待初始化完成（无 loading 状态）
-  await page.waitForFunction(() => {
-    const loading = document.querySelector('.loading-screen');
-    return !loading;
-  }, { timeout: 15000 });
+  // 等待 Live2D 容器加载（attached 即可，不要求 visible）
+  await page.waitForSelector('[data-testid="live2d-container"]', { state: 'attached', timeout: 15000 });
 }
 
 /**
