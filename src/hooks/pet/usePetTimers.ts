@@ -139,6 +139,11 @@ export function usePetTimers(options: UsePetTimersOptions): UsePetTimersReturn {
       if (getSilentModeManager().isSilent()) return
       getBubbleManager().sendMessage(message, MessagePriority.Proactive)
     })
+    // A-5：启动主动说话定时检查。
+    // 注：start() 此前从未被调用（定时器从未启动，主动说话整条链路实际是断的）。
+    // 订阅建立后 listeners.size > 0，scheduleNextCheck 才会持续自调度。
+    proactiveMgr.start()
+    // 静默管理器 init 已由构造函数自动执行（偏好加载 + 计划/会议检查），此处不重复调用
 
     // R1：订阅工作状态变迁，记录上下文快照
     const episodeMgr = getContextEpisodeManager(currentCharacterId)
@@ -280,6 +285,7 @@ export function usePetTimers(options: UsePetTimersOptions): UsePetTimersReturn {
       clearInterval(diaryCheckInterval)
       clearInterval(nightlyConsolidationInterval)
       unsubProactive()
+      proactiveMgr.stop()
       unsubChatStage()
       unsubWorkState()
     }

@@ -33,6 +33,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   showWindowBorder: false,
   statusCardMode: 'off',
   edgeSnapEnabled: true,
+  // A-5：静默模式已由 silentModeManager 统一接管（手动/临时/计划/会议/专注）。
+  // 以下两个字段为早期实现遗留，保持占位以兼容持久化 schema，不再消费。
   silentModeEnabled: false,
   silentModeDuration: null,
 }
