@@ -237,9 +237,20 @@ export async function initDB(): Promise<Database> {
   await db.execute(`
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
+      value TEXT NOT NULL,
+      updated_at INTEGER NOT NULL DEFAULT 0
     )
   `)
+  // B-3: 兼容旧库 —— settings 表历史版本没有 updated_at 列（新增列，幂等迁移）
+  try {
+    const cols = await db.select<{ name: string }[]>('PRAGMA table_info(settings)')
+    if (!cols.some((c) => c.name === 'updated_at')) {
+      await db.execute('ALTER TABLE settings ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0')
+      console.log('[SpiritPal] settings.updated_at 列迁移完成')
+    }
+  } catch (e) {
+    console.warn('[SpiritPal] settings.updated_at 列迁移失败（不影响使用）:', e)
+  }
 
   // 记忆数据（含 embedding 列用于向量检索）
   await db.execute(`
@@ -564,8 +575,8 @@ export async function getSetting(key: string): Promise<string | null> {
 export async function setSetting(key: string, value: string): Promise<void> {
   const db = await getDb()
   await db.execute(
-    'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT(key) DO UPDATE SET value = $2',
-    [key, value],
+    'INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, $3) ON CONFLICT(key) DO UPDATE SET value = $2, updated_at = $3',
+    [key, value, Date.now()],
   )
   cacheInvalidate(key)
   cacheSet(key, value)

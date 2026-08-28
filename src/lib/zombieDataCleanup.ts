@@ -47,6 +47,8 @@ interface CleanupConfig {
   entityNodeExpirationDays: number
   /** 每次清理最大条目数 */
   maxEntriesPerRun: number
+  /** 强制清理全部 .legacy（含无时间戳的旧行），供用户手动触发使用 */
+  forceLegacyCleanup?: boolean
 }
 
 /** 默认清理配置 */
@@ -84,8 +86,11 @@ export async function getZombieDataReport(config: Partial<CleanupConfig> = {}): 
   const now = Date.now()
 
   // 1. 统计 .legacy blob
+  // B-3: 旧库行 updated_at=0（无时间戳），不计入 oldest，避免把迁移时间误解为 1970
   const legacyResult = await db.select<{ count: number; oldest: number | null }[]>(
-    `SELECT COUNT(*) as count, MIN(updated_at) as oldest FROM settings
+    `SELECT COUNT(*) as count,
+            MIN(CASE WHEN updated_at > 0 THEN updated_at END) as oldest
+     FROM settings
      WHERE key LIKE '%.legacy'`
   )
   const legacyCount = legacyResult[0]?.count ?? 0
@@ -134,12 +139,17 @@ async function cleanupLegacyBlobs(
   // .legacy blob 的 updated_at 是 blob 写入时间（即迁移时间）
   const threshold = Date.now() - config.legacyBlobRetentionDays * 24 * 60 * 60 * 1000
 
-  // 查找过期的 legacy blob
+  // 查找过期的 legacy blob。
+  // B-3 安全约束：自动清理只处理「有真实时间戳且超保留期」的行；
+  // updated_at=0（升级前旧库写入，无时间可考）不自动删，交给用户手动清理入口。
   const expiredBlobs = await db.select<{ key: string }[]>(
     `SELECT key FROM settings
-     WHERE key LIKE '%.legacy' AND updated_at < ?
+     WHERE key LIKE '%.legacy'
+       AND (${config.forceLegacyCleanup ? '1=1' : "updated_at > 0 AND updated_at < ?"})
      LIMIT ?`,
-    [threshold, config.maxEntriesPerRun]
+    config.forceLegacyCleanup
+      ? [config.maxEntriesPerRun]
+      : [threshold, config.maxEntriesPerRun]
   )
 
   if (expiredBlobs.length === 0) return 0

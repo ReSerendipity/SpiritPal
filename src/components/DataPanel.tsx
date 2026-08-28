@@ -22,10 +22,12 @@
  * - syncManager: 同步管理器（自动同步、状态订阅）
  */
 import { useState, useRef, useEffect } from 'react'
-import { Download, Upload, AlertCircle, Check, Database, RotateCcw, Cloud, CloudOff, Link, Loader2 } from 'lucide-react'
+import { Download, Upload, AlertCircle, Check, Database, RotateCcw, Cloud, CloudOff, Link, Loader2, Trash2 } from 'lucide-react'
 import { getDataManager } from '../lib/dataManager'
 import { getWebDAVClient, type WebDAVTestResult } from '../lib/webdavClient'
 import { syncManager, type SyncStatus } from '../lib/syncManager'
+// B-3: 数据治理 —— 迁移遗留（.legacy）数据清理
+import { cleanupZombieData, getZombieDataReport, type ZombieDataReport } from '../lib/zombieDataCleanup'
 
 /**
  * 数据管理面板
@@ -52,6 +54,9 @@ export function DataPanel() {
   const [webdavTesting, setWebdavTesting] = useState(false)
   const [webdavTestResult, setWebdavTestResult] = useState<WebDAVTestResult | null>(null)
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(syncManager.getStatus())
+  // B-3: 数据治理 —— 迁移遗留数据报告与清理状态
+  const [zombieReport, setZombieReport] = useState<ZombieDataReport | null>(null)
+  const [cleaning, setCleaning] = useState(false)
 
   // 从 Keychain 加载密码（异步回调中 setState）+ 订阅同步状态
   useEffect(() => {
@@ -59,6 +64,13 @@ export function DataPanel() {
       if (pwd) setWebdavPassword('••••••••') // 显示占位符
     })
     return syncManager.subscribe((status) => setSyncStatus(status))
+  }, [])
+
+  // B-3: 加载数据治理报告（只读统计，不清理）
+  useEffect(() => {
+    void getZombieDataReport()
+      .then(setZombieReport)
+      .catch(() => setZombieReport(null))
   }, [])
 
   function flash(type: 'success' | 'error', text: string) {
@@ -106,6 +118,35 @@ export function DataPanel() {
         flash('success', '所有数据已重置。请重启应用。')
       }
     }
+  }
+
+  // B-3: 手动清理迁移遗留数据（force：清除全部 .legacy 副本，包括无时间戳的旧行）
+  async function handleCleanupLegacy() {
+    const count = zombieReport?.legacyBlobCount ?? 0
+    if (count === 0) {
+      flash('success', '没有需要清理的迁移遗留数据')
+      return
+    }
+    if (!confirm(`将删除 ${count} 条迁移遗留副本（约 ${formatBytes(zombieReport!.totalEstimatedBytes)}）。这些是行级迁移前的旧数据备份，确认后无法恢复。`)) {
+      return
+    }
+    setCleaning(true)
+    try {
+      const result = await cleanupZombieData({ forceLegacyCleanup: true })
+      flash('success', `已清理 ${result.totalCleaned} 条迁移遗留数据`)
+      const report = await getZombieDataReport()
+      setZombieReport(report)
+    } catch (e) {
+      flash('error', `清理失败: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setCleaning(false)
+    }
+  }
+
+  function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
   // WebDAV 连接测试
@@ -380,6 +421,42 @@ export function DataPanel() {
           onChange={handleImportFile}
           className="hidden"
         />
+      </div>
+
+      {/* B-3: 数据治理 —— 迁移遗留数据清理 */}
+      <div className="rounded-xl bg-surface/60 p-4">
+        <div className="mb-2 flex items-center gap-2">
+          <Trash2 size={16} className="text-teal-300" />
+          <h3 className="text-sm font-semibold">数据治理</h3>
+        </div>
+        <p className="mb-3 text-[11px] text-ink-muted">
+          记忆迁移到行级存储后，旧 blob 会以 .legacy 副本保留 7 天作为回滚保险。您可以在此查看并手动清理这些迁移遗留数据。
+        </p>
+        {zombieReport &&
+        (zombieReport.legacyBlobCount > 0 ||
+          zombieReport.expiredEpisodeCount > 0 ||
+          zombieReport.expiredEntityCount > 0) ? (
+          <ul className="mb-3 space-y-1 rounded-lg bg-cream-deep/30 px-3 py-2 text-[11px] text-ink-muted">
+            <li>迁移遗留副本：{zombieReport.legacyBlobCount} 条（约 {formatBytes(zombieReport.totalEstimatedBytes)}）</li>
+            <li>过期上下文快照：{zombieReport.expiredEpisodeCount} 条</li>
+            <li>孤立实体节点：{zombieReport.expiredEntityCount} 条</li>
+          </ul>
+        ) : (
+          <p className="mb-3 text-[11px] text-green-400">没有发现迁移遗留数据</p>
+        )}
+        <button
+          onClick={handleCleanupLegacy}
+          disabled={
+            cleaning ||
+            ((zombieReport?.legacyBlobCount ?? 0) === 0 &&
+              (zombieReport?.expiredEpisodeCount ?? 0) === 0 &&
+              (zombieReport?.expiredEntityCount ?? 0) === 0)
+          }
+          className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-500 disabled:opacity-50"
+        >
+          {cleaning ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+          清理迁移遗留数据
+        </button>
       </div>
 
       {/* 危险区域 */}
