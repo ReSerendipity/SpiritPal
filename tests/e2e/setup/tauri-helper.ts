@@ -20,9 +20,10 @@ interface PetStats {
  * 等待 SpiritPal 应用完全加载
  */
 export async function waitForSpiritPalApp(page) {
-  await page.waitForSelector('#root', { state: 'attached' });
+  await page.waitForSelector('#root', { state: 'attached', timeout: 30000 });
   // 等待 Live2D 容器加载（attached 即可，不要求 visible）
-  await page.waitForSelector('[data-testid="live2d-container"]', { state: 'attached', timeout: 15000 });
+  // 增加超时时间以适应 CI 环境
+  await page.waitForSelector('[data-testid="live2d-container"]', { state: 'attached', timeout: 30000 });
 }
 
 /**
