@@ -164,10 +164,12 @@ fn test_derive_mod_name_petmod() {
 
 #[test]
 fn test_derive_mod_name_with_dir() {
-    assert_eq!(
-        derive_mod_name_from_path("C:\\mods\\awesome.petmod"),
-        "awesome"
-    );
+    // 使用平台特定的路径分隔符来测试带目录的文件名解析
+    #[cfg(windows)]
+    let path = r"C:\mods\awesome.petmod";
+    #[cfg(not(windows))]
+    let path = "/mods/awesome.petmod";
+    assert_eq!(derive_mod_name_from_path(path), "awesome");
 }
 
 #[test]

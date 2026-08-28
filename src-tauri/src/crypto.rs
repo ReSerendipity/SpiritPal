@@ -603,10 +603,12 @@ mod tests {
 
     #[test]
     fn test_derive_mod_name_with_path() {
-        assert_eq!(
-            derive_mod_name_from_path("C:\\Users\\Doro\\Downloads\\cool_mod.petmod"),
-            "cool_mod"
-        );
+        // 使用平台特定的路径分隔符来测试带路径的文件名解析
+        #[cfg(windows)]
+        let path = r"C:\Users\Doro\Downloads\cool_mod.petmod";
+        #[cfg(not(windows))]
+        let path = "/home/user/mods/cool_mod.petmod";
+        assert_eq!(derive_mod_name_from_path(path), "cool_mod");
     }
 
     #[test]
