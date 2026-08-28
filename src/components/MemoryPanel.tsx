@@ -16,12 +16,15 @@ import { getPetExperienceManager, type PetExperience } from '../lib/petExperienc
 import { getDiarySystemManager, type DiaryEntry } from '../lib/diarySystem'
 import { exportMemories } from '../lib/memoryExporter'
 import { createBatchManager } from '../lib/batchOperationManager'
+import MemoryVisualizer from './MemoryVisualizer'
 import { Trash2, Plus, Heart, BookOpen, User, Calendar, CheckSquare, XSquare } from 'lucide-react'
 
 type Tab = 'facts' | 'experiences' | 'diary'
 
 export function MemoryPanel() {
   const currentCharacterId = usePetStore((s) => s.currentCharacterId)
+  // A-4：视图切换 —— 精简（默认，保持旧行为零回归）/ 可视化
+  const [viewMode, setViewMode] = useState<'compact' | 'visual'>('compact')
   const [tab, setTab] = useState<Tab>('facts')
   const [facts, setFacts] = useState<OwnerFact[]>([])
   const [experiences, setExperiences] = useState<PetExperience[]>([])
@@ -162,6 +165,36 @@ export function MemoryPanel() {
 
   return (
     <div className="flex h-full flex-col gap-3 p-4">
+      {/* A-4：视图切换 —— 精简（默认）/ 可视化 */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setViewMode('compact')}
+          className={`rounded border px-2.5 py-1 text-xs transition-colors ${
+            viewMode === 'compact'
+              ? 'border-pet-primary bg-pet-primary/10 text-pet-primary'
+              : 'border-ink/15 text-ink-muted hover:bg-ink/5 hover:text-ink'
+          }`}
+        >
+          精简
+        </button>
+        <button
+          onClick={() => setViewMode('visual')}
+          className={`rounded border px-2.5 py-1 text-xs transition-colors ${
+            viewMode === 'visual'
+              ? 'border-pet-primary bg-pet-primary/10 text-pet-primary'
+              : 'border-ink/15 text-ink-muted hover:bg-ink/5 hover:text-ink'
+          }`}
+        >
+          可视化
+        </button>
+      </div>
+
+      {viewMode === 'visual' ? (
+        <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-ink/10">
+          <MemoryVisualizer />
+        </div>
+      ) : (
+        <>
       {/* A-12：工具条——导出 + 批量操作（仅事实页） */}
       <div key={`toolbar-${facts.length}`} className="flex flex-wrap items-center gap-2">
         <span className="text-xs text-ink-faint">导出记忆</span>
@@ -373,7 +406,9 @@ export function MemoryPanel() {
             )}
           </div>
         )}
-      </div>
+        </div>
+        </>
+      )}
     </div>
   )
 }
