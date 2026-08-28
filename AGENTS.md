@@ -1,7 +1,7 @@
 # SpiritPal AGENTS.md — AI 辅助开发指南
 
-> 🧬 **自进化协议版本**：v2.27  
-> 📅 **最后更新日期**：2026-08-27  
+> 🧬 **自进化协议版本**：v2.28  
+> 📅 **最后更新日期**：2026-08-28  
 > 🎯 **对应项目版本**：v0.1.0（闭源）
 
 ---
@@ -94,14 +94,15 @@ AI Agent 打开本文件后的**第一件事**是执行下面的「🧪 自进�
 
 ### 2.2 Rust 约定
 - **命名规则**：函数/变量/模块 `snake_case`，结构体/Enum `PascalCase`，trait `PascalCase` 或 `<Verb>Noun`（`PetDataStore`、`Encryptable`），常量 `UPPER_SNAKE_CASE`
-- **unsafe 约束**：⚠️ `#![forbid(unsafe_code)]` **实际未在 lib.rs 声明**（文档曾声称已加，与代码不符）；`commands/window.rs` 的 `get_mouse_pos` 使用 Win32 `GetCursorPos` unsafe 块。约定：新代码避免 unsafe，必须用 unsafe 时用 `tauri-plugin` 官方封装并单独 PR review
+- **unsafe 约束**：⚠️ `#![forbid(unsafe_code)]` **实际未在 lib.rs 声明**（文档曾声称已加，与代码不符）；`lib.rs` 的 `get_mouse_pos` 使用 Win32 `GetCursorPos` unsafe 块。约定：新代码避免 unsafe，必须用 unsafe 时用 `tauri-plugin` 官方封装并单独 PR review
 - **格式化 & Lint**：
   ```bash
   cargo fmt --all          # 格式化
   cargo clippy --all-targets --all-features -- -D warnings   # 把 warning 当 error 处理
   ```
-- **Tauri Command 规则**（`src-tauri/src/commands/` 下）：
-  - 每个 command 函数名前缀 `cmd_`（例：`pub async fn cmd_pet_get_info(id: &str) -> Result<PetInfo, String>`）
+- **Tauri Command 规则**（⚠️ 实际布局与旧描述不符，2026-08-28 核对）：
+  - **不存在 `src-tauri/src/commands/` 目录**。所有 `.rs` 平铺在 `src-tauri/src/`（18 个文件），command 分散定义在各自模块（`lib.rs` 18 个、`petmod.rs` 6 个、`tray.rs` / `keychain.rs` / `crypto.rs` 各 3 个、`device.rs` / `encrypted_db.rs` 各 2 个、`mcp_bridge.rs` / `audit_log.rs` 各 1 个，**共 39 个**），统一在 `lib.rs` 的 `generate_handler!` 里注册（桌面端与移动端各一份，新增命令**两处都要加**）
+  - ⚠️ 函数名前缀 `cmd_` **实际未被采用**（既有命令均无前缀，如 `import_petmod` / `set_tray_icon`）。新命令**沿用无前缀风格**以保持一致性，本条前缀约定视为作废
   - 返回类型必须是 `Result<T, String>`，**不允许 `panic!()` / `.unwrap()` 在生产代码里**（测试代码除外）
   - 错误分支：统一用 `anyhow` crate 的 `anyhow::Result` 记录上下文，然后转成用户可读的 `Err("无法加载宠物档案: xxxx".to_string())` 给前端
   - 访问文件系统必须用 `tauri::api::path::app_data_dir(ctx)` 作为 base，**不要写死 `~/.spiritpal/`**
@@ -147,7 +148,8 @@ import "./PetWindow.css"
 └─────────────────────────────────────────────────────────────┘
 ```
 
-> **关键结论**：前端 `src/lib/` 为纯 TS 核心逻辑层（不允许出现 React，实际 159 个 .ts 文件）、`src/stores/` 一域一 store（pet/settings/chat/theme）、`src/components/` 为跨页面 UI 公共组件；Rust 端 `src-tauri/src/commands/` 提供全部 Tauri Command（30 个，一一对应 `src/lib/ipcTypes.ts` 命令名），`encryption.rs` / `encrypted_db.rs` 负责数据加密落盘。
+> **关键结论**（2026-08-28 核对）：前端 `src/lib/` 为纯 TS 核心逻辑层（不允许出现 React，实际 **202 个 `.ts` 文件**）、`src/stores/` 一域一 store（pet/settings/chat/theme）、`src/components/` 为跨页面 UI 公共组件；Rust 端全部 Tauri Command 平铺在 `src-tauri/src/*.rs`（**39 个**，无 `commands/` 子目录），`crypto.rs` / `encrypted_db.rs` 负责数据加密落盘。
+> ⚠️ **不存在 `src/lib/ipcTypes.ts`**（旧版文档引用了它）。前后端命令契约由 **`src/lib/__tests__/ipcContract.test.ts`** 守护：它扫描前端所有 `invoke('xxx')`，逐一核对 Rust 侧是否存在同名 `#[tauri::command]`，并校验关键命令的参数签名。**新增 invoke 时必须跑这个测试**，确实尚未实现的命令需显式登记进它的 `KNOWN_PLUGIN_COMMANDS` 排除列表。
 > 📂 前端 `src/` 目录职责表 + Rust `src-tauri/` 模块表（含修改注意事项）已整节移入 [docs/project/MODULE_MAP.md](docs/project/MODULE_MAP.md)；新增/修改模块先到该文件核对职责边界。
 
 ---
