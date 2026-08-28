@@ -478,7 +478,7 @@ const ENC3_MAX_CHUNKS: usize = 10_000;
 /// # Returns
 /// - `Ok(String)` — `ENC3:base64(salt || count || (nonce||ct+tag)×N)`
 /// - `Err(String)` — 密码解析失败、随机数生成失败或加密失败
-///  分块加密核心（同步，供命令与单测复用）
+///   分块加密核心（同步，供命令与单测复用）
 fn encrypt_chunked_internal(pwd: &str, data: &str) -> Result<String, String> {
     let salt = generate_random_salt()?;
     let key = derive_aes_key_pbkdf2(pwd, &salt);
@@ -527,7 +527,7 @@ pub async fn encrypt_data_chunked(data: String, password: String) -> Result<Stri
 /// # Returns
 /// - `Ok(String)` — 解密后的明文
 /// - `Err(String)` — 前缀缺失、base64 解码失败、块数非法、任一块认证失败或 UTF-8 还原失败
-///  分块解密核心（同步，供命令与单测复用）
+///   分块解密核心（同步，供命令与单测复用）
 fn decrypt_chunked_internal(pwd: &str, encrypted: &str) -> Result<String, String> {
     let stripped = encrypted
         .strip_prefix(obfstr::obfstr!("ENC3:"))

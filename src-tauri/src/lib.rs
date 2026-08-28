@@ -670,6 +670,7 @@ fn build_log_plugin() -> impl tauri::plugin::Plugin<tauri::Wry> {
 /// 从 run() 的 setup 闭包中拆出，减少 Fat Controller 行数。
 /// 包含窗口创建、托盘菜单事件处理、空闲检测启动等桌面端专属逻辑。
 #[cfg(desktop)]
+#[allow(dead_code)]
 fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
