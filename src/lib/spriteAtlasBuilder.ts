@@ -14,13 +14,30 @@
  * - UI 图标集打包
  * - 粒子纹理合并
  * - 动画帧序列整合
+ *
+ * ⚠️ 运行环境约束（A-6）：本模块会被打进 webview 前端 bundle，
+ * 因此**禁止**静态 import `node:path` / `node:fs` 等 Node 内置模块。
+ * 落盘动作一律交给调用方：浏览器用 `serializeMetadata()` + Blob 下载，
+ * Node 脚本用 `fs/promises` 自行写入。
  */
 
-import { join, dirname } from 'path'
-import { mkdir, writeFile, readFile, stat } from 'fs/promises'
-import { existsSync } from 'fs'
-
 // ============ 类型定义 ============
+
+/** 图集元数据（JSON 序列化后的结构，供调用方落盘或下载） */
+export interface AtlasMetadata {
+  version: string
+  image: string
+  format: string
+  size: { width: number; height: number }
+  sprites: Array<{
+    name: string
+    frame: { x: number; y: number; w: number; h: number }
+    rotated: boolean
+    trimmed: boolean
+    sourceSize: { w: number; h: number }
+    spriteSourceSize: { x: number; y: number; w: number; h: number }
+  }>
+}
 
 export interface SpriteItem {
   /** 唯一标识符 */
@@ -49,10 +66,8 @@ export interface SpriteItem {
 }
 
 export interface SpriteAtlasConfig {
-  /** 输出文件名 */
+  /** 输出文件名（不含扩展名） */
   outputName: string
-  /** 输出目录 */
-  outputDir: string
   /** 最大精灵图尺寸 */
   maxSize?: number
   /** 填充空白区域（padding） */
@@ -79,10 +94,12 @@ export interface SpriteAtlasData {
   totalHeight: number
   /** 使用面积 */
   usedArea: { x: number; y: number; width: number; height: number }
-  /** 空间利用率 */
+  /** 空间利用率（百分比） */
   efficiency: number
   /** 生成的时间戳 */
   generatedAt: number
+  /** JSON 元数据（generateMeta 为 true 时生成，供调用方落盘/下载） */
+  metadata?: AtlasMetadata
 }
 
 // ============ 矩形打包算法 ============
@@ -184,24 +201,39 @@ export class SpriteAtlasBuilder {
       throw new Error('没有要打包的图片')
     }
 
-    // 计算所需总大小
-    const totalArea = this.items.reduce((sum, item) => sum + (item.width! * item.height!), 0)
-    const minSize = Math.ceil(Math.sqrt(totalArea))
-    const atlasSize = Math.min(this.config.maxSize, Math.pow(2, Math.ceil(Math.log2(minSize))))
+    const pad = this.config.padding
 
-    // 使用二叉树打包算法
-    const packer = new BinPacker(atlasSize, atlasSize)
-    
+    // 计算所需总大小（padding 计入占位，否则尾部的图会越出图集边界）
+    const totalArea = this.items.reduce(
+      (sum, item) => sum + ((item.width ?? 0) + pad * 2) * ((item.height ?? 0) + pad * 2),
+      0,
+    )
+    // 单张切片也要放得下，因此下界取「面积平方根」与「最大单边」的较大者
+    const maxSide = this.items.reduce(
+      (max, item) => Math.max(max, (item.width ?? 0) + pad * 2, (item.height ?? 0) + pad * 2),
+      0,
+    )
+    const minSize = Math.max(Math.ceil(Math.sqrt(totalArea)), maxSide)
+
     const packedItems = this.items.map(item => ({
-      w: item.width!,
-      h: item.height!,
+      w: (item.width ?? 0) + pad * 2,
+      h: (item.height ?? 0) + pad * 2,
       data: item,
     }))
 
-    const positions = packer.fit(packedItems)
-    
+    // 矩形打包存在碎片，sqrt(面积) 只是下界：从下界起按 2 的幂逐步放大直到装下
+    let atlasSize = Math.min(this.config.maxSize, Math.pow(2, Math.ceil(Math.log2(minSize))))
+    let positions: ReturnType<BinPacker['fit']> = null
+    while (atlasSize <= this.config.maxSize) {
+      positions = new BinPacker(atlasSize, atlasSize).fit(packedItems)
+      if (positions) break
+      atlasSize *= 2
+    }
+
     if (!positions) {
-      throw new Error(`精灵图过大，无法打包到 ${atlasSize}x${atlasSize}`)
+      throw new Error(
+        `精灵图过大，无法打包到 ${this.config.maxSize}x${this.config.maxSize}（共 ${this.items.length} 个切片）`,
+      )
     }
 
     // 分配位置和 UV 坐标
@@ -210,16 +242,16 @@ export class SpriteAtlasBuilder {
     let usedAreaWidth = 0
     let usedAreaHeight = 0
 
-    positions.forEach((pos, index) => {
+    positions.forEach((pos) => {
       const item = pos.data as SpriteItem
-      item.x = pos.x + this.config.padding
-      item.y = pos.y + this.config.padding
+      item.x = pos.x + pad
+      item.y = pos.y + pad
       
       // 计算边界
       usedAreaX = Math.min(usedAreaX, pos.x)
       usedAreaY = Math.min(usedAreaY, pos.y)
-      usedAreaWidth = Math.max(usedAreaWidth, pos.x + (item.width || 0))
-      usedAreaHeight = Math.max(usedAreaHeight, pos.y + (item.height || 0))
+      usedAreaWidth = Math.max(usedAreaWidth, pos.x + (item.width || 0) + pad * 2)
+      usedAreaHeight = Math.max(usedAreaHeight, pos.y + (item.height || 0) + pad * 2)
 
       // 计算 UV 坐标
       item.uv = {
@@ -230,9 +262,6 @@ export class SpriteAtlasBuilder {
       }
     })
 
-    // TODO: 实际绘制图片到 canvas
-    // 这里简化处理
-    
     const efficiency = (totalArea / (atlasSize * atlasSize)) * 100
 
     const atlasData: SpriteAtlasData = {
@@ -250,23 +279,58 @@ export class SpriteAtlasBuilder {
       generatedAt: Date.now(),
     }
 
-    // 保存元数据
+    // 生成元数据对象（不落盘：webview 无 fs，落盘/下载由调用方决定）
     if (this.config.generateMeta) {
-      const metaPath = join(this.config.outputDir, `${this.config.outputName}.json`)
-      await this.saveMetadata(metaPath, atlasData)
+      atlasData.metadata = this.buildMetadata(atlasData)
     }
-
-    // TODO: 实际保存图片
-    // await this.saveAtlas(...)
 
     return atlasData
   }
 
   /**
-   * 保存元数据
+   * 把打包结果绘制到画布。
+   * @param target 目标画布（尺寸必须 ≥ 图集尺寸）
+   * @param resolveImage 由 sourcePath 解析出可绘制源（Image / canvas / ImageBitmap）；返回 null 则跳过该切片
+   * @returns 成功绘制的切片数
    */
-  private async saveMetadata(path: string, atlasData: SpriteAtlasData): Promise<void> {
-    const meta = {
+  async drawTo(
+    target: HTMLCanvasElement,
+    resolveImage: (
+      sourcePath: string,
+    ) => Promise<CanvasImageSource | null> | CanvasImageSource | null,
+  ): Promise<number> {
+    const ctx = target.getContext('2d')
+    if (!ctx) throw new Error('无法获取画布 2D 上下文')
+
+    let drawn = 0
+    for (const sprite of this.items) {
+      if (sprite.x === undefined || sprite.y === undefined) continue
+      const image = await resolveImage(sprite.sourcePath)
+      if (!image) continue
+      ctx.drawImage(
+        image,
+        sprite.x,
+        sprite.y,
+        sprite.width ?? sprite.originalWidth ?? 0,
+        sprite.height ?? sprite.originalHeight ?? 0,
+      )
+      drawn++
+    }
+    return drawn
+  }
+
+  /**
+   * 序列化图集元数据为 JSON 字符串（供浏览器下载或 Node 落盘）
+   */
+  serializeMetadata(atlasData: SpriteAtlasData): string {
+    return JSON.stringify(atlasData.metadata ?? this.buildMetadata(atlasData), null, 2)
+  }
+
+  /**
+   * 构建元数据对象
+   */
+  private buildMetadata(atlasData: SpriteAtlasData): AtlasMetadata {
+    return {
       version: '1.0.0',
       image: atlasData.atlasFile,
       format: this.config.format,
@@ -277,27 +341,25 @@ export class SpriteAtlasBuilder {
       sprites: atlasData.sprites.map(s => ({
         name: s.id,
         frame: {
-          x: s.x,
-          y: s.y,
-          w: s.width,
-          h: s.height,
+          x: s.x ?? 0,
+          y: s.y ?? 0,
+          w: s.width ?? s.originalWidth ?? 0,
+          h: s.height ?? s.originalHeight ?? 0,
         },
         rotated: !!s.rotation,
         trimmed: false,
         sourceSize: {
-          w: s.originalWidth,
-          h: s.originalHeight,
+          w: s.originalWidth ?? s.width ?? 0,
+          h: s.originalHeight ?? s.height ?? 0,
         },
         spriteSourceSize: {
           x: 0,
           y: 0,
-          w: s.width,
-          h: s.height,
+          w: s.width ?? s.originalWidth ?? 0,
+          h: s.height ?? s.originalHeight ?? 0,
         },
       })),
     }
-
-    await writeFile(path, JSON.stringify(meta, null, 2), 'utf-8')
   }
 
   /**
@@ -314,13 +376,55 @@ export class SpriteAtlasLoader {
   private atlases: Map<string, SpriteAtlasData> = new Map()
 
   /**
-   * 加载精灵图集
+   * 注册一个已构建的图集，供运行时按名称查 UV。
+   * 本类不做任何磁盘 IO（webview 无 fs），图集数据由调用方提供。
    */
-  async load(path: string, metaPath?: string): Promise<SpriteAtlasData> {
-    // TODO: 实际加载逻辑
-    // 读取 atlas.json 和对应图片文件
-    
-    throw new Error('Not implemented')
+  load(name: string, atlasData: SpriteAtlasData): SpriteAtlasData {
+    this.atlases.set(name, atlasData)
+    return atlasData
+  }
+
+  /**
+   * 从导出的图集元数据（atlas.json）回读并注册，使导出的 PNG + JSON 可被运行时加载。
+   */
+  loadFromMetadata(name: string, meta: AtlasMetadata): SpriteAtlasData {
+    const sizeW = meta.size.width || 1
+    const sizeH = meta.size.height || 1
+
+    const sprites: SpriteItem[] = meta.sprites.map((s) => ({
+      id: s.name,
+      sourcePath: `${name}:${s.name}`,
+      x: s.frame.x,
+      y: s.frame.y,
+      width: s.frame.w,
+      height: s.frame.h,
+      originalWidth: s.sourceSize.w,
+      originalHeight: s.sourceSize.h,
+      scale: 1,
+      rotation: s.rotated ? 90 : undefined,
+      uv: {
+        u0: s.frame.x / sizeW,
+        v0: s.frame.y / sizeH,
+        u1: (s.frame.x + s.frame.w) / sizeW,
+        v1: (s.frame.y + s.frame.h) / sizeH,
+      },
+    }))
+
+    const usedAreaW = sprites.reduce((max, s) => Math.max(max, (s.x ?? 0) + (s.width ?? 0)), 0)
+    const usedAreaH = sprites.reduce((max, s) => Math.max(max, (s.y ?? 0) + (s.height ?? 0)), 0)
+    const usedArea = sprites.reduce((sum, s) => sum + (s.width ?? 0) * (s.height ?? 0), 0)
+
+    const atlasData: SpriteAtlasData = {
+      atlasFile: meta.image,
+      sprites,
+      totalWidth: meta.size.width,
+      totalHeight: meta.size.height,
+      usedArea: { x: 0, y: 0, width: usedAreaW, height: usedAreaH },
+      efficiency: (usedArea / (sizeW * sizeH)) * 100,
+      generatedAt: Date.now(),
+    }
+
+    return this.load(name, atlasData)
   }
 
   /**
@@ -332,6 +436,11 @@ export class SpriteAtlasLoader {
 
     const sprite = atlas.sprites.find(s => s.id === spriteId)
     return sprite?.uv
+  }
+
+  /** 已注册的图集名称列表 */
+  list(): string[] {
+    return Array.from(this.atlases.keys())
   }
 
   /**
