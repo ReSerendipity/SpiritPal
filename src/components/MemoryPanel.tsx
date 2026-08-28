@@ -9,12 +9,14 @@
  * 支持查看、删除、手动添加事实
  */
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { usePetStore } from '../stores/petStore'
 import { getOwnerFactsManager, type OwnerFact } from '../lib/ownerFacts'
 import { getPetExperienceManager, type PetExperience } from '../lib/petExperience'
 import { getDiarySystemManager, type DiaryEntry } from '../lib/diarySystem'
-import { Trash2, Plus, Heart, BookOpen, User, Calendar } from 'lucide-react'
+import { exportMemories } from '../lib/memoryExporter'
+import { createBatchManager } from '../lib/batchOperationManager'
+import { Trash2, Plus, Heart, BookOpen, User, Calendar, CheckSquare, XSquare } from 'lucide-react'
 
 type Tab = 'facts' | 'experiences' | 'diary'
 
@@ -27,6 +29,20 @@ export function MemoryPanel() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [newFactKey, setNewFactKey] = useState('')
   const [newFactValue, setNewFactValue] = useState('')
+
+  // A-12：批量操作管理器（多选 + 批量删除 + 撤销快照）
+  const batch = useMemo(() => createBatchManager<OwnerFact>([]), [])
+  const [selVersion, setSelVersion] = useState(0)
+  const [exporting, setExporting] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [showUndo, setShowUndo] = useState(false)
+  const deletedSnapshot = useRef<OwnerFact[]>([])
+
+  // 事实列表变化时同步到批量管理器（已删除项的选中态会自动失效）
+  useEffect(() => {
+    batch.updateItems(facts)
+    setSelVersion((v) => v + 1)
+  }, [facts, batch])
 
   useEffect(() => {
     // 异步加载各层记忆（ensureLoaded 为异步操作，setState 在微任务回调中执行）
@@ -66,6 +82,70 @@ export function MemoryPanel() {
     setShowAddForm(false)
   }, [currentCharacterId, newFactKey, newFactValue])
 
+  // A-12：导出三层记忆（JSON / CSV / Markdown），webview 安全下载
+  const handleExport = useCallback(async (format: 'json' | 'csv' | 'markdown') => {
+    setExporting(true)
+    try {
+      const result = await exportMemories({ format, characterId: currentCharacterId })
+      const blob = new Blob([result.content], { type: 'text/plain;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = result.filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      console.warn('[MemoryPanel] 导出失败:', e)
+    } finally {
+      setExporting(false)
+    }
+  }, [currentCharacterId])
+
+  // A-12：批量删除选中事实（通过 batchOperationManager），并保留快照以支持撤销
+  const handleBulkDelete = useCallback(async () => {
+    if (!batch.hasSelection) return
+    const mgr = getOwnerFactsManager(currentCharacterId)
+    const selected = batch.getSelectedItems()
+    deletedSnapshot.current = selected.map((f) => ({ ...f }))
+    setDeleting(true)
+    try {
+      const result = await batch.bulkDelete(
+        (f) => f.id,
+        async (id) => {
+          const f = selected.find((x) => x.id === id)
+          if (f) await mgr.deleteFact(f.key)
+        },
+      )
+      if (result.successCount > 0) {
+        batch.clearSelection()
+        setShowUndo(true)
+        const refreshed = getOwnerFactsManager(currentCharacterId)
+        await refreshed.ensureLoaded()
+        setFacts(refreshed.getAllFacts())
+      }
+    } catch (e) {
+      console.warn('[MemoryPanel] 批量删除失败:', e)
+    } finally {
+      setDeleting(false)
+      setSelVersion((v) => v + 1)
+    }
+  }, [batch, currentCharacterId])
+
+  // A-12：撤销最近一次批量删除（恢复快照中的事实）
+  const handleUndoDelete = useCallback(async () => {
+    const mgr = getOwnerFactsManager(currentCharacterId)
+    for (const f of deletedSnapshot.current) {
+      await mgr.upsertFact(f.key, f.value, f.confidence, f.userProvided)
+    }
+    deletedSnapshot.current = []
+    setShowUndo(false)
+    const refreshed = getOwnerFactsManager(currentCharacterId)
+    await refreshed.ensureLoaded()
+    setFacts(refreshed.getAllFacts())
+  }, [currentCharacterId])
+
   const tabButton = (t: Tab, label: string, icon: React.ReactNode, count: number) => (
     <button
       onClick={() => setTab(t)}
@@ -83,6 +163,61 @@ export function MemoryPanel() {
 
   return (
     <div className="flex h-full flex-col gap-3 p-4">
+      {/* A-12：工具条——导出 + 批量操作（仅事实页） */}
+      <div key={selVersion} className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-ink-faint">导出记忆</span>
+        <button
+          onClick={() => void handleExport('json')}
+          disabled={exporting}
+          className="rounded border border-ink/15 px-2 py-1 text-xs text-ink-muted hover:bg-ink/5 hover:text-ink disabled:opacity-50"
+        >
+          JSON
+        </button>
+        <button
+          onClick={() => void handleExport('csv')}
+          disabled={exporting}
+          className="rounded border border-ink/15 px-2 py-1 text-xs text-ink-muted hover:bg-ink/5 hover:text-ink disabled:opacity-50"
+        >
+          CSV
+        </button>
+        <button
+          onClick={() => void handleExport('markdown')}
+          disabled={exporting}
+          className="rounded border border-ink/15 px-2 py-1 text-xs text-ink-muted hover:bg-ink/5 hover:text-ink disabled:opacity-50"
+        >
+          MD
+        </button>
+        {tab === 'facts' && (
+          <>
+            <span className="mx-1 h-4 w-px bg-ink/10" />
+            <button
+              onClick={() => { batch.toggleSelectAll(); setSelVersion((v) => v + 1) }}
+              className="flex items-center gap-1 rounded border border-ink/15 px-2 py-1 text-xs text-ink-muted hover:bg-ink/5 hover:text-ink"
+            >
+              <CheckSquare size={14} />
+              {batch.selectAll ? '取消全选' : '全选'}
+            </button>
+            <button
+              onClick={() => void handleBulkDelete()}
+              disabled={!batch.hasSelection || deleting}
+              className="flex items-center gap-1 rounded border border-ink/15 px-2 py-1 text-xs text-ink-muted hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+            >
+              <Trash2 size={14} />
+              删除({batch.selectedCount})
+            </button>
+            {showUndo && (
+              <button
+                onClick={() => void handleUndoDelete()}
+                className="flex items-center gap-1 rounded border border-tangerine/40 px-2 py-1 text-xs text-tangerine hover:bg-tangerine/10"
+              >
+                <XSquare size={14} />
+                撤销
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
       {/* Tab 选择 */}
       <div className="flex gap-2 border-b border-ink/10 pb-3">
         {tabButton('facts', '主人画像', <User size={16} />, facts.length)}
@@ -103,7 +238,14 @@ export function MemoryPanel() {
               </div>
             ) : (
               facts.map((fact) => (
-                <div key={fact.id} className="flex items-center justify-between rounded-lg border border-ink/10 bg-surface px-3 py-2">
+                <div key={fact.id} className="flex items-center gap-2 rounded-lg border border-ink/10 bg-surface px-3 py-2">
+                  <input
+                    type="checkbox"
+                    checked={batch.isSelected(fact.id)}
+                    onChange={() => { batch.toggleItem(fact.id); setSelVersion((v) => v + 1) }}
+                    className="h-4 w-4 shrink-0 accent-tangerine"
+                    aria-label={`选择事实 ${fact.key}`}
+                  />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium text-ink-faint">{fact.key}</span>

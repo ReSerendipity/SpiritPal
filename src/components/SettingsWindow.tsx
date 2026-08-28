@@ -1103,7 +1103,7 @@ const [showImporter, setShowImporter] = useState(false)
                   小红书
                 </a>
                 <a
-                  href="https://v.douyin.com/eJgZfhanu4I/"
+                  href="https://www.douyin.com/user/MS4wLjABAAAAcEdOoxVlfk3Ulx_usqR-3PHW4xxp6wYzRmsuRI_-fHBigPETTKLsv4fknIpFq6sP"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 rounded-lg bg-cream-deep px-3 py-1.5 text-ink-muted hover:bg-ink/5"

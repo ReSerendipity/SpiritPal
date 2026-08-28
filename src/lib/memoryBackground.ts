@@ -12,6 +12,7 @@ import { usePetStore } from '../stores/petStore'
 import { getEnhancedMemoryManager } from './enhancedMemory'
 import { initEntityGraphTables, buildEntityGraphFromMemories } from './entityGraph'
 import { startDreamingScheduler, stopDreamingScheduler } from './dreamingConsolidation'
+import { getMemorySummarizer } from './memorySummarizer'
 
 let started = false
 let activeCharacter = ''
@@ -34,6 +35,10 @@ export async function initMemoryBackground(characterId?: string): Promise<void> 
     await buildEntityGraphFromMemories(mgr.getAllMemories())
     // 做梦调度器：空闲/夜间触发语义巩固
     startDreamingScheduler(mgr)
+    // A-11：基于长期记忆生成时间线摘要（记忆巩固），非阻塞、非致命
+    void getMemorySummarizer()
+      .generateTimelineSummary(mgr.getAllMemories(), 'day')
+      .catch((err) => console.warn('[memoryBackground] summarize failed (non-fatal):', err))
   } catch (err) {
     // 非致命：后台任务失败不影响应用主体
     console.warn('[memoryBackground] init failed (non-fatal):', err)
