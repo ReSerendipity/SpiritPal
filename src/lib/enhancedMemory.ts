@@ -32,7 +32,7 @@
  * @requires ./memoryTypes - 记忆类型定义和纯函数
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { encryptBlob, decryptBlob } from './blobCrypto'
 import {
   getSetting,
   setSetting,
@@ -398,7 +398,7 @@ export class EnhancedMemoryManager {
       // D1 修复：仅判断 ENC1: 会导致新版 ENC2: 密文落入明文分支、JSON.parse 失败而静默丢失全部记忆
       if (raw.startsWith('ENC1:') || raw.startsWith('ENC2:')) {
         try {
-          jsonStr = await invoke<string>('decrypt_data', { encrypted: raw, password: '' })
+          jsonStr = await decryptBlob(raw)
         } catch (e) {
           // F10：解密失败时保留损坏副本，而非直接丢弃
           console.warn(`[EnhancedMemory] 解密失败 ${this.storageKey}，保留损坏副本:`, e)
@@ -530,7 +530,7 @@ export class EnhancedMemoryManager {
 
       let toStore: string
       try {
-        toStore = await invoke<string>('encrypt_data', { data: jsonWithChecksum, password: '' })
+        toStore = await encryptBlob(jsonWithChecksum)
       } catch (e) {
         console.error(`[EnhancedMemory] 加密失败 ${this.storageKey}，拒绝写入明文数据:`, e)
         return

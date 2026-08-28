@@ -20,7 +20,7 @@ import {
   isEntityNodesMigrated,
   setEntityNodesMigrated,
 } from './db'
-import { invoke } from '@tauri-apps/api/core'
+import { encryptBlob, decryptBlob } from './blobCrypto'
 import { generateId } from './commonUtils'
 
 // ============ 类型定义 ============
@@ -140,7 +140,7 @@ export class EntityManager {
       let jsonStr: string
       // D1 修复：兼容 Rust 端新版 ENC2: 加密前缀，避免密文被当作明文解析而丢失实体数据
       if (raw.startsWith('ENC1:') || raw.startsWith('ENC2:')) {
-        jsonStr = await invoke<string>('decrypt_data', { encrypted: raw, password: '' })
+        jsonStr = await decryptBlob(raw)
       } else {
         jsonStr = raw
       }
@@ -200,7 +200,7 @@ export class EntityManager {
       const jsonStr = JSON.stringify({ entities: Array.from(this.entities.values()) })
       let toStore: string
       try {
-        toStore = await invoke<string>('encrypt_data', { data: jsonStr, password: '' })
+        toStore = await encryptBlob(jsonStr)
       } catch {
         return
       }

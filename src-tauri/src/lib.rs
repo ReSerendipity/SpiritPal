@@ -96,7 +96,9 @@ mod generated {
 // ============ 跨模块命令导入（供 generate_handler! 使用）============
 // Tauri 的 generate_handler! 宏接受函数标识符，需要先 use 导入
 
-use crypto::{compute_sha256, decrypt_data, encrypt_data};
+use crypto::{
+    compute_sha256, decrypt_data, decrypt_data_chunked, encrypt_data, encrypt_data_chunked,
+};
 // A-15: .petmod 打包 / 校验 / 安装 / 卸载（前端 modPackager 一直在调用）
 use petmod::{
     import_petmod, install_petmod, pack_petmod, scan_mods_directory, uninstall_mod,
@@ -1176,6 +1178,9 @@ pub fn run() {
                     // 加密
                     encrypt_data,
                     decrypt_data,
+                    // B-3: 大 blob 分块流式加密（ENC3）
+                    encrypt_data_chunked,
+                    decrypt_data_chunked,
                     compute_sha256,
                     // 模组
                     import_petmod,
@@ -1218,6 +1223,9 @@ pub fn run() {
                     // 加密
                     encrypt_data,
                     decrypt_data,
+                    // B-3: 大 blob 分块流式加密（ENC3）
+                    encrypt_data_chunked,
+                    decrypt_data_chunked,
                     compute_sha256,
                     // 模组
                     import_petmod,
