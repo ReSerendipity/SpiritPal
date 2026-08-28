@@ -28,6 +28,13 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/ban-ts-comment': 'warn',
       'no-empty': ['error', { allowEmptyCatch: true }],
+      // 禁用 React Compiler 严格规则（与现有代码模式不兼容）
+      'react-hooks/refs': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/globals': 'off',
+      'react-hooks/preserve-manual-memoization': 'off',
+      'react-hooks/immutability': 'off',
+      'react-hooks/no-access-of-unmounted-ref-in-render': 'off',
       'import/order': ['warn', {
         groups: [
           'builtin',       // Node.js / Tauri 官方
