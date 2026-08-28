@@ -20,7 +20,7 @@
 //! - 密钥通过 PBKDF2 从机器 ID 派生（100,000 次迭代）
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 // R-14: base64 编解码用于数据库二进制内容
 use base64::Engine;
@@ -47,7 +47,7 @@ fn get_encrypted_db_path(app: &AppHandle) -> Result<PathBuf, String> {
 
 /// E1: WAL checkpoint 后删除 -wal/-shm 残留文件
 /// 在加密前调用，确保 WAL 中的最新数据已合并到主库，且无明文残留
-fn cleanup_wal_files(db_path: &PathBuf) {
+fn cleanup_wal_files(db_path: &Path) {
     // 删除 spiritpal.db-wal（WAL 文件，可能含明文数据）
     let wal_path = db_path.with_extension("db-wal");
     if wal_path.exists() {
