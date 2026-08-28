@@ -8,6 +8,7 @@
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { invoke } from '@tauri-apps/api/core'
 import { executeMcpTool } from './mcpBridge'
+import { getMcpHooksManager } from './mcpHooks'
 
 /** 收到一次 MCP 工具请求并处理。（导出以便单测/复用） */
 export async function handleMcpRequestPayload(payload: {
@@ -15,8 +16,38 @@ export async function handleMcpRequestPayload(payload: {
   tool: string
   arguments?: Record<string, unknown>
 }): Promise<string> {
-  const result = await executeMcpTool(payload.tool, payload.arguments ?? {})
-  const text = result.content.map((c) => c.text).join('\n')
+  const hooks = getMcpHooksManager()
+
+  // 前置钩子：宠物可在工具执行前做出反应，或（基于规则/用户配置）阻断工具
+  const pre = hooks.firePreHook({
+    toolName: payload.tool,
+    args: payload.arguments ?? {},
+    timestamp: Date.now(),
+  })
+  if (!pre.proceed) {
+    return JSON.stringify({ isError: true, text: pre.error ?? 'blocked by pre-hook' })
+  }
+  const finalArgs = pre.modifiedArgs ?? payload.arguments ?? {}
+
+  const startedAt = Date.now()
+  const result = await executeMcpTool(payload.tool, finalArgs)
+  const duration = Date.now() - startedAt
+
+  // 后置钩子：工具执行后触发宠物反应（如表情/吐槽），失败不阻断结果返回
+  try {
+    hooks.firePostHook({
+      toolName: payload.tool,
+      args: finalArgs,
+      timestamp: startedAt,
+      success: result.isError !== true,
+      duration,
+      result: JSON.stringify(result),
+    })
+  } catch (err) {
+    console.warn('[mcpAppBridge] post-hook failed (non-fatal):', err)
+  }
+
+  const text = result.content.map((c: { type: 'text'; text: string }) => c.text).join('\n')
   return JSON.stringify({ isError: result.isError === true, text })
 }
 

@@ -361,7 +361,7 @@ fn remove_pet_click_through(window: WebviewWindow) -> Result<(), String> {
 /// 3. 减去窗口左上角位置得到客户区坐标
 #[cfg(desktop)]
 #[tauri::command]
-fn get_mouse_pos(_app: tauri::AppHandle, window: WebviewWindow) -> Result<(f64, f64), String> {
+fn get_mouse_pos(app: tauri::AppHandle, window: WebviewWindow) -> Result<(f64, f64), String> {
     #[cfg(windows)]
     {
         use windows::Win32::Foundation::POINT;
