@@ -338,6 +338,7 @@ export function SpriteRenderer({
     return (
       <div
         className={className}
+        data-testid="live2d-container"
         style={{
           width: ATLAS.cellW * size,
           height: ATLAS.cellH * size,
@@ -373,6 +374,7 @@ export function SpriteRenderer({
       <img
         src={character.spriteAsset}
         alt={character.displayName}
+        data-testid="live2d-container"
         className={className}
         style={{
           width: displayW,
@@ -410,6 +412,7 @@ export function SpriteRenderer({
     return (
       <div
         className={className}
+        data-testid="live2d-container"
         style={{
           position: 'relative',
           width: displayW,
