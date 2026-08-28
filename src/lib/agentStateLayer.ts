@@ -23,7 +23,8 @@
  * @requires ./codingReactionRows - 编码反应管理器
  */
 
-import { EventEmitter } from 'events'
+// Gotcha #31: webview 非 Node 环境，禁止 import 'events'（构建期 externalize 报错）
+import { EventEmitter } from './typedEventEmitter'
 import { ANIMATION_CATALOG, type AnimationId } from './animationConfig'
 import { getCodingReactionManager, type CodingReaction } from './codingReactionRows'
 
