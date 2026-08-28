@@ -11,11 +11,32 @@
  */
 import { getCharacter } from './characters'
 import { ANIMATION_ROWS, ATLAS, type PetState } from './types'
+// A-6：帧缓存接入 —— 托盘图标每 3s 渲染一次，同一 (角色,行,帧) 组合重复率极高
+import { getFrameAnimationCache } from './frameCache'
 
 const TRAY_ICON_SIZE = 32
 
 /** 精灵图资源缓存（避免每次更新都重新下载） */
 const imageCache = new Map<string, Promise<HTMLImageElement>>()
+
+/** 命中率日志节流：每累计 20 次渲染打印一次 */
+const STATS_LOG_EVERY = 20
+let renderCount = 0
+
+/** 打印帧缓存命中率（devtools 可查） */
+function logFrameCacheStats(): void {
+  renderCount++
+  if (renderCount % STATS_LOG_EVERY !== 0) return
+  try {
+    const s = getFrameAnimationCache().getStats()
+    console.debug(
+      `[trayIconRenderer] 帧缓存 命中率=${(s.hitRate * 100).toFixed(1)}% ` +
+        `hits=${s.hits} misses=${s.misses} 条目=${s.currentSize} 内存≈${(s.currentMemoryUsage / 1024).toFixed(1)}KB`,
+    )
+  } catch {
+    // 统计失败不影响托盘渲染
+  }
+}
 
 /** 与 SpriteRenderer.stateToAnimKey 保持一致：PetState → 精灵图动画行 key */
 function petStateToAnimKey(state: PetState): string {
@@ -104,11 +125,39 @@ export async function renderPetTrayIcon(
     }
     const row = (ANIMATION_ROWS[petStateToAnimKey(state)] ?? ANIMATION_ROWS.idle).row
     const f = frame % atlas.cols
+
+    // A-6：先查帧缓存，命中则跳过 drawImage + toDataURL（后者是同步编码，开销最高）
+    const cacheKey = {
+      animationId: characterId,
+      row,
+      frame: f,
+      scale: TRAY_ICON_SIZE,
+      params: { src: character.spriteAsset },
+    }
+    try {
+      const cached = getFrameAnimationCache().getFrame(cacheKey) as string | undefined
+      if (cached) {
+        logFrameCacheStats()
+        return cached
+      }
+    } catch {
+      // 缓存不可用时直接走原路径
+    }
+
     const sx = f * atlas.cellW
     const sy = row * atlas.cellH
     ctx.imageSmoothingEnabled = false
     ctx.drawImage(img, sx, sy, atlas.cellW, atlas.cellH, 0, 0, TRAY_ICON_SIZE, TRAY_ICON_SIZE)
-    return canvas.toDataURL('image/png').split(',')[1] ?? null
+    const base64 = canvas.toDataURL('image/png').split(',')[1] ?? null
+    if (base64) {
+      try {
+        getFrameAnimationCache().cacheFrame(cacheKey, base64, { tags: ['tray-icon'] })
+      } catch {
+        // 写入缓存失败不影响本次返回
+      }
+    }
+    logFrameCacheStats()
+    return base64
   } catch {
     // 渲染失败（资源未就绪等）→ 调用方静默忽略，托盘保持上一帧
     return null

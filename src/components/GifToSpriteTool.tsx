@@ -25,6 +25,8 @@ import {
 import { parseGIF, decompressFrames } from 'gifuct-js'
 import type { ParsedGif, ParsedFrame } from 'gifuct-js'
 import { validateUploadMagic } from '../lib/uploadMagic'
+// A-6：紧凑图集导出（BinPacker 打包，空间利用率高于固定网格）
+import { createSpriteAtlas, type SpriteAtlasData } from '../lib/spriteAtlasBuilder'
 
 // ============ 配置类型 ============
 /** 精灵图配置 */
@@ -116,6 +118,10 @@ export function GifToSpriteTool({ onClose }: Props) {
   // 动画行名称（用户可编辑，用于 act_conf.json）
   const [animNames, setAnimNames] = useState<string[]>(['idle', 'walk', 'run', 'jump'])
   const [outputName, setOutputName] = useState('pet-sprite')
+  // A-6：导出布局 —— 固定网格（默认）或紧凑打包图集
+  const [packMode, setPackMode] = useState<'grid' | 'packed'>('grid')
+  const [atlasData, setAtlasData] = useState<SpriteAtlasData | null>(null)
+  const [generating, setGenerating] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function flashError(msg: string) {
@@ -283,8 +289,62 @@ export function GifToSpriteTool({ onClose }: Props) {
   }
 
   // ============ 生成精灵图集 ============
-  function handleGenerate() {
+  /** A-6：紧凑打包图集 —— 用 BinPacker 布局，产出 PNG + 图集元数据 JSON */
+  async function generatePackedAtlas() {
+    const { rows, cols, frameWidth, frameHeight, transparent, bgColor } = config
+    // 与网格模式保持一致的取帧范围
+    const useFrames = frames.slice(0, rows * cols)
+
+    const builder = createSpriteAtlas({
+      outputName,
+      format: 'png',
+      maxSize: 2048,
+      padding: 2,
+    })
+    // sourcePath 用 "frame:<index>" 约定，drawTo 的 resolveImage 再映射回 canvas
+    useFrames.forEach((_, i) => builder.addItem(`frame_${i}`, `frame:${i}`, frameWidth, frameHeight))
+
+    const atlas = await builder.build()
+
+    const canvas = document.createElement('canvas')
+    canvas.width = atlas.totalWidth
+    canvas.height = atlas.totalHeight
+    const ctx = canvas.getContext('2d')!
+    if (!transparent) {
+      ctx.fillStyle = bgColor
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+    }
+
+    await builder.drawTo(canvas, (sourcePath) => {
+      const idx = Number(sourcePath.slice('frame:'.length))
+      return useFrames[idx] ?? null
+    })
+
+    setSpriteDataUrl(canvas.toDataURL('image/png'))
+    setAtlasData(atlas)
+    setStage('done')
+  }
+
+  async function handleGenerate() {
     if (frames.length === 0) return
+    setGenerating(true)
+    try {
+      if (packMode === 'packed') {
+        await generatePackedAtlas()
+        return
+      }
+      await generateGridAtlas()
+    } catch (e) {
+      flashError(e instanceof Error ? e.message : '生成精灵图集失败')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  /** 固定网格布局（原有行为，保持不变） */
+  async function generateGridAtlas() {
     const { rows, cols, frameWidth, frameHeight, spacing, transparent, bgColor, fps } = config
     const totalSlots = rows * cols
     const useFrames = frames.slice(0, totalSlots)
@@ -338,27 +398,44 @@ export function GifToSpriteTool({ onClose }: Props) {
       animations: animations.filter((a) => a.frames > 0),
     }
     setActConf(conf)
+    setAtlasData(null)
     setStage('done')
   }
 
   // ============ 下载 ============
-  function handleDownload() {
-    if (!spriteDataUrl || !actConf) return
-    // 下载 PNG
-    const a = document.createElement('a')
-    a.href = spriteDataUrl
-    a.download = `${outputName}-spritesheet.png`
-    a.click()
-
-    // 下载 act_conf.json
-    const json = JSON.stringify(actConf, null, 2)
-    const blob = new Blob([json], { type: 'application/json' })
+  /** 触发一次浏览器下载（webview 内无 fs，统一走 Blob + a[download]） */
+  function triggerDownload(content: string | Blob, filename: string, mime: string) {
+    const blob = typeof content === 'string' ? new Blob([content], { type: mime }) : content
     const url = URL.createObjectURL(blob)
-    const b = document.createElement('a')
-    b.href = url
-    b.download = `${outputName}-act_conf.json`
-    b.click()
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
     URL.revokeObjectURL(url)
+  }
+
+  function handleDownload() {
+    if (!spriteDataUrl) return
+    const isPacked = packMode === 'packed'
+    if (isPacked && !atlasData) return
+    if (!isPacked && !actConf) return
+
+    // 下载 PNG（spriteDataUrl 本身是 data URL，可直接作为 href）
+    const img = document.createElement('a')
+    img.href = spriteDataUrl
+    img.download = `${outputName}-spritesheet.png`
+    document.body.appendChild(img)
+    img.click()
+    document.body.removeChild(img)
+
+    // 下载配置：打包模式导出图集元数据，网格模式导出 act_conf.json
+    const json = isPacked
+      ? JSON.stringify(atlasData!.metadata ?? {}, null, 2)
+      : JSON.stringify(actConf, null, 2)
+    const filename = isPacked ? `${outputName}-atlas.json` : `${outputName}-act_conf.json`
+    triggerDownload(json, filename, 'application/json')
   }
 
   function handleReset() {
@@ -367,6 +444,7 @@ export function GifToSpriteTool({ onClose }: Props) {
     setFrames([])
     setSpriteDataUrl(null)
     setActConf(null)
+    setAtlasData(null)
     setError(null)
   }
 
@@ -375,8 +453,19 @@ export function GifToSpriteTool({ onClose }: Props) {
     if (stage === 'done') {
       setSpriteDataUrl(null)
       setActConf(null)
+      setAtlasData(null)
       setStage('ready')
     }
+  }
+
+  /** 切换导出布局（会作废已生成的结果） */
+  function changePackMode(mode: 'grid' | 'packed') {
+    if (mode === packMode) return
+    setPackMode(mode)
+    setSpriteDataUrl(null)
+    setActConf(null)
+    setAtlasData(null)
+    if (stage === 'done') setStage('ready')
   }
 
   // 帧数变化时同步动画名称数组（渲染期调整状态：仅当行数变化时执行）
@@ -467,6 +556,43 @@ export function GifToSpriteTool({ onClose }: Props) {
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 {/* 左列：配置 */}
                 <div className="space-y-4">
+                  {/* A-6：导出布局选择 */}
+                  <div className="rounded-xl bg-gray-800/50 p-4">
+                    <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-amber-300">
+                      <Layers size={14} /> 导出布局
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => changePackMode('grid')}
+                        className={`flex-1 rounded-lg px-3 py-2 text-xs transition-colors ${
+                          packMode === 'grid'
+                            ? 'bg-amber-500 font-medium text-gray-900'
+                            : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                        }`}
+                      >
+                        固定网格
+                        <div className="text-[9px] opacity-70">按行列排布 · act_conf.json</div>
+                      </button>
+                      <button
+                        onClick={() => changePackMode('packed')}
+                        className={`flex-1 rounded-lg px-3 py-2 text-xs transition-colors ${
+                          packMode === 'packed'
+                            ? 'bg-amber-500 font-medium text-gray-900'
+                            : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                        }`}
+                      >
+                        紧凑打包
+                        <div className="text-[9px] opacity-70">矩形装箱 · atlas.json</div>
+                      </button>
+                    </div>
+                    {packMode === 'packed' && atlasData && (
+                      <div className="mt-2 text-[10px] text-gray-400">
+                        图集 {atlasData.totalWidth}×{atlasData.totalHeight}px · 空间利用率{' '}
+                        {atlasData.efficiency.toFixed(1)}%
+                      </div>
+                    )}
+                  </div>
+
                   {/* 网格配置 */}
                   <div className="rounded-xl bg-gray-800/50 p-4">
                     <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-amber-300">
@@ -542,10 +668,16 @@ export function GifToSpriteTool({ onClose }: Props) {
                   {/* 生成按钮 */}
                   {stage === 'ready' && (
                     <button
-                      onClick={handleGenerate}
-                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-medium text-gray-900 hover:bg-amber-400"
+                      onClick={() => void handleGenerate()}
+                      disabled={generating}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-medium text-gray-900 hover:bg-amber-400 disabled:opacity-60"
                     >
-                      <Layers size={16} /> 生成精灵图集
+                      {generating ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Layers size={16} />
+                      )}
+                      {generating ? '正在打包...' : '生成精灵图集'}
                     </button>
                   )}
                 </div>

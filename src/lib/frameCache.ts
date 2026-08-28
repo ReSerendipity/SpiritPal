@@ -18,6 +18,9 @@
 
 // ============ 类型定义 ============
 
+/** UTF-8 字节估算器（webview 与 Node 通用，替代 Buffer.byteLength） */
+const textEncoder = new TextEncoder()
+
 export interface CacheItem<T> {
   /** 缓存数据 */
   value: T
@@ -88,6 +91,7 @@ export class LRUCache<K extends string | number, V> {
   private config: Required<LRUCacheConfig>
   private cache: Map<K, CacheItem<V>>
   private stats: CacheStats
+  private cleanupTimer: ReturnType<typeof setInterval> | null = null
   
   constructor(config?: LRUCacheConfig) {
     this.config = {
@@ -120,6 +124,7 @@ export class LRUCache<K extends string | number, V> {
     if (!item) {
       if (this.config.enableStats) {
         this.stats.misses++
+        this.updateHitRate()
       }
       return undefined
     }
@@ -129,7 +134,9 @@ export class LRUCache<K extends string | number, V> {
       this.cache.delete(key)
       if (this.config.enableStats) {
         this.stats.misses++
+        this.updateHitRate()
       }
+      this.refreshSizeStats()
       return undefined
     }
 
@@ -144,6 +151,7 @@ export class LRUCache<K extends string | number, V> {
     if (this.config.enableStats) {
       this.stats.hits++
       this.updateAvgAccessTime(performance.now() - startTime)
+      this.updateHitRate()
     }
 
     return item.value
@@ -162,13 +170,16 @@ export class LRUCache<K extends string | number, V> {
       this.cache.delete(key)
     }
 
+    // TTL：未显式指定时回落到配置的 defaultTTL（≤0 表示永不过期）
+    const ttl = metadata?.ttl ?? this.config.defaultTTL
+
     const item: CacheItem<V> = {
       value,
       createdAt: Date.now(),
       lastAccessedAt: Date.now(),
       accessCount: 1,
       size: metadata?.size ?? this.estimateSize(value),
-      expiresAt: metadata?.ttl ? Date.now() + metadata.ttl : undefined,
+      expiresAt: ttl > 0 ? Date.now() + ttl : undefined,
       tags: metadata?.tags || [],
     }
 
@@ -176,13 +187,16 @@ export class LRUCache<K extends string | number, V> {
     this.checkCapacityAndCleanup()
 
     this.cache.set(key, item)
+    this.refreshSizeStats()
   }
 
   /**
    * 删除缓存
    */
   delete(key: K): boolean {
-    return this.cache.delete(key)
+    const removed = this.cache.delete(key)
+    if (removed) this.refreshSizeStats()
+    return removed
   }
 
   /**
@@ -190,6 +204,7 @@ export class LRUCache<K extends string | number, V> {
    */
   clear(): void {
     this.cache.clear()
+    this.refreshSizeStats()
   }
 
   /**
@@ -287,19 +302,35 @@ export class LRUCache<K extends string | number, V> {
   /**
    * 预热缓存（预加载）
    */
-  preload(keys: K[]): void {
-    // TODO: 实现后台预加载逻辑
-    console.log('[FrameCache] Preloading', keys.length, 'items')
+  /**
+   * 预加载：把一批 key 交给 loader 取值并写入缓存（已存在或加载失败则跳过）。
+   * 返回成功写入的条目数。
+   */
+  async preload(keys: K[], loader: (key: K) => Promise<V | undefined> | V | undefined): Promise<number> {
+    let loaded = 0
+    for (const key of keys) {
+      if (this.has(key)) continue
+      try {
+        const value = await loader(key)
+        if (value === undefined) continue
+        this.set(key, value)
+        loaded++
+      } catch {
+        // 预加载失败不阻断其它 key
+      }
+    }
+    return loaded
   }
 
   /**
    * 估计数据大小
+   * 注意：webview 环境不存在 Node 的 Buffer，统一用 TextEncoder 估算 UTF-8 字节数。
    */
   private estimateSize(value: V): number {
     try {
-      // 简单估算：JSON 序列化后的长度
-      const json = JSON.stringify(value)
-      return Buffer.byteLength(json, 'utf-8')
+      if (typeof value === 'string') return textEncoder.encode(value).length
+      // 简单估算：JSON 序列化后的字节长度
+      return textEncoder.encode(JSON.stringify(value)).length
     } catch {
       return 1024 // 默认 1KB
     }
@@ -341,9 +372,21 @@ export class LRUCache<K extends string | number, V> {
    * 启动定时清理
    */
   private startAutoCleanup(): void {
-    setInterval(() => {
+    // unref 在浏览器/setTimeout 环境不存在，仅在 Node（测试）下调用，避免测试进程被挂住
+    const timer = setInterval(() => {
       this.cleanup()
     }, this.config.cleanupInterval)
+    ;(timer as unknown as { unref?: () => void }).unref?.()
+    this.cleanupTimer = timer
+  }
+
+  /** 停止自动清理定时器并清空缓存（测试/热重载时调用，避免 interval 悬挂） */
+  dispose(): void {
+    if (this.cleanupTimer !== null) {
+      clearInterval(this.cleanupTimer)
+      this.cleanupTimer = null
+    }
+    this.cache.clear()
   }
 
   /**
@@ -368,10 +411,18 @@ export class LRUCache<K extends string | number, V> {
     const alpha = 0.1 // 平滑系数
     const currentAvg = this.stats.avgAccessTime
     this.stats.avgAccessTime = currentAvg * (1 - alpha) + accessTime * alpha
-    
-    // 更新命中率
+  }
+
+  /** 重算命中率（命中与未命中后都要调用，否则 miss 不会反映到 hitRate 上） */
+  private updateHitRate(): void {
     const total = this.stats.hits + this.stats.misses
     this.stats.hitRate = total > 0 ? this.stats.hits / total : 0
+  }
+
+  /** 刷新条目数与内存占用统计（供运行时监控读取） */
+  private refreshSizeStats(): void {
+    this.stats.currentSize = this.cache.size
+    this.stats.currentMemoryUsage = this.calculateTotalSize()
   }
 }
 
@@ -409,6 +460,7 @@ export class FrameAnimationCache {
   cacheFrame(key: FrameCacheKey, data: any, metadata?: {
     size?: number
     ttl?: number
+    tags?: string[]
   }): void {
     const cacheKey = this.keyGenerator(key)
     this.cache.set(cacheKey, data, metadata)
@@ -435,6 +487,11 @@ export class FrameAnimationCache {
   getStats(): CacheStats {
     return this.cache.getStats()
   }
+
+  /** 释放底层缓存（停止定时器） */
+  dispose(): void {
+    this.cache.dispose()
+  }
 }
 
 // ============ 单例 ============
@@ -458,4 +515,12 @@ export function getFrameAnimationCache(
     frameInstance = new FrameAnimationCache(config)
   }
   return frameInstance
+}
+
+/** 释放两个单例缓存（仅测试/热重载使用，避免 setInterval 悬挂） */
+export function disposeFrameCaches(): void {
+  lruInstance?.dispose()
+  frameInstance?.dispose()
+  lruInstance = null
+  frameInstance = null
 }
