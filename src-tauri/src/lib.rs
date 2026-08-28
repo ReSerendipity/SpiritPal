@@ -72,21 +72,21 @@ pub mod encrypted_db;
 mod keychain;
 #[cfg(target_os = "macos")]
 mod macos;
-mod petmod;
 mod magic_check;
+mod mcp_bridge;
+mod petmod;
 mod system;
 mod tray;
 pub mod validation;
 mod win32;
-mod mcp_bridge;
 // P1-2: 角色包导入命令（scan_character_directory / read_text_file）
 mod character_import;
 // C 类: 系统工具命令（截图/进程/音量/亮度/文件搜索/受限命令执行/小组件状态）
 mod system_tools;
 #[cfg(desktop)]
 use system_tools::{
-    execute_command, get_running_processes, read_widget_state, search_files,
-    set_system_brightness, set_system_volume, sync_widget_state, take_screenshot,
+    execute_command, get_running_processes, read_widget_state, search_files, set_system_brightness,
+    set_system_volume, sync_widget_state, take_screenshot,
 };
 // H-4: 安全审计日志（audit_log 命令）
 pub mod audit_log;
@@ -108,8 +108,7 @@ use crypto::{
 };
 // A-15: .petmod 打包 / 校验 / 安装 / 卸载（前端 modPackager 一直在调用）
 use petmod::{
-    import_petmod, install_petmod, pack_petmod, scan_mods_directory, uninstall_mod,
-    validate_petmod,
+    import_petmod, install_petmod, pack_petmod, scan_mods_directory, uninstall_mod, validate_petmod,
 };
 // R-14: 数据库加密命令
 use encrypted_db::{decrypt_db_at_rest, encrypt_db_at_rest};
@@ -121,9 +120,9 @@ use device::{start_device_listening, stop_device_listening};
 #[cfg(desktop)]
 use keychain::{delete_secret, get_secret, set_secret};
 #[cfg(desktop)]
-use tray::{set_tray_icon, set_tray_icon_png, update_tray_icon};
-#[cfg(desktop)]
 use mcp_bridge::mcp_respond;
+#[cfg(desktop)]
+use tray::{set_tray_icon, set_tray_icon_png, update_tray_icon};
 
 // ============ 桌面端专用导入 ============
 
@@ -210,7 +209,10 @@ fn detect_asset_tools() -> asset_pipeline::ToolDetectionResult {
 
 /// P2: 安全执行 asset-pipeline 脚本（白名单 + 参数强校验）
 #[tauri::command]
-fn run_asset_pipeline(script_name: String, args: Vec<String>) -> Result<asset_pipeline::PipelineRunResult, String> {
+fn run_asset_pipeline(
+    script_name: String,
+    args: Vec<String>,
+) -> Result<asset_pipeline::PipelineRunResult, String> {
     asset_pipeline::run_asset_pipeline(&script_name, &args)
 }
 
@@ -686,27 +688,23 @@ fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Err
     // 后续实例在插件 setup 即被拦截退出，不再闪现窗口。
     {
         use tauri::{WebviewUrl, WebviewWindowBuilder};
-        WebviewWindowBuilder::new(
-            app,
-            "pet-window",
-            WebviewUrl::App("index.html#/pet".into()),
-        )
-        .title("SpiritPal")
-        // 默认 224×304 = 1.0× 宠物的基准适配尺寸（精灵 192×208 + 32 边距 + 64 气泡空间），
-        // 减少首帧与前端按持久化 petSize 校正后的落差闪烁；前端挂载后会立即按实际 petSize 校正
-        .inner_size(224.0, 304.0)
-        // 最小尺寸对齐前端 WIN_MIN_W/H(160×200)：宠物可缩小到 0.5×，
-        // 窗口需要能跟随宠物缩小（否则小宠物配大窗口，边框预览显示巨大空白）
-        .min_inner_size(160.0, 200.0)
-        .max_inner_size(720.0, 900.0)
-        .resizable(true)
-        .fullscreen(false)
-        .decorations(false)
-        .transparent(true)
-        .shadow(false)
-        .always_on_top(true)
-        .skip_taskbar(true)
-        .build()?;
+        WebviewWindowBuilder::new(app, "pet-window", WebviewUrl::App("index.html#/pet".into()))
+            .title("SpiritPal")
+            // 默认 224×304 = 1.0× 宠物的基准适配尺寸（精灵 192×208 + 32 边距 + 64 气泡空间），
+            // 减少首帧与前端按持久化 petSize 校正后的落差闪烁；前端挂载后会立即按实际 petSize 校正
+            .inner_size(224.0, 304.0)
+            // 最小尺寸对齐前端 WIN_MIN_W/H(160×200)：宠物可缩小到 0.5×，
+            // 窗口需要能跟随宠物缩小（否则小宠物配大窗口，边框预览显示巨大空白）
+            .min_inner_size(160.0, 200.0)
+            .max_inner_size(720.0, 900.0)
+            .resizable(true)
+            .fullscreen(false)
+            .decorations(false)
+            .transparent(true)
+            .shadow(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .build()?;
     }
 
     let menu = tray::build_tray_menu(app)?;
@@ -795,8 +793,7 @@ fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Err
                 let _ = window.set_focus();
             }
             "settings" => {
-                let window = if let Some(w) = app.get_webview_window("settings-window")
-                {
+                let window = if let Some(w) = app.get_webview_window("settings-window") {
                     w
                 } else {
                     // 动态创建设置窗口（无边框，自定义标题栏）
@@ -814,10 +811,7 @@ fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Err
                     {
                         Ok(w) => w,
                         Err(e) => {
-                            log::error!(
-                                "[SpiritPal] Failed to create settings window: {}",
-                                e
-                            );
+                            log::error!("[SpiritPal] Failed to create settings window: {}", e);
                             return;
                         }
                     }
@@ -931,14 +925,14 @@ pub fn run() {
         }
 
         builder = builder.plugin(
-                tauri_plugin_global_shortcut::Builder::new()
-                    .with_handler(|app, _shortcut, event| {
-                        if event.state == ShortcutState::Pressed {
-                            let _ = app.emit("global-shortcut-toggle", ());
-                        }
-                    })
-                    .build(),
-            );
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, _shortcut, event| {
+                    if event.state == ShortcutState::Pressed {
+                        let _ = app.emit("global-shortcut-toggle", ());
+                    }
+                })
+                .build(),
+        );
     }
 
     builder = builder
@@ -1068,7 +1062,10 @@ pub fn run() {
                                 {
                                     Ok(w) => w,
                                     Err(e) => {
-                                        log::error!("[SpiritPal] Failed to create chat window: {}", e);
+                                        log::error!(
+                                            "[SpiritPal] Failed to create chat window: {}",
+                                            e
+                                        );
                                         return;
                                     }
                                 }
@@ -1150,13 +1147,9 @@ pub fn run() {
             #[cfg(not(desktop))]
             {
                 use tauri::{WebviewUrl, WebviewWindowBuilder};
-                WebviewWindowBuilder::new(
-                    app,
-                    "main",
-                    WebviewUrl::App("index.html".into()),
-                )
-                .title("SpiritPal")
-                .build()?;
+                WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+                    .title("SpiritPal")
+                    .build()?;
             }
 
             log::info!("[SpiritPal] setup complete");
@@ -1286,7 +1279,8 @@ pub fn run() {
     // 比 beforeunload 异步调用更可靠——Rust 侧在真正退出前同步完成加密
     // V-1 修复：增加 300ms 延迟，等待前端 beforeunload 中的 DB close(WAL checkpoint) 完成
     //   之前直接加密导致 Windows 上 SQLite 连接仍打开 → fs::remove_file 失败 → 明文残留
-    let app = builder.build(tauri::generate_context!())
+    let app = builder
+        .build(tauri::generate_context!())
         .expect("error while building SpiritPal application");
     app.run(|app_handle, event| {
         if let tauri::RunEvent::ExitRequested { .. } = event {

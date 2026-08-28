@@ -92,8 +92,7 @@ pub fn read_text_file(file_path: &str) -> Result<String, String> {
         ));
     }
 
-    let content =
-        fs::read_to_string(path).map_err(|e| format!("读取文件失败: {}", e))?;
+    let content = fs::read_to_string(path).map_err(|e| format!("读取文件失败: {}", e))?;
 
     Ok(content)
 }
@@ -160,7 +159,8 @@ mod tests {
 
         // 写入 pet.json
         let pet_json = char_dir.join("pet.json");
-        let json_content = r#"{"id":"test","name":"Test","spritePath":"sheet.webp","spriteType":"atlas"}"#;
+        let json_content =
+            r#"{"id":"test","name":"Test","spritePath":"sheet.webp","spriteType":"atlas"}"#;
         {
             let mut f = fs::File::create(&pet_json).unwrap();
             f.write_all(json_content.as_bytes()).unwrap();

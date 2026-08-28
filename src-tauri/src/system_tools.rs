@@ -41,10 +41,26 @@ const SEARCH_SKIP_DIRS: &[&str] = &[".git", "node_modules", "target", "dist", ".
 /// execute_command 允许的只读命令白名单（首个 token 精确匹配，大小写不敏感）
 const EXECUTE_ALLOWLIST: &[&str] = &[
     // Windows cmd 内置
-    "dir", "type", "echo", "ver", "tasklist", "ipconfig", "whoami", "hostname", "systeminfo",
-    "ping", "netstat",
+    "dir",
+    "type",
+    "echo",
+    "ver",
+    "tasklist",
+    "ipconfig",
+    "whoami",
+    "hostname",
+    "systeminfo",
+    "ping",
+    "netstat",
     // Unix 常用
-    "ls", "cat", "pwd", "date", "df", "free", "uname", "ps",
+    "ls",
+    "cat",
+    "pwd",
+    "date",
+    "df",
+    "free",
+    "uname",
+    "ps",
 ];
 /// execute_command 超时（秒）
 const EXECUTE_TIMEOUT_SECS: u64 = 5;
@@ -83,7 +99,8 @@ fn search_recursive(
     if out.len() >= SEARCH_MAX_RESULTS {
         return Ok(());
     }
-    let entries = std::fs::read_dir(dir).map_err(|e| format!("读取目录失败 {}: {}", dir.display(), e))?;
+    let entries =
+        std::fs::read_dir(dir).map_err(|e| format!("读取目录失败 {}: {}", dir.display(), e))?;
 
     for entry in entries.flatten() {
         let path = entry.path();
@@ -140,7 +157,9 @@ pub async fn search_files(path: String, pattern: String) -> Result<Vec<String>, 
 /// 截断文本到上限字节数（附加省略标记）
 fn truncate_output(mut s: String) -> String {
     if s.len() > EXECUTE_OUTPUT_LIMIT {
-        while !s.is_char_boundary(EXECUTE_OUTPUT_LIMIT.min(s.len())) && s.len() > EXECUTE_OUTPUT_LIMIT {
+        while !s.is_char_boundary(EXECUTE_OUTPUT_LIMIT.min(s.len()))
+            && s.len() > EXECUTE_OUTPUT_LIMIT
+        {
             s.pop();
         }
         s.truncate(EXECUTE_OUTPUT_LIMIT);
@@ -210,7 +229,10 @@ pub async fn execute_command(command: String) -> Result<String, String> {
         // 轮询等待 / 超时 kill
         let start = Instant::now();
         let status = loop {
-            match child.try_wait().map_err(|e| format!("等待命令失败: {}", e))? {
+            match child
+                .try_wait()
+                .map_err(|e| format!("等待命令失败: {}", e))?
+            {
                 Some(status) => break status,
                 None => {
                     if start.elapsed() > Duration::from_secs(EXECUTE_TIMEOUT_SECS) {
@@ -296,8 +318,7 @@ pub async fn read_widget_state(app: tauri::AppHandle) -> Result<String, String> 
         if !path.exists() {
             return Ok(String::new());
         }
-        std::fs::read_to_string(&path)
-            .map_err(|e| format!("读取小组件状态失败: {}", e))
+        std::fs::read_to_string(&path).map_err(|e| format!("读取小组件状态失败: {}", e))
     })
     .await
     .map_err(|e| format!("读取任务执行失败: {}", e))?
@@ -433,7 +454,15 @@ fn capture_region_to_png(
 
             // 整个 GDI 使用期结束后统一清理（BitBlt 失败也要走 cleanup）
             let blt = BitBlt(
-                hdc_mem, 0, 0, w as i32, h as i32, hdc_screen, x, y, SRCCOPY | CAPTUREBLT,
+                hdc_mem,
+                0,
+                0,
+                w as i32,
+                h as i32,
+                hdc_screen,
+                x,
+                y,
+                SRCCOPY | CAPTUREBLT,
             );
 
             let out = if blt.is_ok() {
@@ -497,7 +526,12 @@ fn bgra_to_rgb(bgra: &[u8], w: usize, h: usize) -> (Vec<u8>, usize, usize) {
 
 /// BGRA → RGB 并 nearest-neighbor 等比缩放到指定宽度
 #[cfg(windows)]
-fn downscale_bgra_to_rgb(bgra: &[u8], w: usize, h: usize, target_w: usize) -> (Vec<u8>, usize, usize) {
+fn downscale_bgra_to_rgb(
+    bgra: &[u8],
+    w: usize,
+    h: usize,
+    target_w: usize,
+) -> (Vec<u8>, usize, usize) {
     let scale = w as f64 / target_w as f64;
     let target_h = ((h as f64 / scale).round() as usize).max(1);
     let mut rgb = vec![0u8; target_w * target_h * 3];
@@ -581,10 +615,7 @@ pub async fn get_running_processes() -> Result<Vec<String>, String> {
     }
 
     #[cfg(not(windows))]
-    async {
-        Err::<Vec<String>, _>("get_running_processes 仅支持 Windows 桌面端".to_string())
-    }
-    .await
+    async { Err::<Vec<String>, _>("get_running_processes 仅支持 Windows 桌面端".to_string()) }.await
 }
 
 /// 设置系统主音量（仅 Windows，0.0~1.0）
@@ -599,8 +630,8 @@ pub async fn set_system_volume(volume: f64) -> Result<(), String> {
     #[cfg(windows)]
     {
         use windows::Win32::Media::Audio::{
-            eConsole, eRender, Endpoints::IAudioEndpointVolume, MMDeviceEnumerator,
-            IMMDeviceEnumerator,
+            eConsole, eRender, Endpoints::IAudioEndpointVolume, IMMDeviceEnumerator,
+            MMDeviceEnumerator,
         };
         use windows::Win32::System::Com::{
             CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_APARTMENTTHREADED,
@@ -754,7 +785,9 @@ mod tests {
     #[test]
     fn test_execute_allowlist_is_readonly() {
         // 危险命令绝不允许混入白名单
-        for banned in ["del", "rm", "format", "shutdown", "reg", "rmdir", "remove", "mv", "dd"] {
+        for banned in [
+            "del", "rm", "format", "shutdown", "reg", "rmdir", "remove", "mv", "dd",
+        ] {
             assert!(
                 !EXECUTE_ALLOWLIST.contains(&banned),
                 "白名单不允许包含危险命令: {}",

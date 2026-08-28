@@ -60,7 +60,9 @@ fn init_hash_chain(log_path: &PathBuf) {
                 }
             }
             // 无法提取哈希 → 重置为 GENESIS（日志可能被篡改）
-            log::warn!("[Audit] Failed to extract hash from last audit log line — chain may be broken");
+            log::warn!(
+                "[Audit] Failed to extract hash from last audit log line — chain may be broken"
+            );
             *last_hash = Some("GENESIS".to_string());
         }
         Err(_) => {
@@ -79,7 +81,14 @@ fn extract_hash(line: &str, field: &str) -> Option<String> {
 }
 
 /// 计算审计日志条目的哈希
-fn compute_entry_hash(timestamp: &str, level: &str, event_type: &str, actor: &str, message: &str, prev_hash: &str) -> String {
+fn compute_entry_hash(
+    timestamp: &str,
+    level: &str,
+    event_type: &str,
+    actor: &str,
+    message: &str,
+    prev_hash: &str,
+) -> String {
     let mut hasher = Sha256::new();
     hasher.update(timestamp.as_bytes());
     hasher.update(b"|");
@@ -189,10 +198,7 @@ mod tests {
     fn test_extract_hash_from_line() {
         let line = "[2026-08-26T10:00:00Z] [AUDIT] [test] [system] test message | prev_hash=GENESIS | this_hash=abc123";
         assert_eq!(extract_hash(line, "prev_hash"), Some("GENESIS".to_string()));
-        assert_eq!(
-            extract_hash(line, "this_hash"),
-            Some("abc123".to_string())
-        );
+        assert_eq!(extract_hash(line, "this_hash"), Some("abc123".to_string()));
         assert_eq!(extract_hash(line, "nonexistent"), None);
     }
 
@@ -280,10 +286,12 @@ mod tests {
         assert_ne!(hash1, hash3);
 
         // 篡改检测：修改 msg1 后 hash1 变化 → hash2 应不同
-        let hash1_tampered = compute_entry_hash("t1", "AUDIT", "event1", "system", "TAMPERED", genesis);
+        let hash1_tampered =
+            compute_entry_hash("t1", "AUDIT", "event1", "system", "TAMPERED", genesis);
         assert_ne!(hash1, hash1_tampered);
         // hash2 基于 hash1 → hash1_tampered 导致 hash2 也不同
-        let hash2_from_tampered = compute_entry_hash("t2", "AUDIT", "event2", "system", "msg2", &hash1_tampered);
+        let hash2_from_tampered =
+            compute_entry_hash("t2", "AUDIT", "event2", "system", "msg2", &hash1_tampered);
         assert_ne!(hash2, hash2_from_tampered);
     }
 }

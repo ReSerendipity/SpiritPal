@@ -36,13 +36,19 @@ fn gen_token() -> String {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
-    let src = format!("{}-{}-{}", std::process::id(), nanos, NEXT_ID.fetch_add(1, Ordering::SeqCst));
+    let src = format!(
+        "{}-{}-{}",
+        std::process::id(),
+        nanos,
+        NEXT_ID.fetch_add(1, Ordering::SeqCst)
+    );
     to_hex(&Sha256::digest(src.as_bytes()))
 }
 
 /// 启动 MCP 命令桥（阻塞线程；在 app setup 中调用）
 pub fn spawn(app: &AppHandle) {
-    let addr = std::env::var("SPIRITPAL_MCP_BRIDGE_ADDR").unwrap_or_else(|_| "127.0.0.1:3124".to_string());
+    let addr =
+        std::env::var("SPIRITPAL_MCP_BRIDGE_ADDR").unwrap_or_else(|_| "127.0.0.1:3124".to_string());
     // 生成并透出本地 Token：`spiritpal-mcp` 转发端需通过环境变量使用
     let token = gen_token();
     std::env::set_var("SPIRITPAL_MCP_BRIDGE_TOKEN", &token);
@@ -55,7 +61,11 @@ pub fn spawn(app: &AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
         let _ = run_bridge_server_auth(&addr, token, move |tool, args| {
-            let id = format!("mcp-{}-{:016x}", std::process::id(), NEXT_ID.fetch_add(1, Ordering::SeqCst));
+            let id = format!(
+                "mcp-{}-{:016x}",
+                std::process::id(),
+                NEXT_ID.fetch_add(1, Ordering::SeqCst)
+            );
             let (tx, rx) = mpsc::channel::<String>();
             pending().lock().unwrap().insert(id.clone(), tx);
             let posted = app.emit(

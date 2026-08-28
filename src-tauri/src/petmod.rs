@@ -483,7 +483,8 @@ fn collect_files(
     patterns: &[String],
     out: &mut Vec<(String, std::path::PathBuf)>,
 ) -> Result<(), String> {
-    let entries = fs::read_dir(dir).map_err(|e| format!("读取目录失败 {}: {}", dir.display(), e))?;
+    let entries =
+        fs::read_dir(dir).map_err(|e| format!("读取目录失败 {}: {}", dir.display(), e))?;
 
     for entry in entries.flatten() {
         let path = entry.path();
@@ -556,66 +557,67 @@ pub async fn pack_petmod(
     let src_owned = source_dir.clone();
     let out_owned = output_path.clone();
 
-    let result = tauri::async_runtime::spawn_blocking(move || -> Result<PackPetmodResult, String> {
-        // 1. 收集文件
-        let base = Path::new(&src_owned);
-        let mut files: Vec<(String, std::path::PathBuf)> = Vec::new();
-        collect_files(base, base, &patterns, &mut files)?;
-        if files.is_empty() {
-            return Err("源目录为空（或全部被排除），没有可打包的文件".to_string());
-        }
+    let result =
+        tauri::async_runtime::spawn_blocking(move || -> Result<PackPetmodResult, String> {
+            // 1. 收集文件
+            let base = Path::new(&src_owned);
+            let mut files: Vec<(String, std::path::PathBuf)> = Vec::new();
+            collect_files(base, base, &patterns, &mut files)?;
+            if files.is_empty() {
+                return Err("源目录为空（或全部被排除），没有可打包的文件".to_string());
+            }
 
-        // 2. 写 zip
-        if let Some(parent) = Path::new(&out_owned).parent() {
-            fs::create_dir_all(parent).map_err(|e| format!("创建输出目录失败: {}", e))?;
-        }
-        let out_file =
-            fs::File::create(&out_owned).map_err(|e| format!("创建输出文件失败: {}", e))?;
-        let mut zip = ZipWriter::new(out_file);
-        let method = if do_compress {
-            CompressionMethod::Deflated
-        } else {
-            CompressionMethod::Stored
-        };
-        let options = FileOptions::default()
-            .compression_method(method)
-            .unix_permissions(0o644);
+            // 2. 写 zip
+            if let Some(parent) = Path::new(&out_owned).parent() {
+                fs::create_dir_all(parent).map_err(|e| format!("创建输出目录失败: {}", e))?;
+            }
+            let out_file =
+                fs::File::create(&out_owned).map_err(|e| format!("创建输出文件失败: {}", e))?;
+            let mut zip = ZipWriter::new(out_file);
+            let method = if do_compress {
+                CompressionMethod::Deflated
+            } else {
+                CompressionMethod::Stored
+            };
+            let options = FileOptions::default()
+                .compression_method(method)
+                .unix_permissions(0o644);
 
-        for (rel, abs) in &files {
-            zip.start_file(rel.clone(), options)
-                .map_err(|e| format!("写入压缩包条目失败 {}: {}", rel, e))?;
-            let bytes = fs::read(abs).map_err(|e| format!("读取文件失败 {}: {}", rel, e))?;
-            zip.write_all(&bytes)
-                .map_err(|e| format!("写入文件内容失败 {}: {}", rel, e))?;
-        }
-        zip.finish().map_err(|e| format!("完成打包失败: {}", e))?;
+            for (rel, abs) in &files {
+                zip.start_file(rel.clone(), options)
+                    .map_err(|e| format!("写入压缩包条目失败 {}: {}", rel, e))?;
+                let bytes = fs::read(abs).map_err(|e| format!("读取文件失败 {}: {}", rel, e))?;
+                zip.write_all(&bytes)
+                    .map_err(|e| format!("写入文件内容失败 {}: {}", rel, e))?;
+            }
+            zip.finish().map_err(|e| format!("完成打包失败: {}", e))?;
 
-        // 3. 统计产物
-        let size_bytes = fs::metadata(&out_owned).map(|m| m.len()).ok();
-        let sha256 = if do_hash {
-            let bytes = fs::read(&out_owned).map_err(|e| format!("读取产物失败: {}", e))?;
-            Some(sha256_of_bytes(&bytes))
-        } else {
-            None
-        };
+            // 3. 统计产物
+            let size_bytes = fs::metadata(&out_owned).map(|m| m.len()).ok();
+            let sha256 = if do_hash {
+                let bytes = fs::read(&out_owned).map_err(|e| format!("读取产物失败: {}", e))?;
+                Some(sha256_of_bytes(&bytes))
+            } else {
+                None
+            };
 
-        log::info!(
-            "[SpiritPal] .petmod 打包成功: {} 个文件, {} bytes, path={}",
-            files.len(),
-            size_bytes.unwrap_or(0),
-            out_owned
-        );
+            log::info!(
+                "[SpiritPal] .petmod 打包成功: {} 个文件, {} bytes, path={}",
+                files.len(),
+                size_bytes.unwrap_or(0),
+                out_owned
+            );
 
-        Ok(PackPetmodResult {
-            success: true,
-            output_path: out_owned,
-            sha256,
-            size_bytes,
-            error: None,
+            Ok(PackPetmodResult {
+                success: true,
+                output_path: out_owned,
+                sha256,
+                size_bytes,
+                error: None,
+            })
         })
-    })
-    .await
-    .map_err(|e| format!("打包任务执行失败: {}", e))?;
+        .await
+        .map_err(|e| format!("打包任务执行失败: {}", e))?;
 
     result
 }
@@ -847,7 +849,8 @@ mod tests {
 
     #[test]
     fn test_collect_files_walks_subdirs_and_reports_relative_paths() {
-        let dir = std::env::temp_dir().join(format!("spiritpal_pack_collect_{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("spiritpal_pack_collect_{}", std::process::id()));
         let nested = dir.join("sprites");
         fs::create_dir_all(&nested).unwrap();
         fs::write(dir.join("petmod.json"), "{}").unwrap();
@@ -858,7 +861,10 @@ mod tests {
 
         let mut rels: Vec<String> = files.into_iter().map(|(r, _)| r).collect();
         rels.sort();
-        assert_eq!(rels, vec!["petmod.json".to_string(), "sprites/idle.png".to_string()]);
+        assert_eq!(
+            rels,
+            vec!["petmod.json".to_string(), "sprites/idle.png".to_string()]
+        );
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -870,7 +876,11 @@ mod tests {
         let out = base.join("out").join("demo-1.0.0.petmod");
         fs::create_dir_all(src.join("sprites")).unwrap();
         fs::create_dir_all(base.join("out")).unwrap();
-        fs::write(src.join("petmod.json"), r#"{"id":"demo","version":"1.0.0"}"#).unwrap();
+        fs::write(
+            src.join("petmod.json"),
+            r#"{"id":"demo","version":"1.0.0"}"#,
+        )
+        .unwrap();
         fs::write(src.join("sprites/idle.png"), "png-bytes").unwrap();
         fs::write(src.join("scratch.tmp"), "junk").unwrap();
 
@@ -954,7 +964,11 @@ mod tests {
         // 先打一个包
         let src = base.join("src");
         fs::create_dir_all(&src).unwrap();
-        fs::write(src.join("petmod.json"), r#"{"id":"demo","version":"2.0.0"}"#).unwrap();
+        fs::write(
+            src.join("petmod.json"),
+            r#"{"id":"demo","version":"2.0.0"}"#,
+        )
+        .unwrap();
         tauri::async_runtime::block_on(pack_petmod(
             src.to_string_lossy().to_string(),
             pkg.to_string_lossy().to_string(),
@@ -965,8 +979,9 @@ mod tests {
         .expect("打包应当成功");
 
         // 再校验
-        let result = tauri::async_runtime::block_on(validate_petmod(pkg.to_string_lossy().to_string()))
-            .expect("校验应当成功");
+        let result =
+            tauri::async_runtime::block_on(validate_petmod(pkg.to_string_lossy().to_string()))
+                .expect("校验应当成功");
         assert!(result.valid);
         let manifest: serde_json::Value =
             serde_json::from_str(result.manifest_json.as_deref().unwrap()).unwrap();
@@ -978,13 +993,15 @@ mod tests {
 
     #[test]
     fn test_validate_petmod_rejects_non_zip() {
-        let base = std::env::temp_dir().join(format!("spiritpal_validate_bad_{}", std::process::id()));
+        let base =
+            std::env::temp_dir().join(format!("spiritpal_validate_bad_{}", std::process::id()));
         fs::create_dir_all(&base).unwrap();
         let pkg = base.join("fake.petmod");
         fs::write(&pkg, "this is definitely not a zip").unwrap();
 
         // 魔数校验会先拦下非 zip 文件
-        let err = tauri::async_runtime::block_on(validate_petmod(pkg.to_string_lossy().to_string()));
+        let err =
+            tauri::async_runtime::block_on(validate_petmod(pkg.to_string_lossy().to_string()));
         assert!(err.is_err());
 
         let _ = fs::remove_dir_all(&base);
