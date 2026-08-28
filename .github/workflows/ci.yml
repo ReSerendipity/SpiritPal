@@ -266,7 +266,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: pnpm audit
-        run: pnpm audit --audit-level=high
+        run: |
+          # 临时使用官方 npm registry 进行 audit（npmmirror 不支持 audit 端点）
+          pnpm audit --audit-level=high --registry=https://registry.npmjs.org/
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
