@@ -503,7 +503,7 @@ export function MobileSettingsView() {
               小红书
             </a>
             <a
-              href="https://v.douyin.com/eJgZfhanu4I/"
+              href="https://www.douyin.com/user/MS4wLjABAAAAcEdOoxVlfk3Ulx_usqR-3PHW4xxp6wYzRmsuRI_-fHBigPETTKLsv4fknIpFq6sP"
               target="_blank"
               rel="noopener noreferrer"
               className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
