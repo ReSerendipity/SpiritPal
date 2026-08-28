@@ -361,13 +361,14 @@ export const Live2DRenderer = forwardRef<Live2DRendererHandle, Live2DRendererPro
       [],
     )
 
-    return (
-      <div
-        ref={containerRef}
-        style={{
-          width: `${width}px`,
-          height: `${height}px`,
-          background: 'transparent',
+  return (
+    <div
+      ref={containerRef}
+      data-testid="live2d-container"
+      style={{
+        width: `${width}px`,
+        height: `${height}px`,
+        background: 'transparent',
           pointerEvents: 'none',
         }}
       />
