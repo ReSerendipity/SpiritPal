@@ -475,6 +475,7 @@ fn get_active_window() -> ActiveWindowInfo {
 // 若每次调用都启动新线程，多窗口累积出多个线程同时 SetWindowPos 高频置顶。
 // 仅在桌面端使用（AtomicBool/Ordering 只在 desktop cfg 下导入），移动端不编译此静态。
 #[cfg(desktop)]
+#[allow(dead_code)]
 static TOPMOST_KEEPALIVE_STARTED: AtomicBool = AtomicBool::new(false);
 
 #[cfg(desktop)]
@@ -609,6 +610,7 @@ async fn set_pet_always_on_top(
 /// GPU 黑名单绕过 — 参考 WindowPet：
 /// 设置环境变量，强制 WebView2 忽略 GPU 黑名单，避免黑屏/渲染异常。
 /// 某些 GPU 在 WebView2 黑名单中会被降级为软件渲染，导致桌面宠物显示异常。
+#[allow(dead_code)]
 fn setup_environment() {
     #[cfg(desktop)]
     {
