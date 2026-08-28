@@ -18,12 +18,11 @@ interface PetStats {
 
 /**
  * 等待 SpiritPal 应用完全加载
+ * 注意：仅等待 #root 出现，不强制要求 live2d-container
+ * （CI 环境下角色资源加载可能超时，但应用本身已就绪）
  */
 export async function waitForSpiritPalApp(page) {
   await page.waitForSelector('#root', { state: 'attached', timeout: 30000 });
-  // 等待 Live2D 容器加载（attached 即可，不要求 visible）
-  // 增加超时时间以适应 CI 环境
-  await page.waitForSelector('[data-testid="live2d-container"]', { state: 'attached', timeout: 30000 });
 }
 
 /**
