@@ -81,6 +81,8 @@ import {
   useRoamWalk,
 } from '../hooks'
 import { useDockVisualFeedback } from '../hooks/pet/useDockVisualFeedback'
+// A-7：抚摸时触发 GPU 粒子特效（WebGL 不可用时自动降级为 no-op）
+import { usePetParticles } from '../hooks/pet/usePetParticles'
 import { getHiddenStateManager } from '../lib/hiddenStateManager'
 import { getSilentModeManager } from '../lib/silentModeManager'
 import type { DockDir } from '../hooks/pet/usePetDragging'
@@ -835,6 +837,9 @@ export default function PetWindow() {
     safeTimeout(() => setHearts([]), 1500)
   }, [safeTimeout])
 
+  // A-7：GPU 粒子特效（WebGL 不可用时 burst 自动降级为空操作）
+  const { canvasRef: particleCanvasRef, burst: burstParticles } = usePetParticles(spriteW, spriteH)
+
   // 升级检测（渲染期调整状态：检测到等级提升时触发一次升级动画）
   const [prevLevel, setPrevLevel] = useState(0)
   if (character && !levelUp && prevLevel > 0 && stats.level > prevLevel) {
@@ -1033,6 +1038,8 @@ export default function PetWindow() {
     trackPetInteraction('pet')
     getAchievementManager().recordPet()
     spawnHearts()
+    // A-7：在宠物头部位置爆发一簇上飘粒子
+    burstParticles({ x: spriteW / 2, y: spriteH * 0.28, count: 28 })
     setBubble(pickBubble('pet'))
     lastInteractionTypeRef.current = 'pet_head'
     // eslint-disable-next-line react-hooks/purity -- 仅事件处理器执行路径（triggerPet：点击/菜单/面板按钮），非渲染路径
@@ -1583,6 +1590,16 @@ export default function PetWindow() {
             ❤️
           </div>
         ))}
+
+        {/* A-7：GPU 粒子特效层（覆盖于宠物之上，不拦截鼠标事件） */}
+        <canvas
+          ref={particleCanvasRef}
+          width={spriteW}
+          height={spriteH}
+          className="pointer-events-none absolute left-0 top-0"
+          style={{ width: spriteW, height: spriteH }}
+          aria-hidden="true"
+        />
 
         {/* 断网指示器 */}
         {networkOffline && (

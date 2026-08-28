@@ -18,6 +18,10 @@ let batchRenderer: BatchRenderer | null = null
 
 let lastFrameTime: number = 0
 let frameCount: number = 0
+let lastFpsSampleAt: number = 0
+/** Worker 无 VSync，按 60fps 的目标间隔手动调度 */
+const FRAME_INTERVAL_MS = 1000 / 60
+let renderTimer: ReturnType<typeof setTimeout> | null = null
 const stats = {
   fps: 0,
   particles: 0,
@@ -185,25 +189,59 @@ function executeRenderCommand(cmd: RenderCommand): void {
 
 // ============ 渲染循环 ============
 
+/**
+ * 启动渲染循环。
+ *
+ * ⚠️ Dedicated Worker 中**不存在** `requestAnimationFrame`（无 VSync、无 window），
+ * 因此这里用 setTimeout 以固定间隔驱动。`GPUParticleSystem.update()` 的
+ * 入参单位是**秒**（不是毫秒），需先换算再传入。
+ */
 function startRenderLoop(): void {
+  if (renderTimer !== null) return
+  lastFrameTime = 0
+  frameCount = 0
+  lastFpsSampleAt = 0
+
   const render = () => {
-    if (!gl || !particleSystem || !batchRenderer) return
-    
+    if (!gl || !particleSystem || !batchRenderer) {
+      renderTimer = null
+      return
+    }
+
     // 清除画布
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
-    
-    // 更新物理
-    particleSystem.update(16, { x: 960, y: 540 })
-    
-    // 渲染粒子
+
+    // 真实帧间隔 → 秒
+    const now = performance.now()
+    const deltaMs = lastFrameTime > 0 ? now - lastFrameTime : FRAME_INTERVAL_MS
+    lastFrameTime = now
+
+    particleSystem.update(deltaMs / 1000, { x: 960, y: 540 })
     particleSystem.render()
-    
-    // 请求下一帧
-    requestAnimationFrame(render)
+
+    // 每秒刷新一次统计
+    frameCount++
+    if (lastFpsSampleAt === 0) lastFpsSampleAt = now
+    if (now - lastFpsSampleAt >= 1000) {
+      stats.fps = Math.round((frameCount * 1000) / (now - lastFpsSampleAt))
+      stats.particles = particleSystem.getParticleCount()
+      frameCount = 0
+      lastFpsSampleAt = now
+    }
+
+    renderTimer = setTimeout(render, FRAME_INTERVAL_MS)
   }
-  
-  requestAnimationFrame(render)
+
+  renderTimer = setTimeout(render, FRAME_INTERVAL_MS)
+}
+
+/** 停止渲染循环 */
+function stopRenderLoop(): void {
+  if (renderTimer !== null) {
+    clearTimeout(renderTimer)
+    renderTimer = null
+  }
 }
 
 // ============ 响应发送函数 ============
@@ -239,6 +277,8 @@ function sendStats(messageId: string): void {
 // ============ 资源清理 ============
 
 function destroy(): void {
+  stopRenderLoop()
+
   if (gl) {
     const ext = gl.getExtension('WEBGL_lose_context')
     ext?.loseContext()
