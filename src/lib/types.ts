@@ -241,6 +241,11 @@ export interface CharacterProfile {
   // Phase 1.6: 角色类型标记（builtin / community / mod）
   /** 角色类型 */
   type?: 'builtin' | 'community' | 'mod'
+  /**
+   * physics3.json 路径（可选，仅 community/mod 角色）。
+   * 用于精灵图角色的装饰部件伪物理（A-13）；未提供时装饰层保持静态。
+   */
+  physicsPath?: string
   /** 金币自定义配置 */
   coinConfig?: { name: string; icon: string; description?: string }
 }
@@ -464,6 +469,12 @@ export interface WornDecoration {
   /** 偏移量 */
   offset?: { x: number; y: number }
 }
+
+/**
+ * 装饰锚点 → 摆角（度）
+ * 由角色包的 physics3.json 伪物理驱动（A-13）；未启用物理时为空对象。
+ */
+export type DecorationRotations = Partial<Record<AnchorPoint, number>>
 
 // ============ 背景自定义 ============
 

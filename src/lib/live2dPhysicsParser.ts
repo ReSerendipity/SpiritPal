@@ -145,25 +145,16 @@ export class PendulumSimulator extends PhysicsSimulator {
   override simulate(deltaTime: number, externalForce: { x: number; y: number }): number {
     const now = performance.now()
     const dt = Math.min(deltaTime / 1000, 0.1) // 限制最大 delta 时间
-    
-    // 重力加速度分解
-    const gravityAngle = Math.atan2(this.gravity.y, this.gravity.x)
-    const gravityAccel = Math.sqrt(
-      this.gravity.x * this.gravity.x + 
-      this.gravity.y * this.gravity.y
-    )
 
-    // 外力影响
-    const forceAngle = Math.atan2(externalForce.y, externalForce.x)
-    const forceMag = Math.sqrt(
-      externalForce.x * externalForce.x + 
-      externalForce.y * externalForce.y
-    )
+    const angle = this.state.angle
+    const cosA = Math.cos(angle)
+    const sinA = Math.sin(angle)
 
-    // 摆动方程：θ'' = (g/L) * sin(θ) - b * θ'
-    const gravityTerm = (gravityAccel / this.length) * Math.sin(this.state.angle - gravityAngle)
+    // 摆动方程：φ'' = (gx·cosφ − gy·sinφ)/L − b·φ'
+    // （φ 自竖直向下方向量起，y 轴向下为正；默认重力 (0, 9.8) 即标准单摆）
+    const gravityTerm = (this.gravity.x * cosA - this.gravity.y * sinA) / this.length
     const dampingTerm = this.damping * this.state.angularVelocity
-    const forceTerm = (forceMag / this.length) * Math.sin(this.state.angle - forceAngle)
+    const forceTerm = (externalForce.x * cosA - externalForce.y * sinA) / this.length
 
     // 欧拉积分
     const angularAcceleration = gravityTerm - dampingTerm + forceTerm
@@ -243,6 +234,75 @@ export class SpringSimulator extends PhysicsSimulator {
   }
 }
 
+// ============ 配置归一化 ============
+
+/** Cubism 官方 physics3.json 的节点片段（按需读取，未使用字段忽略） */
+interface RawPhysicsSetting {
+  Id?: string
+  Type?: string
+  Input?: Array<{ Source?: { Id?: string }; Weight?: number; Type?: string }>
+  Output?: Array<{ Destination?: { Id?: string }; Scale?: number; Weight?: number }>
+  Vertices?: Array<{ Mobility?: number; Delay?: number; Acceleration?: number; Length?: number }>
+  PhysicsDetail?: { Gravity?: { X?: number; Y?: number } }
+}
+interface RawPhysics3 {
+  Version?: number
+  PhysicsSettings?: RawPhysicsSetting[]
+}
+
+/**
+ * 把两种 JSON 形态统一成内部的 `Physics3Config`：
+ *
+ * 1. 内部简化格式：`{ version, groups: [...] }`
+ * 2. **Cubism 官方格式**：`{ Version, PhysicsSettings: [...] }`
+ *    —— 社区角色包里的 physics3.json 都是这种；若不做归一化，
+ *    `config.groups` 为 undefined，加载时直接崩溃。
+ *
+ * 官方字段 → 内部字段的映射（用于装饰摆动这类"伪物理"，精度要求不高）：
+ * - 组类型：官方只有摆锤语义，统一映射为 `pendulum`
+ * - 输入权重（Weight，0~100）→ `input.scale`
+ * - 输出的 Scale × Weight/100 → `output.scale`
+ * - 重力：官方坐标系 y 轴**向上**为正（常见值 `{X:0, Y:-1}`），
+ *   本模块 y 轴向下为正，故取反
+ */
+function normalizePhysicsConfig(raw: unknown): Physics3Config {
+  // 形态 1：内部简化格式
+  const simplified = raw as Physics3Config
+  if (Array.isArray(simplified?.groups)) {
+    return { ...simplified, groups: simplified.groups }
+  }
+
+  // 形态 2：Cubism 官方格式
+  const official = raw as RawPhysics3
+  const groups: PhysicsGroup[] = (official?.PhysicsSettings ?? []).map((setting, index) => {
+    const vertex = setting.Vertices?.[0]
+    const gravity = setting.PhysicsDetail?.Gravity ?? { X: 0, Y: -1 }
+
+    return {
+      id: setting.Id ?? `group_${index}`,
+      type: 'pendulum',
+      inputs: (setting.Input ?? []).map((i) => ({
+        id: i.Source?.Id ?? '',
+        type: 'angle',
+        scale: (i.Weight ?? 100) / 100,
+        offset: 0,
+      })),
+      outputs: (setting.Output ?? []).map((o) => ({
+        id: o.Destination?.Id ?? '',
+        scale: (o.Scale ?? 1) * ((o.Weight ?? 100) / 100),
+        offset: 0,
+      })),
+      settings: {
+        // y 轴取反：官方 y 向上为正，本模块 y 向下为正
+        gravity: { x: gravity.X ?? 0, y: -(gravity.Y ?? -1) },
+        drag: 1 - (vertex?.Mobility ?? 0.5),
+      },
+    }
+  })
+
+  return { version: official?.Version ?? 3, groups }
+}
+
 // ============ 物理解析器 ============
 
 export class Live2DPysicsParser {
@@ -255,8 +315,8 @@ export class Live2DPysicsParser {
    */
   async loadConfig(jsonString: string): Promise<void> {
     try {
-      this.config = JSON.parse(jsonString) as Physics3Config
-      
+      this.config = normalizePhysicsConfig(JSON.parse(jsonString) as unknown)
+
       if (this.config.version !== 3) {
         console.warn(`[Live2D Physics] Unsupported version: ${this.config.version}`)
       }
