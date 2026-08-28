@@ -481,6 +481,7 @@ export function SpriteRenderer({
   return (
     <div
       className={className}
+      data-testid="live2d-container"
       style={{
         width: displayW,
         height: displayH,
