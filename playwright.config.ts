@@ -16,6 +16,7 @@ export default defineConfig({
     timeout: 5000
   },
   use: {
+    baseURL: process.env.E2E_BASE_URL || 'http://127.0.0.1:5223',
     actionTimeout: 0,
     navigationTimeout: 10000,
     trace: 'on-first-retry',
