@@ -8,10 +8,10 @@
 //!   本核心不凭空伪造数据，统一返回 `SPIRITPAL_BRIDGE_UNAVAILABLE`，
 //!   由后续"桥接层"（→ 运行中的应用实例 → webview TS 工具逻辑）启用。
 
+use serde_json::{json, Value};
 use std::io::{self, BufRead, Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
-use serde_json::{json, Value};
 
 /// MCP 协议版本（取自 @modelcontextprotocol/sdk）
 const MCP_PROTOCOL_VERSION: &str = "2025-03-26";
@@ -131,11 +131,9 @@ fn http_post(
     let sock_addrs = addr
         .to_socket_addrs()
         .map_err(|e| format!("解析 bridge 地址失败: {e}"))?;
-    let mut stream = TcpStream::connect_timeout(
-        &sock_addrs.as_slice()[0],
-        Duration::from_millis(timeout_ms),
-    )
-    .map_err(|e| format!("连接 bridge 失败: {e}"))?;
+    let mut stream =
+        TcpStream::connect_timeout(&sock_addrs.as_slice()[0], Duration::from_millis(timeout_ms))
+            .map_err(|e| format!("连接 bridge 失败: {e}"))?;
     stream
         .set_read_timeout(Some(Duration::from_millis(timeout_ms)))
         .ok();
@@ -184,19 +182,20 @@ fn rpc_error(id: &Value, code: i64, message: &str, data: Value) -> Value {
 fn handle_message(msg: Value) -> Value {
     let method = match msg.get("method").and_then(Value::as_str) {
         Some(m) => m,
-        None => {
-            return rpc_error(&msg["id"], -32600, "Invalid Request", json!({}))
-        }
+        None => return rpc_error(&msg["id"], -32600, "Invalid Request", json!({})),
     };
     let id = msg.get("id").cloned().unwrap_or(Value::Null);
     let params = msg.get("params").cloned().unwrap_or(json!({}));
 
     match method {
-        "initialize" => rpc_response(&id, json!({
-            "protocolVersion": MCP_PROTOCOL_VERSION,
-            "capabilities": { "tools": {} },
-            "serverInfo": { "name": SERVER_NAME, "version": SERVER_VERSION }
-        })),
+        "initialize" => rpc_response(
+            &id,
+            json!({
+                "protocolVersion": MCP_PROTOCOL_VERSION,
+                "capabilities": { "tools": {} },
+                "serverInfo": { "name": SERVER_NAME, "version": SERVER_VERSION }
+            }),
+        ),
         "notifications/initialized" => rpc_response(&id, json!(null)),
         "tools/list" => {
             let tool_json: Vec<Value> = tools()
@@ -227,16 +226,22 @@ fn handle_message(msg: Value) -> Value {
             let body = build_forward_body(&name, arguments);
             let token = read_bridge_token();
             match http_post(&bridge_addr(), "/mcp/call", &body, 1500, token.as_deref()) {
-                Ok(reply) => rpc_response(&id, json!({
-                    "content": [{ "type": "text", "text": reply }]
-                })),
-                Err(e) => rpc_response(&id, json!({
-                    "content": [{
-                        "type": "text",
-                        "text": format!("SPIRITPAL_BRIDGE_UNAVAILABLE: {e}（请确认 SpiritPal 已运行并开启 MCP 命令桥）")
-                    }],
-                    "isError": true
-                })),
+                Ok(reply) => rpc_response(
+                    &id,
+                    json!({
+                        "content": [{ "type": "text", "text": reply }]
+                    }),
+                ),
+                Err(e) => rpc_response(
+                    &id,
+                    json!({
+                        "content": [{
+                            "type": "text",
+                            "text": format!("SPIRITPAL_BRIDGE_UNAVAILABLE: {e}（请确认 SpiritPal 已运行并开启 MCP 命令桥）")
+                        }],
+                        "isError": true
+                    }),
+                ),
             }
         }
         "ping" => rpc_response(&id, json!({})),
@@ -329,7 +334,8 @@ mod tests {
 
         // 文件回退
         std::env::remove_var("SPIRITPAL_MCP_BRIDGE_TOKEN");
-        let path = std::env::temp_dir().join(format!("spiritpal-mcp-token-test-{}", std::process::id()));
+        let path =
+            std::env::temp_dir().join(format!("spiritpal-mcp-token-test-{}", std::process::id()));
         std::fs::write(&path, "from-file\n").unwrap();
         std::env::set_var("SPIRITPAL_MCP_TOKEN_FILE", &path);
         assert_eq!(read_bridge_token().as_deref(), Some("from-file"));
