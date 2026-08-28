@@ -37,21 +37,12 @@ const KNOWN_PLUGIN_COMMANDS = new Set([
   // 注：scan_character_directory 已在 lib.rs 实现，不再排除
   // A-15：pack_petmod / validate_petmod / install_petmod / uninstall_mod
   // 已在 src-tauri/src/petmod.rs 实现，不再排除
-  'set_system_volume',
-  'set_system_brightness',
-  'sync_widget_state',
-  'read_widget_state',
-  // Agent 工具命令（计划中）
-  'search_files',
-  'execute_command',
-  // 系统检测命令（计划中）
-  'get_running_processes',
-  // 截图命令（计划中）
-  'take_screenshot',
-  // A-14 注：原 miniModeManager 的 switch_mini_mode / set_window_* / resize_window
-  // 已随该模块移除 —— 迷你模式改用 Tauri 官方 window API（setSize/setPosition 等），
-  // 无需自定义 Rust 命令，故不再出现在排除列表中。
-  // 视觉感知命令（visionPerception 调用，计划中尚未实现）
+  // C 类：take_screenshot / get_running_processes / set_system_volume /
+  //   set_system_brightness / search_files / execute_command /
+  //   sync_widget_state / read_widget_state
+  // 已在 src-tauri/src/system_tools.rs 实现，不再排除
+  // 视觉感知命令：需要 llmClient 多模态（content 数组）支持后由前端直连
+  // Vision LLM，属独立特性，当前仍为计划中（visionPerception 有本地降级路径）
   'analyze_screen_content',
 ])
 

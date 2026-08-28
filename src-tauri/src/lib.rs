@@ -81,6 +81,13 @@ mod win32;
 mod mcp_bridge;
 // P1-2: 角色包导入命令（scan_character_directory / read_text_file）
 mod character_import;
+// C 类: 系统工具命令（截图/进程/音量/亮度/文件搜索/受限命令执行/小组件状态）
+mod system_tools;
+#[cfg(desktop)]
+use system_tools::{
+    execute_command, get_running_processes, read_widget_state, search_files,
+    set_system_brightness, set_system_volume, sync_widget_state, take_screenshot,
+};
 // H-4: 安全审计日志（audit_log 命令）
 pub mod audit_log;
 // P2: 素材管线命令（detect_asset_tools / run_asset_pipeline）
@@ -1167,6 +1174,15 @@ pub fn run() {
                     get_idle_time,
                     get_active_window,
                     start_topmost_keepalive,
+                    // C 类: 系统工具（此前"计划中"，现已实现）
+                    take_screenshot,
+                    get_running_processes,
+                    set_system_volume,
+                    set_system_brightness,
+                    search_files,
+                    execute_command,
+                    sync_widget_state,
+                    read_widget_state,
                     // 托盘
                     set_tray_icon,
                     set_tray_icon_png,
