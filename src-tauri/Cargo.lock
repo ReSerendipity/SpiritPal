@@ -4589,6 +4589,7 @@ dependencies = [
  "obfstr",
  "open",
  "pbkdf2 0.12.2",
+ "png 0.17.16",
  "rdev",
  "serde",
  "serde_json",
