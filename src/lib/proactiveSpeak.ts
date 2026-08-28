@@ -36,6 +36,8 @@ import { getPrompt } from './promptRegistry'
 import { getEnhancedMemoryManager } from './enhancedMemory'
 // P1-2：从 contextAwareness 获取真实空闲时长
 import { getContextAwarenessManager } from './contextAwareness'
+// A-5：静默模式短路检查
+import { isSilentMode } from './silentModeManager'
 // R2：约定跟进
 import { getCommitmentTracker } from './commitmentTracker'
 // A-11：记忆推荐——基于长期记忆生成个性化主动话题
@@ -108,6 +110,11 @@ export class ProactiveSpeakManager {
   /** 检查是否应主动说话 */
   private async checkAndSpeak(): Promise<void> {
     if (this.isChecking) return
+
+    // A-5：静默模式下直接短路（与 usePetTimers 订阅侧检查构成双保险：
+    // 尽早短路省掉一次 LLM 调用，且静默期间不产生消息）
+    if (isSilentMode()) return
+
     const now = Date.now()
 
     // 距上次主动说话不足 5 分钟

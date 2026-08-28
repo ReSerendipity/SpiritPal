@@ -80,7 +80,12 @@ vi.mock('../../lib/emotionManager', () => ({
 }))
 
 vi.mock('../../lib/proactiveSpeak', () => ({
-  getProactiveSpeakManager: () => ({ onProactiveSpeak: vi.fn(() => vi.fn()) }),
+  getProactiveSpeakManager: () => ({
+    onProactiveSpeak: vi.fn(() => vi.fn()),
+    // A-5：usePetTimers 启动/停止主动说话定时器
+    start: vi.fn(),
+    stop: vi.fn(),
+  }),
 }))
 
 vi.mock('../../lib/enhancedMemory', () => ({
