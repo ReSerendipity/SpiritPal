@@ -162,6 +162,14 @@ export interface RetrieveOptions {
   purpose?: 'chat' | 'trigger' | 'proactive'
   /** 时间范围过滤 */
   timeRange?: TimeRangeFilter
+  /**
+   * B-4 隔离设计：相关性触发（relevance）语义是"我们聊过类似的话"——属于历史会话回忆，
+   * 不应把"用户刚说的这句"（工作记忆）或一条高匹配的永久事实（自传记忆，如"幸运数字7"）
+   * 当成历史召回，否则会压制 emotion/keyword 触发、且会造成单条记忆自我匹配误触发。
+   * 通用检索（对话上下文 / 评测 / 用户事实召回）保留这两层以最大化可召回性。
+   */
+  excludeWorking?: boolean
+  excludeAutobiographical?: boolean
 }
 
 // ============ 四段式记忆管理器 ============
@@ -1366,7 +1374,9 @@ export class EnhancedMemoryManager {
   // P0-1：retrieve() 现在返回 RetrievalResult[]，需访问 .memory 字段
   private async checkRelevanceTrigger(input: string): Promise<TriggerResult | null> {
     // S3：优先使用统一检索（复用 getContextForChat 的缓存）
-    const retrieved = await this.retrieve(input, 1, { purpose: 'trigger' })
+    // B-4：相关性触发排除工作/自传层，语义为"历史会话回忆"，避免单条记忆自我匹配或
+    // 永久事实（如"幸运数字7"）抢先命中而压制 emotion/keyword 触发。
+    const retrieved = await this.retrieve(input, 1, { purpose: 'trigger', excludeWorking: true, excludeAutobiographical: true })
     if (retrieved.length > 0) {
       // 二次验证：LCS 相似度门槛，避免不相关查询误触发
       const bestRetrieved = retrieved[0].memory
@@ -1741,17 +1751,22 @@ export class EnhancedMemoryManager {
   async retrieve(query: string, limit: number = 5, opts?: RetrieveOptions): Promise<RetrievalResult[]> {
     if (!query || query.trim().length === 0) return []
 
+    // 相关性触发等场景会带排除项；带排除项时不走缓存，避免把"已排除工作/自传"的结果
+    // 误当成无排除的通用检索结果缓存下来（否则后续通用 retrieve 会漏掉工作/自传层）。
+    const hasExclusion = !!(opts?.excludeWorking || opts?.excludeAutobiographical)
+
     // S3：同一查询 5 秒内复用缓存结果（消除 D7）
-    // 2.2：带 timeRange 时不走缓存（时间范围每次可能不同）
+    // 2.2：带 timeRange 或不带排除项以外的情况不缓存
     const now = Date.now()
-    if (!opts?.timeRange && this.lastRetrievalQuery === query && now - this.lastRetrievalTimestamp < 5_000) {
+    if (!opts?.timeRange && !hasExclusion && this.lastRetrievalQuery === query && now - this.lastRetrievalTimestamp < 5_000) {
       return this.lastRetrievalResultWithScores.slice(0, limit)
     }
 
-    const results = await this.searchEpisodicWithScores(query, Math.max(limit, 5), opts?.timeRange)
+    const excl = { working: opts?.excludeWorking, autobiographical: opts?.excludeAutobiographical }
+    const results = await this.searchEpisodicWithScores(query, Math.max(limit, 5), opts?.timeRange, excl)
 
-    // 缓存结果（仅无 timeRange 时缓存，避免时间范围污染后续无范围查询）
-    if (!opts?.timeRange) {
+    // 缓存结果（仅无 timeRange 且无非排除项时缓存，避免排除语义污染后续通用查询）
+    if (!opts?.timeRange && !hasExclusion) {
       this.lastRetrievalQuery = query
       this.lastRetrievalResultWithScores = results
       this.lastRetrievalResult = results.map(r => r.memory)
@@ -1811,8 +1826,10 @@ export class EnhancedMemoryManager {
    * B-4 Fix A：构建检索候选池。
    * 旧实现只搜 episodicMemory，导致被 compressEpisodic 压缩溢出的记忆被丢弃为不可
    * 检索的摘要串——宠物"忘了"旧细节（300 注入仅 ~35 可检索）。
-   * 现合并 情景 + 压缩情景 两层（按 id 去重），使压缩记忆仍可被 retrieve 命中。
-   * 注：工作记忆（极近对话）与自传记忆保留原行为不纳入此路径，避免扰动触发机制等既有逻辑。
+   * 现合并 情景 + 压缩情景 + 工作 + 自传 四层（按 id 去重），使压缩记忆与最近对话、
+   * 用户永久事实都可被 retrieve 命中。
+   * 工作记忆/自传记忆是否参与"相关性触发"由 searchEpisodicWithScores 的排除项控制，
+   * 不在此处过滤，从而兼顾通用召回与触发机制稳定性。
    */
   private getRetrievalCandidates(): EnhancedMemory[] {
     const seen = new Set<string>()
@@ -1825,6 +1842,8 @@ export class EnhancedMemoryManager {
     }
     for (const m of this.episodicMemory) push(m)
     for (const m of this.compressedEpisodic) push(m)
+    for (const m of this.workingMemory) push(m)
+    for (const m of this.autobiographicalMemory) push(m)
     return out
   }
 
@@ -1951,14 +1970,24 @@ export class EnhancedMemoryManager {
    * P0-1: 带分数的情景记忆检索 —— 返回 RetrievalResult[] 包含真实检索分
    * 核心：RAG/向量/LCS 三路检索，每路都返回带分数的结果
    * 2.2: 支持 timeRange 时间范围过滤
+   * B-4 隔离设计：excl 用于在"相关性触发"场景排除工作记忆/自传记忆（见 RetrieveOptions），
+   * 排除项同时作用于候选池与 RAG 结果，确保向量/LCS 两路都不会把这两层当成历史会话召回。
    */
-  private async searchEpisodicWithScores(query: string, limit: number, timeRange?: TimeRangeFilter): Promise<RetrievalResult[]> {
+  private async searchEpisodicWithScores(
+    query: string,
+    limit: number,
+    timeRange?: TimeRangeFilter,
+    excl?: { working?: boolean; autobiographical?: boolean },
+  ): Promise<RetrievalResult[]> {
     if (!query) return []
     // 2.2：时间范围过滤候选集
     const range = EnhancedMemoryManager.timeRangeToTimestamps(timeRange)
-    const candidatePool = range
+    let candidatePool = range
       ? this.getRetrievalCandidates().filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
       : this.getRetrievalCandidates()
+    // B-4：相关性触发排除工作/自传层（避免"用户刚说的这句"或永久事实被当成历史召回）
+    if (excl?.working) candidatePool = candidatePool.filter(m => !this.workingMemory.some(w => w.id === m.id))
+    if (excl?.autobiographical) candidatePool = candidatePool.filter(m => !m.isAutobiographical)
     if (candidatePool.length === 0) return []
 
     const queryTokens = this.expandQueryTokens(query)
@@ -2010,7 +2039,13 @@ export class EnhancedMemoryManager {
             .sort((a, b) => b.fusedScore - a.fusedScore)
             .slice(0, limit)
 
-          return merged.map(r => {
+          // B-4：相关性触发排除工作/自传层（RAG 结果同样受控，避免高匹配永久事实抢先命中）
+          const excluded = (r: RetrievalResult): boolean =>
+            (excl?.working && this.workingMemory.some(w => w.id === r.memory.id)) ||
+            (excl?.autobiographical && r.memory.isAutobiographical)
+          const finalMerged = excl?.working || excl?.autobiographical ? merged.filter(r => !excluded(r)) : merged
+
+          return finalMerged.map(r => {
             r.memory.accessCount++
             r.memory.lastAccessed = now
             r.memory.strength = Math.min((r.memory.strength ?? 1) * 1.6 + 0.5, 30)
