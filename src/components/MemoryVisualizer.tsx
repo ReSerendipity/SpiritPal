@@ -15,7 +15,34 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { getKeyframeMemory, type Keyframe, KeyframeLevel } from '../lib/keyframeMemory'
 import { useEnhancedMemory } from '../hooks/useEnhancedMemory'
 import { getContextAwarenessManager, type WorkStateInfo } from '../lib/contextAwareness'
+// A-10：情绪分布改用 emotionEngine 的真实今日统计（此前是 Math.random() 假数据）
+import { getEmotionStateManager } from '../lib/emotionEngine'
 import type { MemoryEntry } from '../lib/types'
+
+/** 情绪中文标签（覆盖 emotionEngine 的全部 9 类基础情绪） */
+const EMOTION_LABELS: Record<string, string> = {
+  happy: '开心',
+  sad: '难过',
+  angry: '生气',
+  excited: '兴奋',
+  calm: '平静',
+  confused: '困惑',
+  tired: '疲惫',
+  surprised: '惊讶',
+  neutral: '中性',
+}
+
+const EMOTION_COLORS: Record<string, string> = {
+  happy: '#4caf50',
+  sad: '#2196f3',
+  angry: '#f44336',
+  excited: '#ff9800',
+  calm: '#00bcd4',
+  confused: '#9c27b0',
+  tired: '#795548',
+  surprised: '#ffc107',
+  neutral: '#9e9e9e',
+}
 
 // ============ 样式常量 ============
 
@@ -273,74 +300,92 @@ const SearchView: React.FC = () => {
 // ============ 情绪视图组件 ============
 
 const EmotionView: React.FC = () => {
-  const [emotionStats, setEmotionStats] = useState<Record<string, number>>({
-    happy: 0,
-    neutral: 0,
-    sad: 0,
-    excited: 0,
-    tired: 0,
-  })
+  // A-10：真实数据源 —— emotionEngine 的今日情绪计数（由 ChatWindow 每次对话回写更新）。
+  // 此前这里用 Math.random() 生成"模拟情绪统计"，属静默假实现（界面看起来有数据，实际与用户无关）。
+  const [emotionStats, setEmotionStats] = useState<Record<string, number>>(() =>
+    getEmotionStateManager().getState().todayStats,
+  )
 
   useEffect(() => {
-    // 模拟情绪统计（实际应从 memory + context awareness 获取）
-    const mgr = getContextAwarenessManager()
-    const now = Date.now()
-    
-    // 基于工作状态推算情绪分布
-    const stats = {
-      happy: Math.random() * 40 + 30,   // 30-70%
-      neutral: Math.random() * 30 + 20, // 20-50%
-      sad: Math.random() * 15 + 5,      // 5-20%
-      excited: Math.random() * 25 + 10, // 10-35%
-      tired: Math.random() * 20 + 5,    // 5-25%
+    let cancelled = false
+    const read = () => {
+      const stats = getEmotionStateManager().getState().todayStats
+      if (!cancelled) setEmotionStats(stats)
     }
-
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 初始化模拟数据，仅执行一次
-    setEmotionStats(stats)
+    read()
+    // 对话会持续更新情绪状态，轻量轮询让图表跟随（只读内存对象，开销可忽略）
+    const timer = window.setInterval(read, 3000)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
   }, [])
 
-  const emotionColors: Record<string, string> = {
-    happy: '#4caf50',
-    neutral: '#9e9e9e',
-    sad: '#2196f3',
-    excited: '#ff9800',
-    tired: '#795548',
-  }
+  // 真实统计为计数，展示前换算为百分比
+  const total = Object.values(emotionStats).reduce((sum, n) => sum + n, 0)
+  const pctOf = (n: number) => (total > 0 ? (n / total) * 100 : 0)
+  const happyRatio = pctOf(emotionStats.happy ?? 0)
+  const negativeRatio =
+    pctOf(emotionStats.sad ?? 0) + pctOf(emotionStats.tired ?? 0) + pctOf(emotionStats.angry ?? 0)
 
   return (
     <div style={styles.content}>
       <h3 style={{ marginBottom: '16px', color: '#333' }}>情绪分布分析</h3>
-      
-      <div style={styles.emotionChart}>
-        {Object.entries(emotionStats).map(([label, value]) => (
-          <div key={label} style={styles.emotionBar}>
-            <div style={styles.emotionLabel}>
-              {label === 'happy' && '开心'}
-              {label === 'neutral' && '平静'}
-              {label === 'sad' && '难过'}
-              {label === 'excited' && '兴奋'}
-              {label === 'tired' && '疲惫'}
-            </div>
-            <div style={{ flex: 1, marginLeft: '8px' }}>
-              <div style={styles.emotionBarFill(value, emotionColors[label])} />
-            </div>
-            <div style={{ width: '40px', textAlign: 'right', fontSize: '12px', color: '#999' }}>
-              {Math.round(value)}%
-            </div>
-          </div>
-        ))}
-      </div>
 
-      <div style={{ marginTop: '24px', padding: '12px', backgroundColor: '#e3f2fd', borderRadius: '6px' }}>
-        <p style={{ fontSize: '13px', color: '#1976d2', marginBottom: '8px' }}><strong>💡 分析建议</strong></p>
-        <p style={{ fontSize: '13px', color: '#666', margin: 0 }}>
-          {emotionStats.happy > 50 
-            ? '主人今天心情很好！可以继续互动增强亲密度～'
-            : emotionStats.sad + emotionStats.tired > 40
-            ? '主人似乎有些疲惫或难过，要不要休息一下？'
-            : '主人状态平稳，适合专注工作或适度放松～'}
-        </p>
-      </div>
+      {total === 0 ? (
+        <div style={{ padding: '32px 0', textAlign: 'center', color: '#999', fontSize: '14px' }}>
+          今天还没有情绪记录
+          <div style={{ marginTop: '8px', fontSize: '12px' }}>
+            和宠物聊聊天，这里就会统计出真实的情绪分布
+          </div>
+        </div>
+      ) : (
+        <>
+          <div style={styles.emotionChart}>
+            {Object.entries(emotionStats)
+              .filter(([, count]) => count > 0)
+              .sort((a, b) => b[1] - a[1])
+              .map(([label, count]) => (
+                <div key={label} style={styles.emotionBar}>
+                  <div style={styles.emotionLabel}>{EMOTION_LABELS[label] ?? label}</div>
+                  <div style={{ flex: 1, marginLeft: '8px' }}>
+                    <div
+                      style={styles.emotionBarFill(
+                        pctOf(count),
+                        EMOTION_COLORS[label] ?? '#9e9e9e',
+                      )}
+                    />
+                  </div>
+                  <div
+                    style={{ width: '40px', textAlign: 'right', fontSize: '12px', color: '#999' }}
+                  >
+                    {Math.round(pctOf(count))}%
+                  </div>
+                </div>
+              ))}
+          </div>
+
+          <div
+            style={{
+              marginTop: '24px',
+              padding: '12px',
+              backgroundColor: '#e3f2fd',
+              borderRadius: '6px',
+            }}
+          >
+            <p style={{ fontSize: '13px', color: '#1976d2', marginBottom: '8px' }}>
+              <strong>💡 分析建议</strong>
+            </p>
+            <p style={{ fontSize: '13px', color: '#666', margin: 0 }}>
+              {happyRatio > 50
+                ? '主人今天心情很好！可以继续互动增强亲密度～'
+                : negativeRatio > 40
+                ? '主人似乎有些疲惫或难过，要不要休息一下？'
+                : '主人状态平稳，适合专注工作或适度放松～'}
+            </p>
+          </div>
+        </>
+      )}
     </div>
   )
 }
