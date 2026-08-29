@@ -4,7 +4,8 @@
 //   1. 冷启动时间测试  (cold-start.mjs)  — 阈值 < 2000ms
 //   2. 内存占用测试    (memory-usage.mjs) — 阈值 < 80MB
 //   3. Live2D 帧率测试 (fps-test.mjs)     — 阈值 ≥ 30fps
-//   4. 安装包大小验证  (package-size.mjs) — 阈值 < 30MB
+//   4. 拖拽帧率测试    (drag-fps.mjs)     — 阈值 ≥ 30fps
+//   5. 安装包大小验证  (package-size.mjs) — 阈值 < 30MB
 //
 // 汇总输出报告，退出码：
 //   0 — 全部通过
@@ -52,6 +53,14 @@ const TESTS = [
     id: 'fps',
     name: 'Live2D 帧率',
     script: 'fps-test.mjs',
+    unit: 'fps',
+    threshold: THRESHOLDS.fps,
+    compare: 'gte',
+  },
+  {
+    id: 'drag-fps',
+    name: '拖拽帧率',
+    script: 'drag-fps.mjs',
     unit: 'fps',
     threshold: THRESHOLDS.fps,
     compare: 'gte',
