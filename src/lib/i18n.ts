@@ -1116,6 +1116,11 @@ if (!i18n.isInitialized) {
     fallbackLng: 'zh',
     interpolation: {
       escapeValue: false, // React 已自动转义
+      // A-9 修复：全仓字典统一使用单花括号 `{name}` 占位（如 'coins.earned': '获得 {amount} 金币'）。
+      // i18next 默认前缀/后缀是 `{{` / `}}`，此前未配置 → 所有带参数的文案都
+      // **原样输出 `{amount}`**（静默 bug：不报错、不降级，只是参数没被替换）。
+      prefix: '{',
+      suffix: '}',
     },
   })
 }
