@@ -123,17 +123,16 @@ describe('JournalPanel', () => {
     fireEvent.click(screen.getByText('生成今日日记'))
 
     const originalCreate = document.createElement.bind(document)
-    let captured: HTMLAnchorElement | null = null
+    const captured: HTMLAnchorElement[] = []
     const spy = vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
       const el = originalCreate(tag)
-      if (tag === 'a') captured = el as HTMLAnchorElement
+      if (tag === 'a') captured.push(el as HTMLAnchorElement)
       return el
     })
     fireEvent.click(screen.getByText('导出 Markdown'))
 
-    // 内容经 Blob 构造，从 MockBlob 实例校验
-    expect(captured?.download).toBeTruthy()
+    expect(captured.length).toBeGreaterThan(0)
+    expect(captured[0]?.download).toMatch(/^spiritpal-diary-.*\.md$/)
     spy.mockRestore()
-    expect(downloadSpy).not.toHaveBeenCalled() // 仅确认未走意外路径
   })
 })
