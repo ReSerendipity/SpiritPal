@@ -308,6 +308,8 @@ export interface MemoryCategoryConfig {
   autobiographicalSoftLimit: number
   /** F4：工作记忆容量上限 */
   workingMemoryCapacity: number
+  /** B-4 Fix A：压缩情景记忆（被 episodic 溢出但仍可检索）的最大保留条数 */
+  compressedEpisodicMax: number
 }
 
 /** 默认分类配置 */
@@ -334,6 +336,8 @@ export const DEFAULT_CATEGORY_CONFIG: MemoryCategoryConfig = {
   autobiographicalSoftLimit: 200,
   // F4：工作记忆容量（addExchange 中硬编码 5）
   workingMemoryCapacity: 5,
+  // B-4 Fix A：压缩情景记忆上限（被 episodic 溢出但保留可检索），足够覆盖长会话不丢记忆
+  compressedEpisodicMax: 2000,
 }
 
 /** 遗忘分数计算结果 */

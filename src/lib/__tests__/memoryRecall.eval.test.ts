@@ -13,12 +13,13 @@
  *
  * 阈值：整体命中率 ≥ 70%（30 条中 ≥ 21 条）。
  *
- * ⚠️ 基线说明（2026-08-29 实测 23/30 = 76.7%）：
+ * ⚠️ 基线说明：
  * 本评测在**向量检索与 RAG 均被 mock 短路**的条件下运行，考察的是纯本地
- * LCS + 多因子打分的召回能力。未命中用例集中在「查询与记忆措辞差异大」的场景
- * （如「我的宠物叫什么」vs「我养了一只叫豆豆的橘猫」），属语义鸿沟问题：
- * 补齐嵌入向量 / 启用 RAG 索引后召回率应显著提升。
- * 因此 70% 是**回归保护线**而非质量目标：命中率跌破它说明检索打分被改坏了。
+ * LCS + 多因子打分的召回能力（B-4 Fix B 已加入查询意图同义词扩展以缓解
+ * 措辞差异导致的漏召回，如「宠物」↔「猫」、「天气」↔「雨」）。
+ * B-4 Fix A 修复了 compressEpisodic 把记忆丢弃为不可检索摘要的缺陷，使
+ * 被压缩溢出的记忆仍可被 retrieve 命中（宠物不再"忘记"旧细节）。
+ * 阈值 70% 是**回归保护线**而非质量目标：命中率跌破它说明检索打分被改坏了。
  */
 
 import { describe, it, expect, beforeAll, vi } from 'vitest'
@@ -131,6 +132,9 @@ describe('B-4-3：记忆召回评测集（30 条）', () => {
 
   beforeAll(async () => {
     const mgr = new EnhancedMemoryManager('eval-character')
+    // 等待构造函数触发的异步 init()（loadFromRows 从（mock）空库加载并重置内存数组）
+    // 完成，避免"先写入后被 init 清空"的竞态导致前几条记忆丢失（B-4 排查发现）。
+    await new Promise((resolve) => setTimeout(resolve, 20))
 
     // 检索只搜 episodicMemory（见 searchEpisodicWithScores 的 candidatePool），
     // 而新记忆先进 workingMemory，超出容量后才溢出到情景记忆。
