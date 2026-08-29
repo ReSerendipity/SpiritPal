@@ -126,3 +126,9 @@ FIX_LOG.md
 # 性能趋势看板构建产物（由 pnpm perf:trend 重新生成，非源码）
 perf/results/perf-trend-dashboard.html
 perf/results/perf-trend.json
+
+# 记忆召回趋势数据（每次 pnpm perf:memory-recall 刷新，本地可再生，不入库）
+# 与既有 perf-history.json 约定一致：趋势数据仅本地，源码 trend-report.mjs 入库
+perf/results/memory-recall-p95.json
+perf/results/memory-recall-accuracy.json
+perf/results/recall-history.json
