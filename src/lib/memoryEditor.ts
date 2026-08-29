@@ -19,8 +19,56 @@
 
 import { updateMemoryRow } from './db'
 import { EnhancedMemoryManager } from './enhancedMemory'
+import type { EnhancedMemory } from './memoryTypes'
 
 // ============ 类型定义 ============
+
+/**
+ * 对外展示用的记忆字段（C-4）
+ *
+ * `EnhancedMemory` 含 `dbId` / `decayFactor` / `accessCount` / `strength` / `factText`
+ * 等**检索算法内部字段**。此前 `readMemory` 返回完整对象，而 MCP 链路直接
+ * `JSON.stringify(result)` 返回给外部 Agent —— 等于把内部打分与行 ID 泄露出去。
+ * 展示层只需要下面这些语义字段。
+ */
+export interface DisplayMemory {
+  id: string
+  created_at: string
+  user: string
+  assistant: string
+  category: string
+  tags: string[]
+  importance: number
+  isAutobiographical: boolean
+  timeAnchor?: string
+  emotionalValence?: number
+  emotionalArousal?: number
+  sourceKind?: 'exchange' | 'observation' | 'consolidation' | 'user_teach' | 'fact'
+}
+
+/**
+ * 净化记忆对象，只保留对外展示字段（C-4）
+ *
+ * 用于 `readMemory` 的返回值与任何面向 UI / MCP 的输出路径。
+ * 需要内部字段（如 dbId）的链路请直接使用 `EnhancedMemoryManager.getAllMemories()`。
+ */
+export function sanitizeMemoryForDisplay(memory: EnhancedMemory): DisplayMemory {
+  const display: DisplayMemory = {
+    id: memory.id,
+    created_at: memory.created_at,
+    user: memory.user,
+    assistant: memory.assistant,
+    category: memory.category,
+    tags: [...memory.tags],
+    importance: memory.importance,
+    isAutobiographical: memory.isAutobiographical,
+  }
+  if (memory.timeAnchor !== undefined) display.timeAnchor = memory.timeAnchor
+  if (memory.emotionalValence !== undefined) display.emotionalValence = memory.emotionalValence
+  if (memory.emotionalArousal !== undefined) display.emotionalArousal = memory.emotionalArousal
+  if (memory.sourceKind !== undefined) display.sourceKind = memory.sourceKind
+  return display
+}
 
 /** 记忆搜索选项 */
 export interface MemorySearchOptions {
@@ -189,9 +237,11 @@ export class MemoryEditor {
 
       this.logOperation('read', memoryId)
 
+      // C-4：只返回展示字段，避免把 dbId / decayFactor / strength 等内部字段
+      // 经 MCP 的 JSON.stringify 泄露给外部 Agent
       return {
         success: true,
-        details: { memory },
+        details: { memory: sanitizeMemoryForDisplay(memory) },
       }
     } catch (error) {
       return {

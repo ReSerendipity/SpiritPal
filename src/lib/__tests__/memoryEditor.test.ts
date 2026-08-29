@@ -143,6 +143,35 @@ describe('MemoryEditor', () => {
       expect(result.success).toBe(true)
     })
 
+    it('C-4：读取记忆只返回展示字段，不泄露内部字段', async () => {
+      const result = await memoryEditor.readMemory('mem-1')
+      const memory = result.details?.memory as Record<string, unknown>
+
+      // 展示字段保留
+      expect(memory.id).toBe('mem-1')
+      expect(memory.user).toBe('今天天气真好，心情很愉快')
+      expect(memory.category).toBe('日常')
+      expect(memory.tags).toEqual(['天气', '心情'])
+      expect(memory.emotionalValence).toBe(0.8)
+
+      // 内部算法字段必须剔除（此前会随 MCP 的 JSON.stringify 一起返回给外部 Agent）
+      for (const internal of ['dbId', 'decayFactor', 'accessCount', 'lastAccessed', 'strength', 'emotionalIntensity', 'factText']) {
+        expect(memory[internal]).toBeUndefined()
+      }
+    })
+
+    it('C-4：sanitizeMemoryForDisplay 不修改原对象，且 tags 为副本', async () => {
+      const { sanitizeMemoryForDisplay } = await import('../memoryEditor')
+      const original = mockMemories[0]!
+      const tagsBefore = original.tags
+
+      const display = sanitizeMemoryForDisplay(original)
+
+      expect(display.tags).toEqual(tagsBefore)
+      expect(display.tags).not.toBe(tagsBefore) // 副本，外部改动不影响原数据
+      expect(original.dbId).toBeUndefined() // 原对象未被裁剪
+    })
+
     it('读取不存在的记忆应该失败', async () => {
       const result = await memoryEditor.readMemory('mem-999')
 
