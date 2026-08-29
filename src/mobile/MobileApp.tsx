@@ -28,6 +28,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { Cat, MessageCircle, Heart, Settings as SettingsIcon, Sun, Moon, Brain } from 'lucide-react'
 import { themeManager, type EffectiveTheme, type ThemeMode } from '../lib/themeManager'
 import { syncManager, type SyncStatus } from '../lib/syncManager'
+import { useWindowEvent } from '../lib/windowEventBus'
 import { usePetStore } from '../stores/petStore'
 import { MobilePetView } from './MobilePetView'
 import { MobileChatView } from './MobileChatView'
@@ -74,6 +75,9 @@ export default function MobileApp() {
 
   // 手势状态 ref
   const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null)
+
+  // 小组件 Deep Link 导航（spiritpal://open_chat | open_settings → widgetState 发出）
+  useWindowEvent('widget-navigate', (payload) => setActiveTab(payload.tab))
 
   // 初始化主题管理器 + 订阅主题变化
   useEffect(() => {

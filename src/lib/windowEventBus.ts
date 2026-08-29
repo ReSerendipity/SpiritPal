@@ -159,6 +159,9 @@ export interface WindowEventMap {
 
   // 对话：对话物品使用后打开指定对话图（settings 窗口 → pet 窗口）
   'open-dialogue': { graphId: string }
+
+  // 小组件 Deep Link：安卓桌面小组件按钮 → 主窗口切换目标界面
+  'widget-navigate': { tab: 'chat' | 'settings' }
 }
 
 // ============ 事件总线类 ============

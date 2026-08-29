@@ -8,17 +8,28 @@
 
 ## A. 新 Rust 命令（本会话 C 类补齐）
 
+> **2026-08-29 更新**：新增自动化运行时集成测试 `src-tauri/tests/test_system_runtime.rs`，
+> 在真实中文 Windows 上直接调用命令（`tauri::async_runtime::block_on`）。当场暴露并修复三个
+> 纯逻辑单测永远测不到的 bug（详见 KNOWN_GOTCHAS #48）：get_running_processes 进程名 NUL 尾巴、
+> execute_command 在 GBK 控制台返回空、execute_command 白名单可被 `&` 链式绕过。
+> 已勾选项 = 该测试已覆盖并通过；未勾选项 = 需窗口/有副作用/需人眼，仍属人工验收。
+
 - [ ] **take_screenshot（区域）**：让宠物「看看」或触发视觉感知 → 气泡出现对屏幕内容的描述
-      （预期：截屏成功；若虚拟屏指标为 0 的远程桌面环境需额外确认）
+      （需 WebviewWindow/AppHandle，无法在纯集成测试里跑；人工验收）
 - [ ] **take_screenshot（全屏 + maxWidth）**：`visualPerception.captureScreen` 路径 → 返回 512 宽 PNG
-- [ ] **get_running_processes**：AI 助手检测（打开/关闭某个 AI 助手窗口，观察检测结果变化）
+      （同上，人工验收）
+- [x] **get_running_processes**：✅ 运行时测试覆盖（真 Toolhelp32 枚举，修复 NUL 尾巴后进程名干净、含 svchost/explorer）
+      人工仍建议：打开/关闭某个 AI 助手窗口，观察前端检测结果变化
 - [ ] **set_system_volume**：快速控制面板拖音量滑条 → 系统音量随之变化（0~100%）
+      （会真的改用户机器音量 + 变没变须人耳/肉眼，人工验收）
 - [ ] **set_system_brightness**：调亮度滑条 → 笔记本内屏亮度变化
-      （预期：台式机外接屏会得到明确错误提示，而非静默失败 —— 属预期行为）
+      （有副作用 + 需人眼；台式机外接屏应得明确错误提示属预期，人工验收）
 - [ ] **search_files**：Agent 工具搜索（如有入口）→ 返回相对路径列表，node_modules/target 不出现
-- [ ] **execute_command（白名单内）**：`tasklist` / `ipconfig` → 返回输出，≤5 秒
-- [ ] **execute_command（白名单外）**：`del xxx` → 返回"不在只读白名单内"错误
+      （内部 search_recursive 已有单测覆盖跳过逻辑；端到端入口人工验收）
+- [x] **execute_command（白名单内）**：✅ 运行时测试覆盖（真起 cmd 执行 tasklist/ipconfig，修复 GBK 空输出后有真实内容）
+- [x] **execute_command（白名单外）**：✅ 运行时测试覆盖（`del ...` 返回"不在只读白名单内"；新增 `&` 链式注入也被拒）
 - [ ] **sync/read_widget_state**：小组件状态保存 → 重启后恢复
+      （需 AppHandle；deep-link 链路已在模拟器实测，但状态文件跨重启持久化仍建议人工确认）
 
 ## B. 本会话功能接线
 

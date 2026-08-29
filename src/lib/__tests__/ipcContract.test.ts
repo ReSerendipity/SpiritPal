@@ -385,7 +385,7 @@ function extractFrontendInvokeCalls(): Map<string, string[]> {
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name)
       if (entry.isDirectory()) {
-        if (entry.name === '__tests__' || entry.name === 'node_modules' || entry.name === 'mobile') continue
+        if (entry.name === '__tests__' || entry.name === 'node_modules') continue
         scanDir(fullPath)
       } else if (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) {
         const content = fs.readFileSync(fullPath, 'utf-8')
@@ -396,6 +396,19 @@ function extractFrontendInvokeCalls(): Map<string, string[]> {
           const cmd = match[1]
           if (!calls.has(cmd)) calls.set(cmd, [])
           calls.get(cmd)!.push(path.relative(srcDir, fullPath))
+        }
+        // Gotcha #46 盲区修复：别名解构 const { invoke: X } = ... 后的 X('cmd') 调用同样必须入检
+        const aliasRegex = /const\s*\{\s*invoke\s*:\s*(\w+)\s*\}/g
+        const aliases = new Set<string>()
+        let am: RegExpExecArray | null
+        while ((am = aliasRegex.exec(content)) !== null) aliases.add(am[1])
+        for (const alias of aliases) {
+          const aliasCall = new RegExp(`${alias}\\s*(?:<[^>]*>)?\\s*\\(\\s*['"]([^'"]+)['"]`, 'g')
+          while ((match = aliasCall.exec(content)) !== null) {
+            const cmd = match[1]
+            if (!calls.has(cmd)) calls.set(cmd, [])
+            calls.get(cmd)!.push(path.relative(srcDir, fullPath))
+          }
         }
       }
     }
@@ -418,15 +431,27 @@ function extractFrontendInvokeParams(): Map<string, string[]> {
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name)
       if (entry.isDirectory()) {
-        if (entry.name === '__tests__' || entry.name === 'node_modules' || entry.name === 'mobile') continue
+        if (entry.name === '__tests__' || entry.name === 'node_modules') continue
         scanDir(fullPath)
       } else if (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) {
         const content = fs.readFileSync(fullPath, 'utf-8')
         // 匹配 invoke('cmd', { key1: val1, key2: val2 }) 的参数名
         // 也匹配 invoke('cmd') 无参数的情况
         const regex = /invoke\s*(?:<[^>]*>)?\s*\(\s*['"]([^'"]+)['"]\s*(?:,\s*\{([^}]*)\})?\s*\)/g
+        // Gotcha #46 盲区修复：别名解构的 invoke 调用一并采集参数
+        const aliasRegex = /const\s*\{\s*invoke\s*:\s*(\w+)\s*\}/g
+        const aliases = new Set<string>()
+        let am: RegExpExecArray | null
+        while ((am = aliasRegex.exec(content)) !== null) aliases.add(am[1])
+        const callRegexes: RegExp[] = [regex]
+        for (const alias of aliases) {
+          callRegexes.push(
+            new RegExp(`${alias}\\s*(?:<[^>]*>)?\\s*\\(\\s*['"]([^'"]+)['"]\\s*(?:,\\s*\\{([^}]*)\\})?\\s*\\)`, 'g'),
+          )
+        }
+        for (const callRegex of callRegexes) {
         let match: RegExpExecArray | null
-        while ((match = regex.exec(content)) !== null) {
+        while ((match = callRegex.exec(content)) !== null) {
           const cmd = match[1]
           const paramsStr = match[2] || ''
           const params: string[] = []
@@ -442,6 +467,7 @@ function extractFrontendInvokeParams(): Map<string, string[]> {
           const existing = paramMap.get(cmd) || []
           const merged = [...new Set([...existing, ...params])]
           paramMap.set(cmd, merged)
+          }
         }
       }
     }

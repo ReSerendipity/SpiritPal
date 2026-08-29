@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "SpiritPal pet-window permissions (M-7: 精简至实际所需 — window mgmt + event listening + tray, 移除未直接使用的 store/sql/notification/dialog)",
-  "windows": ["pet-window"],
+  "windows": ["pet-window", "main"],
   "permissions": [
     "core:default",
     "core:window:allow-show",
@@ -25,6 +25,7 @@
     "core:app:default",
     "core:app:allow-name",
     "core:app:allow-version",
-    "core:event:default"
+    "core:event:default",
+    "deep-link:default"
   ]
 }

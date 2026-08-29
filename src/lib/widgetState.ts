@@ -219,32 +219,53 @@ export async function handleWidgetDeepLink(url: string): Promise<boolean> {
 
   switch (link.action) {
     case 'feed': {
-      // 触发喂食动作
-      if (link.itemId) {
-        const { invoke: inv } = await import('@tauri-apps/api/core')
-        await inv('feed_pet_from_widget', { itemId: link.itemId })
-      }
+      // 复用 petStore.useItem（消耗背包/好感度/buff 全套语义）。
+      // 历史坑：原实现调用了 Rust 端从未存在的 feed_pet_from_widget 命令（Gotcha #46）。
+      // 小组件传来的 item_id（如 apple）仅是提示：背包无精确匹配时回退首个可消耗食物。
+      const { usePetStore } = await import('../stores/petStore')
+      const st = usePetStore.getState()
+      const exact = link.itemId
+        ? st.inventory.find((i) => i.id === link.itemId && i.count > 0)
+        : undefined
+      const target = exact ?? st.inventory.find((i) => i.type === 'food' && i.count > 0)
+      if (!target) return false
+      st.useItem(target.id)
       return true
     }
     case 'pet': {
-      // 激活宠物窗口
-      const { invoke: inv } = await import('@tauri-apps/api/core')
-      await inv('show_pet_window')
+      // 激活宠物窗口（Rust 端真实存在的命令：lib.rs show_pet_window）
+      await invoke('show_pet_window')
       return true
     }
-    case 'open_chat': {
-      // 打开聊天窗口
-      const { invoke: inv } = await import('@tauri-apps/api/core')
-      await inv('open_chat_window')
-      return true
-    }
-    case 'open_settings': {
-      // 打开设置窗口
-      const { invoke: inv } = await import('@tauri-apps/api/core')
-      await inv('open_settings_window')
-      return true
-    }
+    case 'open_chat':
+      return openWidgetSurface('chat')
+    case 'open_settings':
+      return openWidgetSurface('settings')
   }
+}
+
+/** 当前是否移动端口径（安卓/iOS 为单窗口 + tab 导航） */
+function isMobileRuntime(): boolean {
+  return typeof navigator !== 'undefined' && /android|iphone|ipad|ipod/i.test(navigator.userAgent)
+}
+
+/**
+ * 打开聊天/设置界面：
+ * - 移动端：单窗口应用，经 windowEventBus 通知 MobileApp 切换 tab
+ * - 桌面端：复用 appWindows.ensureAppWindow 创建/唤起对应窗口并聚焦
+ */
+async function openWidgetSurface(tab: 'chat' | 'settings'): Promise<boolean> {
+  if (isMobileRuntime()) {
+    const { windowEventBus } = await import('./windowEventBus')
+    await windowEventBus.emit('widget-navigate', { tab })
+    return true
+  }
+  const { ensureAppWindow } = await import('./appWindows')
+  const win = await ensureAppWindow(`${tab}-window`)
+  if (!win) return false
+  await win.show()
+  await win.setFocus()
+  return true
 }
 
 // ============ 自动同步监听器 ============
