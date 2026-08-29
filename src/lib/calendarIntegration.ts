@@ -389,17 +389,23 @@ export class CalendarManager {
   }
 
   /**
-   * 从数据源抓取事件（实际实现）
+   * 从数据源抓取事件
+   *
+   * ⚠️ A-8（2026-08-29）状态说明：本方法**仍未实现系统日历直读**，返回空数组。
+   * 外部日历能力已改由 webview 安全路径提供，勿在此伪造数据：
+   * - `lib/icsParser.ts`：`parseIcs()` / `createIcsCalendarSource()` 解析 .ics
+   * - `components/SchedulePanel.tsx`：「导入 .ics」→ 注册为 `CalendarSourceAdapter`
+   *
+   * 本模块是 **Node 侧参考适配器**（依赖 `child_process`，webview 无法 import，
+   * 且零 importer）；若要直读 Windows/macOS 系统日历，需新增 Tauri 命令桥接，
+   * 属独立特性，不在本批次范围。
    */
   private async fetchEvents(
     source: CalendarDataSource,
     startDate: Date,
     endDate: Date,
   ): Promise<CalendarEvent[]> {
-    // TODO: 根据数据源类型实现不同的获取逻辑
-    // 这里返回空数组作为占位
-    
-    console.log(`[Calendar] Fetching events from ${source.type}`)
+    console.log(`[Calendar] Fetching events from ${source.type} (未接入系统日历，返回空)`)
     return []
   }
 

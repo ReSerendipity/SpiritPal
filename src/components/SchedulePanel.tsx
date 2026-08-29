@@ -16,11 +16,13 @@
  * 使用模块：
  * - scheduleManager: 日程管理器
  */
-import { useEffect, useState } from 'react'
-import { Plus, Trash2, Check, Calendar, Clock } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Plus, Trash2, Check, Calendar, Clock, Upload } from 'lucide-react'
 import { getScheduleManager, type EnhancedScheduleEvent, type ImportedCalendarEvent } from '../lib/scheduleManager'
 import { getTimezoneManager } from '../lib/timezoneSync'
 import { formatDateTime } from '../lib/i18n'
+// A-8：外部日历（.ics）导入，替代 calendarIntegration 的空占位
+import { createIcsCalendarSource, parseIcs } from '../lib/icsParser'
 
 /**
  * 日程管理面板
@@ -36,6 +38,7 @@ export function SchedulePanel() {
   const [showAdd, setShowAdd] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newTime, setNewTime] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     // 仅订阅变更，回调由管理器在变更时触发（非同步 setState）
@@ -48,6 +51,31 @@ export function SchedulePanel() {
     mgr.getImportedCalendarEvents().then((evs) => { if (alive) setCalendarEvents(evs) }).catch(() => {})
     return () => { alive = false }
   }, [mgr])
+
+  // A-8：导入外部 .ics 日历 —— 解析后注册为 CalendarSourceAdapter，事件汇入下方「外部日历」区
+  function handleImportIcs(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    // 清空 value，允许重复导入同一文件
+    e.target.value = ''
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const text = String(reader.result ?? '')
+      const events = parseIcs(text)
+      if (events.length === 0) {
+        alert(`未在 ${file.name} 中解析到日程事件（文件可能不是有效的 .ics）`)
+        return
+      }
+      mgr.registerCalendarSource(
+        createIcsCalendarSource(`ics-${Date.now()}`, file.name.replace(/\.ics$/i, ''), text),
+      )
+      void mgr.getImportedCalendarEvents().then((evs) => setCalendarEvents(evs)).catch(() => {})
+      alert(`已从「${file.name}」导入 ${events.length} 个日程`)
+    }
+    reader.onerror = () => alert('文件读取失败')
+    reader.readAsText(file)
+  }
 
   function handleAdd() {
     if (!newTitle.trim() || !newTime.trim()) return
@@ -99,12 +127,29 @@ export function SchedulePanel() {
           📅 日程管理
           <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] text-ink-muted">🌐 {tz.abbreviation} {tz.timeZoneId}</span>
         </span>
-        <button
-          onClick={() => setShowAdd(!showAdd)}
-          className="flex items-center gap-1 rounded-lg bg-amber-500 px-2 py-1 text-xs text-gray-900 hover:bg-amber-400"
-        >
-          <Plus size={12} /> 添加
-        </button>
+        <div className="flex gap-2">
+          {/* A-8：外部日历导入 —— 解析用户从 Google/Outlook/Apple 导出的 .ics 文件 */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-1 rounded-lg bg-surface px-2 py-1 text-xs text-ink-muted hover:bg-ink/5 hover:text-ink"
+            title="从 .ics 文件导入外部日历（Google / Outlook / Apple 日历均可导出）"
+          >
+            <Upload size={12} /> 导入 .ics
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".ics,text/calendar"
+            className="hidden"
+            onChange={handleImportIcs}
+          />
+          <button
+            onClick={() => setShowAdd(!showAdd)}
+            className="flex items-center gap-1 rounded-lg bg-amber-500 px-2 py-1 text-xs text-gray-900 hover:bg-amber-400"
+          >
+            <Plus size={12} /> 添加
+          </button>
+        </div>
       </div>
 
       {showAdd && (
