@@ -41,7 +41,6 @@ jobs:
 
       - name: Run lint (type check + ESLint)
         run: pnpm lint
-        continue-on-error: true
 
       - name: Run frontend tests with coverage
         run: pnpm test:coverage
