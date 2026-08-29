@@ -98,6 +98,9 @@ describe('B-4-1：记忆检索 P95 延迟基准', () => {
 
   beforeAll(async () => {
     const mgr = new EnhancedMemoryManager('bench-character')
+    // 等待构造函数触发的异步 init()（loadFromRows 从（mock）空库加载并重置内存数组）完成，
+    // 避免"先写入后被 init 清空"的竞态导致基线失真（B-4 排查发现）。
+    await new Promise((resolve) => setTimeout(resolve, 20))
 
     // 预置记忆（20 个主题轮转，模拟真实对话分布）
     for (let i = 0; i < MEMORY_COUNT; i++) {
@@ -108,7 +111,9 @@ describe('B-4-1：记忆检索 P95 延迟基准', () => {
     }
 
     // 基准有效性：确认记忆真的进了检索池（否则就是"空库检索"的假基准）
-    poolSize = mgr.getAllMemories().length
+    // B-4 Fix A 后，被情景压缩溢出的记忆保留在 compressedEpisodic，仍可被检索命中，
+    // 因此"可达检索池"≈ 注入量（而非旧实现的 ~35 条）。
+    poolSize = mgr.getRetrievableMemoryCount()
     hitCount = (await mgr.retrieve('主题5 火锅')).length
 
     // 预热（JIT + 首次索引构建不计入）
@@ -129,10 +134,9 @@ describe('B-4-1：记忆检索 P95 延迟基准', () => {
   })
 
   it('基准有效性：检索池非空且达到分层后的合理规模', () => {
-    // 重要发现：写入 300 条后实际检索池只有 ~35 条 —— 记忆经分层存储
-    // （working → episodic 压缩/晋升）后并非全量驻留，这是设计行为而非 bug。
-    // 因此本基准的"规模"以实际池子大小为准并如实记录，不夸大。
-    console.log(`[memory-recall] 写入 ${MEMORY_COUNT} 条 → 实际检索池 ${poolSize} 条`)
+    // B-4 Fix A：写入 300 条后，可达检索池应接近注入量（压缩记忆仍保留可检索），
+    // 旧实现仅 ~35 条（压缩记忆被丢弃为不可检索摘要），属"宠物遗忘"缺陷，已修复。
+    console.log(`[memory-recall] 写入 ${MEMORY_COUNT} 条 → 实际可达检索池 ${poolSize} 条`)
     expect(poolSize).toBeGreaterThanOrEqual(30)
   })
 
@@ -162,7 +166,7 @@ describe('B-4-1：记忆检索 P95 延迟基准', () => {
       passed: p95 < P95_THRESHOLD_MS,
       detail: {
         injectedCount: MEMORY_COUNT,
-        // 分层存储（working → episodic 压缩/晋升）后并非全量驻留，如实记录实际规模
+        // B-4 Fix A：压缩记忆保留可检索，可达检索池≈注入量（旧实现仅 ~35 条）
         actualPoolSize: poolSize,
         queryCount: QUERY_COUNT,
         avg: Math.round(avg * 100) / 100,
