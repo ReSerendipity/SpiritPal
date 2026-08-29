@@ -107,3 +107,14 @@ git push origin public # 推送到远程 public 分支
 ```
 
 > 📌 远端 `origin` 同时存在 `main` 与 `public` 两个分支时，请始终以 `public` 作为唯一对外发布出口。
+
+## 🚧 已知阻塞 / 待办（B-4 记忆召回收尾）
+
+B-4 主线（隔离设计 + 检索候选池修复 + 评测套件 + 趋势看板）已闭环并提交，以下两项需环境/架构就位后方可推进，**当前无独立代码可解**：
+
+- **[阻塞] 真实验收填充 `perf/results/perf-history.json`**
+  - 现状：`perf/results/recall-history.json`（记忆 P95 / 召回率趋势）已落地，但 PRD 性能验收（冷启动 / 内存 / 帧率 / 包体时序）依赖 `perf/run-all.mjs` 的真实产物，目前为空。
+  - 解锁条件：先 `pnpm tauri build` 产出 exe，再 `pnpm perf`（Playwright + 真机/模拟器）跑批；数据仅本地、不入库（已 gitignore）。
+- **[阻塞] 评测 case 20（运动 → 跑步）语义鸿沟**
+  - 现状：本地召回评测 29/30（96.7%），仅 case 20 未命中——`运动` 与 `跑步` 的语义关联超出 LCS/同义词扩展能力。
+  - 解锁条件：启用真实 embedding/RAG 路径（`@xenova/transformers` 本地向量检索 + `ragRetrieval`），当前评测在 mock 下短路了向量检索，故纯本地无法补；待真实 RAG 接通后该 case 应自然命中。
