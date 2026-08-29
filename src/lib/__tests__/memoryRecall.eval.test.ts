@@ -82,6 +82,8 @@ vi.mock('../llmClient', () => ({
 }))
 
 import { EnhancedMemoryManager } from '../enhancedMemory'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 interface EvalCase {
   id: number
@@ -166,5 +168,23 @@ describe('B-4-3：记忆召回评测集（30 条）', () => {
         (misses.length ? ` 未命中: [${misses.join(', ')}]` : ''),
     )
     expect(rate).toBeGreaterThanOrEqual(0.7)
+  })
+
+  it('结果写入 perf/results/memory-recall-accuracy.json（供趋势看板消费）', () => {
+    const rate = hits / CASES.length
+    const payload = {
+      timestamp: new Date().toISOString(),
+      name: 'memory-recall-accuracy',
+      unit: 'ratio',
+      threshold: 0.7,
+      compare: 'gte',
+      value: Math.round(rate * 1000) / 1000,
+      passed: rate >= 0.7,
+      detail: { hit: hits, total: CASES.length, misses },
+    }
+    const resultsDir = resolve(process.cwd(), 'perf', 'results')
+    mkdirSync(resultsDir, { recursive: true })
+    writeFileSync(resolve(resultsDir, 'memory-recall-accuracy.json'), JSON.stringify(payload, null, 2))
+    expect(payload.passed).toBe(true)
   })
 })

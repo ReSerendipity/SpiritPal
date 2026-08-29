@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-08-29T15:23:31.812Z",
+  "name": "memory-recall-accuracy",
+  "unit": "ratio",
+  "threshold": 0.7,
+  "compare": "gte",
+  "value": 0.967,
+  "passed": true,
+  "detail": {
+    "hit": 29,
+    "total": 30,
+    "misses": [
+      20
+    ]
+  }
+}
