@@ -465,3 +465,45 @@ describe('工具 execute 函数', () => {
     expect(result).toContain('很饿')
   })
 })
+
+describe('C-2：工具模式权限（委托 agentTools 单一真相源）', () => {
+  it('chat 模式不开放任何工具', async () => {
+    const { isToolAllowed } = await import('../aiAgent')
+    for (const tool of ['search_web', 'search_files', 'execute_command', 'write_file']) {
+      expect(isToolAllowed('chat', tool)).toBe(false)
+    }
+  })
+
+  it('agent 模式仅开放安全工具，不含文件/命令工具', async () => {
+    const { isToolAllowed } = await import('../aiAgent')
+    expect(isToolAllowed('agent', 'search_web')).toBe(true)
+    expect(isToolAllowed('agent', 'search_files')).toBe(false)
+    expect(isToolAllowed('agent', 'execute_command')).toBe(false)
+  })
+
+  it('developer 模式开放只读文件工具（此前因权限表副本过时而不可用）', async () => {
+    const { isToolAllowed } = await import('../aiAgent')
+    expect(isToolAllowed('developer', 'search_files')).toBe(true)
+    expect(isToolAllowed('developer', 'read_file')).toBe(true)
+    expect(isToolAllowed('developer', 'list_directory')).toBe(true)
+    // 写操作仍不在 developer 模式
+    expect(isToolAllowed('developer', 'write_file')).toBe(false)
+    expect(isToolAllowed('developer', 'execute_command')).toBe(false)
+  })
+
+  it('worker 模式开放受限命令执行与文件写入', async () => {
+    const { isToolAllowed } = await import('../aiAgent')
+    expect(isToolAllowed('worker', 'execute_command')).toBe(true)
+    expect(isToolAllowed('worker', 'write_file')).toBe(true)
+    expect(isToolAllowed('worker', 'search_files')).toBe(true)
+  })
+
+  it('未实现的系统级工具在任何模式都不可用（不夸大能力边界）', async () => {
+    const { isToolAllowed } = await import('../aiAgent')
+    for (const mode of ['chat', 'agent', 'developer', 'worker'] as const) {
+      for (const tool of ['install_package', 'system_setting', 'registry_edit']) {
+        expect(isToolAllowed(mode, tool)).toBe(false)
+      }
+    }
+  })
+})
