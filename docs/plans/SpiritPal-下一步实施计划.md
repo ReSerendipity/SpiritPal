@@ -3,7 +3,7 @@
 > 版本：v0.1（草案）  
 > 生成日期：2026-08-27  
 > 依据：《剩余任务交接报告.md》（2026-08-27 实测）、《学习成果落地分析报告.md》  
-> 状态：**批次一、批次二均已执行完成（2026-08-27）**。批次一落地 A-1~A-5，批次二落地 A-9 i18n 收敛 / A-8 日记日程 / A-10 情绪引擎，两批全部通过 `tsc -b` + 全量 vitest（2125 passed / 0 failed）+ lint（0 错误）。
+> 状态：**批次一、批次二、批次四（B-4 评测/基准）均已执行完成**。批次一落地 A-1~A-5，批次二落地 A-9 i18n 收敛 / A-8 日记日程 / A-10 情绪引擎，批次四落地 B-4（记忆检索 P95 基准 + 30 条召回评测集 + V1-V4 真机验收 checklist + 性能趋势看板），全部通过 `tsc -b` + 全量 vitest（2302 passed / 0 failed）+ lint（0 错误）。**B-4 含 2 项已知阻塞**（真实验收 perf-history.json、case 20 语义鸿沟），详见 README「🚧 已知阻塞 / 待办（B-4 记忆召回收尾）」。
 
 ---
 
@@ -35,6 +35,16 @@
 - **A-8 架构阻塞（诚实降级）**：`dailyJournal.ts`/`calendarIntegration.ts` 依赖 Node 内置模块（`fs`/`child_process`），无法在 Tauri webview 直接 import（顶层 `exec`/`fs` 加载即报错）。故日记采用 webview 安全实现（Blob 下载 + chatStore 数据），`calendarIntegration` 仅作为 `scheduleManager` 日历插件的 **Node 侧参考适配器**，待经 Tauri 命令桥接后在 webview 注册。见 gotcha #30。
 - **A-9 文件未删除**：用户拒绝删除 `i18nManager`/`i18nTranslations`，改为 `@deprecated` 标记 + 指向 `i18n.ts`；双轨在「活动实现」层面收敛，文件待后续人工清理。
 - **A-10 评分来源收敛**：情绪标签→坐标的评分表统一收敛到 `emotionEngine.EMOTION_SCORES`，`emotionTagsToMood` 退化为薄适配层（保留签名兼容既有记忆回写）。
+
+### 批次四 · B-4 评测 / 基准 / 真机验收 —— ✅ 完成（2026-08-29）
+
+| 任务 | 落地方式 | 验收 |
+|------|----------|------|
+| **B-4 记忆评测集 / 性能基准 / V1-V4 真机验收** | ① `memoryRecall.bench.test.ts`：记忆检索 P95 延迟基准（纯 JS 路径，p95≈0.64ms，可达检索池 300 条）；② `memoryRecall.eval.test.ts`：30 条中文陪伴场景召回评测集（Top-5 召回 29/30 = 96.7%）；③ `perf/trend-report.mjs` + npm 脚本 `perf:memory-recall`：把 p95 / 召回率串成回归看板，并把当前召回快照追加为 `perf/results/recall-history.json` 时间序列（数据仅本地不入库）；④ `V1-V4-真机验收checklist.md` 已纳入拖拽帧率 / 记忆 P95 / 召回等可自动化项 | tsc/vitest 全绿（2302 passed / 0 failed）；`pnpm perf:memory-recall` 一键跑通 bench + eval + trend |
+
+**关键偏差（已记入 README 已知阻塞）**：
+- **真实验收 perf-history.json 为空**：PRD 性能验收（冷启动 / 内存 / 帧率 / 包体）依赖 `perf/run-all.mjs` 真实产物，需 `pnpm tauri build` + Playwright / 真机，当前 dev 环境拉不起；数据仅本地不入库。
+- **case 20（运动 → 跑步）未命中**：纯 LCS / 同义词扩展无法桥接语义鸿沟，需真实 embedding/RAG 路径（当前评测在 mock 下短路向量检索），待真实 RAG 接通后自然命中。
 
 > 批次三（能力补全：A-7 memoryExporter 导出 / A-6 事实归档 / A-11 记忆搜索性能）待后续启动。
 
@@ -88,7 +98,7 @@
 | B-1 | `mcpHooks` 接线 | `mcpAppBridge` 工具执行前后插入 pre/post hook | P1 |
 | B-2 | 自动更新发布落地 | GitHub Release 工作流 + 签名私钥 + `updates.json`（**需仓库管理员权限**） | P2 |
 | B-3 | at-rest 流式加密 / `.legacy` 清理入口 | >1MB blob 分块加密 + DataPanel 清理 UI | P2 |
-| B-4 | 记忆评测集 / 性能基准 / V1-V4 真机验收 | 3 项基准 + 验收 checklist + 30 条召回评测集 | P2 |
+| B-4 ✅ | 记忆评测集 / 性能基准 / V1-V4 真机验收 | 3 项基准 + 验收 checklist + 30 条召回评测集（2 项阻塞见 README）| P2 |
 
 ### 1.3 C 类 · 已知代码债（小而明确）
 
