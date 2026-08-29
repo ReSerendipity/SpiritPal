@@ -46,6 +46,12 @@ import {
   extractAppName,
   extractSearchQuery,
   extractPetAction,
+  // C-2：工具权限的单一真相源（agentTools 的 TOOL_MODE_PERMISSIONS）。
+  // 此前本文件维护了一份 MODE_TOOL_SETS 副本，developer/worker 的工具被注释成 TODO，
+  // 导致 agentTools 已实现的 search_files / execute_command 在 isToolAllowed 下不可用。
+  getToolsForMode,
+  isToolAvailableInMode,
+  ToolMode as AgentToolMode,
 } from './agentTools'
 
 // ============ 工具定义类型 ============
@@ -355,21 +361,14 @@ const TOOL_MODE_LEVEL: Record<ToolMode, number> = {
  * Developer: Agent + 文件/终端工具（TODO: 注册扩展工具）
  * Worker: Developer + 系统级工具（TODO: 注册系统工具）
  */
-const MODE_TOOL_SETS: Record<ToolMode, string[]> = {
-  chat: [],
-  agent: AGENT_TOOLS.map(t => t.name),
-  developer: [
-    ...AGENT_TOOLS.map(t => t.name),
-    // TODO(P2): 注册 Developer 级工具
-    // 'read_file', 'write_file', 'list_directory', 'run_command',
-  ],
-  worker: [
-    ...AGENT_TOOLS.map(t => t.name),
-    // TODO(P2): 注册 Developer + Worker 级工具
-    // 'read_file', 'write_file', 'list_directory', 'run_command',
-    // 'install_package', 'system_setting', 'registry_edit',
-  ],
-}
+// C-2：权限表已上收到 agentTools.TOOL_MODE_PERMISSIONS，本文件不再维护副本。
+// 能力边界（诚实声明，不夸大）：
+// - developer：+ read_file / list_directory / search_files（只读，search_files 已由 Rust
+//   system_tools.rs 真实实现）
+// - worker：再 + write_file / execute_command（execute_command 为**只读白名单**，
+//   非任意 shell；两者均需用户确认）
+// - install_package / system_setting / registry_edit 等系统级写操作**从未实现，
+//   也不在计划内**（桌面宠物不应具备系统配置写入能力）
 
 /**
  * 检查当前工具模式是否允许使用指定工具
@@ -379,7 +378,8 @@ const MODE_TOOL_SETS: Record<ToolMode, string[]> = {
  * @returns true 表示允许使用
  */
 export function isToolAllowed(mode: ToolMode, toolName: string): boolean {
-  return MODE_TOOL_SETS[mode].includes(toolName)
+  // C-2：委托 agentTools 的单一权限表（值与 ToolMode 枚举一致，故做一次类型断言）
+  return isToolAvailableInMode(toolName, mode as unknown as AgentToolMode)
 }
 
 /**
@@ -389,7 +389,7 @@ export function isToolAllowed(mode: ToolMode, toolName: string): boolean {
  * @returns 可用工具定义数组
  */
 export function getAvailableTools(mode: ToolMode): ToolDefinition[] {
-  const allowedNames = MODE_TOOL_SETS[mode]
+  const allowedNames = getToolsForMode(mode as unknown as AgentToolMode)
   return AGENT_TOOLS.filter(t => allowedNames.includes(t.name))
 }
 
