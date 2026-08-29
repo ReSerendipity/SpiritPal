@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SpiritPal 拖拽帧率基准</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        overflow: hidden;
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        height: 100vh;
+      }
+      /* 模拟宠物窗口：跟随指针 + 部件摆动（与 PetWindow 的 transform 层级相近） */
+      #pet {
+        position: absolute;
+        width: 180px;
+        height: 180px;
+        left: 110px;
+        top: 160px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 35% 30%, #ffe0c0 0%, #ffadad 55%, #ff8fa3 100%);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+        will-change: transform;
+        cursor: grab;
+      }
+      /* 模拟装饰部件（发饰/尾巴）随移动摆动的伪物理 */
+      #pet::after {
+        content: '';
+        position: absolute;
+        top: -18px;
+        left: 50%;
+        width: 14px;
+        height: 34px;
+        margin-left: -7px;
+        border-radius: 7px;
+        background: #ffd6a5;
+        transform-origin: bottom center;
+        will-change: transform;
+      }
+      #hint {
+        position: absolute;
+        left: 12px;
+        bottom: 12px;
+        color: #7a8699;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="pet"></div>
+    <div id="hint">拖拽帧率基准运行中…（自动模拟指针拖拽）</div>
+
+    <script>
+      /**
+       * 模拟一次真实拖拽并采样帧间隔
+       *
+       * 与 fps-test.html（测 Live2D 渲染帧率）的区别：
+       * 这里模拟**指针拖拽交互**——每帧同时更新
+       *   ① 宠物位置的 translate3d（跟随指针，走合成层）
+       *   ② 装饰部件的 rotate（伪物理摆动）
+       * 从而测出「拖拽宠物」这一高频交互场景下的渲染帧率。
+       *
+       * ⚠️ 范围说明：本页测得的是 **webview 渲染层**的帧率（不含 Tauri 窗口
+       * 拖动时 Rust 侧的 outerPosition/setPosition 开销）。真实 Tauri 窗口拖拽
+       * 会更低，因此本指标用于**横向对比与回归检测**，不代表端到端真机帧率。
+       */
+      window.__perfDragFpsResult = null
+
+      window.__runDragFps = function (durationMs) {
+        return new Promise((resolve) => {
+          const pet = document.getElementById('pet')
+          const frames = []
+          const start = performance.now()
+          let last = start
+
+          function step(now) {
+            if (last !== null) frames.push(now - last)
+            last = now
+
+            const t = (now - start) / 1000
+            // 圆周路径模拟拖拽轨迹（匀速连续移动）
+            const x = Math.cos(t * 1.6) * 90
+            const y = Math.sin(t * 1.6) * 70
+            // 伪物理：装饰部件按速度相位摆动（与 useDecorationPhysics 同思路）
+            const angle = Math.sin(t * 6) * 9
+
+            pet.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${angle * 0.25}deg)`
+            pet.style.setProperty('--orn-angle', angle + 'deg')
+
+            if (now - start < durationMs) {
+              requestAnimationFrame(step)
+            } else {
+              finish()
+            }
+          }
+
+          function finish() {
+            // 丢弃首帧（含初始化抖动）
+            const sorted = frames.slice(1).sort((a, b) => a - b)
+            if (sorted.length === 0) {
+              window.__perfDragFpsResult = { error: '未采集到帧' }
+              resolve(window.__perfDragFpsResult)
+              return
+            }
+            const sum = sorted.reduce((s, n) => s + n, 0)
+            const avg = sum / sorted.length
+            const p95 = sorted[Math.floor(sorted.length * 0.95)] ?? avg
+            const result = {
+              fps: Math.round((1000 / avg) * 100) / 100,
+              avgFrameMs: Math.round(avg * 100) / 100,
+              p95FrameMs: Math.round(p95 * 100) / 100,
+              maxFrameMs: Math.round(sorted[sorted.length - 1] * 100) / 100,
+              frames: sorted.length,
+              error: null,
+            }
+            window.__perfDragFpsResult = result
+            resolve(result)
+          }
+
+          requestAnimationFrame(step)
+        })
+      }
+    </script>
+  </body>
+</html>
