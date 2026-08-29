@@ -26,6 +26,7 @@
     "perf:penetration": "node perf/penetration-test.mjs",
     "perf:baseline": "node perf/baseline-trend.mjs",
     "perf:report": "node perf/benchmark-report.mjs",
+    "perf:trend": "node perf/trend-report.mjs",
     "metrics:dashboard": "node scripts/generate-metrics-dashboard.mjs"
   },
   "dependencies": {
@@ -33,6 +34,7 @@
     "@tailwindcss/vite": "^4.2.2",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-autostart": "^2.5.1",
+    "@tauri-apps/plugin-deep-link": "^2.4.9",
     "@tauri-apps/plugin-dialog": "^2.2.0",
     "@tauri-apps/plugin-fs": "^2.2.0",
     "@tauri-apps/plugin-global-shortcut": "^2.0.0",

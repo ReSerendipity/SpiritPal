@@ -82,7 +82,8 @@ mod win32;
 // P1-2: 角色包导入命令（scan_character_directory / read_text_file）
 mod character_import;
 // C 类: 系统工具命令（截图/进程/音量/亮度/文件搜索/受限命令执行/小组件状态）
-mod system_tools;
+// pub mod: 允许集成测试 (tests/) 在真实 Windows 上验证 Win32 运行时路径
+pub mod system_tools;
 #[cfg(desktop)]
 use system_tools::{
     execute_command, get_running_processes, read_widget_state, search_files, set_system_brightness,
@@ -893,7 +894,8 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_dialog::init());
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_deep_link::init());
 
     // 桌面端专属插件
     #[cfg(desktop)]
