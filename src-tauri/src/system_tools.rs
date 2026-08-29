@@ -194,6 +194,16 @@ pub async fn execute_command(command: String) -> Result<String, String> {
         ));
     }
 
+    // 安全：白名单只校验首 token，若不拦 shell 元字符，`tasklist & del evil.txt`
+    // 会被 cmd /C 链式执行后半段破坏性命令（Gotcha：只读白名单可被绕过）。
+    // 只读命令（tasklist/ipconfig/dir /s 等）只需空格与 / 参数，绝不需要下列元字符。
+    const EXECUTE_FORBIDDEN_CHARS: &[char] = &[
+        '&', '|', '>', '<', '^', ';', '`', '$', '\n', '\r', '(', ')', '%', '!',
+    ];
+    if command.contains(EXECUTE_FORBIDDEN_CHARS) {
+        return Err("命令包含非法 shell 元字符（仅允许单条只读命令，禁止链式/重定向/替换）".to_string());
+    }
+
     tauri::async_runtime::spawn_blocking(move || {
         #[cfg(windows)]
         let mut cmd = {
@@ -215,15 +225,18 @@ pub async fn execute_command(command: String) -> Result<String, String> {
         // 输出读取放独立线程，避免管道缓冲区填满导致死锁
         let mut stdout_pipe = child.stdout.take().ok_or("无法读取 stdout")?;
         let mut stderr_pipe = child.stderr.take().ok_or("无法读取 stderr")?;
+        // 关键：控制台输出在中文 Windows 上是 GBK/OEM 编码（如 tasklist/ipconfig 的中文表头），
+        // 用 read_to_string 会因非法 UTF-8 直接报错并返回空串。改为按字节读 + lossy 解码，
+        // 保住 ASCII 部分（进程名 / IP 等真正有用的信息），中文表头降级为替换字符。
         let t_out = std::thread::spawn(move || {
-            let mut s = String::new();
-            let _ = stdout_pipe.read_to_string(&mut s);
-            s
+            let mut buf = Vec::new();
+            let _ = stdout_pipe.read_to_end(&mut buf);
+            String::from_utf8_lossy(&buf).into_owned()
         });
         let t_err = std::thread::spawn(move || {
-            let mut s = String::new();
-            let _ = stderr_pipe.read_to_string(&mut s);
-            s
+            let mut buf = Vec::new();
+            let _ = stderr_pipe.read_to_end(&mut buf);
+            String::from_utf8_lossy(&buf).into_owned()
         });
 
         // 轮询等待 / 超时 kill
@@ -595,7 +608,14 @@ pub async fn get_running_processes() -> Result<Vec<String>, String> {
 
             if Process32FirstW(snapshot, &mut entry).is_ok() {
                 loop {
-                    let name = String::from_utf16_lossy(&entry.szExeFile);
+                    // szExeFile 是 [u16;256] 定长缓冲，须在第一个 NUL 处截断，
+                    // 否则 from_utf16_lossy 会把尾部填充的 \0 一并带出，破坏前端进程名匹配
+                    let end = entry
+                        .szExeFile
+                        .iter()
+                        .position(|&c| c == 0)
+                        .unwrap_or(entry.szExeFile.len());
+                    let name = String::from_utf16_lossy(&entry.szExeFile[..end]);
                     if !name.is_empty() {
                         names.push(name);
                     }

@@ -3,7 +3,8 @@
   "identifier": "chat-window",
   "description": "SpiritPal chat-window permissions (minimal: read-only chat data, no fs access, scoped notifications)",
   "windows": [
-    "chat-window"
+    "chat-window",
+    "main"
   ],
   "permissions": [
     "core:default",

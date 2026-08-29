@@ -28,6 +28,8 @@ tauri-plugin-global-shortcut = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+# 安卓桌面小组件 deep link（spiritpal://）→ 前端事件转发
+tauri-plugin-deep-link = "2"
 tauri = { version = "2", features = ["macos-private-api", "tray-icon", "image-png"] }
 # 任务 A：API Key 加密存储 — 系统 Keychain（跨平台：Windows Credential Manager / macOS Keychain / Linux Secret Service）
 keyring = "3"

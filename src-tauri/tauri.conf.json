@@ -84,6 +84,14 @@
       "iOS": {
         "bundleId": "com.spiritpal.desktop-pet"
       }
+    },
+    "deep-link": {
+      "mobile": [
+        { "scheme": ["spiritpal"] }
+      ],
+      "desktop": {
+        "schemes": ["spiritpal"]
+      }
     }
   }
 }

@@ -16,6 +16,7 @@
 import { Component, useEffect, useState, lazy, Suspense, type ReactNode } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import PetWindow from './components/PetWindow'
+import { setupExternalLinkInterceptor } from './lib/externalLinks'
 import { loadShimejiCharacters } from './lib/shimejiLoader'
 
 const MobileApp = lazy(() => import('./mobile/MobileApp'))
@@ -60,6 +61,33 @@ export default function App() {
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
+
+  // 外链统一交给系统浏览器（安卓 WebView 无 target=_blank 新窗口流程；桌面 Tauri v2 拒绝新窗口请求）
+  useEffect(() => setupExternalLinkInterceptor(), [])
+
+  // 安卓桌面小组件 deep link 事件源：spiritpal:// URI → handleWidgetDeepLink（喂食/聊天/宠物/设置）
+  useEffect(() => {
+    if (!isMobile) return
+    let unlisten: (() => void) | null = null
+    let cancelled = false
+    void (async () => {
+      try {
+        const { onOpenUrl } = await import('@tauri-apps/plugin-deep-link')
+        const { handleWidgetDeepLink } = await import('./lib/widgetState')
+        const fn = await onOpenUrl((urls) => {
+          urls.forEach((url) => void handleWidgetDeepLink(url).catch(() => {}))
+        })
+        if (cancelled) fn()
+        else unlisten = fn
+      } catch {
+        // 非 Tauri 环境（纯浏览器/vitest）或插件未就绪：静默跳过
+      }
+    })()
+    return () => {
+      cancelled = true
+      unlisten?.()
+    }
+  }, [isMobile])
 
   // Persist route changes to localStorage
   useEffect(() => {

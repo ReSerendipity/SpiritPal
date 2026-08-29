@@ -3,7 +3,8 @@
   "identifier": "settings-window",
   "description": "SpiritPal settings-window permissions (scoped fs to $APP/*, dialog for mod import, full update controls)",
   "windows": [
-    "settings-window"
+    "settings-window",
+    "main"
   ],
   "permissions": [
     "core:default",
