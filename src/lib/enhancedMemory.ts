@@ -182,6 +182,39 @@ function localDateString(d: Date = new Date()): string {
 // T-12: 值统一来自 memoryConfig
 const INJECTION_COOLDOWN_MS = INJECTION_CONFIG.cooldownMs
 
+// B-4 Fix B：查询意图 → 记忆关键词的有界同义词表（仅用于本地检索打分提升召回）。
+// 注意：tokenize 将 CJK 按单字切分，因此 key 必须是**单字**，value 也是单字/词片段。
+// 追加这些 token 只会增加 overlap，不会降低任何记忆的得分；范围经人工筛选，避免假阳性扩散。
+const QUERY_SYNONYMS: Record<string, string[]> = {
+  宠: ['猫', '狗', '兔', '鼠', '鸟', '龟'],
+  名: ['叫'],
+  吃: ['食', '饭', '餐'],
+  不: ['忌', '厌'],
+  忌: ['吃', '敏'],
+  敏: ['忌', '吃'],
+  天: ['雨', '雪', '晴', '阴', '风', '冷', '热'],
+  运: ['跑', '球', '健', '炼'],
+  动: ['跑', '球', '健', '炼'],
+  跑: ['运', '球', '健', '炼', '步'],
+  书: ['说', '读', '看', '文'],
+  看: ['读', '书', '说'],
+  家: ['妹', '弟', '哥', '爸', '妈', '姐', '儿', '女'],
+  机: ['备'],
+  工: ['职', '程', '班'],
+  考: ['研', '学'],
+  计: ['算', '划', '打', '准'],
+  幸: ['运', '数'],
+  老: ['家', '故', '出'],
+  乡: ['家', '故', '出'],
+  座: ['格'],
+  怕: ['恐'],
+  喜: ['爱', '好'],
+  讨: ['烦', '厌'],
+  颜: ['紫', '红', '蓝', '绿'],
+  色: ['紫', '红', '蓝', '绿'],
+  季: ['春', '夏', '秋', '冬'],
+}
+
 export class EnhancedMemoryManager {
   private characterId: string
   private storageKey: string
@@ -191,6 +224,9 @@ export class EnhancedMemoryManager {
   private semanticMemory: string             // 语义记忆（摘要，legacy 格式）
   private semanticFacts: SemanticFactRow[]   // P1-6: 结构化语义事实（从 memory_semantic_facts 表加载）
   private autobiographicalMemory: EnhancedMemory[] // 自传记忆（重要事件）
+  // B-4 Fix A：被情景压缩"溢出"的记忆不再丢弃，保留为可检索的压缩情景记忆，
+  // 仅当检索池过大时按容量上限裁剪。retrieve 会把它纳入候选，避免宠物"忘记"旧细节。
+  private compressedEpisodic: EnhancedMemory[] = []
   private topicFrequency: Map<string, number> = new Map()
   // 触发频率控制状态
   private triggerLog: { timestamp: number; type: string }[] = []  // 触发历史
@@ -1003,11 +1039,21 @@ export class EnhancedMemoryManager {
     const toCompress = this.episodicMemory.slice(capacity)
     this.episodicMemory = this.episodicMemory.slice(0, capacity)
 
-    // 将被压缩的记忆摘要加入语义记忆
-    const summary = toCompress
-      .map((m) => `${m.category}: ${m.user.slice(0, 50)}`)
-      .join('; ')
-    this.semanticMemory = `${this.semanticMemory} ${summary}`.trim().slice(-this.categoryConfig.semanticSummaryMaxChars)
+    // B-4 Fix A：被溢出的记忆不再丢弃，保留为可检索的压缩情景记忆。
+    // 仍照旧生成语义摘要串（用于 prompt 长期上下文），但压缩记忆本身进入
+    // compressedEpisodic，retrieve 会把它纳入候选池，宠物不会"忘记"旧细节。
+    if (toCompress.length > 0) {
+      this.compressedEpisodic.push(...toCompress)
+      // 压缩池上限，避免无限增长拖慢检索（最旧优先淘汰）
+      const maxCompressed = this.categoryConfig.compressedEpisodicMax
+      if (this.compressedEpisodic.length > maxCompressed) {
+        this.compressedEpisodic = this.compressedEpisodic.slice(-maxCompressed)
+      }
+      const summary = toCompress
+        .map((m) => `${m.category}: ${m.user.slice(0, 50)}`)
+        .join('; ')
+      this.semanticMemory = `${this.semanticMemory} ${summary}`.trim().slice(-this.categoryConfig.semanticSummaryMaxChars)
+    }
   }
 
   // ============ 记忆触发机制 ============
@@ -1761,16 +1807,52 @@ export class EnhancedMemoryManager {
     return ts >= range.start && ts <= range.end
   }
 
+  /**
+   * B-4 Fix A：构建检索候选池。
+   * 旧实现只搜 episodicMemory，导致被 compressEpisodic 压缩溢出的记忆被丢弃为不可
+   * 检索的摘要串——宠物"忘了"旧细节（300 注入仅 ~35 可检索）。
+   * 现合并 情景 + 压缩情景 两层（按 id 去重），使压缩记忆仍可被 retrieve 命中。
+   * 注：工作记忆（极近对话）与自传记忆保留原行为不纳入此路径，避免扰动触发机制等既有逻辑。
+   */
+  private getRetrievalCandidates(): EnhancedMemory[] {
+    const seen = new Set<string>()
+    const out: EnhancedMemory[] = []
+    const push = (m: EnhancedMemory | undefined) => {
+      if (m && m.id && !seen.has(m.id)) {
+        seen.add(m.id)
+        out.push(m)
+      }
+    }
+    for (const m of this.episodicMemory) push(m)
+    for (const m of this.compressedEpisodic) push(m)
+    return out
+  }
+
+  /**
+   * B-4 Fix B：查询意图→记忆关键词的有界同义词扩展。
+   * 本地检索（无向量/RAG）下，查询与记忆措辞差异大时纯 token 重叠会漏召回
+   * （如「宠物」vs「猫」、「天气」vs「雨」）。仅向查询 token 集合追加少量近义
+   * 记忆词，提升相关记忆的 overlap（召回），不影响其他记忆的得分（不删词）。
+   */
+  private expandQueryTokens(query: string): Set<string> {
+    const tokens = new Set(tokenize(query))
+    for (const t of [...tokens]) {
+      const syns = QUERY_SYNONYMS[t]
+      if (syns) for (const s of syns) tokens.add(s)
+    }
+    return tokens
+  }
+
   private async searchEpisodic(query: string, limit: number, timeRange?: TimeRangeFilter): Promise<EnhancedMemory[]> {
-    if (this.episodicMemory.length === 0 || !query) return []
+    if (!query) return []
     // 2.2：时间范围过滤候选集
     const range = EnhancedMemoryManager.timeRangeToTimestamps(timeRange)
     const candidatePool = range
-      ? this.episodicMemory.filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
-      : this.episodicMemory
+      ? this.getRetrievalCandidates().filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
+      : this.getRetrievalCandidates()
     if (candidatePool.length === 0) return []
 
-    const queryTokens = new Set(tokenize(query))
+    const queryTokens = this.expandQueryTokens(query)
     if (queryTokens.size === 0) return candidatePool.slice(-limit)
 
     // F2：尝试获取当前用户情绪，传入 moodFit 计算
@@ -1871,15 +1953,15 @@ export class EnhancedMemoryManager {
    * 2.2: 支持 timeRange 时间范围过滤
    */
   private async searchEpisodicWithScores(query: string, limit: number, timeRange?: TimeRangeFilter): Promise<RetrievalResult[]> {
-    if (this.episodicMemory.length === 0 || !query) return []
+    if (!query) return []
     // 2.2：时间范围过滤候选集
     const range = EnhancedMemoryManager.timeRangeToTimestamps(timeRange)
     const candidatePool = range
-      ? this.episodicMemory.filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
-      : this.episodicMemory
+      ? this.getRetrievalCandidates().filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
+      : this.getRetrievalCandidates()
     if (candidatePool.length === 0) return []
 
-    const queryTokens = new Set(tokenize(query))
+    const queryTokens = this.expandQueryTokens(query)
     if (queryTokens.size === 0) return candidatePool.slice(-limit).map(mem => ({
       memory: mem, score: 0.5, baseScore: 0.5, fusedScore: 0.5
     }))
@@ -2002,6 +2084,14 @@ export class EnhancedMemoryManager {
       ...this.episodicMemory,
       ...this.workingMemory,
     ]
+  }
+
+  /**
+   * B-4 Fix A：返回真正可被 retrieve 命中的记忆总数（含压缩情景/工作/自传层）。
+   * 与 getAllMemories（UI 视角，仅显式三层）不同，此方法反映检索可达规模。
+   */
+  getRetrievableMemoryCount(): number {
+    return this.getRetrievalCandidates().length
   }
 
   // ============ 2.2: 记忆时间线索引 ============
@@ -2206,6 +2296,8 @@ export class EnhancedMemoryManager {
     this.needsSave = false
     this.workingMemory = []
     this.episodicMemory = []
+    // B-4 Fix A：清空同步压缩情景记忆
+    this.compressedEpisodic = []
     this.semanticMemory = ''
     this.semanticFacts = []  // P1-6: 清空结构化语义事实
     this.autobiographicalMemory = []
@@ -2434,6 +2526,8 @@ export class EnhancedMemoryManager {
     return JSON.stringify({
       workingMemory: this.workingMemory,
       episodicMemory: this.episodicMemory,
+      // B-4 Fix A：备份压缩情景记忆，恢复后不丢旧细节
+      compressedEpisodic: this.compressedEpisodic,
       semanticMemory: this.semanticMemory,
       semanticFacts: this.semanticFacts,  // P1-6: 结构化语义事实
       autobiographicalMemory: this.autobiographicalMemory,
@@ -2460,6 +2554,8 @@ export class EnhancedMemoryManager {
       this.needsSave = false
       this.workingMemory = data.workingMemory ?? []
       this.episodicMemory = data.episodicMemory ?? []
+      // B-4 Fix A：恢复压缩情景记忆
+      this.compressedEpisodic = data.compressedEpisodic ?? []
       this.semanticMemory = data.semanticMemory ?? ''
       this.semanticFacts = data.semanticFacts ?? []  // P1-6: 结构化语义事实
       this.autobiographicalMemory = data.autobiographicalMemory ?? []
