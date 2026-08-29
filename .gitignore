@@ -122,3 +122,7 @@ precheck.ps1
 
 # CI 修复交接日志（本地）
 FIX_LOG.md
+
+# 性能趋势看板构建产物（由 pnpm perf:trend 重新生成，非源码）
+perf/results/perf-trend-dashboard.html
+perf/results/perf-trend.json
