@@ -73,6 +73,8 @@ vi.mock('../../lib/animationConfig', () => ({
 
 vi.mock('../../lib/characters', () => ({
   getCharacter: vi.fn(() => ({ id: 'doro', name: 'doro' })),
+  // A-9/A-10：cultureEmoji → settingsStore 依赖该导出（settingsStore 默认值用它取默认角色）
+  getDefaultCharacter: vi.fn(() => ({ id: 'doro', name: 'doro' })),
 }))
 
 vi.mock('../../lib/emotionManager', () => ({

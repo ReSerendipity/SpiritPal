@@ -34,6 +34,8 @@ import { getContextEpisodeManager } from '../../lib/contextEpisodeManager'
 import { getContextAwarenessManager } from '../../lib/contextAwareness'
 // A-5：静默模式管理器（抑制宠物自发开口）
 import { getSilentModeManager } from '../../lib/silentModeManager'
+// A-9/A-10：情绪 × 文化的表情适配
+import { decorateWithCultureEmoji } from '../../lib/cultureEmoji'
 import type { PetState } from '../../lib/types'
 import type { AnimationId } from '../../lib/animationConfig'
 
@@ -137,7 +139,8 @@ export function usePetTimers(options: UsePetTimersOptions): UsePetTimersReturn {
     const unsubProactive = proactiveMgr.onProactiveSpeak((message) => {
       // A-5：静默模式下抑制宠物自发开口
       if (getSilentModeManager().isSilent()) return
-      getBubbleManager().sendMessage(message, MessagePriority.Proactive)
+      // A-9/A-10：按「当前情绪 + 用户语言」附加文化表情（无情绪数据时退化为原文本）
+      getBubbleManager().sendMessage(decorateWithCultureEmoji(message), MessagePriority.Proactive)
     })
     // A-5：启动主动说话定时检查。
     // 注：start() 此前从未被调用（定时器从未启动，主动说话整条链路实际是断的）。
