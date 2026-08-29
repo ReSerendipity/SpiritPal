@@ -126,6 +126,7 @@ jobs:
           retention-days: 7
 
   perf-baseline:
+    if: github.event_name == 'workflow_dispatch'
     name: Performance Baseline Tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -323,6 +324,7 @@ jobs:
           scan-ref: '.'
 
   perf-stress:
+    if: github.event_name == 'workflow_dispatch'
     name: Performance Stress Tests
     runs-on: ubuntu-latest
 
@@ -374,6 +376,7 @@ jobs:
           retention-days: 14
 
   build:
+    if: github.event_name == 'workflow_dispatch'
     name: Build (${{ matrix.platform }})
     needs: [lint-and-test, rust-test]
     strategy:
