@@ -27,6 +27,7 @@
     "perf:baseline": "node perf/baseline-trend.mjs",
     "perf:report": "node perf/benchmark-report.mjs",
     "perf:trend": "node perf/trend-report.mjs",
+    "perf:memory-recall": "vitest run src/lib/__tests__/memoryRecall.bench.test.ts && vitest run src/lib/__tests__/memoryRecall.eval.test.ts && node perf/trend-report.mjs",
     "metrics:dashboard": "node scripts/generate-metrics-dashboard.mjs"
   },
   "dependencies": {
