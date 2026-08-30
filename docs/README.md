@@ -22,7 +22,7 @@
 | `demo/` | HTML 演示 |
 | `artifacts/` | 构建安装包；`dist/` 构建产物 |
 
-> ⚠️ 说明：`docs/repo_research/` 是**克隆的第三方仓库源码**（研究资料），不属于文档；
+> ⚠️ 说明：`docs/repo_research/` 已归档至 `_devarchive/repo_research/`（克隆的第三方仓库源码，研究资料，且被 .gitignore 忽略），不属于文档；
 > `android-sdk/` 是**本地 Android SDK（勿提交**）；`tests/e2e` 与 `e2e/` 是两套激活的 Playwright 套件，勿删。
 
 ## docs/ 索引（本目录）
@@ -31,9 +31,9 @@
 | `project/` | PRD(v0.1/v0.2)、架构、技术选型、开源仓库清单 |
 | `plans/` | 实施指南、路线图、记忆升级计划、未实现/待办清单、集成指南 |
 | `reports/` | 健康度/功能状态、记忆系统各轮评估、安全评估/加固、审计 |
-| `repo-analysis/` | 参考仓库学习报告（约40篇） |
+| `repo-analysis/` | （已归档至 `_devarchive/repo-analysis/`）参考仓库学习报告（约40篇） |
 | `analysis/` | 综合实施/可复用最佳实践 |
-| `gh-research/` `android-check/` | 抓取研究页 / Android 验收截图 |
+| `gh-research/` `android-check/` | （已归档至 `_devarchive/`）抓取研究页 / Android 验收截图 |
 | `_devarchive/` | 历史/一次性产物（含 trae-documents） |
 | `SECURITY` / `RELEASE_NOTES` 等 | 安全/合规/许可（根目录） |
 
