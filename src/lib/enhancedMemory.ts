@@ -1386,6 +1386,8 @@ export class EnhancedMemoryManager {
           type: 'relevance',
           memories: retrieved.map(r => r.memory),
           message: `我记得你上次说过类似的话呢～`,
+          // P0-1：透传真实融合检索分（0-1），替换原 recallEngine 的硬编码 relevance
+          score: retrieved[0]?.score,
         }
       }
     }
@@ -1410,6 +1412,8 @@ export class EnhancedMemoryManager {
         type: 'relevance',
         memories: [best],
         message: `我记得你上次说过类似的话呢～`,
+        // P0-1：LCS 相似度即真实检索分（0-1）
+        score: bestScore,
       }
     }
     return null
@@ -2041,8 +2045,10 @@ export class EnhancedMemoryManager {
 
           // B-4：相关性触发排除工作/自传层（RAG 结果同样受控，避免高匹配永久事实抢先命中）
           const excluded = (r: RetrievalResult): boolean =>
-            (excl?.working && this.workingMemory.some(w => w.id === r.memory.id)) ||
-            (excl?.autobiographical && r.memory.isAutobiographical)
+            Boolean(
+              (excl?.working && this.workingMemory.some(w => w.id === r.memory.id)) ||
+                (excl?.autobiographical && r.memory.isAutobiographical),
+            )
           const finalMerged = excl?.working || excl?.autobiographical ? merged.filter(r => !excluded(r)) : merged
 
           return finalMerged.map(r => {
