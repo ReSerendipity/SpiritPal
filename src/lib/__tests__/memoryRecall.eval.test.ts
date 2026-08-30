@@ -130,7 +130,7 @@ const CASES: EvalCase[] = [
 
 describe('B-4-3：记忆召回评测集（30 条）', () => {
   let hits = 0
-  let misses: number[] = []
+  const misses: number[] = []
 
   beforeAll(async () => {
     const mgr = new EnhancedMemoryManager('eval-character')
