@@ -73,6 +73,9 @@ export interface TriggerResult {
   type: TriggerType
   memories: EnhancedMemory[]
   message?: string  // 触发时宠物可能说的话
+  /** P0-1: 真实检索分（0-1），由 checkRelevanceTrigger 填入，供 recallEngine 候选打分使用；
+   *  缺失时回退到各 cue 的默认 relevance。 */
+  score?: number
 }
 
 // ============ 关键词配置 ============
