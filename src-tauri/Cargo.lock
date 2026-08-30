@@ -4643,7 +4643,7 @@ dependencies = [
  "aes-gcm",
  "base64 0.22.1",
  "chrono",
- "getrandom 0.2.17",
+ "getrandom 0.4.3",
  "hmac",
  "keyring",
  "log",
