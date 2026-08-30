@@ -220,4 +220,49 @@ describe('RecallEngine', () => {
       expect(e1).not.toBe(e2)
     })
   })
+
+  describe('P0-1: 记忆触发候选 relevance 应使用真实检索分', () => {
+    const buildMockMemMgr = (trigger: unknown) => ({
+      ensureLoaded: vi.fn().mockResolvedValue(undefined),
+      checkTriggers: vi.fn().mockResolvedValue(trigger),
+      getAutobiographicalMemories: vi.fn(() => []),
+    })
+
+    it('checkRelevanceTrigger 透传的 score 应成为候选 relevance（替换硬编码 0.7）', async () => {
+      const { getEnhancedMemoryManager } = await import('../enhancedMemory')
+      const mem = getEnhancedMemoryManager as unknown as { mockImplementation: (fn: () => unknown) => void; mockRestore: () => void }
+      const memMgr = buildMockMemMgr({
+        type: 'relevance',
+        memories: [{ user: '我们上次聊过旅行', assistant: '对呀，你还说想去海边', created_at: new Date().toISOString(), emotionalValence: 0.5, emotionalIntensity: 0.3 }],
+        message: '我记得你上次说过类似的话呢～',
+        score: 0.83,
+      })
+      try {
+        mem.mockImplementation(() => memMgr)
+        const candidates = await (engine as unknown as { generateCandidates: (s: string) => Promise<unknown[]> }).generateCandidates('我们上次聊过旅行')
+        const relevanceCandidate = (candidates as Array<{ cue: string; relevance: number }>).find(c => c.cue === 'semantic')
+        expect(relevanceCandidate).toBeDefined()
+        expect(relevanceCandidate!.relevance).toBeCloseTo(0.83, 5)
+      } finally {
+        mem.mockRestore()
+      }
+    })
+
+    it('触发器缺失 score 时应回退到默认 relevance 0.7', async () => {
+      const { getEnhancedMemoryManager } = await import('../enhancedMemory')
+      const mem = getEnhancedMemoryManager as unknown as { mockImplementation: (fn: () => unknown) => void; mockRestore: () => void }
+      const memMgr = buildMockMemMgr({
+        type: 'relevance',
+        memories: [{ user: 'hi', assistant: 'hi', created_at: new Date().toISOString(), emotionalValence: 0.5, emotionalIntensity: 0.3 }],
+      })
+      try {
+        mem.mockImplementation(() => memMgr)
+        const candidates = await (engine as unknown as { generateCandidates: (s: string) => Promise<unknown[]> }).generateCandidates('hi')
+        const relevanceCandidate = (candidates as Array<{ cue: string; relevance: number }>).find(c => c.cue === 'semantic')
+        expect(relevanceCandidate!.relevance).toBeCloseTo(0.7, 5)
+      } finally {
+        mem.mockRestore()
+      }
+    })
+  })
 })

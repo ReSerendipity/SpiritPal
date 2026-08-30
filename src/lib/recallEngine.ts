@@ -334,7 +334,9 @@ export class RecallEngine {
         candidates.push({
           memories: trigger.memories.slice(0, 3),
           cue,
-          relevance: 0.7,
+          // P0-1：使用 checkRelevanceTrigger 透传的真实检索分（0-1 连续分布），
+          // 缺失时回退到语义线索的默认 relevance，避免评分失真
+          relevance: trigger.score ?? 0.7,
           novelty: this.computeNovelty(trigger.memories[0]?.user ?? ''),
           contextFit: this.computeContextFit(),
           moodCongruence: this.computeMoodCongruence(trigger.memories),
