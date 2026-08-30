@@ -350,7 +350,7 @@ Scope 建议：`pet-window` / `chat` / `settings` / `rust-encryption` / `i18n` /
 - `docs/project/`：需求(PRD)、架构、API、技术选型、设计上下文
 - `docs/plans/`：实施计划、路线图、指南(Guide)、待办(TASKS)
 - `docs/reports/`：评估/审计/安全/测试/优化报告、Lessons
-- `docs/repo-analysis/`：仓库学习报告（命名 `{仓库名}_技术学习报告.md`）
+- `docs/repo-analysis/`：仓库学习报告（已归档至 `_devarchive/repo-analysis/`）
 - `docs/_devarchive/`：历史/一次性开发产物、交接方案、旧版本文档（**归档而非删除**）
 
 **根目录只允许放置**
@@ -364,7 +364,7 @@ Scope 建议：`pet-window` / `chat` / `settings` / `rust-encryption` / `i18n` /
 - ❌ 移动/删除 gitignored 运行时产物（`tsconfig.tsbuildinfo` 等）
 - ❌ 删除旧版本文档 → 需要留档移入 `docs/_devarchive/`
 
-> 本仓库特别说明：`docs/repo_research/` 是克隆的第三方仓库源码，属研究资料，**不**归入文档分类；
+> 本仓库特别说明：`docs/repo_research/` 已归档至 `_devarchive/repo_research/`（克隆的第三方仓库源码，属研究资料，**不**归入文档分类，且被 .gitignore 忽略）；
 > PRD v0.1/v0.2、记忆系统各轮评估等版本文档保留在原分类（未删除）。
 > 新增文件前若不确定归属，先询问，不要自作主张放置。
 

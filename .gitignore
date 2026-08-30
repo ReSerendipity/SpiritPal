@@ -107,6 +107,8 @@ src-tauri/keys/*.key.pub
 # 疑似 API 密钥轮换记录（sk-...==>sk-...），严禁入库；确认无效后删除该文件即可
 expressions.txt
 docs/repo_research/
+# 归档用：第三方仓库克隆（含各自 .git），不入库
+_devarchive/repo_research/
 
 
 # Python
