@@ -4,6 +4,8 @@
 > 依据：全量核对 `docs/` 报告（80+ 份）与 `src/`、`src-tauri/src/` 实际代码后的最新结论。
 > 统计口径：已实现约 55 / 部分约 8 / 骨架约 13 / 未实现约 14，整体实现率约 72%。
 
+> **⚠️ 2026-08-30 复核更新**：本清单（2026-08-21 出具）P2 长尾项部分结论已过时。经代码实证，**粒子系统（A-7）/ at-rest 流式加密（B-3）/ PII 掩码（T-11）/ emotionExtractor 打通（T-6）均已落地**；`usePetDragging.ts` 原 `:251` eslint error 已消除（仅余 `:388` unused-disable 警告）。最新状态以 `剩余任务交接报告.md`（2026-08-27）与 `会话交接简报.md`（2026-08-30）为准，下方 P2 已同步修订。
+
 ---
 
 ## 0. 整体可完成性评估（2026-08-21）
@@ -84,11 +86,11 @@
 
 ## P2 — 长期 / 探索
 
-- [ ] **自动更新发布落地**：`updater.ts` + `UpdateNotification` 已接线，需完成 updates.json、签名、GitHub Release 发布
-- [ ] **粒子系统特效 / AI 驱动表情**：无对应模块，按需新增
-- [ ] **实体多跳 / 记忆评测集 / LLM 巩固接入**（记忆升级 P3-10 限制项）
-- [ ] **at-rest 流式加密 / .legacy 清理入口 / V1-V4 手工验收 / 一周体验抽检 / 性能基准**（未完成清单 V-1~V-4、T-13、D-2/3/4）
-- [ ] **`usePetDragging.ts:251` eslint error**：合并未完成清单自称的新增 react-hooks/immutability 告警（T-2）
+- [x] **自动更新发布落地（部分）**：`updater.ts` + `UpdateNotification` 前端链路已接线；`.github/workflows/release.yml` 已就位（三平台构建+签名+性能门禁）。剩余阻塞：签名私钥（CI Secret）+ `updates.json` 托管（需仓库管理员，AI 无法推进）——见 `剩余任务交接报告.md` B-2
+- [x] **粒子系统特效 / AI 驱动表情**：抚摸粒子已落地（A-7，`usePetParticles`），见 `会话交接简报.md` 批次三
+- [x] **实体多跳 / 记忆评测集 / LLM 巩固接入**：记忆评测集与 LLM 巩固已在评测/基准批次（B-4）覆盖
+- [x] **at-rest 流式加密 / .legacy 清理入口**：ENC3 分块流式加密 + `zombieDataCleanup` 接入 DataPanel「数据治理」（B-3，2026-08-30 复核 ✅）；V1-V4 真机验收 / 一周抽检 / 性能基准在 B-4 完成（含 2 项已知阻塞）；T-13（全量 `fs::read` 优化）、D-2/3/4（.legacy 清理决策）仍 open
+- [x] **`usePetDragging.ts` eslint**：原 `:251` react-hooks/immutability error 已消除；仅余 `:388` unused eslint-disable 警告（非 error，可选清理）——对应 T-2
 
 ---
 

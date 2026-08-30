@@ -4,6 +4,8 @@
 > 覆盖范围：第五轮记忆系统评估报告 + S2 记忆存储重构方案 + 后续核查发现的所有未完成项
 > 已完成基线（不在本清单）：F1–F11 全部修复；S2 M0–M5 全部落地并通过 vitest 1474 / cargo 160 回归
 
+> **⚠️ 2026-08-30 复核更新**：本清单（2026-08-14 出具）部分结论已过时，最新判定以 `剩余任务交接报告.md`（2026-08-27）与 `会话交接简报.md`（2026-08-30）为准。本轮代码实证后更正：**T-5 / T-6 / T-11 均已完成**（证据见 §五 修订行）；**T-2 原 eslint error 已消除**，仅余一处 unused eslint-disable 警告（非 error）；T-12 / T-13 / V 系列仍 open。
+
 ---
 
 ## 一、验证 / 手工验收类（需真实运行环境）
@@ -93,10 +95,10 @@
 | 任务 | 结论 | 说明 |
 |------|:----:|------|
 | T-1（其余三模块） | ⚠️ 部分 | `petExperience` / `visualMemoryManager` / `entityLinking` 仍各保留 1 处 per-value `encrypt_data`，未迁移（建议按 D-1 逐个推进） |
-| T-2 | ⚠️ 未清零 | 旧 5 条 warning 已清，但 **`usePetDragging.ts:251` 新增 1 条 react-hooks/immutability error**（`dragWinOriginRef.current = {...}` 被判定为修改传入 hook 的值）。修法：该处加 `// eslint-disable-next-line react-hooks/immutability` 并注释原因，或把赋值提前到 hook 依赖捕获之前 |
-| T-5 | ❌ | visualMemory 仍为 ChatWindow 固定注入（`buildContext(200)`），未接入 `searchEpisodic` 检索 |
-| T-6 | ❌ | emotionExtractor（LLM 情绪标签）与记忆侧 valence/arousal 未打通 |
-| T-11 | ❌ | `dataManager.exportAll()` 无导出内容清单/PII 掩码 |
+| T-2 | ⚠️ 仅余警告（非 error） | 旧 5 条 warning 已清，原 `usePetDragging.ts:251` 的 react-hooks/immutability error **已消除**；现仅余一处 **unused eslint-disable 警告**（`usePetDragging.ts:388` 的 `react-hooks/exhaustive-deps` disable 已无对应依赖告警），非阻断级。可选清理：删除该行 disable 注释即可（`pnpm lint` 仍全绿） |
+| T-5 | ✅ 已完成 | visualMemory 已接入 `searchEpisodic` 检索（混合检索 + 重排 + 自引用过滤，见 `visualMemoryManager.ts` `searchEpisodic` / `ChatWindow` 调用 `fetchVisualMemories`）；原"固定注入 `buildContext(200)`"已改为检索式上下文（证据见 `剩余任务交接报告.md` A-3） |
+| T-6 | ✅ 已完成 | `emotionExtractor.ts` 的 LLM 情绪标签已与记忆侧 `valence/arousal` 打通（情绪提取 → 记忆写入时落地 valence/arousal），已由记忆系统用例覆盖（证据见 `剩余任务交接报告.md` A-10） |
+| T-11 | ✅ 已完成 | `dataManager.exportAll()` 已实现导出内容清单 + PII 掩码（导出时扫描敏感字段并掩码，附 manifest）；证据见 `剩余任务交接报告.md` T-11 复核 |
 | T-12 | ❌ | 无统一 `memoryConfig` 模块（T-4 仅完成 semantic 部分，触发/冷却/阈值常量仍散落） |
 | T-13 | ❌ | `encrypted_db.rs` 仍全量 `fs::read` + base64（优化项，DB <50MB 可暂缓） |
 | T-15 | ⚠️ 部分 | AGENTS.md 已更新 v1.2 ✓；但 docs/ 未归档本评估系列三份文档（第五轮报告 / S2 方案 / 本清单），建议复制进 `docs/` 延续编号体系 |
@@ -107,6 +109,6 @@
 ### 下一步（按序）
 
 1. **V-1 复查（最优先）**：用 `artifacts/SpiritPal_0.1.0_x64-setup.exe` 安装 → 对话 → 正常退出 → 确认生成 `spiritpal.db.enc` 且明文/`-wal` 消失。若加密未触发，优先查 `lib.rs` RunEvent 分支是否随安装版生效。
-2. **修 eslint error**：`usePetDragging.ts:251` 一行 disable + 注释，恢复 `pnpm lint` 全绿。
+2. ~~**修 eslint error**：`usePetDragging.ts:251`~~（已完成，原 error 已消除；仅余 `:388` unused-disable 警告，可选清理）
 3. **T-1 剩余三模块**：petExperience → visualMemoryManager → entityLinking 按 ownerFacts 模式逐个迁移（各 ~0.5 天）。
-4. 体验项（T-5/T-6/T-9 天气信号/T-10 阈值校准）与合规项（T-11/T-12）按优先级插队。
+4. 体验项（T-9 天气信号 / T-10 阈值校准）与合规项（T-12）按优先级插队（T-5/T-6/T-11 已于 2026-08-30 复核完成）。
