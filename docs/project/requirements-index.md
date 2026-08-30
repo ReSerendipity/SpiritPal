@@ -39,7 +39,7 @@ PRD v0.2 已达 2200+ 行，单一文件维护成本高。本索引将 PRD 章�
 | §15 | 数据埋点与分析 | ~40 行 | — | `src/lib/analytics.ts` |
 | §16 | 发布与运营计划 | ~50 行 | — | `.github/workflows/release.yml` |
 | §17 | 开发路线图 | ~100 行 | `docs/plans/Iteration_Roadmap.md` | — |
-| §18 | 资源来源分析 | ~30 行 | `docs/repo-analysis/` | — |
+| §18 | 资源来源分析 | ~30 行 | `docs/repo-analysis/`（已归档至 `_devarchive/repo-analysis/`） | — |
 | §19 | PRD 完整性评估 | ~20 行 | — | — |
 | §20 | 风险与缓解 | ~30 行 | — | — |
 | §21 | 依赖与假设 | ~20 行 | — | — |

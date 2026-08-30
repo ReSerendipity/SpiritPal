@@ -41,8 +41,8 @@
 | 文件 | `tsconfig.tsbuildinfo` |
 | 文件 | `vite.config.ts` |
 | 文件 | `vitest.config.ts` |
-| 文件 | `剩余任务交接报告.md` |
-| 文件 | `学习成果落地分析报告.md` |
+| 文件 | `plans/剩余任务交接报告.md` |
+| 文件 | `reports/学习成果落地分析报告.md` |
 
 ## `android-sdk/`
 
@@ -246,7 +246,7 @@
 
 ## `docs/`
 
-子目录：`adr`、`analysis`、`android-check`、`gh-research`、`plans`、`project`、`repo-analysis`、`repo_research`、`reports`
+子目录：`adr`、`analysis`、`plans`、`project`、`reports`；研究/过时资料已归档至 `_devarchive/`（含 `repo_research`、`repo-analysis`、`android-check`、`gh-research` 及多轮记忆评估报告二/三/四轮）
 
 - `COMPLIANCE_CHECKLIST.md`
 - `LIVE2D_LICENSE_REMINDER.md`
@@ -340,7 +340,7 @@
 - `生成桌面宠物项目技术分析报告.md`
 - `跨平台技术栈选型分析.md`
 
-## `docs\repo-analysis/`
+## `docs\repo-analysis/` （已归档至 `_devarchive/repo-analysis/`）
 
 - `7仓库对SpiritPal项目的持续价值分析.md`
 - `AI-Desktop-Pet-Extended_技术学习报告.md`
@@ -386,7 +386,7 @@
 - `五项目功能实现总表.md`
 - `新仓库对SpiritPal项目的持续价值分析.md`
 
-## `docs\repo_research/`
+## `docs\repo_research/` （已归档至 `_devarchive/repo_research/`，且被 .gitignore 忽略）
 
 子目录：`1_Petra`、`2_dsh-pet`、`3_deepseek-harness-pet`、`4_DS-Balance-Whale`、`5_dsh-niulai-pet`、`6_remielle-codex-pet`、`7_douyin-code`、`8_MyFlowingFireflyWife`
 
@@ -486,10 +486,7 @@
 - `SpiritPal-APP全面安全性评估报告_v0.1.0_20260807.md`
 - `SpiritPal-安全加固_v2.0-任务执行指示报告_20260807.md`
 - `SpiritPal-测试体系完整性评估报告.md`
-- `SpiritPal-记忆系统二次评估报告.md`
-- `SpiritPal-记忆系统第三轮评估报告.md`
-- `SpiritPal-记忆系统第五轮深度评估报告.md`
-- `SpiritPal-记忆系统第四轮评估报告.md`
+- `SpiritPal-记忆系统第五轮深度评估报告.md`（当前版；二/三/四轮已归档至 `_devarchive/`）
 - `TEST_AUDIT_REPORT.md`
 - `test-data-management.md`
 - `功能实现状态分析报告.md`
