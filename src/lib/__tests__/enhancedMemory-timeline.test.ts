@@ -46,17 +46,18 @@ describe('2.2: 记忆时间线索引', () => {
     })
 
     it('按日聚合：同一天的记忆合并为一条', () => {
-      const today = new Date().toISOString()
+      // 用固定时刻，避免依赖「当前时刻」与本地时区（dateKey 按本地日期计算，非 UTC）
+      const fixed = '2026-03-15T12:00:00.000Z'
       const mem1 = mgr.addExchange('hello', 'hi')
       const mem2 = mgr.addExchange('world', 'hey')
-      mem1.created_at = today
-      mem2.created_at = today
+      mem1.created_at = fixed
+      mem2.created_at = fixed
 
       const timeline = mgr.getMemoryTimeline('day')
       expect(timeline.length).toBeGreaterThanOrEqual(1)
-      const todayEntry = timeline.find(e =>
-        e.dateKey === today.slice(0, 10)
-      )
+      const d = new Date(fixed)
+      const expectedKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      const todayEntry = timeline.find(e => e.dateKey === expectedKey)
       expect(todayEntry).toBeDefined()
       expect(todayEntry!.count).toBe(2)
       expect(todayEntry!.memories.length).toBe(2)
