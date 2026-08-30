@@ -201,7 +201,9 @@ pub async fn execute_command(command: String) -> Result<String, String> {
         '&', '|', '>', '<', '^', ';', '`', '$', '\n', '\r', '(', ')', '%', '!',
     ];
     if command.contains(EXECUTE_FORBIDDEN_CHARS) {
-        return Err("命令包含非法 shell 元字符（仅允许单条只读命令，禁止链式/重定向/替换）".to_string());
+        return Err(
+            "命令包含非法 shell 元字符（仅允许单条只读命令，禁止链式/重定向/替换）".to_string(),
+        );
     }
 
     tauri::async_runtime::spawn_blocking(move || {
