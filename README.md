@@ -31,7 +31,8 @@ SpiritPal/
 ## Quick Start
 
 ```bash
-cd spiritpal-app
+# 仓库根即 SpiritPal，无需进入子目录
+cd SpiritPal
 
 # Install dependencies
 pnpm install
@@ -46,7 +47,8 @@ pnpm tauri build
 ## Testing
 
 ```bash
-cd spiritpal-app
+# 仓库根即 SpiritPal，无需进入子目录
+cd SpiritPal
 
 # Unit tests (Vitest)
 pnpm test
