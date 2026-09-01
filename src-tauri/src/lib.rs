@@ -412,7 +412,12 @@ fn get_mouse_pos(_app: tauri::AppHandle, window: WebviewWindow) -> Result<(f64, 
     }
     #[cfg(not(windows))]
     {
-        let _ = app;
+        // WHY 形参名是 `_app`（带下划线前缀）而非 `app`：Windows 分支不使用该
+        // 句柄，下划线前缀用于抑制 unused 警告；非 Windows 分支显式消费它时
+        // 必须写全名 `_app`。此前误写成 `app` 导致 error[E0425]，而该分支仅在
+        // Linux/macOS 生效 —— 于是 Windows 本地开发与 CI 上的 Windows job 全绿，
+        // Linux job 才编译失败，属于典型的「平台条件编译盲区」。
+        let _ = _app;
         let _ = window;
         Err("get_mouse_pos is only supported on Windows".to_string())
     }
