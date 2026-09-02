@@ -42,7 +42,7 @@ SpiritPal 为 Tauri v2 桌面应用。既有安全基础良好：最小权限 Ca
 - ADR：`docs/adr/0001-tauri-v2-capabilities.md`、`0002-upload-magic-check.md`。
 - 治理文件：`.github/ISSUE_TEMPLATE/bug_report.md`、`.github/PULL_REQUEST_TEMPLATE.md`、`.github/CODE_OF_CONDUCT.md`。
 - LOCAL_RULES.md 新建（变更隔离 + 语言约定 + 单一事实来源）。
-- 合规文档：`docs/COMPLIANCE_NOTES.md` → `docs/COMPLIANCE_CHECKLIST.md` 重命名并全链引用更新。
+- 合规文档：`docs/COMPLIANCE_NOTES.md` → `COMPLIANCE_CHECKLIST.md` 重命名并全链引用更新。
 
 ## 七、修复验证记录
 
