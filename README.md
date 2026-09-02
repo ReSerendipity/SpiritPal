@@ -77,13 +77,14 @@ cd src-tauri && cargo test
 
 ## License
 
-See individual repositories in `references/` for their respective licenses.
+SpiritPal is licensed under the **Apache License 2.0**. See [LICENSE](LICENSE) for details.
+Reference repositories in `references/` retain their respective licenses.
 
-## ⚠️ Git Branch Usage Instructions（分支策略：本地 main + 远程 public）
+## ⚠️ Git Branch Usage Instructions（分支策略：私有 main + 远程 public）
 
-> 本仓库采用 **「本地开发 + 远程发布」双分支策略**，请严格遵守，避免把本地私有代码泄漏到远程。
+> 本仓库采用 **「私有开发 + 远程发布」双分支策略**，请严格遵守，避免把本地私有代码泄漏到远程。
 
-- **`main`（本地开发分支）**：日常开发与私有工作都在这条分支上，**只提交到本地**。
+- **`main`（私有开发分支）**：日常开发与私有工作在这条分支上，**只推送到 `private` 私有远程**（`git push private main`），**禁止 `git push origin main`**。
 - **`public`（远程发布分支）**：对外发布的公共内容专属分支。**仅此分支会被推送到远程**。
 
 ### 📌 使用准则
@@ -94,21 +95,22 @@ See individual repositories in `references/` for their respective licenses.
 
 ### 🔒 工作流
 
-**日常开发（只动本地）：**
+**日常开发（在 main 分支）：**
 ```bash
-git checkout main      # 切到本地开发分支
-git add .              # 暂存
-git commit -m "..."    # 本地提交（不会被推送）
+git checkout main          # 切到私有开发分支
+git add .                  # 暂存
+git commit -m "..."        # 提交
+git push private main      # 备份/同步到 private 私有远程（不要 push origin）
 ```
 
 **发布公共内容（合并到 public 后推送）：**
 ```bash
-git checkout public    # 切到发布分支
-git merge main         # 合并本地开发内容（可按需 cherry-pick 指定提交）
-git push origin public # 推送到远程 public 分支
+git checkout public        # 切到发布分支（本地无则先 git checkout -b public origin/public）
+git merge main             # 合并本地开发内容（可按需 cherry-pick 指定提交）
+git push origin public     # 推送到公开仓库 public 分支
 ```
 
-> 📌 远端 `origin` 同时存在 `main` 与 `public` 两个分支时，请始终以 `public` 作为唯一对外发布出口。
+> 📌 公开仓库 `origin` 仅以 `public` 分支作为对外发布出口（`main` 不得出现在公开 origin）。
 
 ## 🚧 已知阻塞 / 待办（B-4 记忆召回收尾）
 
