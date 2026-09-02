@@ -5,7 +5,7 @@
 
 ## 项目主许可
 
-SpiritPal 项目代码采用 [MIT License](LICENSE)。
+SpiritPal 项目代码采用 [Apache License 2.0](LICENSE)。
 Live2D Cubism Core 为专有软件、**不随包分发**（见 [COMPLIANCE_CHECKLIST.md](COMPLIANCE_CHECKLIST.md)）。
 
 ## 前端主要依赖（React / TypeScript，Vite + pnpm）
