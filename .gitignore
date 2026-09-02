@@ -124,6 +124,17 @@ docs/六大项目文档整理与核对.md
 # 治理/分析文档（仅本地保留，不上远程）
 docs/repo-analysis/
 
+# 内部开发文档（仅本地保留，不上远程，2026-09-02）
+_devarchive/
+docs/FILEMAP.md
+docs/README.md
+docs/_devarchive/
+docs/plans/
+docs/project/
+docs/reports/
+docs/analysis/
+docs/整理记录_20260823.md
+
 # 本地预检脚本（不入库）
 precheck.ps1
 
