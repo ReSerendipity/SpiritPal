@@ -5,7 +5,7 @@
 
 ## 1. 许可与发布形态
 
-1.1 项目代码适用 [MIT License](LICENSE)，可自由使用、修改、再分发（保留版权声明与 LICENSE 副本）。
+1.1 项目代码适用 [Apache License 2.0](LICENSE)，可自由使用、修改、再分发（保留版权声明与 LICENSE 副本）。
 
 1.2 **第三方组件许可独立**：Live2D Cubism Core 为专有软件，需用户自行从 Live2D 官网下载安装；模型/角色文件属创作者作品，由用户自备，使用前请确认授权（见 [COMPLIANCE_CHECKLIST.md](COMPLIANCE_CHECKLIST.md) §2）。
 

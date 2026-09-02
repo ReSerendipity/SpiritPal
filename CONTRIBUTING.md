@@ -82,7 +82,7 @@ Use the provided issue templates (bug_report / feature_request).
 
 ## License
 
-By contributing, you agree your contributions are licensed under the MIT License (see [LICENSE](LICENSE)).
+By contributing, you agree your contributions are licensed under the Apache License 2.0 (see [LICENSE](LICENSE)).
 
 ---
 
