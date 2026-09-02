@@ -1,0 +1,15 @@
+# NOTICE
+
+## 本仓库代码许可
+
+本仓库（SpiritPal）自身的源代码、前端资产与测试，除特别注明外，
+均以 [MIT License](LICENSE) 授权，Copyright © 2026 ReSerendipity。
+
+## 第三方组件与许可
+
+- **Tauri v2 / Rust 生态**：主要依赖许可见 `src-tauri/Cargo.toml` 与 Cargo.lock（MIT/Apache-2.0 为主）；
+- **前端（React/TypeScript）**：主要依赖许可见 `package.json` 与 pnpm-lock.yaml（MIT 为主）；
+- **Live2D Cubism Core**：专有软件，**不随包分发**，需用户自行从 Live2D 官网下载（见 `COMPLIANCE_CHECKLIST.md` §2）；
+- **字体/图标等资源**：各自许可以资产文件头与来源仓库为准。
+
+> 完整第三方组件清单见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
