@@ -1,7 +1,7 @@
 # SpiritPal AGENTS.md — AI 辅助开发指南
 
-> 🧬 **自进化协议版本**：v2.34  
-> 📅 **最后更新日期**：2026-08-29  
+> 🧬 **自进化协议版本**：v2.35  
+> 📅 **最后更新日期**：2026-09-02  
 > 🎯 **对应项目版本**：v0.1.0（闭源）
 
 ---
@@ -362,6 +362,7 @@ Scope 建议：`pet-window` / `chat` / `settings` / `rust-encryption` / `i18n` /
 - ❌ 一次性调试脚本/截图/日志/草稿 → 放 `scripts/` 或 `docs/_devarchive/`，绝不堆在根目录
 - ❌ 文档散落到 src/tests/perf 等业务目录 → 归入 `docs/` 对应分类
 - ❌ 移动/删除 gitignored 运行时产物（`tsconfig.tsbuildinfo` 等）
+- ❌ **在规范 markdown（README / AGENTS / docs 等被家族审计器扫描的文件）里用相对链接或内嵌图片指向 `.gitignore` 忽略的本地保留资源**（如整目录 `docs/`）。这类文件不入库，CI checkout 中必然死链，触发 `check_spec_refs` 死链门禁导致 docs-consistency 红，还需返工。正确做法：① 改为纯文本说明并标注「本地保留、未随仓库发布」；② 或把资源移入入库目录（如 `public/` / `demo/` / `assets/`）。
 - ❌ 删除旧版本文档 → 需要留档移入 `docs/_devarchive/`
 
 > 本仓库特别说明：`docs/repo_research/` 已归档至 `_devarchive/repo_research/`（克隆的第三方仓库源码，属研究资料，**不**归入文档分类，且被 .gitignore 忽略）；
