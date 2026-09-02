@@ -119,6 +119,9 @@ __pycache__/
 AGENTS.md
 LOCAL_RULES.md
 
+# 跨项目治理文档（整理/核对报告，仅本地保留，2026-09-02）
+docs/六大项目文档整理与核对.md
+
 # 本地预检脚本（不入库）
 precheck.ps1
 
