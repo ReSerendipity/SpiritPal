@@ -269,8 +269,8 @@ jobs:
       - name: pnpm audit
         run: |
           # 临时使用官方 npm registry 进行 audit（npmmirror 不支持 audit 端点）
-          # 注意：transitive dependencies 中的漏洞（gh-pages、protobufjs）无法直接修复
-          pnpm audit --audit-level=critical --registry=https://registry.npmjs.org/ || true
+          # 真实门禁：发现 CRITICAL 级漏洞即阻断合并（无法修复的传递依赖请用 pnpm audit --ignore <id> 并附 issue 跟踪）
+          pnpm audit --audit-level=critical --registry=https://registry.npmjs.org/
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -280,8 +280,8 @@ jobs:
 
       - name: cargo audit
         working-directory: src-tauri
-        # 网络超时可能导致 cargo audit 失败，使用 || true 避免阻塞 CI
-        run: cargo audit || true
+        # 真实门禁：发现漏洞即阻断合并。网络抖动请重试 job，勿用 || true 静默放行。
+        run: cargo audit
 
       - name: Run osv-scanner
         uses: google/osv-scanner-action/osv-scanner-action@v1.9.0
@@ -290,7 +290,6 @@ jobs:
             --recursive
             --skip-git
             ./
-        continue-on-error: true
 
       - name: Upload osv-scanner report
         if: always()
