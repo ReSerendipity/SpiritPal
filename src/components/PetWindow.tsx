@@ -61,6 +61,7 @@ import { FirstRunGreeting } from './FirstRunGreeting'
 import { DialoguePanel } from './DialoguePanel'
 import type { InventoryItem } from '../lib/types'
 import { getDialogueManager } from '../lib/dialogueManager'
+import { useInputReactions } from '../lib/useInputReactions'
 import { pickPetReaction } from '../lib/behaviorEngine'
 import { trackPetInteraction, trackTomatoComplete, trackImageSwitch } from '../lib/analytics'
 import { swallowedCatch } from '@/lib/swallowedCatch'
@@ -623,6 +624,45 @@ export default function PetWindow() {
     setPetState,
     setCurrentAnimId,
     safeTimeout,
+  })
+
+  // C1：全局键鼠 → 桌宠反应（BongoCat 模式；hook 为回调驱动，零重渲染）
+  // - 窗口外光标 → 视线跟随（窗口内由本地 mousemove 已驱动 gaze，见 usePetGaze 调用处）
+  // - 打字/点击 → 节流气泡（4s 滑动窗口累计 + 45s 冷却，避免打断用户）
+  const typingBurstRef = useRef({ count: 0, windowStart: 0, lastReactAt: 0 })
+  const clickBurstRef = useRef({ count: 0, windowStart: 0, lastReactAt: 0 })
+  useInputReactions({
+    onGaze: (gx, gy) => {
+      if (!hoveredRef.current) setGazeTarget(gx, gy)
+    },
+    onKeyPress: () => {
+      const b = typingBurstRef.current
+      const now = Date.now()
+      if (now - b.windowStart > 4000) {
+        b.windowStart = now
+        b.count = 0
+      }
+      b.count += 1
+      if (b.count >= 16 && now - b.lastReactAt > 45000) {
+        b.lastReactAt = now
+        b.count = 0
+        showBubble(pickBubble('typing') || '在认真打字呢？我看着你哦～')
+      }
+    },
+    onClick: () => {
+      const b = clickBurstRef.current
+      const now = Date.now()
+      if (now - b.windowStart > 4000) {
+        b.windowStart = now
+        b.count = 0
+      }
+      b.count += 1
+      if (b.count >= 10 && now - b.lastReactAt > 45000) {
+        b.lastReactAt = now
+        b.count = 0
+        showBubble(pickBubble('click') || '点、点这么多下，是要喂我吗？')
+      }
+    },
   })
 
   // ========== Effects ==========
