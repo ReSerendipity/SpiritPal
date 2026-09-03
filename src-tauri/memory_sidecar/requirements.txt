@@ -1,0 +1,5 @@
+# SpiritPal memory sidecar dependencies (ADR-0003: cognee as main memory framework)
+# Apache-2.0 — no copyleft risk; sidecar isolation keeps the main distributable clean.
+cognee
+fastapi
+uvicorn
