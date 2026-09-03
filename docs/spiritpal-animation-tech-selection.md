@@ -115,7 +115,7 @@
 
 | 项目 | 链接 | 说明 |
 |---|---|---|
-| OpenPets | <https://github.com/alvinunreal/openpets> / <https://openpets.dev/zh> | 宠物包 = 精灵图 + 动画映射 + 元数据，生态验证充分 |
+| OpenPets | <https://github.com/OpenPetsHQ/openpets> / <https://openpets.dev/zh> | 宠物包 = 精灵图 + 动画映射 + 元数据，生态验证充分 |
 | WindowPet | <https://juejin.cn/post/7600326291552583686> | Tauri + React 跨平台桌宠叠加应用（原文为掘金介绍，GitHub 仓库未直接核实） |
 | desktop-pet | <https://github.com/duzexu/desktop-pet> | Electron 跨平台桌宠，精灵图行映射约定来源 |
 | dsh-pet | <https://github.com/PC2005-cloud/dsh-pet> | DSH 桌宠，91 动作 WebM 方案验证 |
