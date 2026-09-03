@@ -59,7 +59,8 @@
       "binaries/spiritpal-mcp"
     ],
     "resources": [
-      "../public/pets"
+      "../public/pets",
+      "memory_sidecar"
     ],
     "android": {
       "minSdkVersion": 24
