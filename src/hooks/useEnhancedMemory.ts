@@ -6,6 +6,7 @@
 import { useMemo } from 'react'
 import { getKeyframeMemory, type Keyframe } from '../lib/keyframeMemory'
 import type { MemoryEntry } from '../lib/types'
+import { cogneeSearch, cogneeAdd } from '../lib/memory/cogneeClient'
 
 export interface SearchResults {
   entries: MemoryEntry[]
@@ -41,8 +42,37 @@ export function useEnhancedMemory(characterId?: string) {
     return { entries, total: entries.length }
   }
 
+  const searchMemoryEnhanced = async (query: string): Promise<MemoryEntry[]> => {
+    if (!query.trim()) return []
+    if (characterId) {
+      const remote = await cogneeSearch(characterId, query, 10)
+      if (remote.length > 0) {
+        return remote.map((r) => ({
+          created_at: new Date().toISOString(),
+          user: r.text,
+          assistant: '（长期记忆）',
+        }))
+      }
+    }
+    const allFrames = keyframeMem.getAllFrames()
+    return allFrames.slice(0, 10).map((frame: Keyframe) => ({
+      created_at: new Date(frame.timestamp).toISOString(),
+      user: frame.label || '未知输入',
+      assistant: frame.windowInfo || '暂无回复',
+    }))
+  }
+
+  const recordMemory = async (
+    text: string,
+    metadata: Record<string, unknown> = {},
+  ): Promise<void> => {
+    if (characterId && text.trim()) await cogneeAdd(characterId, text, metadata)
+  }
+
   return {
     searchMemory,
+    searchMemoryEnhanced,
+    recordMemory,
     getMemoryByTimeRange,
   }
 }

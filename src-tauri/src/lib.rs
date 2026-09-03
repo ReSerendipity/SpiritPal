@@ -68,6 +68,7 @@ mod antidebug;
 // pub mod: 允许集成测试 (tests/) 访问公开 API
 pub mod crypto;
 mod device;
+mod memory_sidecar;
 pub mod encrypted_db;
 mod keychain;
 #[cfg(target_os = "macos")]
@@ -1214,6 +1215,9 @@ pub fn run() {
                     // 全局键鼠监听（宠物注视光标效果）
                     start_device_listening,
                     stop_device_listening,
+                    // 记忆系统 sidecar（cognee，ADR-0003）
+                    start_memory_sidecar,
+                    stop_memory_sidecar,
                     // macOS NSPanel 浮层
                     show_pet_window,
                     hide_pet_window,
