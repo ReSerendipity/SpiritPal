@@ -231,7 +231,16 @@ jobs:
         run: cargo tarpaulin --workspace --out lcov --output-dir coverage/ --fail-under 25 -- --test-threads=2
 
       - name: Run cargo clippy
-        run: cargo clippy -- -D warnings
+        run: |
+          set -o pipefail
+          cargo clippy -- -D warnings 2>&1 | tee clippy.log
+
+      - name: Upload clippy log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clippy-log
+          path: src-tauri/clippy.log
 
       - name: Run cargo fmt check
         run: cargo fmt --check
