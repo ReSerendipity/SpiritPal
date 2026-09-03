@@ -212,6 +212,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: "1.98.0"
           components: clippy, rustfmt
 
       - name: Cache Rust dependencies
@@ -229,9 +230,6 @@ jobs:
 
       - name: Run cargo test with coverage
         run: cargo tarpaulin --workspace --out lcov --output-dir coverage/ --fail-under 25 -- --test-threads=2
-
-      - name: Run cargo clippy
-        run: cargo clippy -- -D warnings
 
       - name: Run cargo fmt check
         run: cargo fmt --check
@@ -274,6 +272,8 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.98.0"
 
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
@@ -407,6 +407,8 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.98.0"
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
@@ -437,3 +439,41 @@ jobs:
             src-tauri/target/release/*.msi
           if-no-files-found: ignore
           retention-days: 14
+
+  rust-clippy:
+    name: Rust Clippy (Lint)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src-tauri
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.98.0"
+          components: clippy
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 'src-tauri -> target'
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Run cargo clippy
+        run: |
+          set -o pipefail
+          cargo clippy -- -D warnings 2>&1 | tee clippy.log
+
+      - name: Upload clippy log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clippy-log
+          path: src-tauri/clippy.log
