@@ -1,6 +1,0 @@
-# The current SQLite-only build does not enable sqlx-postgres, but Cargo.lock
-# retains rsa as an optional sqlx-postgres package. RUSTSEC-2023-0071 has no
-# patched release. Keep the advisory visible in audit output while excluding
-# this inactive optional package from the blocking gate.
-[advisories]
-ignore = ["RUSTSEC-2023-0071"]
