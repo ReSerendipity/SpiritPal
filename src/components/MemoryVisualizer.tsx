@@ -14,6 +14,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { getKeyframeMemory, type Keyframe, KeyframeLevel } from '../lib/keyframeMemory'
 import { useEnhancedMemory } from '../hooks/useEnhancedMemory'
+import { usePetStore } from '../stores/petStore'
 import { getContextAwarenessManager, type WorkStateInfo } from '../lib/contextAwareness'
 // A-10：情绪分布改用 emotionEngine 的真实今日统计（此前是 Math.random() 假数据）
 import { getEmotionStateManager } from '../lib/emotionEngine'
@@ -239,17 +240,41 @@ const TimelineView: React.FC = () => {
 const SearchView: React.FC = () => {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Array<{ user: string; assistant: string; created_at: string }>>([])
-  const { searchMemory } = useEnhancedMemory()
+  const currentCharacterId = usePetStore((s) => s.currentCharacterId)
+  const { searchMemory, searchMemoryEnhanced } = useEnhancedMemory(currentCharacterId)
 
   useEffect(() => {
-    if (query.trim()) {
-      const found = searchMemory(query)
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- 搜索结果需要同步更新到 UI
-      setResults(found)
-    } else {
+    if (!query.trim()) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- 清空搜索结果
       setResults([])
+      return
     }
+    // 本地时序索引即时命中（保持原同步契约）
+    const found = searchMemory(query)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 搜索结果需要同步更新到 UI
+    setResults(found)
+    // B2（ADR-0003）：cognee 长期记忆增强检索，异步合并去重；
+    // sidecar 离线/无结果时静默保持本地结果（cogneeClient 已做降级）。
+    let cancelled = false
+    void searchMemoryEnhanced(query).then((remote) => {
+      if (cancelled || remote.length === 0) return
+      setResults((prev) => {
+        const seen = new Set(prev.map((e) => `${e.user}\n${e.assistant}`))
+        const merged = [...prev]
+        for (const r of remote) {
+          const key = `${r.user}\n${r.assistant}`
+          if (!seen.has(key)) {
+            merged.push(r)
+            seen.add(key)
+          }
+        }
+        return merged
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- searchMemory/searchMemoryEnhanced 每次渲染重建，纳入依赖会因 setResults 重渲染而循环
   }, [query])
 
   const highlightText = (text: string, highlight: string): React.ReactNode => {

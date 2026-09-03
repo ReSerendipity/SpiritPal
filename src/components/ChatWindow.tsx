@@ -46,6 +46,7 @@ import { getSilentModeManager } from '../lib/silentModeManager'
 import { trackChatSend, trackChatReceive, trackMemoryTrigger } from '../lib/analytics'
 import { swallowedCatch } from '@/lib/swallowedCatch'
 import { getEnhancedMemoryManager } from '../lib/enhancedMemory'
+import { cogneeAdd } from '../lib/memory/cogneeClient'
 import { getLLMClient } from '../lib/llmClient'
 import { loadAIConfig } from '../lib/aiConfig'
 // Phase 1.3 + 1.4: 情绪标签与 Think 标签解析
@@ -248,6 +249,10 @@ export default function ChatWindow() {
     trackChatSend(text.length, 'default')
 
     const assistantId = sendMessage(text)
+
+    // B2（ADR-0003）：用户对话文本写入 cognee 长期记忆侧车（fire-and-forget，失败静默降级）
+    void cogneeAdd(currentCharacterId, text)
+
     if (!character) return
 
     // 通知 PetWindow 用户已响应（用于周期触发频率控制）
