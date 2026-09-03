@@ -1,4 +1,28 @@
-# SpiritPal Tauri 安全策略与权限说明
+# Security Policy
+
+## 支持的版本
+
+| 版本 | 支持状态 |
+|------|----------|
+| `main` 分支（HEAD） | ✅ 积极维护 |
+| 旧版本 / 旧 tag | ❌ 不再维护（建议跟踪最新 `main`） |
+
+## 报告安全漏洞
+
+请**不要**在公开 Issue 中披露安全漏洞。请通过以下任一方式私下报告：
+
+- 邮件：`ReSerendipity@outlook.com`（标题注明 `[SECURITY]`）
+- 或 GitHub [Private vulnerability report](https://github.com/ReSerendipity/SpiritPal/security/advisories/new)
+
+## 响应时间
+
+- 确认收到报告：**48 小时内**
+- 初步评估与修复计划：**5 个工作日内**
+- 严重（Critical/High）漏洞：优先修复并尽快发布补丁
+
+---
+
+# SpiritPal Tauri 安全策略与权限说明（安全设计参考）
 
 ## 🔐 Tauri Capability 权限配置说明
 
