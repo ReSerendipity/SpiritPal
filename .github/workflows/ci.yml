@@ -281,7 +281,8 @@ jobs:
       - name: cargo audit
         working-directory: src-tauri
         # 真实门禁：发现漏洞即阻断合并。网络抖动请重试 job，勿用 || true 静默放行。
-        run: cargo audit
+        # audit.toml 位于 src-tauri/.cargo，由 cargo-audit 自动读取。
+        run: cargo audit --no-yank
 
       - name: Run osv-scanner
         uses: google/osv-scanner-action/osv-scanner-action@v1.9.0
