@@ -9,6 +9,7 @@
 |------|------|------|------|
 | [0001](0001-tauri-v2-capabilities.md) | 采用 Tauri v2 + 最小权限 Capability | Implemented | 2026-08-27 |
 | [0002](0002-upload-magic-check.md) | 上传文件魔数校验（Rust 签名表 + 前端接线） | Implemented | 2026-08-27 |
+| [0003](0003-memory-system-cognee-vs-memvid.md) | 记忆系统选型（cognee 为主 / memvid-rs 备选） | Proposed | 2026-09-03 |
 
 ## 何时必须写 ADR（满足任一即写）
 
