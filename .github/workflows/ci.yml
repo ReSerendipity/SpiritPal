@@ -231,6 +231,7 @@ jobs:
         run: cargo tarpaulin --workspace --out lcov --output-dir coverage/ --fail-under 25 -- --test-threads=2
 
       - name: Run cargo clippy
+        if: always()
         run: |
           set -o pipefail
           cargo clippy -- -D warnings 2>&1 | tee clippy.log
