@@ -54,7 +54,8 @@ open = "5"
 # Phase 1.2: 单实例插件 — 防止多开，重复启动时激活设置窗口
 tauri-plugin-single-instance = "2"
 # 全局键鼠监听 — 宠物注视光标效果（参考 BongoCat，使用 fork 版本以获得更好的跨平台支持）
-rdev = { git = "https://github.com/kunkunsh/rdev" }
+# M4 加固：pin 上游 rev（cb9a29e…）防内容漂移；fork 与官方（rdev 0.5.x）差异：Button/ButtonType API。
+rdev = { git = "https://github.com/kunkunsh/rdev", rev = "cb9a29e19668a52e4e67d8a0ca6739c1807f8d3f" }
 # R-12 v2.0: 字符串字面量混淆（Release 构建时字符串在 .rodata 中不可直接搜出明文）
 obfstr = "0.4"
 # MCP 命令桥：bridge 服务器引擎（应用监听端）；crate 名即 lib 名 spiritpal_mcp
@@ -68,7 +69,8 @@ reqwest = "0.12"
 # 提供 NSPanel 支持：将宠物窗口转为 NSPanel，实现不抢焦点、跨 Space、全屏可见浮层。
 # 参考 BongoCat 的 tauri-nspanel 集成方案。
 [target.'cfg(target_os = "macos")'.dependencies]
-tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1" }
+# M4 加固：pin 上游 rev（a3122e8…）防 branch 内容漂移；v2.1 分支匹配 tauri 2.x。
+tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", rev = "a3122e894383aa068ec5365a42994e3ac94ba1b6" }
 
 # Windows 平台专用依赖：仅在 Windows 编译时引入。
 # 提供 Win32 API 访问：鼠标穿透、系统空闲检测、前台窗口信息。
