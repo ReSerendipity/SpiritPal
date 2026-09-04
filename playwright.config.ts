@@ -18,7 +18,8 @@ export default defineConfig({
   use: {
     baseURL: process.env.E2E_BASE_URL || 'http://127.0.0.1:5223',
     actionTimeout: 0,
-    navigationTimeout: 10000,
+    // dev 模式下多窗口重部件（Live2D/模型）初始化易使首屏导航 >10s，放宽至 30s 降低 flaky
+    navigationTimeout: 30000,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure'

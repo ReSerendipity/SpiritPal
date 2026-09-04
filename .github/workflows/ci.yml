@@ -8,6 +8,9 @@ on:
   pull_request:
     branches:
       - main
+  # 每周一 03:00 UTC 定期跑非门禁类工具链（flaky-detect / mutation / memory-recall）
+  schedule:
+    - cron: '0 3 * * 1'
 
 permissions:
   contents: read
@@ -46,7 +49,8 @@ jobs:
         run: pnpm test:coverage
 
       - name: Upload coverage to Codecov
-        if: always()
+        # 双矩阵（Node 20/22）仅由 Node 22 上传一次，避免同 flag 互相覆盖
+        if: always() && matrix.node-version == '22'
         uses: codecov/codecov-action@v4
         with:
           files: ./coverage/lcov.info
@@ -179,6 +183,13 @@ jobs:
         run: node perf/benchmark-report.mjs
         continue-on-error: true
 
+      # S5 硬门禁：对已入库基线做回归检查（perf/results/baseline.json），超 20% 回归即红。
+      # 数据采集步骤容忍环境噪声（continue-on-error），本步骤不作宽限——性能基线下落必须有人过问。
+      - name: Baseline regression gate
+        run: node perf/baseline-trend.mjs --read-only
+        env:
+          SPIRITPAL_EXE: ./src-tauri/target/release/spiritpal-app
+
       - name: Upload performance results
         if: always()
         uses: actions/upload-artifact@v4
@@ -229,7 +240,8 @@ jobs:
         run: cargo install cargo-tarpaulin --locked
 
       - name: Run cargo test with coverage
-        run: cargo tarpaulin --workspace --out lcov --output-dir coverage/ --fail-under 25 -- --test-threads=2
+        # 阈值：lines 25→35，新增 branches 30 维度（2026-09-04 整改 P2）
+        run: cargo tarpaulin --workspace --out lcov --output-dir coverage/ --fail-under 35 --fail-under-branches 30 -- --test-threads=2
 
       - name: Run cargo fmt check
         run: cargo fmt --check
@@ -477,3 +489,116 @@ jobs:
         with:
           name: clippy-log
           path: src-tauri/clippy.log
+
+  # ============ 非门禁类工具链（workflow_dispatch / 每周 schedule，不阻塞 push） ============
+
+  mutation-testing:
+    name: Mutation Testing (Stryker)
+    # P2-1：让 mutation score 有每周记录，不设门禁（mutate 面随 src/lib 结构演进）
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Stryker mutation testing
+        run: npx stryker run
+
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stryker-report
+          path: reports/mutation/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  flaky-detect:
+    name: Flaky Test Detection
+    # P2-2：每周对核心套件连跑 3 次识别 flaky，产出 perf/results/flaky-report.json
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run flaky detection (3 iterations)
+        run: node scripts/flaky-detect.mjs 3
+
+      - name: Upload flaky report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flaky-report
+          path: perf/results/flaky-report.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  perf-memory-recall:
+    name: Memory Recall Bench & Eval
+    # P2-5：记忆召回基准+评估每周记录，趋势数据入库供看板消费
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run memory recall bench & eval
+        run: pnpm perf:memory-recall
+
+      - name: Upload memory recall results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory-recall-results
+          path: perf/results/
+          if-no-files-found: ignore
+          retention-days: 30

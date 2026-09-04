@@ -219,6 +219,17 @@ async function main() {
   console.log('║' + summary.padEnd(58) + '║')
   console.log('╚' + '═'.repeat(58) + '╝')
 
+  // P2-04: 清理运行残留日志（后续步骤的捕获输出），避免 perf/ 目录污染
+  try {
+    const { rmSync, existsSync: exists } = await import('node:fs')
+    for (const f of ['full_err.log', 'full_run.log']) {
+      const p = resolve(__dirname, f)
+      if (exists(p)) { rmSync(p, { force: true }); console.log(`  🧹 已清理残留: ${f}`) }
+    }
+  } catch (err) {
+    console.error('  ?? 残留日志清理失败:', err.message)
+  }
+
   // 退出码
   process.exit(allPassed ? 0 : 1)
 }

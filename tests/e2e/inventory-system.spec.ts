@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './setup/tauri-fixture';
 import { waitForSpiritPalApp } from './setup/tauri-helper';
 
 /**

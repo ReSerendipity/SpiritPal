@@ -165,13 +165,23 @@ function computeMetrics(events) {
   const todayEvents = byDay.get(todayKey) || []
   const dau = countEvents(todayEvents, 'app_launch')
 
+  // P2-02: 崩溃率在样本极少时不可信（如 1 次启动 + 1 个错误 = 100%）。
+  // 样本不足（启动 <5 或 总事件 <50）时置为「样本不足」，避免误导性指标。
+  const sufficientSample = totalLaunches >= 5 && events.length >= 50
+  const crashRateValue = sufficientSample
+    ? totalLaunches > 0 ? ((totalErrors / totalLaunches) * 100).toFixed(2) + '%' : 'N/A'
+    : '样本不足'
+
   return {
     summary: {
       totalEvents: events.length,
       totalLaunches,
       dau,
       totalDays: byDay.size,
-      crashRate: totalLaunches > 0 ? ((totalErrors / totalLaunches) * 100).toFixed(2) + '%' : 'N/A',
+      crashRate: crashRateValue,
+      ...(sufficientSample
+        ? {}
+        : { sampleNote: `样本不足（launches=${totalLaunches} events=${events.length}），指标暂不可信` }),
     },
     coreMetrics: {
       'DAU (今日)': dau,
@@ -183,7 +193,7 @@ function computeMetrics(events) {
       '模组安装数': modInstallCount,
       '形象切换次数': imageSwitchCount,
       '物品使用次数': itemUseCount,
-      '崩溃率': totalLaunches > 0 ? ((totalErrors / totalLaunches) * 100).toFixed(2) + '%' : 'N/A',
+      '崩溃率': crashRateValue,
     },
     aiMetrics: {
       'AI 响应延迟 (avg ms)': chatReceiveStats.avg,

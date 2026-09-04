@@ -243,6 +243,7 @@ function generateHTML({ perfHistory, recallHistory, latestPerf, latestRecall }) 
     .chart-title { font-size: 14px; color: #ccc; font-weight: 600; }
     .chart-now { font-size: 13px; }
     .chart-empty { color: #666; font-style: italic; padding: 40px 0; text-align: center; }
+    .recall-note { font-size: 12px; color: #888; margin-top: 12px; font-style: italic; }
     .footer { text-align: center; color: #555; font-size: 12px; margin-top: 28px; }
   </style>
 </head>
@@ -268,6 +269,7 @@ function generateHTML({ perfHistory, recallHistory, latestPerf, latestRecall }) 
     <div class="charts">
       ${recallCharts}
     </div>
+    <p class="recall-note">注：基线为纯 JS 检索路径（SQLite 与向量已 mock 短路），不代表真实嵌入检索性能；阈值 &lt;100ms 仅验证检索逻辑。</p>
   </div>
 
   <div class="footer">SpiritPal Perf Trend Dashboard | 数据仅本地，不上传</div>

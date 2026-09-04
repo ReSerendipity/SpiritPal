@@ -150,4 +150,16 @@ perf/results/perf-trend.json
 perf/results/memory-recall-p95.json
 perf/results/memory-recall-accuracy.json
 perf/results/recall-history.json
+
+# 性能门禁运行时产物（单次测试结果，机器相关，不入库）
+# 基线基准 perf/results/baseline.json 例外 — 需提交入库作为长期回归基准（P1-02/03）
+perf/results/cold-start.json
+perf/results/memory-usage.json
+perf/results/fps-test.json
+perf/results/drag-fps.json
+perf/results/memory-leak.json
+perf/results/package-size.json
+perf/results/perf-run-latest.json
+perf/results/perf-history.json
+perf/results/long-session-results/
 docs/agents/

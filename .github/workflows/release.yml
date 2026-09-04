@@ -103,10 +103,37 @@ jobs:
           name: spiritpal-build-windows-latest
           path: ./artifacts
 
+      # P1-01: 显式指向 release 产物，杜绝冷启动/内存门禁回退 dev 编译（测非发布产物）
+      - name: Locate release binary
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path ./artifacts -Recurse -Filter '*.exe' -ErrorAction SilentlyContinue |
+              Where-Object { $_.Name -notmatch 'setup|install|uninst' } |
+              Select-Object -First 1
+          if ($exe) {
+            echo "SPIRITPAL_EXE=$($exe.FullName)" >> $env:GITHUB_ENV
+            echo "使用 release 产物: $($exe.FullName)"
+          } else {
+            echo "::warning::未在 ./artifacts 找到 release exe，性能门禁将回退 dev 模式（结果失真）"
+          }
+
       - name: Run cold-start and memory tests
         run: |
           pnpm perf:cold-start
           pnpm perf:memory
+
+      # P1-02: 基线回归门禁 — 以仓库内 perf/results/baseline.json 为基准，
+      # 任意指标劣化 >20% 即 exit(1)。首次运行无基线时自动成基并提示提交入库。
+      - name: Baseline regression gate
+        run: pnpm perf:baseline
+
+      # P1-06: 性能门禁失败时清理本次 tag 对应的 draft release，避免草稿滞留
+      - name: Cleanup failed draft release
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete "${{ github.ref_name }}" --yes --delete-tag 2>/dev/null || echo "::warning::草稿清理失败或不存在（${{ github.ref_name }}）"
 
       - name: Upload performance results
         if: always()
@@ -158,6 +185,10 @@ jobs:
 
       - name: Run package-size test
         run: node perf/package-size.mjs
+
+      # P1-02: 只读回归比对（与 Windows job 的 baseline gate 互补；不写基线，避免跨 job 竞态）
+      - name: Baseline regression gate (read-only)
+        run: node perf/baseline-trend.mjs --read-only
 
       - name: Upload performance results
         if: always()
