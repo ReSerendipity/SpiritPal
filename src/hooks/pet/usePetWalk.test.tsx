@@ -1,8 +1,8 @@
 // 最终放置位置: src/hooks/pet/usePetWalk.test.tsx
 // 覆盖: usePetWalk —— 返回结构、startWalkAnimation 朝向/状态、向左朝向、interruptWalk 中断、卸载清理
 // Smoke 级: rAF stub 为 no-op（不测试三段式速度曲线的数值）
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { usePetWalk } from './usePetWalk'
 
 describe('usePetWalk', () => {

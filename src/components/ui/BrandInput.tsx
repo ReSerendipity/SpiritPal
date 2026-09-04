@@ -5,8 +5,8 @@
  * 支持密码可见性切换（type=password 时自动显示切换按钮）。
  */
 import { useState } from 'react'
-import { Eye, EyeOff } from 'lucide-react'
 import type { InputHTMLAttributes } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 
 export interface BrandInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
   /** 当前值 */

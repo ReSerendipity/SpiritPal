@@ -18,11 +18,11 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { Plus, Trash2, Check, Calendar, Clock, Upload } from 'lucide-react'
-import { getScheduleManager, type EnhancedScheduleEvent, type ImportedCalendarEvent } from '../lib/scheduleManager'
-import { getTimezoneManager } from '../lib/timezoneSync'
-import { formatDateTime } from '../lib/i18n'
+import { getScheduleManager, type EnhancedScheduleEvent, type ImportedCalendarEvent } from '@/lib/nurture/scheduleManager'
+import { formatDateTime } from '@/lib/system/i18n'
 // A-8：外部日历（.ics）导入，替代 calendarIntegration 的空占位
-import { createIcsCalendarSource, parseIcs } from '../lib/icsParser'
+import { createIcsCalendarSource, parseIcs } from '@/lib/system/icsParser'
+import { getTimezoneManager } from '@/lib/system/timezoneSync'
 
 /**
  * 日程管理面板

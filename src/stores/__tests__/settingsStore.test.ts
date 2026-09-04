@@ -1,7 +1,7 @@
 // settingsStore 单元测试 — 设置更新、角色切换、语言切换、重置
 import { describe, it, expect, beforeEach } from 'vitest'
-import { useSettingsStore } from '../settingsStore'
-import { getDefaultCharacter } from '../../lib/characters'
+import { getDefaultCharacter } from '@/lib/data/characters'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 describe('settingsStore', () => {
   beforeEach(() => {

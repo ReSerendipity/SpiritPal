@@ -10,14 +10,14 @@
  */
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { usePetStore } from '../stores/petStore'
-import { getOwnerFactsManager, type OwnerFact } from '../lib/ownerFacts'
-import { getPetExperienceManager, type PetExperience } from '../lib/petExperience'
-import { getDiarySystemManager, type DiaryEntry } from '../lib/diarySystem'
-import { exportMemories } from '../lib/memoryExporter'
-import { createBatchManager } from '../lib/batchOperationManager'
-import MemoryVisualizer from './MemoryVisualizer'
 import { Trash2, Plus, Heart, BookOpen, User, Calendar, CheckSquare, XSquare } from 'lucide-react'
+import MemoryVisualizer from '@/components/MemoryVisualizer'
+import { createBatchManager } from '@/lib/data/batchOperationManager'
+import { exportMemories } from '@/lib/memory/memoryExporter'
+import { getOwnerFactsManager, type OwnerFact } from '@/lib/memory/ownerFacts'
+import { getDiarySystemManager, type DiaryEntry } from '@/lib/nurture/diarySystem'
+import { getPetExperienceManager, type PetExperience } from '@/lib/nurture/petExperience'
+import { usePetStore } from '@/stores/petStore'
 
 type Tab = 'facts' | 'experiences' | 'diary'
 

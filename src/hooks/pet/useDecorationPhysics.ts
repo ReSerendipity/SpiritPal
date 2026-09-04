@@ -14,8 +14,8 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { Live2DPysicsParser } from '../../lib/live2dPhysicsParser'
-import type { AnchorPoint, DecorationRotations } from '../../lib/types'
+import type { AnchorPoint, DecorationRotations } from '@/lib/data/types'
+import { Live2DPysicsParser } from '@/lib/render/live2dPhysicsParser'
 
 export type { DecorationRotations }
 

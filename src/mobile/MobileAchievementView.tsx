@@ -18,8 +18,8 @@ import {
   BADGE_NAMES,
   BADGE_COLORS,
   type Achievement,
-} from '../lib/achievementSystem'
-import { usePetStore } from '../stores/petStore'
+} from '@/lib/nurture/achievementSystem'
+import { usePetStore } from '@/stores/petStore'
 
 /** 成就类别元信息 */
 const CATEGORIES: Record<string, { label: string; icon: string }> = {

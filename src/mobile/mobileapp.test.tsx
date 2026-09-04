@@ -1,6 +1,6 @@
 // MobileApp smoke 测试（审计 P3-10 S1：解除 src/mobile exclude 后的基础覆盖）
-import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
 import MobileApp from './MobileApp'
 
 // 子视图 mock：smoke 只验证 MobileApp 的导航外壳

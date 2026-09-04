@@ -1,10 +1,10 @@
 // MobileCollectionView smoke 测试 — 收藏套件渲染
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
-import { MobileCollectionView } from './MobileCollectionView'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { MobileCollectionView } from '@/mobile/MobileCollectionView'
 
 // mock collectionManager：固定收藏套件，避免真实持久化依赖
-vi.mock('../lib/collectionManager', () => ({
+vi.mock('@/lib/data/collectionManager', () => ({
   getCollectionManager: vi.fn(() => ({
     deserialize: vi.fn(),
     collectItem: vi.fn(),

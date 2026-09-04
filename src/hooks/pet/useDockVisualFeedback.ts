@@ -89,7 +89,7 @@ export function useDockVisualFeedback(
   // 吸附时更新表情和朝向
   useEffect(() => {
     if (!enabled || dragging) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- 需要同步更新状态以响应 dockDir 变化
+       
       setIsDocked(false)
       setExpression('normal')
       setPeekScale(PEEK_SCALE_MAX)

@@ -1,10 +1,10 @@
 // 最终放置位置: src/hooks/pet/usePetBehavior.test.tsx
 // 覆盖: usePetBehavior —— 返回结构、scheduleNextBehavior 定时触发行为选择、setStartWalkAnimation 设置回调、卸载清理定时器
 // 依赖: 仅 mock 了 petStore.getCurrentStats；animationConfig 为真实导入（纯 TypeScript 无副作用）
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { usePetBehavior } from './usePetBehavior'
-import type { WorkState } from '../../lib/contextAwareness'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { usePetBehavior } from '@/hooks/pet/usePetBehavior'
+import type { WorkState } from '@/lib/ai/contextAwareness'
 
 const mocks = vi.hoisted(() => ({
   getCurrentStats: vi.fn(() => ({

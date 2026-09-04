@@ -9,10 +9,10 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import type { AnimationId } from '../../lib/animationConfig'
-import { animationIdToMotionGroup } from '../../lib/animationConfig'
-import { fetchWithTimeout } from '../../lib/commonUtils'
-import type { Live2DRendererHandle } from '../../components/Live2DRenderer'
+import type { Live2DRendererHandle } from '@/components/Live2DRenderer'
+import { fetchWithTimeout } from '@/lib/data/commonUtils'
+import type { AnimationId } from '@/lib/render/animationConfig'
+import { animationIdToMotionGroup } from '@/lib/render/animationConfig'
 
 const LIVE2D_PATH_CACHE_MAX = 50
 

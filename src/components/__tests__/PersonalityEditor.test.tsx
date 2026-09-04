@@ -1,6 +1,6 @@
 // PersonalityEditor 组件测试 — 雷达图、滑块、模板、保存
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // ============ 使用 vi.hoisted 定义 mock state ============
 const { mockSettings, mockChar, mockDefaultCfg, mockLabels, mockTemplates } = vi.hoisted(() => {
@@ -57,19 +57,19 @@ const { mockSettings, mockChar, mockDefaultCfg, mockLabels, mockTemplates } = vi
   return { mockSettings, mockChar, mockDefaultCfg, mockLabels, mockTemplates }
 })
 
-vi.mock('../../stores/settingsStore', () => ({
+vi.mock('@/stores/settingsStore', () => ({
   useSettingsStore: Object.assign(
     vi.fn((selector: (s: typeof mockSettings) => unknown) => selector(mockSettings)),
     { getState: () => mockSettings },
   ),
 }))
 
-vi.mock('../../lib/characters', () => ({
+vi.mock('@/lib/data/characters', () => ({
   getCharacter: vi.fn(() => mockChar),
   CHARACTERS: [mockChar],
 }))
 
-vi.mock('../../lib/personalityEngine', () => ({
+vi.mock('@/lib/ai/personalityEngine', () => ({
   PERSONALITY_LABELS: mockLabels,
   composePersonalityPrompt: vi.fn(() => '合成的性格 Prompt'),
   buildDefaultPersonalityConfig: vi.fn(() => mockDefaultCfg),
@@ -78,12 +78,12 @@ vi.mock('../../lib/personalityEngine', () => ({
   removePersonalityConfigOverride: vi.fn(),
 }))
 
-vi.mock('../../lib/personalityTemplates', () => ({
+vi.mock('@/lib/ai/personalityTemplates', () => ({
   PERSONALITY_TEMPLATES: mockTemplates,
 }))
 
-import { PersonalityEditor } from '../PersonalityEditor'
-import { savePersonalityConfigOverride, removePersonalityConfigOverride } from '../../lib/personalityEngine'
+import { PersonalityEditor } from '@/components/PersonalityEditor'
+import { savePersonalityConfigOverride, removePersonalityConfigOverride } from '@/lib/ai/personalityEngine'
 
 describe('PersonalityEditor', () => {
   beforeEach(() => {

@@ -12,10 +12,10 @@
  */
 import { useState } from 'react'
 import { Backpack, Trophy } from 'lucide-react'
-import { usePetStore } from '../stores/petStore'
-import { getRarityDisplay } from '../lib/foodEffectContract'
-import type { AnchorPoint, WornDecoration } from '../lib/types'
-import { MobileCollectionView } from './MobileCollectionView'
+import type { AnchorPoint, WornDecoration } from '@/lib/data/types'
+import { getRarityDisplay } from '@/lib/nurture/foodEffectContract'
+import { MobileCollectionView } from '@/mobile/MobileCollectionView'
+import { usePetStore } from '@/stores/petStore'
 
 /** 装饰品穿戴锚点 */
 const ANCHOR_OPTIONS: { value: AnchorPoint; label: string }[] = [

@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { GPUParticleSystem } from '../../lib/gpuParticleSystem'
+import { GPUParticleSystem } from '@/lib/render/gpuParticleSystem'
 
 export interface PetParticleBurstOptions {
   /** 爆发中心 X（画布像素坐标） */

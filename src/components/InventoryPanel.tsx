@@ -15,11 +15,11 @@
  * - usePetStore: 背包物品、已穿戴装饰品、使用物品/穿戴/取下操作
  */
 import { useState } from 'react'
-import { usePetStore } from '../stores/petStore'
-import type { AnchorPoint, WornDecoration } from '../lib/types'
-import { getRarityDisplay } from '../lib/foodEffectContract'
-import { trackItemUse } from '../lib/analytics'
-import { CollectionTab } from './CollectionTab'
+import { CollectionTab } from '@/components/CollectionTab'
+import type { AnchorPoint, WornDecoration } from '@/lib/data/types'
+import { getRarityDisplay } from '@/lib/nurture/foodEffectContract'
+import { trackItemUse } from '@/lib/system/analytics'
+import { usePetStore } from '@/stores/petStore'
 
 const EMPTY_DECORATIONS: WornDecoration[] = []
 const selectInventory = (s: ReturnType<typeof usePetStore.getState>) => s.inventory

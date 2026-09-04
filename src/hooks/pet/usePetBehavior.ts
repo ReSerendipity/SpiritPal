@@ -12,15 +12,15 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { usePetStore } from '../../stores/petStore'
+import type { WorkState } from '@/lib/ai/contextAwareness'
+import type { PetState } from '@/lib/data/types'
 import {
   getAnimationStateMachine,
   animationIdToPetState,
   type AnimationContext,
   type AnimationId,
-} from '../../lib/animationConfig'
-import type { PetState } from '../../lib/types'
-import type { WorkState } from '../../lib/contextAwareness'
+} from '@/lib/render/animationConfig'
+import { usePetStore } from '@/stores/petStore'
 
 const WIN_W = 300
 const SPRITE_W = 192

@@ -1,9 +1,9 @@
 // 最终放置位置: src/hooks/pet/usePetTimers.test.tsx
 // 覆盖: usePetTimers —— smoke 渲染 + 返回 interactionCounterRef、挂载初始化（applyOfflineDecay/scheduleNextBehavior）、卸载清理
 // Smoke 级: 大量 manager 单例被 mock，仅验证"能渲染 + 返回结构 + 挂载/卸载副作用"
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import { usePetTimers } from './usePetTimers'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { usePetTimers } from '@/hooks/pet/usePetTimers'
 
 const timers = vi.hoisted(() => {
   const state = {
@@ -23,23 +23,23 @@ const timers = vi.hoisted(() => {
   return { state, usePetStore }
 })
 
-vi.mock('../../stores/petStore', () => ({
+vi.mock('@/stores/petStore', () => ({
   usePetStore: timers.usePetStore,
 }))
 
-vi.mock('../../lib/dialogueManager', () => ({
+vi.mock('@/lib/ai/dialogueManager', () => ({
   getDialogueManager: () => ({ loadFromConfig: vi.fn() }),
 }))
 
-vi.mock('../../lib/dialogueConfig', () => ({
+vi.mock('@/lib/ai/dialogueConfig', () => ({
   WELCOME_DIALOGUE: {},
 }))
 
-vi.mock('../../lib/updater', () => ({
+vi.mock('@/lib/system/updater', () => ({
   initAutoUpdateChecker: vi.fn(),
 }))
 
-vi.mock('../../lib/bubbleManager', () => {
+vi.mock('@/lib/render/bubbleManager', () => {
   const bubbleMgr = {
     checkHungerBubbles: vi.fn(),
     setOnBubble: vi.fn(),
@@ -53,35 +53,35 @@ vi.mock('../../lib/bubbleManager', () => {
   }
 })
 
-vi.mock('../../lib/chatStages', () => ({
+vi.mock('@/lib/ai/chatStages', () => ({
   getChatStageManager: () => ({ onStageChange: vi.fn(() => vi.fn()) }),
 }))
 
-vi.mock('../../lib/achievementSystem', () => ({
+vi.mock('@/lib/nurture/achievementSystem', () => ({
   getAchievementManager: () => ({ recordLogin: vi.fn() }),
 }))
 
-vi.mock('../../lib/interactionCounter', () => ({
+vi.mock('@/lib/nurture/interactionCounter', () => ({
   InteractionCounter: class {
     tick(_ms?: number) {}
   },
 }))
 
-vi.mock('../../lib/animationConfig', () => ({
+vi.mock('@/lib/render/animationConfig', () => ({
   getAnimationStateMachine: () => ({ resetCooldowns: vi.fn() }),
 }))
 
-vi.mock('../../lib/characters', () => ({
+vi.mock('@/lib/data/characters', () => ({
   getCharacter: vi.fn(() => ({ id: 'doro', name: 'doro' })),
   // A-9/A-10：cultureEmoji → settingsStore 依赖该导出（settingsStore 默认值用它取默认角色）
   getDefaultCharacter: vi.fn(() => ({ id: 'doro', name: 'doro' })),
 }))
 
-vi.mock('../../lib/emotionManager', () => ({
+vi.mock('@/lib/ai/emotionManager', () => ({
   getEmotionManager: vi.fn(() => ({ tick: vi.fn() })),
 }))
 
-vi.mock('../../lib/proactiveSpeak', () => ({
+vi.mock('@/lib/ai/proactiveSpeak', () => ({
   getProactiveSpeakManager: () => ({
     onProactiveSpeak: vi.fn(() => vi.fn()),
     // A-5：usePetTimers 启动/停止主动说话定时器
@@ -90,7 +90,7 @@ vi.mock('../../lib/proactiveSpeak', () => ({
   }),
 }))
 
-vi.mock('../../lib/enhancedMemory', () => ({
+vi.mock('@/lib/memory/enhancedMemory', () => ({
   getEnhancedMemoryManager: vi.fn(() => ({
     ensureLoaded: vi.fn().mockResolvedValue(undefined),
     maintainMemories: vi.fn().mockResolvedValue(undefined),
@@ -100,7 +100,7 @@ vi.mock('../../lib/enhancedMemory', () => ({
   })),
 }))
 
-vi.mock('../../lib/diarySystem', () => ({
+vi.mock('@/lib/nurture/diarySystem', () => ({
   getDiarySystemManager: vi.fn(() => ({
     getDiary: vi.fn(() => null),
     getTodayExchangeCount: vi.fn(() => 0),
@@ -108,14 +108,14 @@ vi.mock('../../lib/diarySystem', () => ({
   })),
 }))
 
-vi.mock('../../lib/contextEpisodeManager', () => ({
+vi.mock('@/lib/memory/contextEpisodeManager', () => ({
   getContextEpisodeManager: vi.fn(() => ({
     recordStateChange: vi.fn().mockResolvedValue(undefined),
     condenseToObservation: vi.fn(),
   })),
 }))
 
-vi.mock('../../lib/contextAwareness', () => ({
+vi.mock('@/lib/ai/contextAwareness', () => ({
   getContextAwarenessManager: () => ({
     onWorkStateChange: vi.fn(() => vi.fn()),
     getCachedWeather: vi.fn(() => null),

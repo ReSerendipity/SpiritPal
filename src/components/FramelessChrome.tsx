@@ -10,9 +10,9 @@
  *   同时该 class 需加入 usePixelClickThrough 的交互白名单，
  *   否则像素级点击穿透会把拖拽面判定为透明区域而拦截鼠标
  */
-import { useCallback } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { swallowedCatch } from '@/lib/swallowedCatch'
+import { useCallback } from 'react'
+import { swallowedCatch } from '@/lib/system/swallowedCatch'
 
 /** 拖拽面标记类（配合 data-tauri-drag-region + 点击穿透交互白名单使用） */
 export const DRAG_SURFACE_CLASS = 'spiritpal-drag-surface'

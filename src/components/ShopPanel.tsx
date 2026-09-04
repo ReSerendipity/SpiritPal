@@ -20,10 +20,10 @@
  * - petStore: 金币、背包、穿戴操作
  */
 import { useState, useMemo } from 'react'
-import { usePetStore } from '../stores/petStore'
-import type { InventoryItem, AnchorPoint, WornDecoration } from '../lib/types'
-import { getShopManager, ShopLockState } from '../lib/shopManager'
-import { getRarityDisplay } from '../lib/foodEffectContract'
+import type { InventoryItem, AnchorPoint, WornDecoration } from '@/lib/data/types'
+import { getRarityDisplay } from '@/lib/nurture/foodEffectContract'
+import { getShopManager, ShopLockState } from '@/lib/nurture/shopManager'
+import { usePetStore } from '@/stores/petStore'
 
 const EMPTY_DECORATIONS: WornDecoration[] = []
 const selectCurrentCharacterId = (s: ReturnType<typeof usePetStore.getState>) => s.currentCharacterId

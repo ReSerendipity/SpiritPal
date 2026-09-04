@@ -1,9 +1,9 @@
 // 最终放置位置: src/hooks/pet/usePetSensors.test.tsx
 // 覆盖: usePetSensors —— smoke 渲染 + 返回结构、音乐状态触发摇摆、卸载清理不崩溃
 // Smoke 级: 大量 manager 单例被 mock（musicAwareness/weatherAwareness/contextAwareness/schedule/bubble/event/emotion）
-import { describe, it, expect, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { usePetSensors } from './usePetSensors'
+import { describe, it, expect, vi } from 'vitest'
+import { usePetSensors } from '@/hooks/pet/usePetSensors'
 
 const sensors = vi.hoisted(() => {
   const cbs: Record<string, (...a: any[]) => void> = {}
@@ -14,7 +14,7 @@ const sensors = vi.hoisted(() => {
   return { cbs, sub }
 })
 
-vi.mock('../../lib/musicAwareness', () => {
+vi.mock('@/lib/system/musicAwareness', () => {
   const mgr = {
     start: vi.fn(),
     stop: vi.fn(),
@@ -23,7 +23,7 @@ vi.mock('../../lib/musicAwareness', () => {
   return { getMusicAwarenessManager: () => mgr }
 })
 
-vi.mock('../../lib/weatherAwareness', () => {
+vi.mock('@/lib/system/weatherAwareness', () => {
   const mgr = {
     start: vi.fn(),
     stop: vi.fn(),
@@ -32,7 +32,7 @@ vi.mock('../../lib/weatherAwareness', () => {
   return { getWeatherAwarenessManager: () => mgr }
 })
 
-vi.mock('../../lib/contextAwareness', () => {
+vi.mock('@/lib/ai/contextAwareness', () => {
   const contextMgr = {
     start: vi.fn(),
     stop: vi.fn(),
@@ -53,17 +53,17 @@ vi.mock('../../lib/contextAwareness', () => {
   }
 })
 
-vi.mock('../../lib/scheduleManager', () => {
+vi.mock('@/lib/nurture/scheduleManager', () => {
   const mgr = { start: vi.fn(), stop: vi.fn(), onReminder: sensors.sub('reminder') }
   return { getScheduleManager: () => mgr }
 })
 
-vi.mock('../../lib/bubbleManager', () => ({
+vi.mock('@/lib/render/bubbleManager', () => ({
   getBubbleManager: () => ({ sendMessage: vi.fn() }),
   MessagePriority: { Proactive: 2 },
 }))
 
-vi.mock('../../lib/eventSystem', () => {
+vi.mock('@/lib/system/eventSystem', () => {
   const mgr = {
     start: vi.fn(),
     stop: vi.fn(),
@@ -73,7 +73,7 @@ vi.mock('../../lib/eventSystem', () => {
   return { getEventSystemManager: () => mgr }
 })
 
-vi.mock('../../lib/emotionManager', () => {
+vi.mock('@/lib/ai/emotionManager', () => {
   const mgr = {
     start: vi.fn(),
     stop: vi.fn(),
@@ -84,7 +84,7 @@ vi.mock('../../lib/emotionManager', () => {
   return { getEmotionManager: vi.fn(() => mgr) }
 })
 
-vi.mock('../../lib/animationConfig', () => ({
+vi.mock('@/lib/render/animationConfig', () => ({
   animationIdToPetState: vi.fn(() => 'idle'),
 }))
 

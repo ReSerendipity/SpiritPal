@@ -13,10 +13,10 @@
  * - usePetStore/useSettingsStore: 初始化和切换角色
  */
 import { useState } from 'react'
-import { getAllCharacters } from '../lib/characters'
-import { useSettingsStore } from '../stores/settingsStore'
-import { usePetStore } from '../stores/petStore'
-import { DRAG_SURFACE_CLASS } from './FramelessChrome'
+import { DRAG_SURFACE_CLASS } from '@/components/FramelessChrome'
+import { getAllCharacters } from '@/lib/data/characters'
+import { usePetStore } from '@/stores/petStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 /** 组件Props接口 */
 interface CharacterSelectorProps {

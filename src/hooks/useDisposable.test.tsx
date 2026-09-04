@@ -1,8 +1,8 @@
 // 最终放置位置: src/hooks/useDisposable.test.tsx
 // 覆盖: useDisposable —— 逆序 dispose、重复 dispose 幂等、卸载自动清理、错误吞掉
 //       useEventListener —— 订阅 / 卸载 off
-import { describe, it, expect, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
 import { useDisposable, useEventListener } from './useDisposable'
 
 describe('useDisposable', () => {

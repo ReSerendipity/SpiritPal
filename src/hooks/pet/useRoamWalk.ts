@@ -9,10 +9,10 @@
  * @module useRoamWalk
  */
 
-import { useEffect, type Dispatch, type SetStateAction, type RefObject } from 'react'
-import { getCurrentWindow, primaryMonitor, PhysicalPosition } from '@tauri-apps/api/window'
 import { invoke } from '@tauri-apps/api/core'
-import type { PetState } from '../../lib/types'
+import { getCurrentWindow, primaryMonitor, PhysicalPosition } from '@tauri-apps/api/window'
+import { useEffect, type Dispatch, type SetStateAction, type RefObject } from 'react'
+import type { PetState } from '@/lib/data/types'
 
 // ========== 漫游行走控制器常量 ==========
 

@@ -8,10 +8,10 @@
  *  3. 当日无对话时生成空日记不崩溃
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { JournalPanel } from '../JournalPanel'
-import type { ChatMessage } from '../../lib/types'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { JournalPanel } from '@/components/JournalPanel'
+import type { ChatMessage } from '@/lib/data/types'
 
 let messages: ChatMessage[] = []
 

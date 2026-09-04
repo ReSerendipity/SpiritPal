@@ -28,9 +28,9 @@
  * ```
  */
 
-import type { NurturingStats, InventoryItem } from '../lib/types'
-import type { MemoryRow } from '../lib/db'
-import type { AnalyticsEvent, AnalyticsEventName } from '../lib/analytics'
+import type { MemoryRow } from '@/lib/data/db'
+import type { NurturingStats, InventoryItem } from '@/lib/data/types'
+import type { AnalyticsEvent, AnalyticsEventName } from '@/lib/system/analytics'
 
 // ============ 角色养成数据工厂 ============
 

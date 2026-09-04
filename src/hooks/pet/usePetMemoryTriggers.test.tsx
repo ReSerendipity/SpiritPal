@@ -1,10 +1,10 @@
 // 最终放置位置: src/hooks/pet/usePetMemoryTriggers.test.tsx
 // 覆盖: usePetMemoryTriggers —— smoke 渲染、周期触发 recall → showBubble、用户响应 recordUserResponse、卸载清理
 // Mock: enhancedMemory / recallEngine / stringSimilarity；capture listen('user-chat-responded') 回调
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
 import { listen } from '@tauri-apps/api/event'
-import { usePetMemoryTriggers } from './usePetMemoryTriggers'
+import { renderHook, act } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { usePetMemoryTriggers } from '@/hooks/pet/usePetMemoryTriggers'
 
 const mem = vi.hoisted(() => ({
   ensureLoaded: vi.fn().mockResolvedValue(undefined),
@@ -15,7 +15,7 @@ const recall = vi.hoisted(() => vi.fn())
 
 const sim = vi.hoisted(() => vi.fn(() => 0))
 
-vi.mock('../../lib/enhancedMemory', () => ({
+vi.mock('@/lib/memory/enhancedMemory', () => ({
   getEnhancedMemoryManager: vi.fn(() => ({
     ensureLoaded: mem.ensureLoaded,
     recordUserResponse: mem.recordUserResponse,
@@ -23,12 +23,12 @@ vi.mock('../../lib/enhancedMemory', () => ({
   removeEnhancedMemoryManager: vi.fn(),
 }))
 
-vi.mock('../../lib/recallEngine', () => ({
+vi.mock('@/lib/memory/recallEngine', () => ({
   getRecallEngine: vi.fn(() => ({ recall })),
   buildRecallRenderPrompt: vi.fn(() => ''),
 }))
 
-vi.mock('../../lib/stringSimilarity', () => ({
+vi.mock('@/lib/system/stringSimilarity', () => ({
   stringSimilarity: sim,
   tokenize: vi.fn(() => []),
   estimateTokens: vi.fn(() => 0),

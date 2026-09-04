@@ -24,8 +24,8 @@
  */
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import { Application, Ticker } from 'pixi.js'
-import type { PetState } from '../lib/types'
-import { getParamAutoMapper } from '../lib/paramAutoMapper'
+import type { PetState } from '@/lib/data/types'
+import { getParamAutoMapper } from '@/lib/system/paramAutoMapper'
 
 // pixi-live2d-display 动态加载 — 避免 Cubism Core 缺失时崩溃整个应用
 let _Live2DModel: any = null

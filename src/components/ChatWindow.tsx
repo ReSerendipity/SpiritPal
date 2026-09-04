@@ -30,55 +30,55 @@
  * - personalityEngine: 性格化System Prompt合成
  * - characterConsistency: 角色一致性校验
  */
+import { emit } from '@tauri-apps/api/event'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
+import { Send, Square, Trash2, Bot, User, Search, X, ChevronUp, ChevronDown, Flag, AlertTriangle, RefreshCw } from 'lucide-react'
 import Markdown from 'react-markdown'
 // SECURITY R-02: 为 react-markdown 配置 rehype-sanitize，阻断 AI 输出型 XSS
 import rehypeSanitize from 'rehype-sanitize'
-import { Send, Square, Trash2, Bot, User, Search, X, ChevronUp, ChevronDown, Flag, AlertTriangle, RefreshCw } from 'lucide-react'
-import { useChatStore } from '../stores/chatStore'
-import { usePetStore } from '../stores/petStore'
-import { usePetTTS } from '../hooks/usePetTTS'
-import { emit } from '@tauri-apps/api/event'
-import { getCurrentWindow } from '@tauri-apps/api/window'
-import { getCharacter } from '../lib/characters'
-import { getSilentModeManager } from '../lib/silentModeManager'
-import { trackChatSend, trackChatReceive, trackMemoryTrigger } from '../lib/analytics'
-import { swallowedCatch } from '@/lib/swallowedCatch'
-import { getEnhancedMemoryManager } from '../lib/enhancedMemory'
+import { FramelessResizeHandles } from '@/components/FramelessChrome'
+import { WindowControls } from '@/components/WindowControls'
+import { usePetTTS } from '@/hooks/usePetTTS'
+import { trackChatSend, trackChatReceive, trackMemoryTrigger } from '@/lib/system/analytics'
+import { swallowedCatch } from '@/lib/system/swallowedCatch'
+import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 import { cogneeAdd } from '../lib/memory/cogneeClient'
-import { getLLMClient } from '../lib/llmClient'
-import { loadAIConfig } from '../lib/aiConfig'
+import { getLLMClient } from '@/lib/ai/llmClient'
+import { loadAIConfig } from '@/lib/ai/aiConfig'
 // Phase 1.3 + 1.4: 情绪标签与 Think 标签解析
-import { extractEmotionFromChunk, extractEmotion } from '../lib/emotionExtractor'
-import { ThinkTagParser } from '../lib/thinkTagParser'
-import { getChatStageManager } from '../lib/chatStages'
-import { getAchievementManager } from '../lib/achievementSystem'
-import { getScheduleManager } from '../lib/scheduleManager'
-import { detectAgentIntent, processAgentRequest } from '../lib/aiAgent'
+import { extractEmotionFromChunk, extractEmotion } from '@/lib/ai/emotionExtractor'
+import { ThinkTagParser } from '@/lib/render/thinkTagParser'
+import { getChatStageManager } from '@/lib/ai/chatStages'
+import { getAchievementManager } from '@/lib/nurture/achievementSystem'
+import { getScheduleManager } from '@/lib/nurture/scheduleManager'
+import { detectAgentIntent, processAgentRequest } from '@/lib/ai/aiAgent'
 // P1-1：接线日记系统
-import { getDiarySystemManager } from '../lib/diarySystem'
+import { getDiarySystemManager } from '@/lib/nurture/diarySystem'
 // P1-6：接线防重复机制
-import { getAntiRepetitionManager } from '../lib/antiRepetition'
+import { getAntiRepetitionManager } from '@/lib/system/antiRepetition'
 // P1-5：情绪标签提示词 + 好感度解析
-import { EMOTION_PROMPT_FRAGMENT, extractAffectionDeltas, sumAffectionDeltas, emotionTagsToMood } from '../lib/emotionExtractor'
-import { getEmotionAnalyzer, getEmotionStateManager } from '../lib/emotionEngine'
+import { EMOTION_PROMPT_FRAGMENT, extractAffectionDeltas, sumAffectionDeltas, emotionTagsToMood } from '@/lib/ai/emotionExtractor'
+import { getEmotionAnalyzer, getEmotionStateManager } from '@/lib/ai/emotionEngine'
 // P2-1：结构化用户画像层
-import { getOwnerFactsManager } from '../lib/ownerFacts'
+import { getOwnerFactsManager } from '@/lib/memory/ownerFacts'
 // P2-4：宠物共同经历记忆
-import { getPetExperienceManager } from '../lib/petExperience'
+import { getPetExperienceManager } from '@/lib/nurture/petExperience'
 // P2-2：情境感知信号
-import { getContextAwarenessManager } from '../lib/contextAwareness'
+import { getContextAwarenessManager } from '@/lib/ai/contextAwareness'
 // R2：约定与计划追踪
-import { getCommitmentTracker } from '../lib/commitmentTracker'
-import { ContextManager, getContextManager } from '../lib/contextManager'
-import { composeFullSystemPrompt, getEffectivePersonality } from '../lib/personalityEngine'
-import { checkConsistency, generateCorrectionPrompt } from '../lib/characterConsistency'
-import { WindowControls } from './WindowControls'
-import { FramelessResizeHandles } from './FramelessChrome'
-import type { ChatMessage } from '../lib/types'
+import { getCommitmentTracker } from '@/lib/nurture/commitmentTracker'
+import { ContextManager, getContextManager } from '@/lib/memory/contextManager'
+import { composeFullSystemPrompt, getEffectivePersonality } from '@/lib/ai/personalityEngine'
+import { getCharacter } from '@/lib/data/characters'
+import { checkConsistency, generateCorrectionPrompt } from '@/lib/nurture/characterConsistency'
+import type { ChatMessage } from '@/lib/data/types'
 // 2.1: 视觉感知「看看」
-import { getVisualPerceptionManager } from '../lib/visualPerception'
+import { getVisualPerceptionManager } from '@/lib/memory/visualPerception'
+import { getSilentModeManager } from '@/lib/system/silentModeManager'
+import { useChatStore } from '@/stores/chatStore'
+import { usePetStore } from '@/stores/petStore'
 
 /**
  * 创建聊天消息对象
@@ -356,7 +356,7 @@ export default function ChatWindow() {
           getAchievementManager().recordChat()
           // 记录视觉记忆
           try {
-            const { getVisualMemoryManager } = await import('../lib/visualMemoryManager')
+            const { getVisualMemoryManager } = await import('@/lib/memory/visualMemoryManager')
             const vmMgr = getVisualMemoryManager(currentCharacterId)
             vmMgr.record('scene', analysis.userActivity, 'neutral')
           } catch {
@@ -464,7 +464,7 @@ export default function ChatWindow() {
 
     // P3-6：注入视觉记忆上下文
     try {
-      const { getVisualMemoryManager } = await import('../lib/visualMemoryManager')
+      const { getVisualMemoryManager } = await import('@/lib/memory/visualMemoryManager')
       const vmMgr = getVisualMemoryManager(currentCharacterId)
       await vmMgr.ensureLoaded()
       const vmContext = vmMgr.buildContext(200)

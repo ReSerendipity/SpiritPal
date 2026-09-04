@@ -12,13 +12,13 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react'
-import { getKeyframeMemory, type Keyframe, KeyframeLevel } from '../lib/keyframeMemory'
-import { useEnhancedMemory } from '../hooks/useEnhancedMemory'
-import { usePetStore } from '../stores/petStore'
-import { getContextAwarenessManager, type WorkStateInfo } from '../lib/contextAwareness'
+import { useEnhancedMemory } from '@/hooks/useEnhancedMemory'
+import { getContextAwarenessManager, type WorkStateInfo } from '@/lib/ai/contextAwareness'
 // A-10：情绪分布改用 emotionEngine 的真实今日统计（此前是 Math.random() 假数据）
-import { getEmotionStateManager } from '../lib/emotionEngine'
-import type { MemoryEntry } from '../lib/types'
+import { getEmotionStateManager } from '@/lib/ai/emotionEngine'
+import type { MemoryEntry } from '@/lib/data/types'
+import { getKeyframeMemory, type Keyframe, KeyframeLevel } from '@/lib/memory/keyframeMemory'
+import { usePetStore } from '@/stores/petStore'
 
 /** 情绪中文标签（覆盖 emotionEngine 的全部 9 类基础情绪） */
 const EMOTION_LABELS: Record<string, string> = {
@@ -245,13 +245,13 @@ const SearchView: React.FC = () => {
 
   useEffect(() => {
     if (!query.trim()) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- 清空搜索结果
+       
       setResults([])
       return
     }
     // 本地时序索引即时命中（保持原同步契约）
     const found = searchMemory(query)
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 搜索结果需要同步更新到 UI
+     
     setResults(found)
     // B2（ADR-0003）：cognee 长期记忆增强检索，异步合并去重；
     // sidecar 离线/无结果时静默保持本地结果（cogneeClient 已做降级）。
@@ -423,7 +423,7 @@ const GraphView: React.FC = () => {
 
   useEffect(() => {
     // 模拟知识图谱数据（实际应从 enhanced memory 提取实体关系）
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 初始化模拟图谱数据，仅执行一次
+     
     setNodes([
       { id: 'user', label: '主人', category: 'person' },
       { id: 'pet', label: 'SpiritPal', category: 'pet' },

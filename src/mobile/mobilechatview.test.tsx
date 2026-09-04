@@ -1,6 +1,6 @@
 // MobileChatView smoke 测试（审计 P3-10 S1）
-import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
 import { MobileChatView } from './MobileChatView'
 
 // react-markdown 在 jsdom 下可运行，但为 smoke 稳定性将其 mock

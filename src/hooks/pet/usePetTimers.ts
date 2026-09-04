@@ -11,33 +11,33 @@
  */
 
 import { useEffect, useRef } from 'react'
-import { usePetStore } from '../../stores/petStore'
-import { getDialogueManager } from '../../lib/dialogueManager'
-import { WELCOME_DIALOGUE } from '../../lib/dialogueConfig'
-import { initAutoUpdateChecker } from '../../lib/updater'
-import { getBubbleManager, MessagePriority } from '../../lib/bubbleManager'
-import { getChatStageManager } from '../../lib/chatStages'
-import { getAchievementManager } from '../../lib/achievementSystem'
-import { InteractionCounter } from '../../lib/interactionCounter'
-import { getAnimationStateMachine } from '../../lib/animationConfig'
-import { getCharacter } from '../../lib/characters'
-import { getEmotionManager } from '../../lib/emotionManager'
+import { getChatStageManager } from '@/lib/ai/chatStages'
 // P1-2：接线 proactiveSpeak
-import { getProactiveSpeakManager } from '../../lib/proactiveSpeak'
+import { getProactiveSpeakManager } from '@/lib/ai/proactiveSpeak'
 // P1-3：接线记忆维护闭环
-import { getEnhancedMemoryManager } from '../../lib/enhancedMemory'
+import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 // P1-1：接线日记系统定时生成
-import { getDiarySystemManager } from '../../lib/diarySystem'
+import { getDiarySystemManager } from '@/lib/nurture/diarySystem'
 // R1：上下文快照管理器
-import { getContextEpisodeManager } from '../../lib/contextEpisodeManager'
+import { getContextEpisodeManager } from '@/lib/memory/contextEpisodeManager'
 // R1：情境感知管理器（用于状态变迁订阅）
-import { getContextAwarenessManager } from '../../lib/contextAwareness'
+import { getContextAwarenessManager } from '@/lib/ai/contextAwareness'
+import { WELCOME_DIALOGUE } from '@/lib/ai/dialogueConfig'
+import { getDialogueManager } from '@/lib/ai/dialogueManager'
+import { getEmotionManager } from '@/lib/ai/emotionManager'
+import { getCharacter } from '@/lib/data/characters'
 // A-5：静默模式管理器（抑制宠物自发开口）
-import { getSilentModeManager } from '../../lib/silentModeManager'
 // A-9/A-10：情绪 × 文化的表情适配
-import { decorateWithCultureEmoji } from '../../lib/cultureEmoji'
-import type { PetState } from '../../lib/types'
-import type { AnimationId } from '../../lib/animationConfig'
+import type { PetState } from '@/lib/data/types'
+import { getAchievementManager } from '@/lib/nurture/achievementSystem'
+import { InteractionCounter } from '@/lib/nurture/interactionCounter'
+import { getAnimationStateMachine } from '@/lib/render/animationConfig'
+import type { AnimationId } from '@/lib/render/animationConfig'
+import { getBubbleManager, MessagePriority } from '@/lib/render/bubbleManager'
+import { decorateWithCultureEmoji } from '@/lib/system/cultureEmoji'
+import { getSilentModeManager } from '@/lib/system/silentModeManager'
+import { initAutoUpdateChecker } from '@/lib/system/updater'
+import { usePetStore } from '@/stores/petStore'
 
 export interface UsePetTimersOptions {
   /** 当前角色 ID */
@@ -166,7 +166,7 @@ export function usePetTimers(options: UsePetTimersOptions): UsePetTimersReturn {
       void memMgr.ensureLoaded().then(async () => {
         try {
           // P3-2：传入 LLM 摘要函数，实现真正的 episodic→semantic 巩固
-          const { getLLMClient } = await import('../../lib/llmClient')
+          const { getLLMClient } = await import('@/lib/ai/llmClient')
           const llmSummarizer = async (memories: Array<{ user: string; assistant: string }>) => {
             try {
               const client = getLLMClient()
@@ -220,7 +220,7 @@ export function usePetTimers(options: UsePetTimersOptions): UsePetTimersReturn {
         const memMgr = getEnhancedMemoryManager(currentCharacterId)
         void memMgr.ensureLoaded().then(async () => {
           try {
-            const { getLLMClient } = await import('../../lib/llmClient')
+            const { getLLMClient } = await import('@/lib/ai/llmClient')
             // LLM 摘要函数
             const llmSummarizer = async (memories: Array<{ user: string; assistant: string }>) => {
               try {

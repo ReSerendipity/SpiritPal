@@ -3,20 +3,20 @@
  *
  * @module CharacterImportWizard.test
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { CharacterImportWizard } from '../CharacterImportWizard'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { CharacterImportWizard } from '@/components/CharacterImportWizard'
 
 // Mock dependencies
-vi.mock('../../lib/characterImportService', () => ({
+vi.mock('@/lib/nurture/characterImportService', () => ({
   importCharacter: vi.fn(),
 }))
 
-vi.mock('../../stores/petStore', () => ({
+vi.mock('@/stores/petStore', () => ({
   usePetStore: vi.fn(() => ({ switchCharacter: vi.fn() })),
 }))
 
-vi.mock('../../stores/settingsStore', () => ({
+vi.mock('@/stores/settingsStore', () => ({
   useSettingsStore: vi.fn(() => ({ switchCharacter: vi.fn() })),
 }))
 
@@ -28,7 +28,7 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
   open: vi.fn(),
 }))
 
-import { importCharacter } from '../../lib/characterImportService'
+import { importCharacter } from '@/lib/nurture/characterImportService'
 
 beforeEach(() => {
   vi.clearAllMocks()

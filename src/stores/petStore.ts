@@ -33,6 +33,9 @@
  */
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import { getDialogueManager } from '@/lib/ai/dialogueManager'
+import { CHARACTERS, getCharacter, getDefaultCharacter, getAllCharacters, saveCustomCharacter } from '@/lib/data/characters'
+import { initDB, sqliteStorage } from '@/lib/data/db'
 import type {
   NurturingStats,
   InventoryItem,
@@ -41,14 +44,11 @@ import type {
   WornDecoration,
   BackgroundConfig,
   CharacterProfile,
-} from '../lib/types'
-import { CHARACTERS, getCharacter, getDefaultCharacter, getAllCharacters, saveCustomCharacter } from '../lib/characters'
-import { getBuffManager } from '../lib/buffManager'
-import { getTaskManager } from '../lib/taskManager'
-import { getBubbleManager } from '../lib/bubbleManager'
-import { getDialogueManager } from '../lib/dialogueManager'
-import { windowEventBus } from '../lib/windowEventBus'
-import { initDB, sqliteStorage } from '../lib/db'
+} from '@/lib/data/types'
+import { getBuffManager } from '@/lib/nurture/buffManager'
+import { getTaskManager } from '@/lib/nurture/taskManager'
+import { getBubbleManager } from '@/lib/render/bubbleManager'
+import { windowEventBus } from '@/lib/system/windowEventBus'
 
 /**
  * 获取角色对物品的偏好倍率

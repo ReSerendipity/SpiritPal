@@ -10,9 +10,9 @@
  * 核心Hooks/状态：
  * - usePetStore: 当前角色统计、共享金币、徽章获取、颜色分级
  */
-import { usePetStore } from '../stores/petStore'
-import { getCharacter } from '../lib/characters'
-import type { BadgeTier } from '../lib/types'
+import { getCharacter } from '@/lib/data/characters'
+import type { BadgeTier } from '@/lib/data/types'
+import { usePetStore } from '@/stores/petStore'
 
 const selectCurrentStats = (s: ReturnType<typeof usePetStore.getState>) => s.getCurrentStats()
 const selectSharedCoins = (s: ReturnType<typeof usePetStore.getState>) => s.sharedCoins

@@ -1,7 +1,7 @@
 // petStore 单元测试 — 四维数值、经验等级、金币、背包、装饰品
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { usePetStore, computeOfflineDecay, applyPendingRecovery, stopPendingRecoveryTicker } from '../petStore'
-import type { InventoryItem } from '../../lib/types'
+import type { InventoryItem } from '@/lib/data/types'
+import { usePetStore, computeOfflineDecay, applyPendingRecovery, stopPendingRecoveryTicker } from '@/stores/petStore'
 
 function makeItem(overrides: Partial<InventoryItem> = {}): InventoryItem {
   return {
