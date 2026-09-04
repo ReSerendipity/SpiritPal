@@ -1,8 +1,8 @@
 // MobilePetView smoke 测试（审计 P3-10 S1）
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { MobilePetView } from './MobilePetView'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { usePetStore } from '../stores/petStore'
+import { MobilePetView } from './MobilePetView'
 
 // 重度依赖组件 mock：Live2D / Sprite 渲染器依赖 pixi，jsdom 无法运行
 vi.mock('../components/Live2DRenderer', () => ({

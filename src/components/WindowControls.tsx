@@ -12,10 +12,10 @@
  * - 关闭按钮
  * - 可选：显示窗口标题
  */
-import { useCallback, useEffect, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { useCallback, useEffect, useState } from 'react'
 import { Minus, Square, X, Copy } from 'lucide-react'
-import { swallowedCatch } from '@/lib/swallowedCatch'
+import { swallowedCatch } from '@/lib/system/swallowedCatch'
 
 interface WindowControlsProps {
   /** 窗口标题文字 */

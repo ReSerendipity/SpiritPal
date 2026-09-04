@@ -1,9 +1,9 @@
 // MemoryVisualization 组件测试 — 标签云 + 情感曲线 + 时间密度图
 // P3-25: 增强用户对记忆的感知，时间轴 + 标签云 + 情感曲线
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
-import { TagCloud, EmotionCurve, TimeDensityChart } from '../MemoryVisualization'
-import type { EnhancedMemory } from '../../lib/enhancedMemory'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { TagCloud, EmotionCurve, TimeDensityChart } from '@/components/MemoryVisualization'
+import type { EnhancedMemory } from '@/lib/memory/enhancedMemory'
 
 // ============ 测试数据工厂 ============
 

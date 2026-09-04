@@ -21,8 +21,8 @@
 
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { ThemeMode } from '../lib/themeManager'
-import { sqliteStorage } from '../lib/db'
+import { sqliteStorage } from '@/lib/data/db'
+import type { ThemeMode } from '@/lib/system/themeManager'
 
 // ============ 类型定义 ============
 

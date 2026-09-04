@@ -22,17 +22,17 @@
  * - analytics: 行为数据埋点
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { trackModInstall } from '../lib/analytics'
 import {
   Package, Upload, Download, Trash2, Power, FileJson,
   Plus, Copy, Check, AlertCircle, Box, Archive, FolderSearch, Shield, Loader2,
 } from 'lucide-react'
+import { CHARACTERS } from '@/lib/data/characters'
 import {
   getModManager, createModTemplate,
   type ModInfo, type CharacterMod, type ScannedModInfo,
-} from '../lib/modManager'
-import { CHARACTERS } from '../lib/characters'
-import type { CharacterProfile } from '../lib/types'
+} from '@/lib/data/modManager'
+import type { CharacterProfile } from '@/lib/data/types'
+import { trackModInstall } from '@/lib/system/analytics'
 
 /**
  * 模组管理面板

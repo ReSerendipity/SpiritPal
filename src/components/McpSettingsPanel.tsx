@@ -11,6 +11,7 @@
  */
 import { useCallback, useState } from 'react'
 import { Plug, Plus, ShieldAlert, ShieldCheck, Server, Trash2, Wifi, WifiOff } from 'lucide-react'
+import { BrandButton, BrandInput, BrandSelect } from '@/components/ui'
 import {
   isToolAllowed,
   setToolAllowed,
@@ -18,8 +19,7 @@ import {
   saveServerRecords,
   genServerId,
   type McpServerRecord,
-} from '../lib/mcpPermissions'
-import { BrandButton, BrandInput, BrandSelect } from './ui'
+} from '@/lib/system/mcpPermissions'
 
 // ============ 内置工具清单（与 mcpBridge.MCP_TOOL_NAMES 对应） ============
 

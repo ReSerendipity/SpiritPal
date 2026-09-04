@@ -8,8 +8,8 @@
  *  3. 配置加载失败（404 / 非法 JSON）→ 静默降级，绝不抛错
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { useDecorationPhysics } from './useDecorationPhysics'
 
 /** 内部简化格式的 physics3.json：输出到 ParamHairFront（→ head 锚点） */

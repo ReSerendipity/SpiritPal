@@ -6,8 +6,8 @@
  * 奖励发放：金币走 petStore.addCoins，亲密度走 petStore stats 更新。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { usePetStore } from '../stores/petStore'
-import { getCollectionManager, type CollectionSet, DEFAULT_COLLECTION_SETS } from '../lib/collectionManager'
+import { getCollectionManager, type CollectionSet, DEFAULT_COLLECTION_SETS } from '@/lib/data/collectionManager'
+import { usePetStore } from '@/stores/petStore'
 
 const STORAGE_KEY = 'spiritpal:collections'
 

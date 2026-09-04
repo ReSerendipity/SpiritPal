@@ -24,10 +24,10 @@
  */
 import { useEffect, useRef, useState, useCallback } from 'react'
 import type { CSSProperties } from 'react'
-import { ATLAS, ANIMATION_ROWS, type PetState } from '../lib/types'
-import { getCharacter } from '../lib/characters'
-import { swallowedCatch } from '@/lib/swallowedCatch'
-import { detectVideoChromaKeyNeed, drawChromaKeyFrame } from '../lib/chromaKey'
+import { getCharacter } from '@/lib/data/characters'
+import { ATLAS, ANIMATION_ROWS, type PetState } from '@/lib/data/types'
+import { detectVideoChromaKeyNeed, drawChromaKeyFrame } from '@/lib/render/chromaKey'
+import { swallowedCatch } from '@/lib/system/swallowedCatch'
 
 /** 精灵渲染器Props */
 interface SpriteRendererProps {

@@ -1,6 +1,6 @@
 // PetBubble 组件测试 — 气泡显示、自动消失、onClose 回调
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, act } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { PetBubble } from '../PetBubble'
 
 describe('PetBubble', () => {

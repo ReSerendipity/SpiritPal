@@ -1,6 +1,6 @@
 // MobilePersonalityView smoke 测试 — 复用 PersonalityEditor 渲染
-import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { MobilePersonalityView } from './MobilePersonalityView'
 
 describe('MobilePersonalityView', () => {

@@ -22,8 +22,8 @@
  */
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { ChatMessage } from '../lib/types'
-import { usePetStore } from './petStore'
+import type { ChatMessage } from '@/lib/data/types'
+import { usePetStore } from '@/stores/petStore'
 
 // ============ 常量 ============
 

@@ -11,10 +11,10 @@
  * Tauri 的 window/event API 已在 src/test/setup.ts 中统一 mock。
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { act, renderHook, waitFor } from '@testing-library/react'
-import { useMiniMode } from './useMiniMode'
 import { emit, listen } from '@tauri-apps/api/event'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { useMiniMode } from './useMiniMode'
 
 const mockEmit = vi.mocked(emit)
 const mockListen = vi.mocked(listen)

@@ -27,8 +27,8 @@ import {
   extractFrames, extractFramesFromImage, generateSpriteSheet,
   downloadSpriteSheet, DEFAULT_CONFIG,
   type SpriteSheetConfig, type SpriteSheetResult,
-} from '../lib/spriteSheetTool'
-import { validateUploadMagic } from '../lib/uploadMagic'
+} from '@/lib/render/spriteSheetTool'
+import { validateUploadMagic } from '@/lib/system/uploadMagic'
 
 type Stage = 'idle' | 'extracting' | 'ready' | 'done'
 

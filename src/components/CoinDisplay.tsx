@@ -17,8 +17,8 @@
  * - useTranslation: i18n国际化
  */
 import React, { useState, useEffect, useRef } from 'react'
-import { usePetStore } from '../stores/petStore'
 import { useTranslation } from 'react-i18next'
+import { usePetStore } from '../stores/petStore'
 
 // ============ 类型定义 ============
 

@@ -1,10 +1,10 @@
 // 最终放置位置: src/hooks/pet/usePetWindows.test.tsx
 // 覆盖: usePetWindows —— 返回 showWindow/hideWindow、showWindow 创建并显示子窗口、hideWindow 隐藏、托盘图标同步 invoke、卸载清理
 // Mock: settingsStore / appWindows / petForm / windowPositionMemory / @tauri-apps/api/window
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
 import { invoke } from '@tauri-apps/api/core'
-import { usePetWindows } from './usePetWindows'
+import { renderHook, act } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { usePetWindows } from '@/hooks/pet/usePetWindows'
 
 const wins = vi.hoisted(() => {
   const appWindow = {
@@ -33,19 +33,19 @@ vi.mock('@tauri-apps/api/window', () => ({
   WebviewWindow: vi.fn(),
 }))
 
-vi.mock('../../stores/settingsStore', () => ({
+vi.mock('@/stores/settingsStore', () => ({
   useSettingsStore: { getState: () => ({ startMinimized: false }) },
 }))
 
-vi.mock('../../lib/appWindows', () => ({
+vi.mock('@/lib/system/appWindows', () => ({
   ensureAppWindow: wins.ensureAppWindow,
 }))
 
-vi.mock('../../lib/petForm', () => ({
+vi.mock('@/lib/nurture/petForm', () => ({
   togglePetForm: wins.togglePetForm,
 }))
 
-vi.mock('@/lib/windowPositionMemory', () => ({
+vi.mock('@/lib/system/windowPositionMemory', () => ({
   initPetWindowPosition: wins.initPetWindowPosition,
 }))
 

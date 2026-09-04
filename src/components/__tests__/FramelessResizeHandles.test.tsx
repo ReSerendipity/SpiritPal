@@ -1,6 +1,6 @@
 // T-04: 组件单元测试覆盖 — FramelessResizeHandles 组件
-import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
 import { FramelessResizeHandles } from '../FramelessChrome'
 
 // Mock Tauri window

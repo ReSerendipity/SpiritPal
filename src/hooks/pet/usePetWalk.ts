@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react'
-import type { AnimationId } from '../../lib/animationConfig'
+import type { AnimationId } from '@/lib/render/animationConfig'
 
 const WALK_ACCEL_START = 0.3
 const WALK_FULL_SPEED_START = 1.0

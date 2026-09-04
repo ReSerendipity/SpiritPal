@@ -16,9 +16,9 @@
  */
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { AppSettings } from '../lib/types'
-import { getDefaultCharacter } from '../lib/characters'
-import { encryptedStorage } from '../lib/encryptedStorage'
+import { getDefaultCharacter } from '@/lib/data/characters'
+import { encryptedStorage } from '@/lib/data/encryptedStorage'
+import type { AppSettings } from '@/lib/data/types'
 
 /** 默认设置 */
 const DEFAULT_SETTINGS: AppSettings = {

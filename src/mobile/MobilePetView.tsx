@@ -24,17 +24,17 @@
  * @see {@link ../lib/behaviorEngine} 行为引擎
  */
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
-import { usePetStore } from '../stores/petStore'
-import { useSettingsStore } from '../stores/settingsStore'
-import { getCharacter } from '../lib/characters'
-import { getModManager } from '../lib/modManager'
-import { Live2DRenderer, getMotionGroupForState } from '../components/Live2DRenderer'
-import type { Live2DRendererHandle } from '../components/Live2DRenderer'
-import { SpriteRenderer } from '../components/SpriteRenderer'
-import { PetBubble } from '../components/PetBubble'
-import { pickPetReaction } from '../lib/behaviorEngine'
-import { getAchievementManager } from '../lib/achievementSystem'
-import type { PetState, InventoryItem } from '../lib/types'
+import { Live2DRenderer, getMotionGroupForState } from '@/components/Live2DRenderer'
+import type { Live2DRendererHandle } from '@/components/Live2DRenderer'
+import { PetBubble } from '@/components/PetBubble'
+import { SpriteRenderer } from '@/components/SpriteRenderer'
+import { pickPetReaction } from '@/lib/ai/behaviorEngine'
+import { getCharacter } from '@/lib/data/characters'
+import { getModManager } from '@/lib/data/modManager'
+import type { PetState, InventoryItem } from '@/lib/data/types'
+import { getAchievementManager } from '@/lib/nurture/achievementSystem'
+import { usePetStore } from '@/stores/petStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 /**
  * MobilePetView 组件属性

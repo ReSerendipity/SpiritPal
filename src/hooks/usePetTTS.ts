@@ -7,7 +7,7 @@
  * - 全程 try/catch 静默降级，不影响主流程
  */
 import { useCallback, useEffect } from 'react'
-import { getTTSEngineManager } from '../lib/ttsEngine'
+import { getTTSEngineManager } from '@/lib/system/ttsEngine'
 
 export function usePetTTS(): { speak: (text: string) => void } {
   useEffect(() => {

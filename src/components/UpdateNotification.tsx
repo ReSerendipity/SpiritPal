@@ -17,7 +17,7 @@
  * - updater: 版本检查、下载安装逻辑
  */
 import { useState, useEffect, useCallback } from 'react'
-import { checkForUpdates, downloadAndInstallUpdate, type UpdateInfo } from '@/lib/updater'
+import { checkForUpdates, downloadAndInstallUpdate, type UpdateInfo } from '@/lib/system/updater'
 
 // ============ Props ============
 

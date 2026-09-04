@@ -1,15 +1,15 @@
 // 最终放置位置: src/hooks/pet/usePetLive2D.test.tsx
 // 覆盖: usePetLive2D —— 模型路径检测、useLive2D 标志、setLive2dFailed、motion 触发
 // Mock: ../../lib/commonUtils.fetchWithTimeout；animationConfig 为真实导入
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { usePetLive2D } from './usePetLive2D'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { usePetLive2D } from '@/hooks/pet/usePetLive2D'
 
 const live2d = vi.hoisted(() => ({
   fetchWithTimeout: vi.fn(),
 }))
 
-vi.mock('../../lib/commonUtils', () => ({
+vi.mock('@/lib/data/commonUtils', () => ({
   fetchWithTimeout: live2d.fetchWithTimeout,
 }))
 

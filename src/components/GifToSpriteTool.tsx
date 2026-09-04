@@ -18,15 +18,15 @@
  * - useEffect: 帧数变化时同步动画名称数组
  */
 import { useState, useRef, useCallback } from 'react'
+import { parseGIF, decompressFrames } from 'gifuct-js'
 import {
   X, Upload, Download, Loader2, Grid3x3, Film, Image as ImageIcon,
   AlertCircle, Check, FileJson, Settings2, Layers,
 } from 'lucide-react'
-import { parseGIF, decompressFrames } from 'gifuct-js'
+import { createSpriteAtlas, type SpriteAtlasData } from '@/lib/render/spriteAtlasBuilder'
+import { validateUploadMagic } from '@/lib/system/uploadMagic'
 import type { ParsedGif, ParsedFrame } from 'gifuct-js'
-import { validateUploadMagic } from '../lib/uploadMagic'
 // A-6：紧凑图集导出（BinPacker 打包，空间利用率高于固定网格）
-import { createSpriteAtlas, type SpriteAtlasData } from '../lib/spriteAtlasBuilder'
 
 // ============ 配置类型 ============
 /** 精灵图配置 */

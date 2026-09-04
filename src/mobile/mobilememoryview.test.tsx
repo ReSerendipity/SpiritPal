@@ -1,10 +1,10 @@
 // MobileMemoryView smoke 测试 — 可视化 / 记忆列表子页导航
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
-import { MobileMemoryView } from './MobileMemoryView'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { MobileMemoryView } from '@/mobile/MobileMemoryView'
 
 // mock enhancedMemory：避免测试环境触发真实存储加载
-vi.mock('../lib/enhancedMemory', () => ({
+vi.mock('@/lib/memory/enhancedMemory', () => ({
   getEnhancedMemoryManager: vi.fn(() => ({
     ensureLoaded: vi.fn(async () => {}),
     getAllMemories: vi.fn(() => []),
@@ -13,7 +13,7 @@ vi.mock('../lib/enhancedMemory', () => ({
 }))
 
 // mock MemoryPanel：list 子页复用桌面面板，仅验证导航外壳
-vi.mock('../components/MemoryPanel', () => ({
+vi.mock('@/components/MemoryPanel', () => ({
   MemoryPanel: () => <div data-testid="memory-panel" />,
 }))
 

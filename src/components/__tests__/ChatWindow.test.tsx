@@ -1,6 +1,6 @@
 // ChatWindow 组件测试 — 消息渲染、输入发送、搜索、清空
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // ============ Mock 所有依赖 ============
 
@@ -19,7 +19,7 @@ const mockChatStore = {
   setMessageConsistency: vi.fn(),
 }
 
-vi.mock('../../stores/chatStore', () => ({
+vi.mock('@/stores/chatStore', () => ({
   useChatStore: vi.fn((selector: (s: typeof mockChatStore) => unknown) => selector(mockChatStore)),
 }))
 
@@ -27,7 +27,7 @@ const mockPetStore = {
   currentCharacterId: 'doro',
 }
 
-vi.mock('../../stores/petStore', () => ({
+vi.mock('@/stores/petStore', () => ({
   usePetStore: vi.fn((selector: (s: typeof mockPetStore) => unknown) => selector(mockPetStore)),
 }))
 
@@ -41,7 +41,7 @@ const mockCharacter = {
   fewShotExamples: [],
 }
 
-vi.mock('../../lib/characters', () => ({
+vi.mock('@/lib/data/characters', () => ({
   getCharacter: vi.fn(() => mockCharacter),
 }))
 
@@ -52,18 +52,18 @@ const mockMemoryMgr = {
   getContextForChat: vi.fn(() => ''),
 }
 
-vi.mock('../../lib/enhancedMemory', () => ({
+vi.mock('@/lib/memory/enhancedMemory', () => ({
   getEnhancedMemoryManager: vi.fn(() => mockMemoryMgr),
 }))
 
-vi.mock('../../lib/llmClient', () => ({
+vi.mock('@/lib/ai/llmClient', () => ({
   getLLMClient: vi.fn(() => ({
     chat: vi.fn(() => Promise.resolve('AI 回复')),
   })),
   DEFAULT_AI_CONFIG: { provider: 'openai', apiKey: '', model: 'gpt-4', temperature: 0.7, maxTokens: 2000 },
 }))
 
-vi.mock('../../lib/secureStorage', () => ({
+vi.mock('@/lib/data/secureStorage', () => ({
   getApiKey: vi.fn(() => Promise.resolve(null)),
 }))
 
@@ -72,42 +72,42 @@ const mockStageMgr = {
   restore: vi.fn(),
 }
 
-vi.mock('../../lib/chatStages', () => ({
+vi.mock('@/lib/ai/chatStages', () => ({
   getChatStageManager: vi.fn(() => mockStageMgr),
 }))
 
-vi.mock('../../lib/achievementSystem', () => ({
+vi.mock('@/lib/nurture/achievementSystem', () => ({
   getAchievementManager: vi.fn(() => ({
     recordChat: vi.fn(),
   })),
 }))
 
-vi.mock('../../lib/scheduleManager', () => ({
+vi.mock('@/lib/nurture/scheduleManager', () => ({
   getScheduleManager: vi.fn(() => ({
     addFromChat: vi.fn(() => null),
   })),
 }))
 
-vi.mock('../../lib/aiAgent', () => ({
+vi.mock('@/lib/ai/aiAgent', () => ({
   detectAgentIntent: vi.fn(() => false),
   processAgentRequest: vi.fn(),
 }))
 
-vi.mock('../../lib/personalityEngine', () => ({
+vi.mock('@/lib/ai/personalityEngine', () => ({
   composeFullSystemPrompt: vi.fn(() => 'system prompt'),
   getEffectivePersonality: vi.fn(() => ({})),
 }))
 
-vi.mock('../../lib/characterConsistency', () => ({
+vi.mock('@/lib/nurture/characterConsistency', () => ({
   checkConsistency: vi.fn(() => ({ isConsistent: true, violations: [] })),
   generateCorrectionPrompt: vi.fn(() => 'correction'),
 }))
 
-vi.mock('../../lib/aiConfig', () => ({
+vi.mock('@/lib/ai/aiConfig', () => ({
   loadAIConfig: vi.fn(() => Promise.resolve({ provider: 'openai', apiKey: '', model: 'gpt-4' })),
 }))
 
-vi.mock('../../lib/emotionExtractor', () => ({
+vi.mock('@/lib/ai/emotionExtractor', () => ({
   extractEmotionFromChunk: vi.fn(() => null),
   extractEmotion: vi.fn(() => null),
   EMOTION_PROMPT_FRAGMENT: 'emotion prompt fragment',
@@ -116,7 +116,7 @@ vi.mock('../../lib/emotionExtractor', () => ({
   removeAffectionTags: vi.fn((s: string) => s),
 }))
 
-vi.mock('../../lib/thinkTagParser', () => ({
+vi.mock('@/lib/render/thinkTagParser', () => ({
   ThinkTagParser: vi.fn().mockImplementation(() => ({
     push: vi.fn(() => ({ content: '', thinkContent: '', thinkState: 0 })),
     flush: vi.fn(() => ({ content: '', thinkContent: '', thinkState: 0 })),
@@ -131,7 +131,7 @@ vi.mock('react-markdown', () => ({
 
 // ============ 测试 ============
 
-import ChatWindow from '../ChatWindow'
+import ChatWindow from '@/components/ChatWindow'
 
 describe('ChatWindow', () => {
   beforeEach(() => {

@@ -385,7 +385,7 @@ export function usePetDragging(options: UsePetDraggingOptions): UsePetDraggingRe
           const sf = await win.scaleFactor()
           lastWinPosRef.current = { x: p.x, y: p.y }
           dragScaleRef.current = sf
-          // eslint-disable-next-line react-hooks/immutability -- 拖拽起点是鼠标事件期间的一次性快照，写入 ref 供后续 rAF/吸附使用；该 ref 值仅被读取，不存在渲染期依赖，故意在回调内赋值
+           
           dragWinOriginRef.current = {
             winX: p.x,
             winY: p.y,

@@ -12,10 +12,10 @@
  */
 import { useMemo, useState } from 'react'
 import { Coins, Search } from 'lucide-react'
-import { usePetStore } from '../stores/petStore'
-import { getShopManager, ShopLockState, type ShopCategory } from '../lib/shopManager'
-import { getRarityDisplay } from '../lib/foodEffectContract'
-import type { AnchorPoint, InventoryItem, WornDecoration } from '../lib/types'
+import type { AnchorPoint, InventoryItem, WornDecoration } from '@/lib/data/types'
+import { getRarityDisplay } from '@/lib/nurture/foodEffectContract'
+import { getShopManager, ShopLockState, type ShopCategory } from '@/lib/nurture/shopManager'
+import { usePetStore } from '@/stores/petStore'
 
 /** 商店七分类配置 */
 const CATEGORIES: { id: ShopCategory; label: string; icon: string }[] = [

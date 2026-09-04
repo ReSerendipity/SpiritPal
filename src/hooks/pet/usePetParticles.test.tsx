@@ -11,9 +11,9 @@
  * 因此这里用一个 Harness 组件而非 renderHook。
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { act, render } from '@testing-library/react'
-import { usePetParticles, type PetParticleBurstOptions } from './usePetParticles'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { usePetParticles, type PetParticleBurstOptions } from '@/hooks/pet/usePetParticles'
 
 // ============ 假的 GPUParticleSystem ============
 // vi.mock 的工厂会被提升到文件顶部，因此用到的变量必须用 vi.hoisted 预先创建
@@ -60,7 +60,7 @@ const mock = vi.hoisted(() => {
   return { instances, state, FakeSystem }
 })
 
-vi.mock('../../lib/gpuParticleSystem', () => ({
+vi.mock('@/lib/render/gpuParticleSystem', () => ({
   GPUParticleSystem: mock.FakeSystem,
 }))
 

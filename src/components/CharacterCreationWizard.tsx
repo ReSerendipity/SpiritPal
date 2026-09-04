@@ -19,11 +19,11 @@
  */
 import { useState } from 'react'
 import { X, Send, Sparkles, Check, Loader2, Bot, User } from 'lucide-react'
-import { usePetStore } from '../stores/petStore'
-import { generateCharacterFromDescription, DEFAULT_AI_CONFIG } from '../lib/llmClient'
-import { getApiKey } from '../lib/secureStorage'
-import { PERSONALITY_LABELS } from '../lib/personalityEngine'
-import type { AIConfig, CharacterProfile, Personality } from '../lib/types'
+import { generateCharacterFromDescription, DEFAULT_AI_CONFIG } from '@/lib/ai/llmClient'
+import { PERSONALITY_LABELS } from '@/lib/ai/personalityEngine'
+import { getApiKey } from '@/lib/data/secureStorage'
+import type { AIConfig, CharacterProfile, Personality } from '@/lib/data/types'
+import { usePetStore } from '@/stores/petStore'
 
 const AI_CONFIG_KEY = 'spiritpal-ai-config'
 

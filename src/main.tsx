@@ -10,7 +10,7 @@
  *    异常（__TAURI_INTERNALS__ 未就绪），这些模块在 ESM 解析阶段就会同步抛错，
  *    导致整个入口文件在第一行就终止执行。因此：
  *    - main.tsx 自身对 Tauri API 零顶层静态依赖
- *    - App.tsx 通过 `import('./App')` 动态导入，所有错误都能被 catch
+ *    - App.tsx 通过 `import('@/App')` 动态导入，所有错误都能被 catch
  * 2. **同步初始化全部 try/catch 包裹**：任何一项失败都不能阻塞 React 挂载。
  * 3. **index.html 内联 boot 遮罩 + 内联 window.onerror**：保证哪怕 ESM 解析阶段
  *    直接崩溃，用户也能看到启动动画和错误信息。
@@ -23,11 +23,11 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import './index.css'
-import { initAllCharacters } from './stores/petStore'
-import { setLanguage as i18nSetLanguage } from './lib/i18n'
-import { trackAppLaunch } from './lib/analytics'
-import { runtimeMonitor } from './lib/runtimeMonitor'
-import Logger from './lib/logger'
+import { trackAppLaunch } from '@/lib/system/analytics'
+import { setLanguage as i18nSetLanguage } from '@/lib/system/i18n'
+import Logger from '@/lib/system/logger'
+import { runtimeMonitor } from '@/lib/system/runtimeMonitor'
+import { initAllCharacters } from '@/stores/petStore'
 
 // =========================================================================
 // safeInvoke：延迟动态 import 的 invoke 安全封装
@@ -189,7 +189,7 @@ try {
 // 使用动态 import 避免在模块顶层引入 Tauri API 依赖。
 // ============================================================
 try {
-  void import('./lib/windowManager').then(({ enableWindowsPinMode }) => {
+  void import('@/lib/system/windowManager').then(({ enableWindowsPinMode }) => {
     return enableWindowsPinMode()
   }).catch(() => {
     // 非 Tauri 环境或模块加载失败，静默降级
@@ -203,7 +203,7 @@ try {
 // 将 entityGraph / dreamingConsolidation 接入生产链路
 // ============================================================
 try {
-  void import('./lib/memoryBackground').then(({ initMemoryBackground }) => {
+  void import('@/lib/memory/memoryBackground').then(({ initMemoryBackground }) => {
     return initMemoryBackground()
   }).catch(() => {
     // 记忆后台初始化失败，静默降级
@@ -217,7 +217,7 @@ try {
 // 非致命：失败或环境不支持则静默降级
 // ============================================================
 try {
-  void import('./lib/pushNotificationManager').then(({ pushNotificationManager }) => {
+  void import('@/lib/system/pushNotificationManager').then(({ pushNotificationManager }) => {
     return pushNotificationManager.init()
   }).catch(() => {
     // 推送初始化失败，静默降级
@@ -231,7 +231,7 @@ try {
 // 非致命：失败或环境不支持则静默降级（MCP 专项）
 // ============================================================
 try {
-  void import('./lib/mcpAppBridge').then(({ startMcpAppBridge }) => {
+  void import('@/lib/system/mcpAppBridge').then(({ startMcpAppBridge }) => {
     startMcpAppBridge()
   }).catch(() => {
     // MCP 桥初始化失败，静默降级
@@ -255,7 +255,7 @@ if (!rootEl) {
 } else {
   // 用 Promise.resolve().then 包裹，确保动态 import 抛错时能走 catch（动态 import 是 Promise）
   Promise.resolve()
-    .then(() => import('./App'))
+    .then(() => import('@/App'))
     .then(({ default: App }) => {
       const root = ReactDOM.createRoot(rootEl)
       root.render(

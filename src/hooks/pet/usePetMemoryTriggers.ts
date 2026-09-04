@@ -8,14 +8,14 @@
  * - 监听用户聊天响应事件
  */
 
-import { useEffect } from 'react'
 import { listen } from '@tauri-apps/api/event'
-import { getEnhancedMemoryManager } from '../../lib/enhancedMemory'
-import { getRecallEngine, buildRecallRenderPrompt } from '../../lib/recallEngine'
-import { stringSimilarity } from '../../lib/stringSimilarity'
-import type { RecallCandidate } from '../../lib/recallEngine'
-import type { PetState } from '../../lib/types'
-import type { AnimationId } from '../../lib/animationConfig'
+import { useEffect } from 'react'
+import type { PetState } from '@/lib/data/types'
+import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
+import { getRecallEngine, buildRecallRenderPrompt } from '@/lib/memory/recallEngine'
+import type { RecallCandidate } from '@/lib/memory/recallEngine'
+import type { AnimationId } from '@/lib/render/animationConfig'
+import { stringSimilarity } from '@/lib/system/stringSimilarity'
 
 export interface UsePetMemoryTriggersOptions {
   /** 当前角色 ID */
@@ -48,7 +48,7 @@ export function usePetMemoryTriggers(options: UsePetMemoryTriggersOptions): void
         // LLM 渲染函数
         const llmRenderer = async (candidate: RecallCandidate, contextHints: string) => {
           try {
-            const { getLLMClient } = await import('../../lib/llmClient')
+            const { getLLMClient } = await import('@/lib/ai/llmClient')
             const client = getLLMClient()
             const prompt = buildRecallRenderPrompt(candidate, contextHints)
             const response = await client.chatOnce([

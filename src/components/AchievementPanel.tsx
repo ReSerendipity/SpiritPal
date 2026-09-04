@@ -23,8 +23,8 @@ import {
   ACHIEVEMENTS,
   BADGE_NAMES,
   BADGE_COLORS,
-} from '../lib/achievementSystem'
-import { usePetStore } from '../stores/petStore'
+} from '@/lib/nurture/achievementSystem'
+import { usePetStore } from '@/stores/petStore'
 
 const selectStats = (s: ReturnType<typeof usePetStore.getState>) => s.stats[s.currentCharacterId]
 

@@ -18,16 +18,16 @@
  */
 import { useState, useCallback } from 'react'
 import { RotateCcw, Eye } from 'lucide-react'
-import type { Personality } from '../lib/types'
 import {
   PERSONALITY_LABELS,
   composePersonalityPrompt,
   savePersonalityOverride,
   removePersonalityOverride,
   getEffectivePersonality,
-} from '../lib/personalityEngine'
-import { CHARACTERS, getCharacter } from '../lib/characters'
-import { useSettingsStore } from '../stores/settingsStore'
+} from '@/lib/ai/personalityEngine'
+import { CHARACTERS, getCharacter } from '@/lib/data/characters'
+import type { Personality } from '@/lib/data/types'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 /**
  * 性格参数编辑面板

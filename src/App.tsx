@@ -13,15 +13,15 @@
  * - Shimeji character preloading
  * - Remove boot-critical CSS after mount
  */
-import { Component, useEffect, useState, lazy, Suspense, type ReactNode } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import PetWindow from './components/PetWindow'
-import { setupExternalLinkInterceptor } from './lib/externalLinks'
-import { loadShimejiCharacters } from './lib/shimejiLoader'
+import { Component, useEffect, useState, lazy, Suspense, type ReactNode } from 'react'
+import PetWindow from '@/components/PetWindow'
+import { loadShimejiCharacters } from '@/lib/render/shimejiLoader'
+import { setupExternalLinkInterceptor } from '@/lib/system/externalLinks'
 
-const MobileApp = lazy(() => import('./mobile/MobileApp'))
-const SettingsWindow = lazy(() => import('./components/SettingsWindow'))
-const ChatWindow = lazy(() => import('./components/ChatWindow'))
+const MobileApp = lazy(() => import('@/mobile/MobileApp'))
+const SettingsWindow = lazy(() => import('@/components/SettingsWindow'))
+const ChatWindow = lazy(() => import('@/components/ChatWindow'))
 
 function detectMobile(): boolean {
   if (typeof navigator === 'undefined') return false
@@ -73,7 +73,7 @@ export default function App() {
     void (async () => {
       try {
         const { onOpenUrl } = await import('@tauri-apps/plugin-deep-link')
-        const { handleWidgetDeepLink } = await import('./lib/widgetState')
+        const { handleWidgetDeepLink } = await import('@/lib/system/widgetState')
         const fn = await onOpenUrl((urls) => {
           urls.forEach((url) => void handleWidgetDeepLink(url).catch(() => {}))
         })

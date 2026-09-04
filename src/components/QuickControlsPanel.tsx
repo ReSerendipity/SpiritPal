@@ -21,8 +21,8 @@ import {
   Volume2, VolumeX, Volume1, Sun, Moon, Clipboard,
   Copy, Trash2, Pin, Search, ChevronUp, ChevronDown,
 } from 'lucide-react'
-import { getSystemControls } from '../lib/systemControls'
-import { getClipboardManager, type ClipboardEntry } from '../lib/clipboardManager'
+import { getClipboardManager, type ClipboardEntry } from '@/lib/system/clipboardManager'
+import { getSystemControls } from '@/lib/system/systemControls'
 
 /**
  * 快捷控制面板

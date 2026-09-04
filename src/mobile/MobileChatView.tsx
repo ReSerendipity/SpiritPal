@@ -20,14 +20,14 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
-import Markdown from 'react-markdown'
 import { Send, Square, Trash2, Bot, User } from 'lucide-react'
-import { useChatStore } from '../stores/chatStore'
-import { usePetStore } from '../stores/petStore'
-import { getCharacter } from '../lib/characters'
+import Markdown from 'react-markdown'
+import { composeFullSystemPrompt, getEffectivePersonality } from '@/lib/ai/personalityEngine'
+import { getCharacter } from '@/lib/data/characters'
+import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
+import { useChatStore } from '@/stores/chatStore'
+import { usePetStore } from '@/stores/petStore'
 // D8：移动端记忆注入
-import { getEnhancedMemoryManager } from '../lib/enhancedMemory'
-import { composeFullSystemPrompt, getEffectivePersonality } from '../lib/personalityEngine'
 
 /**
  * 移动端聊天视图组件
@@ -88,8 +88,8 @@ export function MobileChatView() {
 
     try {
       // 延迟导入避免循环依赖
-      const { getLLMClient, DEFAULT_AI_CONFIG } = await import('../lib/llmClient')
-      const { getApiKey } = await import('../lib/secureStorage')
+      const { getLLMClient, DEFAULT_AI_CONFIG } = await import('@/lib/ai/llmClient')
+      const { getApiKey } = await import('@/lib/data/secureStorage')
 
       const AI_CONFIG_KEY = 'spiritpal-ai-config'
       let config = DEFAULT_AI_CONFIG

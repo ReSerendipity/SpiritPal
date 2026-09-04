@@ -18,13 +18,13 @@ import {
   Sun, Moon, Monitor, Bell, RefreshCw, Cloud, Wifi,
   Type, Info, ChevronRight, Brain, Sparkles,
 } from 'lucide-react'
-import { useSettingsStore } from '../stores/settingsStore'
-import { usePetStore } from '../stores/petStore'
-import { themeManager, type ThemeMode } from '../lib/themeManager'
-import { syncManager, type SyncConfig } from '../lib/syncManager'
-import { getAllCharacters } from '../lib/characters'
-import { MobileMemoryView } from './MobileMemoryView'
-import { MobilePersonalityView } from './MobilePersonalityView'
+import { getAllCharacters } from '@/lib/data/characters'
+import { syncManager, type SyncConfig } from '@/lib/system/syncManager'
+import { themeManager, type ThemeMode } from '@/lib/system/themeManager'
+import { MobileMemoryView } from '@/mobile/MobileMemoryView'
+import { MobilePersonalityView } from '@/mobile/MobilePersonalityView'
+import { usePetStore } from '@/stores/petStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 /** 设置页面分区类型 */
 type SettingsSection = 'main' | 'theme' | 'sync' | 'memory' | 'personality' | 'about'

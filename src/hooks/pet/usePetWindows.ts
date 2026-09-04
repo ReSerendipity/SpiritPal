@@ -10,15 +10,15 @@
  * - 托盘图标状态同步（根据宠物状态切换）
  */
 
-import { useCallback, useEffect } from 'react'
-import { getCurrentWindow } from '@tauri-apps/api/window'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import { useSettingsStore } from '../../stores/settingsStore'
-import { animationIdToPetState, type AnimationId } from '../../lib/animationConfig'
-import type { PetState } from '../../lib/types'
-import { ensureAppWindow } from '../../lib/appWindows'
-import { togglePetForm } from '../../lib/petForm'
+import { getCurrentWindow } from '@tauri-apps/api/window'
+import { useCallback, useEffect } from 'react'
+import type { PetState } from '@/lib/data/types'
+import { togglePetForm } from '@/lib/nurture/petForm'
+import { animationIdToPetState, type AnimationId } from '@/lib/render/animationConfig'
+import { ensureAppWindow } from '@/lib/system/appWindows'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 export interface UsePetWindowsOptions {
   /** 设置番茄钟状态 */
@@ -74,7 +74,7 @@ export function usePetWindows(options: UsePetWindowsOptions): UsePetWindowsRetur
     let cleanup: (() => void) | null = null
     const initPositionMemory = async () => {
       try {
-        const { initPetWindowPosition } = await import('@/lib/windowPositionMemory')
+        const { initPetWindowPosition } = await import('@/lib/system/windowPositionMemory')
         cleanup = await initPetWindowPosition()
       } catch {
         // 忽略（plugin-store 可能不可用）

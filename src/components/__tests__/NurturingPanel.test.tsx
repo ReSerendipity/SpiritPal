@@ -1,7 +1,7 @@
 // NurturingPanel 组件测试 — 四维数值显示、等级徽章、金币
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
-import type { NurturingStats, BadgeTier } from '../../lib/types'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import type { NurturingStats, BadgeTier } from '@/lib/data/types'
 
 // ============ 使用 vi.hoisted 定义 mock state（避免 hoisting 问题）============
 const { mockState } = vi.hoisted(() => {
@@ -47,7 +47,7 @@ vi.mock('../../stores/petStore', () => ({
   ),
 }))
 
-import { NurturingPanel } from '../NurturingPanel'
+import { NurturingPanel } from '@/components/NurturingPanel'
 
 // 辅助函数：更新 mock state
 function setStats(stats: Partial<NurturingStats>) {
