@@ -1,43 +1,49 @@
 /**
- * SQLite 持久化层 — 使用 tauri-plugin-sql 替代 localStorage
+ * SQLite 持久化层 — D-1 收口：Rust 语义化命令（sp_*）替代 plugin-sql 直执行 SQL
  * PRD 要求：所有养成/记忆/模组/设置数据持久化到 SQLite
  *
  * @fileoverview
  * 主要模块：
- * - getDb()：获取数据库实例（单例，自动初始化）
- * - initDB()：初始化数据库（建表、PRAGMA 优化、localStorage 迁移）
+ * - ensureDbReady()/initDB()：初始化数据库（Rust 侧迁移 schema + localStorage 迁移）
  * - getSetting()/setSetting()：全局设置读写
  * - getCharacterData()/saveCharacterData()：角色养成数据读写
  * - getMemories()/saveMemories()：记忆数据读写
  * - getMods()/saveMods()：模组数据读写
  * - getInventory()/saveInventory()：背包数据读写
  *
- * 表结构：
- *   characters — 角色养成数据（每个角色一行）
- *   settings   — 全局设置 / zustand store JSON blob
- *   memories   — 记忆数据（immediate/short_term/long_term/core）
- *   mods       — 模组数据
- *   inventory  — 背包物品
- *   schedules  — 日程
+ * 表结构（由 src-tauri/src/sqlite.rs 的 ensure_schema 幂等创建）：
+ *   characters / settings / memories(+扩列) / memory_summaries / memory_state /
+ *   memory_semantic_facts / owner_facts / pet_experiences / visual_memories /
+ *   entity_nodes / mods / inventory / schedules / commitments / context_episodes /
+ *   dirty_data_registry
  *
- * 性能优化 PRAGMA：WAL 模式、synchronous=NORMAL、mmap_size=256MB
+ * 安全：本模块不再直接持有 SQL；所有写入经 Rust 端参数绑定命令（无字符串拼 SQL），
+ * 因此 capability 中可整体移除 `sql:*` 授权（S1 闭合）。
  *
  * @module db
- * @requires @tauri-apps/plugin-sql - Tauri SQLite 插件
  */
 
-// R-14: 数据库文件级加密
+// D-1: 所有数据访问经 Tauri invoke 走 Rust 语义命令
 import { invoke } from '@tauri-apps/api/core'
 // P1-2: 多窗口 settingsCache 一致性 — 监听跨窗口设置变更事件
 import { emit, listen } from '@tauri-apps/api/event'
-import Database from '@tauri-apps/plugin-sql'
 
-// ============ 数据库单例 ============
+// ============ 就绪与初始化 ============
 
-const DB_PATH = 'sqlite:spiritpal.db'
+let readyPromise: Promise<void> | null = null
 
-let dbInstance: Database | null = null
-let dbInitPromise: Promise<Database> | null = null
+/**
+ * 确保数据库就绪（Rust 侧首次调用时自动建表/迁移；幂等）。
+ * 由 initDB 显式调用一次，其余函数在调用前都先 await 该 Promise。
+ */
+function ensureReady(): Promise<void> {
+  if (!readyPromise) {
+    readyPromise = (async () => {
+      await invoke('sp_db_migrate')
+    })()
+  }
+  return readyPromise
+}
 
 /** settings 内存缓存：避免频繁查询相同的 key（如 store 持久化 blob） */
 const settingsCache = new Map<string, string | null>()
@@ -78,25 +84,11 @@ function cacheInvalidate(key: string): void {
 }
 
 /**
- * 获取数据库实例（单例，自动初始化）。
- * 多次调用返回同一个 Promise，确保表只创建一次、迁移只执行一次。
- */
-export async function getDb(): Promise<Database> {
-  if (dbInstance) return dbInstance
-  if (!dbInitPromise) {
-    dbInitPromise = initDB()
-  }
-  return dbInitPromise
-}
-
-/**
- * 关闭数据库连接并清理资源。
- * 将 dbInstance 置 null、dbInitPromise 置 null、清空 settingsCache。
- * 下次调用 getDb() 时会重新初始化数据库连接。
+ * 关闭数据库连接（D-1 兼容保留：Rust 侧连接由 encrypt_db_at_rest 统一关闭；
+ * 本函数保留以防旧调用方依赖，实际为无操作）。
+ * @deprecated 收口后无需前端关闭连接
  */
 export function closeDatabase(): void {
-  dbInstance = null
-  dbInitPromise = null
   settingsCache.clear()
 }
 
@@ -140,26 +132,11 @@ export async function setupSettingsCacheListener(): Promise<void> {
 /**
  * R-14: 加密数据库文件（应用关闭时调用）
  * 将明文 spiritpal.db 加密为 spiritpal.db.enc，删除明文文件。
- *
- * S2/M0 (E1): 加密前先执行 PRAGMA wal_checkpoint(TRUNCATE)，
- * 确保 WAL 中的最新数据合并到主库，避免加密后丢失最新写入。
+ * Rust 侧 encrypt_db_at_rest 内部会先关闭 rusqlite 连接（D-1 协调）。
  */
 export async function encryptDatabaseAtRest(): Promise<void> {
   try {
-    // S2/M0 (E1): 先执行 WAL checkpoint，将 WAL 数据合并到主库
-    if (dbInstance) {
-      try {
-        await dbInstance.execute('PRAGMA wal_checkpoint(TRUNCATE)')
-      } catch (e) {
-        console.warn('[SpiritPal] WAL checkpoint before encryption failed:', e)
-      }
-      // 关闭数据库连接
-      await dbInstance.close()
-      dbInstance = null
-      dbInitPromise = null
-      settingsCache.clear()
-    }
-    // 加密数据库文件（Rust 端会进一步清理 -wal/-shm 残留）
+    // 加密数据库文件（Rust 端负责连接关闭 + 清理 -wal/-shm 残留）
     await invoke('encrypt_db_at_rest')
     // P1: 无云端备份下的本地 durability —— 加密完成后自动备份一轮（保留最近 3 份）
     await invoke('backup_db_at_rest').catch((e: unknown) => {
@@ -171,14 +148,9 @@ export async function encryptDatabaseAtRest(): Promise<void> {
 }
 
 // R-14: 注册 beforeunload 事件，在应用关闭时加密数据库
-// V-1 修复：beforeunload 必须先关闭 DB 连接（WAL checkpoint + close），再调用加密
-// 之前直接 invoke('encrypt_db_at_rest') 导致 Rust 端读取 DB 时连接仍打开 →
-//   Windows 上 fs::remove_file 失败（文件锁定）→ 明文 DB 残留
+// Rust 端 ExitRequested 会再次尝试（双保险），此处尽力而为
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', () => {
-    // beforeunload 中 async 操作不可靠（浏览器可能不等待 Promise）
-    // 但 encryptDatabaseAtRest 内部会先 close DB 再 invoke 加密
-    // 即使 beforeunload 的 Promise 被截断，Rust 端 ExitRequested 也会再次尝试
     encryptDatabaseAtRest().catch((e: unknown) => {
       // M-2: 不再静默吞错 — 加密失败需记录（虽然 Rust 端 ExitRequested 会重试）
       console.error('[db] encryptDatabaseAtRest failed in beforeunload:', e instanceof Error ? e.message : e)
@@ -187,12 +159,10 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * 初始化数据库：加载连接 → 创建表 schema → 执行 localStorage 迁移。
- * 幂等：重复调用不会重复建表或重复迁移。
+ * 初始化数据库：解密 → 迁移 schema → localStorage 迁移。
+ * 幂等：重复调用不重复迁移。
  */
-export async function initDB(): Promise<Database> {
-  if (dbInstance) return dbInstance
-
+export async function initDB(): Promise<void> {
   // R-14: 启动时解密数据库文件（如果有加密版本）
   try {
     await invoke('decrypt_db_at_rest')
@@ -200,357 +170,8 @@ export async function initDB(): Promise<Database> {
     console.warn('[SpiritPal] Failed to decrypt database at rest:', e)
   }
 
-  const db = await Database.load(DB_PATH)
-  dbInstance = db
-
-  // ---- 启用 WAL 模式和性能优化 PRAGMA ----
-  // WAL（Write-Ahead Logging）允许并发读写，提升多窗口/多线程场景性能
-  // synchronous=NORMAL 在 WAL 模式下安全且高效（比 FULL 减少约 50% 写延迟）
-  try {
-    await db.execute('PRAGMA journal_mode=WAL')
-    await db.execute('PRAGMA synchronous=NORMAL')
-    // busy_timeout: 并发写入时等待锁的时间（毫秒），避免 "database is locked" 错误
-    await db.execute('PRAGMA busy_timeout=5000')
-    // 临时表和索引存储在内存中，减少磁盘 I/O
-    await db.execute('PRAGMA temp_store=MEMORY')
-    // 启用外键约束
-    await db.execute('PRAGMA foreign_keys=ON')
-    // WAL 模式下的自动检查点阈值（默认 1000 页，适当增大减少检查点频率）
-    await db.execute('PRAGMA wal_autocheckpoint=2000')
-    // 增大缓存大小（页数，默认约 2MB，增至约 8MB）
-    await db.execute('PRAGMA cache_size=-8000')
-    // 启用内存映射 I/O（增大 mmap_size 提升大查询性能）
-    await db.execute('PRAGMA mmap_size=268435456')  // 256MB
-  } catch (e) {
-    // PRAGMA 设置失败不影响数据库使用，仅记录警告
-    console.warn('[SpiritPal] Failed to set PRAGMA optimizations:', e)
-  }
-
-  // ---- 创建所有表（IF NOT EXISTS 保证幂等）----
-
-  // 角色养成数据（每个角色一行）
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS characters (
-      id TEXT PRIMARY KEY,
-      stats TEXT NOT NULL,
-      updated_at INTEGER NOT NULL
-    )
-  `)
-
-  // 全局设置 / zustand store JSON blob
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL,
-      updated_at INTEGER NOT NULL DEFAULT 0
-    )
-  `)
-  // B-3: 兼容旧库 —— settings 表历史版本没有 updated_at 列（新增列，幂等迁移）
-  try {
-    const cols = await db.select<{ name: string }[]>('PRAGMA table_info(settings)')
-    if (!cols.some((c) => c.name === 'updated_at')) {
-      await db.execute('ALTER TABLE settings ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0')
-      console.log('[SpiritPal] settings.updated_at 列迁移完成')
-    }
-  } catch (e) {
-    console.warn('[SpiritPal] settings.updated_at 列迁移失败（不影响使用）:', e)
-  }
-
-  // 记忆数据（含 embedding 列用于向量检索）
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS memories (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      character_id TEXT NOT NULL,
-      type TEXT NOT NULL,
-      content TEXT NOT NULL,
-      importance INTEGER DEFAULT 50,
-      created_at INTEGER NOT NULL,
-      last_accessed INTEGER NOT NULL,
-      embedding BLOB
-    )
-  `)
-
-  // 兼容旧数据库：若 memories 表已存在但缺少 embedding 列，则添加
-  try {
-    const columns = await db.select<{ name: string }[]>('PRAGMA table_info(memories)')
-    if (columns.length > 0 && !columns.some((c) => c.name === 'embedding')) {
-      await db.execute('ALTER TABLE memories ADD COLUMN embedding BLOB')
-      console.log('[SpiritPal] Added embedding column to memories table')
-    }
-  } catch (e) {
-    console.warn('[SpiritPal] Failed to check/migrate embedding column:', e)
-  }
-
-  // S2/M1: memories 表扩列（幂等迁移，沿用 ALTER + try-catch 先例）
-  // 将运行时四层记忆从 JSON blob 迁移为行级存储
-  const memColumns = await db.select<{ name: string }[]>('PRAGMA table_info(memories)')
-  const memColNames = new Set(memColumns.map((c) => c.name))
-
-  // memory_id: 前端 generateId 的 id（行级化后不再依赖 dbId 隐式关联）
-  if (!memColNames.has('memory_id')) {
-    try { await db.execute('ALTER TABLE memories ADD COLUMN memory_id TEXT') } catch { /* 列已存在 */ }
-  }
-  // assistant: AI 回复文本
-  if (!memColNames.has('assistant')) {
-    try { await db.execute("ALTER TABLE memories ADD COLUMN assistant TEXT DEFAULT ''") } catch { /* 列已存在 */ }
-  }
-  // category: 记忆分类
-  if (!memColNames.has('category')) {
-    try { await db.execute("ALTER TABLE memories ADD COLUMN category TEXT DEFAULT '日常'") } catch { /* 列已存在 */ }
-  }
-  // tags: JSON 数组
-  if (!memColNames.has('tags')) {
-    try { await db.execute("ALTER TABLE memories ADD COLUMN tags TEXT DEFAULT '[]'") } catch { /* 列已存在 */ }
-  }
-  // emotional_intensity: 情感强度 0-1
-  if (!memColNames.has('emotional_intensity')) {
-    try { await db.execute('ALTER TABLE memories ADD COLUMN emotional_intensity REAL DEFAULT 0') } catch { /* 列已存在 */ }
-  }
-  // emotional_valence: 情感效价 -1..1
-  if (!memColNames.has('emotional_valence')) {
-    try { await db.execute('ALTER TABLE memories ADD COLUMN emotional_valence REAL DEFAULT 0') } catch { /* 列已存在 */ }
-  }
-  // emotional_arousal: 情感唤醒度 0-1
-  if (!memColNames.has('emotional_arousal')) {
-    try { await db.execute('ALTER TABLE memories ADD COLUMN emotional_arousal REAL DEFAULT 0.3') } catch { /* 列已存在 */ }
-  }
-  // strength: 记忆强度
-  if (!memColNames.has('strength')) {
-    try { await db.execute('ALTER TABLE memories ADD COLUMN strength REAL DEFAULT 1.0') } catch { /* 列已存在 */ }
-  }
-  // decay_factor: 衰减因子（仅 UI 展示）
-  if (!memColNames.has('decay_factor')) {
-    try { await db.execute('ALTER TABLE memories ADD COLUMN decay_factor REAL DEFAULT 1.0') } catch { /* 列已存在 */ }
-  }
-  // access_count: 访问次数
-  if (!memColNames.has('access_count')) {
-    try { await db.execute('ALTER TABLE memories ADD COLUMN access_count INTEGER DEFAULT 0') } catch { /* 列已存在 */ }
-  }
-  // source_kind: 记忆来源
-  if (!memColNames.has('source_kind')) {
-    try { await db.execute("ALTER TABLE memories ADD COLUMN source_kind TEXT DEFAULT 'exchange'") } catch { /* 列已存在 */ }
-  }
-  // fact_text: LLM 提取的事实文本
-  if (!memColNames.has('fact_text')) {
-    try { await db.execute('ALTER TABLE memories ADD COLUMN fact_text TEXT') } catch { /* 列已存在 */ }
-  }
-  // is_autobiographical: 是否自传记忆
-  if (!memColNames.has('is_autobiographical')) {
-    try { await db.execute('ALTER TABLE memories ADD COLUMN is_autobiographical INTEGER DEFAULT 0') } catch { /* 列已存在 */ }
-  }
-  // tier: 记忆层级 working/episodic/autobiographical
-  if (!memColNames.has('tier')) {
-    try { await db.execute("ALTER TABLE memories ADD COLUMN tier TEXT DEFAULT 'episodic'") } catch { /* 列已存在 */ }
-  }
-  // superseded_by: 软删除/被更新指针（冲突解决预留）
-  if (!memColNames.has('superseded_by')) {
-    try { await db.execute('ALTER TABLE memories ADD COLUMN superseded_by INTEGER') } catch { /* 列已存在 */ }
-  }
-
-  // S2/M1: 新增索引（扩列后）
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_memories_memory_id ON memories(memory_id)')
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_memories_tier ON memories(tier)')
-
-  // S2/M1: 新增 memory_summaries 表（semantic 层摘要，按角色一行）
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS memory_summaries (
-      character_id TEXT PRIMARY KEY,
-      summary TEXT NOT NULL,
-      updated_at INTEGER NOT NULL
-    )
-  `)
-
-  // S2/M1: 新增 memory_state 表（触发状态/冷却等轻量状态，明文非敏感）
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS memory_state (
-      character_id TEXT PRIMARY KEY,
-      last_chat_date TEXT,
-      trigger_log TEXT DEFAULT '[]',
-      ignore_count TEXT DEFAULT '{}',
-      last_periodic_fire_date TEXT DEFAULT '{}',
-      injected_at TEXT DEFAULT '{}',
-      llm_reassessed_ids TEXT DEFAULT '[]'
-    )
-  `)
-
-  // P1-6: 新增 memory_semantic_facts 表（语义层结构化，替代 5000 字符字符串截断）
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS memory_semantic_facts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      character_id TEXT NOT NULL,
-      fact_key TEXT NOT NULL,
-      fact_value TEXT NOT NULL,
-      source_memory_ids TEXT DEFAULT '[]',
-      importance INTEGER DEFAULT 50,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL,
-      is_autobiographical INTEGER DEFAULT 0
-    )
-  `)
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_semantic_facts_char ON memory_semantic_facts(character_id)')
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_semantic_facts_key ON memory_semantic_facts(character_id, fact_key)')
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_semantic_facts_importance ON memory_semantic_facts(character_id, importance DESC)')
-
-  // T-1: 二期迁移 — owner_facts 表（结构化用户画像，行级存储替代 per-value 加密 blob）
-  // P1-5: 添加双时间轴列（valid_at, invalid_at, superseded_by）
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS owner_facts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      character_id TEXT NOT NULL,
-      fact_id TEXT NOT NULL,
-      fact_key TEXT NOT NULL,
-      fact_value TEXT NOT NULL,
-      source_memory_id TEXT,
-      confidence REAL DEFAULT 0.5,
-      updated_at INTEGER NOT NULL,
-      user_provided INTEGER DEFAULT 0,
-      valid_at INTEGER,          -- P1-5: 事实生效时间（毫秒时间戳）
-      invalid_at INTEGER,        -- P1-5: 事实失效时间（NULL=当前有效）
-      superseded_by INTEGER      -- P1-5: 被哪个新事实取代（外键指向自身 id）
-    )
-  `)
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_owner_facts_char ON owner_facts(character_id)')
-  await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_owner_facts_char_key ON owner_facts(character_id, fact_key)')
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_owner_facts_valid ON owner_facts(valid_at)')
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_owner_facts_invalid ON owner_facts(invalid_at)')
-
-  // T-1: 二期迁移 — pet_experiences 表（宠物共同经历，行级存储替代 per-value 加密 blob）
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS pet_experiences (
-      id TEXT PRIMARY KEY,
-      character_id TEXT NOT NULL,
-      type TEXT NOT NULL,
-      description TEXT NOT NULL,
-      timestamp INTEGER NOT NULL,
-      sentiment TEXT NOT NULL DEFAULT 'neutral',
-      intensity REAL NOT NULL DEFAULT 0.5
-    )
-  `)
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_pet_experiences_char ON pet_experiences(character_id)')
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_pet_experiences_ts ON pet_experiences(character_id, timestamp)')
-
-  // T-1: 二期迁移 — visual_memories 表（视觉记忆，行级存储替代 per-value 加密 blob）
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS visual_memories (
-      id TEXT PRIMARY KEY,
-      character_id TEXT NOT NULL,
-      type TEXT NOT NULL,
-      description TEXT NOT NULL,
-      image_path TEXT,
-      timestamp INTEGER NOT NULL,
-      sentiment TEXT NOT NULL DEFAULT 'neutral',
-      related_memory_id TEXT
-    )
-  `)
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_visual_memories_char ON visual_memories(character_id)')
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_visual_memories_ts ON visual_memories(character_id, timestamp)')
-
-  // T-1: 二期迁移 — entity_nodes 表（实体链接，行级存储替代 per-value 加密 blob）
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS entity_nodes (
-      id TEXT PRIMARY KEY,
-      character_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      type TEXT NOT NULL,
-      linked_memory_ids TEXT NOT NULL DEFAULT '[]',
-      mention_count INTEGER NOT NULL DEFAULT 0,
-      first_seen INTEGER NOT NULL,
-      last_seen INTEGER NOT NULL
-    )
-  `)
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_entity_nodes_char ON entity_nodes(character_id)')
-  await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_entity_nodes_char_name ON entity_nodes(character_id, name)')
-
-  // OPTIMIZE: 为向量检索候选集查询添加索引。
-  // 单列索引用于简单条件过滤
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_memories_character ON memories(character_id)')
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_memories_type ON memories(type)')
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_memories_last_accessed ON memories(last_accessed)')
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_memories_importance ON memories(importance)')
-  // 复合索引：覆盖最常见的多条件查询（按角色+类型+重要性+时间筛选）
-  // 这些复合索引可让 SQL 引擎直接通过索引完成过滤，无需回表扫描
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_memories_char_type ON memories(character_id, type)')
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_memories_char_type_acc ON memories(character_id, type, last_accessed)')
-
-  // 模组数据
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS mods (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      version TEXT,
-      config TEXT NOT NULL,
-      enabled INTEGER DEFAULT 1,
-      installed_at INTEGER NOT NULL
-    )
-  `)
-
-  // 背包物品
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS inventory (
-      id TEXT PRIMARY KEY,
-      item_id TEXT NOT NULL,
-      quantity INTEGER NOT NULL,
-      -- P2: 新装库声明外键（foreign_keys=ON 生效）；已有旧库表结构不含 FK，
-      -- 由 dirtyDataTracker 的 ORPHAN_REFERENCE 检测 + 清理兜底
-      character_id TEXT REFERENCES characters(id) ON DELETE SET NULL
-    )
-  `)
-
-  // 背包物品索引（必须在 inventory 表创建之后执行）
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_inventory_char ON inventory(character_id)')
-
-  // 日程
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS schedules (
-      id TEXT PRIMARY KEY,
-      title TEXT NOT NULL,
-      time INTEGER NOT NULL,
-      repeat TEXT,
-      completed INTEGER DEFAULT 0
-    )
-  `)
-
-  // R2：约定与计划追踪表——第四面墙核心
-  // F1 修复：补齐 repeat 列，否则 commitmentTracker 的 INSERT 会抛 "no such column: repeat"
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS commitments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      character_id TEXT NOT NULL,
-      content TEXT NOT NULL,
-      actor TEXT NOT NULL,
-      due_at INTEGER,
-      status TEXT DEFAULT 'open',
-      source_memory_id INTEGER,
-      created_at INTEGER NOT NULL,
-      follow_up_count INTEGER DEFAULT 0,
-      repeat TEXT
-    )
-  `)
-  // F1：幂等迁移——为已存在的旧表补列（SQLite 不支持 IF NOT EXISTS on ADD COLUMN，用 try-catch 兜底）
-  try {
-    await db.execute('ALTER TABLE commitments ADD COLUMN repeat TEXT')
-  } catch {
-    // 列已存在，忽略
-  }
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_commitments_char ON commitments(character_id)')
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_commitments_status ON commitments(status)')
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_commitments_due ON commitments(due_at)')
-
-  // R1：上下文快照表——现实感知记录
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS context_episodes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      character_id TEXT NOT NULL,
-      started_at INTEGER NOT NULL,
-      ended_at INTEGER,
-      work_state TEXT,
-      weather TEXT,
-      idle_minutes INTEGER,
-      music TEXT,
-      summary TEXT
-    )
-  `)
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_context_episodes_char ON context_episodes(character_id)')
+  // D-1: 建表/PRAGMA/迁移全部由 Rust 侧 ensure_schema 承担
+  await ensureReady()
 
   // ---- 执行 localStorage → SQLite 迁移（幂等）----
   await migrateFromLocalStorage()
@@ -565,8 +186,6 @@ export async function initDB(): Promise<Database> {
   } catch (e) {
     console.warn('[SpiritPal] 数据库完整性检查异常（非致命）:', e)
   }
-
-  return db
 }
 
 // ============ settings 表操作 ============
@@ -575,23 +194,16 @@ export async function initDB(): Promise<Database> {
 export async function getSetting(key: string): Promise<string | null> {
   const cached = cacheGet(key)
   if (cached !== undefined) return cached
-  const db = await getDb()
-  const rows = await db.select<{ value: string }[]>(
-    'SELECT value FROM settings WHERE key = $1',
-    [key],
-  )
-  const value = rows.length > 0 ? rows[0].value : null
+  await ensureReady()
+  const value = await invoke<string | null>('sp_settings_get', { key })
   cacheSet(key, value)
   return value
 }
 
 /** 写入 setting（upsert），自动更新缓存 */
 export async function setSetting(key: string, value: string): Promise<void> {
-  const db = await getDb()
-  await db.execute(
-    'INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, $3) ON CONFLICT(key) DO UPDATE SET value = $2, updated_at = $3',
-    [key, value, Date.now()],
-  )
+  await ensureReady()
+  await invoke('sp_settings_set', { key, value })
   cacheInvalidate(key)
   cacheSet(key, value)
   // P1-2: 通知其他窗口清除该 key 的缓存（多窗口 settingsCache 一致性）
@@ -603,8 +215,8 @@ export async function setSetting(key: string, value: string): Promise<void> {
 
 /** 删除 setting，同时清除缓存 */
 export async function removeSetting(key: string): Promise<void> {
-  const db = await getDb()
-  await db.execute('DELETE FROM settings WHERE key = $1', [key])
+  await ensureReady()
+  await invoke('sp_settings_remove', { key })
   cacheInvalidate(key)
   // P1-2: 通知其他窗口清除该 key 的缓存
   Promise.resolve(emit('spiritpal:settings-changed', { key })).catch(() => {
@@ -616,31 +228,22 @@ export async function removeSetting(key: string): Promise<void> {
 
 /** 获取单个角色的养成数据（JSON 字符串） */
 export async function getCharacterStats(charId: string): Promise<string | null> {
-  const db = await getDb()
-  const rows = await db.select<{ stats: string }[]>(
-    'SELECT stats FROM characters WHERE id = $1',
-    [charId],
-  )
-  return rows.length > 0 ? rows[0].stats : null
+  await ensureReady()
+  return invoke<string | null>('sp_char_get_stats', { characterId: charId })
 }
 
 /** 保存角色养成数据（upsert） */
 export async function saveCharacterStats(charId: string, stats: object): Promise<void> {
-  const db = await getDb()
-  const statsJson = JSON.stringify(stats)
-  const now = Date.now()
-  await db.execute(
-    'INSERT INTO characters (id, stats, updated_at) VALUES ($1, $2, $3) ON CONFLICT(id) DO UPDATE SET stats = $2, updated_at = $3',
-    [charId, statsJson, now],
-  )
+  await ensureReady()
+  await invoke('sp_char_save_stats', { characterId: charId, stats: JSON.stringify(stats) })
 }
 
 /** 获取所有角色养成数据 */
 export async function getAllCharacters(): Promise<
   Array<{ id: string; stats: string; updated_at: number }>
 > {
-  const db = await getDb()
-  return db.select('SELECT id, stats, updated_at FROM characters')
+  await ensureReady()
+  return invoke('sp_char_list')
 }
 
 // ============ memories 表操作 ============
@@ -654,14 +257,8 @@ export async function addMemory(
   content: string,
   importance: number = 50,
 ): Promise<number> {
-  const db = await getDb()
-  const now = Date.now()
-  await db.execute(
-    'INSERT INTO memories (character_id, type, content, importance, created_at, last_accessed) VALUES ($1, $2, $3, $4, $5, $5)',
-    [characterId, type, content, importance, now],
-  )
-  const rows = await db.select<{ id: number }[]>('SELECT last_insert_rowid() as id')
-  return rows[0]?.id ?? 0
+  await ensureReady()
+  return invoke<number>('sp_mem_add', { characterId, memoryType: type, content, importance })
 }
 
 // ============ embedding 列操作 ============
@@ -670,7 +267,7 @@ export async function addMemory(
 // 避免 32768 个参数展开在某些引擎下触及参数上限；行为等价但更稳健。
 const BINARY_CHUNK_SIZE = 0x8000
 
-/** 将 Float32Array 转为 base64 字符串（用于 SQLite 存储） */
+/** 将 Float32Array 转为 base64 字符串（与 Rust 端存储格式一致：TEXT base64） */
 function float32ToBase64(arr: Float32Array): string {
   const bytes = new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength)
   const parts: string[] = []
@@ -694,36 +291,32 @@ function base64ToFloat32(b64: string): Float32Array {
 
 /** 保存记忆的嵌入向量 */
 export async function saveEmbedding(memoryId: number, embedding: Float32Array): Promise<void> {
-  const db = await getDb()
-  const embeddingB64 = float32ToBase64(embedding)
-  await db.execute('UPDATE memories SET embedding = $1 WHERE id = $2', [embeddingB64, memoryId])
+  await ensureReady()
+  await invoke('sp_mem_save_embedding', {
+    memoryId,
+    embeddingB64: float32ToBase64(embedding),
+  })
 }
 
 /**
- * 批量保存嵌入向量（一次事务，减少数据库往返）
+ * 批量保存嵌入向量（Rust 端单事务）
  * @param items 记忆ID和嵌入向量的数组
  */
 export async function saveEmbeddingsBatch(items: Array<{ memoryId: number; embedding: Float32Array }>): Promise<void> {
   if (items.length === 0) return
-  const db = await getDb()
-  await db.execute('BEGIN TRANSACTION')
-  try {
-    // 预编译语句，批量执行
-    for (const { memoryId, embedding } of items) {
-      const embeddingB64 = float32ToBase64(embedding)
-      await db.execute('UPDATE memories SET embedding = $1 WHERE id = $2', [embeddingB64, memoryId])
-    }
-    await db.execute('COMMIT')
-  } catch (e) {
-    await db.execute('ROLLBACK')
-    throw e
-  }
+  await ensureReady()
+  await invoke('sp_mem_save_embeddings_batch', {
+    items: items.map(({ memoryId, embedding }) => ({
+      memoryId,
+      embeddingB64: float32ToBase64(embedding),
+    })),
+  })
 }
 
 /** 更新记忆的最后访问时间 */
 export async function updateMemoryLastAccessed(memoryId: number): Promise<void> {
-  const db = await getDb()
-  await db.execute('UPDATE memories SET last_accessed = $1 WHERE id = $2', [Date.now(), memoryId])
+  await ensureReady()
+  await invoke('sp_mem_touch', { memoryId })
 }
 
 /**
@@ -732,26 +325,17 @@ export async function updateMemoryLastAccessed(memoryId: number): Promise<void> 
  * @param limit 候选集上限，默认 1000（性能优化：限制候选集大小）
  * @param type 可选，按记忆类型过滤
  */
-// REFACTOR: 统一 4 分支 SQL 为动态构建，消除重复（DRY/A5），便于未来扩展过滤条件
 export async function getAllEmbeddings(
   characterId?: string,
   limit: number = 1000,
   type?: MemoryType,
 ): Promise<{ id: number; embedding: Float32Array }[]> {
-  const db = await getDb()
-  const conditions: string[] = ['embedding IS NOT NULL']
-  const params: unknown[] = []
-  if (characterId) {
-    params.push(characterId)
-    conditions.push(`character_id = $${params.length}`)
-  }
-  if (type) {
-    params.push(type)
-    conditions.push(`type = $${params.length}`)
-  }
-  params.push(limit)
-  const sql = `SELECT id, embedding FROM memories WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT $${params.length}`
-  const rows = await db.select<{ id: number; embedding: string }[]>(sql, params)
+  await ensureReady()
+  const rows = await invoke<Array<{ id: number; embedding: string }>>('sp_mem_get_embeddings', {
+    characterId: characterId ?? null,
+    limit,
+    memoryType: type ?? null,
+  })
   return rows.map((row) => ({ id: row.id, embedding: base64ToFloat32(row.embedding) }))
 }
 
@@ -760,38 +344,24 @@ export async function getMemories(
   characterId: string,
   type?: MemoryType,
 ): Promise<Array<Record<string, unknown>>> {
-  const db = await getDb()
-  if (type) {
-    return db.select(
-      'SELECT * FROM memories WHERE character_id = $1 AND type = $2 ORDER BY created_at DESC',
-      [characterId, type],
-    )
-  }
-  return db.select(
-    'SELECT * FROM memories WHERE character_id = $1 ORDER BY created_at DESC',
-    [characterId],
-  )
+  await ensureReady()
+  return invoke('sp_mem_list', { characterId, memoryType: type ?? null })
 }
 
 /**
  * P0-3 修复：按 dbId（SQLite 行 id）删除单条记忆及其 embedding。
- * 之前的 deleteMemory 只过滤内存数组，留下孤儿 SQLite 行与 embedding BLOB，
- * 导致 DB 无限增长、LIMIT 1000 候选集被孤儿行挤占。
- * @param dbId SQLite memories 表的行 id
  */
 export async function deleteMemory(dbId: number): Promise<void> {
-  const db = await getDb()
-  await db.execute('DELETE FROM memories WHERE id = $1', [dbId])
+  await ensureReady()
+  await invoke('sp_mem_delete', { memoryId: dbId })
 }
 
 /**
  * P0-3 修复：按角色清空该角色的全部记忆（含 embedding）。
- * 用于 EnhancedMemoryManager.clear() 与"重置记忆"功能。
- * @param characterId 角色 id
  */
 export async function clearMemories(characterId: string): Promise<void> {
-  const db = await getDb()
-  await db.execute('DELETE FROM memories WHERE character_id = $1', [characterId])
+  await ensureReady()
+  await invoke('sp_mem_clear', { characterId })
 }
 
 // ============ S2/M1: 行级 CRUD（替代全量 JSON blob + 每值加密）============
@@ -829,48 +399,19 @@ export interface MemoryRow {
  * S2: 插入完整记忆行（含所有扩列字段），返回 rowid
  */
 export async function insertMemoryRow(row: MemoryRow): Promise<number> {
-  const db = await getDb()
-  await db.execute(
-    `INSERT INTO memories (
-      character_id, type, content, importance, created_at, last_accessed,
-      memory_id, assistant, category, tags,
-      emotional_intensity, emotional_valence, emotional_arousal,
-      strength, decay_factor, access_count,
-      source_kind, fact_text, is_autobiographical, tier
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
-    [
-      row.character_id, row.type, row.content, row.importance, row.created_at, row.last_accessed,
-      row.memory_id ?? null, row.assistant ?? '', row.category ?? '日常', row.tags ?? '[]',
-      row.emotional_intensity ?? 0, row.emotional_valence ?? 0, row.emotional_arousal ?? 0.3,
-      row.strength ?? 1.0, row.decay_factor ?? 1.0, row.access_count ?? 0,
-      row.source_kind ?? 'exchange', row.fact_text ?? null, row.is_autobiographical ?? 0, row.tier ?? 'episodic',
-    ],
-  )
-  const rows = await db.select<{ id: number }[]>('SELECT last_insert_rowid() as id')
-  return rows[0]?.id ?? 0
+  await ensureReady()
+  return invoke<number>('sp_mem_insert_row', { row })
 }
 
 /**
- * S2: 按 rowid 更新记忆行（部分字段，只更新传入的字段）
+ * S2: 按 rowid 更新记忆行（部分字段；Rust 端仅允许白名单字段名）
  */
 export async function updateMemoryRow(
   id: number,
   fields: Partial<MemoryRow>,
 ): Promise<void> {
-  const db = await getDb()
-  const sets: string[] = []
-  const params: unknown[] = []
-  for (const [key, value] of Object.entries(fields)) {
-    if (key === 'id' || key === 'character_id') continue // 不可更新
-    sets.push(`${key} = $${sets.length + 1}`)
-    params.push(value)
-  }
-  if (sets.length === 0) return
-  params.push(id)
-  await db.execute(
-    `UPDATE memories SET ${sets.join(', ')} WHERE id = $${params.length}`,
-    params,
-  )
+  await ensureReady()
+  await invoke('sp_mem_update_row', { memoryId: id, fields })
 }
 
 /**
@@ -880,29 +421,16 @@ export async function getMemoriesByTier(
   characterId: string,
   tiers?: string[],
 ): Promise<MemoryRow[]> {
-  const db = await getDb()
-  if (tiers && tiers.length > 0) {
-    const placeholders = tiers.map((_, i) => `$${i + 2}`).join(',')
-    return db.select(
-      `SELECT * FROM memories WHERE character_id = $1 AND tier IN (${placeholders}) ORDER BY created_at ASC`,
-      [characterId, ...tiers],
-    )
-  }
-  return db.select(
-    'SELECT * FROM memories WHERE character_id = $1 ORDER BY created_at ASC',
-    [characterId],
-  )
+  await ensureReady()
+  return invoke('sp_mem_by_tier', { characterId, tiers: tiers && tiers.length > 0 ? tiers : null })
 }
 
 /**
  * S2: 按角色查询旧式 type 字段的所有记忆（兼容旧路径）
  */
 export async function getMemoriesByCharacter(characterId: string): Promise<MemoryRow[]> {
-  const db = await getDb()
-  return db.select(
-    'SELECT * FROM memories WHERE character_id = $1 ORDER BY created_at ASC',
-    [characterId],
-  )
+  await ensureReady()
+  return invoke('sp_mem_by_character', { characterId })
 }
 
 // ============ S2/M1: memory_summaries 表操作 ============
@@ -911,33 +439,24 @@ export async function getMemoriesByCharacter(characterId: string): Promise<Memor
  * S2: 获取角色的语义摘要
  */
 export async function getMemorySummary(characterId: string): Promise<string | null> {
-  const db = await getDb()
-  const rows = await db.select<{ summary: string }[]>(
-    'SELECT summary FROM memory_summaries WHERE character_id = $1',
-    [characterId],
-  )
-  return rows.length > 0 ? rows[0].summary : null
+  await ensureReady()
+  return invoke<string | null>('sp_mem_summary_get', { characterId })
 }
 
 /**
  * S2: Upsert 角色的语义摘要
  */
 export async function upsertMemorySummary(characterId: string, summary: string): Promise<void> {
-  const db = await getDb()
-  const now = Date.now()
-  await db.execute(
-    `INSERT INTO memory_summaries (character_id, summary, updated_at) VALUES ($1, $2, $3)
-     ON CONFLICT(character_id) DO UPDATE SET summary = $2, updated_at = $3`,
-    [characterId, summary, now],
-  )
+  await ensureReady()
+  await invoke('sp_mem_summary_upsert', { characterId, summary })
 }
 
 /**
  * S2: 删除角色的语义摘要
  */
 export async function deleteMemorySummary(characterId: string): Promise<void> {
-  const db = await getDb()
-  await db.execute('DELETE FROM memory_summaries WHERE character_id = $1', [characterId])
+  await ensureReady()
+  await invoke('sp_mem_summary_delete', { characterId })
 }
 
 // ============ S2/M1: memory_state 表操作 ============
@@ -959,53 +478,33 @@ export interface MemoryStateRow {
  * S2: 获取角色的触发状态
  */
 export async function getMemoryState(characterId: string): Promise<MemoryStateRow | null> {
-  const db = await getDb()
-  const rows = await db.select<MemoryStateRow[]>(
-    'SELECT * FROM memory_state WHERE character_id = $1',
-    [characterId],
-  )
-  return rows.length > 0 ? rows[0] : null
+  await ensureReady()
+  return invoke<MemoryStateRow | null>('sp_mem_state_get', { characterId })
 }
 
 /**
  * S2: Upsert 角色的触发状态
  */
 export async function upsertMemoryState(state: MemoryStateRow): Promise<void> {
-  const db = await getDb()
-  await db.execute(
-    `INSERT INTO memory_state (character_id, last_chat_date, trigger_log, ignore_count, last_periodic_fire_date, injected_at, llm_reassessed_ids)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
-     ON CONFLICT(character_id) DO UPDATE SET
-       last_chat_date = $2, trigger_log = $3, ignore_count = $4,
-       last_periodic_fire_date = $5, injected_at = $6, llm_reassessed_ids = $7`,
-    [
-      state.character_id, state.last_chat_date,
-      state.trigger_log ?? '[]', state.ignore_count ?? '{}',
-      state.last_periodic_fire_date ?? '{}', state.injected_at ?? '{}',
-      state.llm_reassessed_ids ?? '[]',
-    ],
-  )
+  await ensureReady()
+  await invoke('sp_mem_state_upsert', { state })
 }
 
 /**
  * S2: 删除角色的触发状态
  */
 export async function deleteMemoryState(characterId: string): Promise<void> {
-  const db = await getDb()
-  await db.execute('DELETE FROM memory_state WHERE character_id = $1', [characterId])
+  await ensureReady()
+  await invoke('sp_mem_state_delete', { characterId })
 }
 
 /**
- * S2: 清空角色的所有行级记忆数据（memories + summaries + state）
+ * S2: 清空角色的所有行级记忆数据（memories + summaries + state + semantic_facts）
  * 用于 resetAll / clear 等"全部清除"场景
  */
 export async function clearAllMemoryData(characterId: string): Promise<void> {
-  const db = await getDb()
-  await db.execute('DELETE FROM memories WHERE character_id = $1', [characterId])
-  await db.execute('DELETE FROM memory_summaries WHERE character_id = $1', [characterId])
-  await db.execute('DELETE FROM memory_state WHERE character_id = $1', [characterId])
-  // P1-6: 同时清空结构化语义事实表
-  await db.execute('DELETE FROM memory_semantic_facts WHERE character_id = $1', [characterId])
+  await ensureReady()
+  await invoke('sp_mem_clear_all', { characterId })
 }
 
 /**
@@ -1046,85 +545,39 @@ export interface OwnerFactRow {
 
 /** T-1: 查询角色的所有事实 */
 export async function getOwnerFacts(characterId: string): Promise<OwnerFactRow[]> {
-  const db = await getDb()
-  return db.select(
-    'SELECT * FROM owner_facts WHERE character_id = $1 ORDER BY confidence DESC, updated_at DESC',
-    [characterId],
-  )
+  await ensureReady()
+  return invoke('sp_owner_facts_list', { characterId })
 }
 
 /** P1-5: 查询角色在指定时间点的有效事实（支持双时间轴） */
 export async function getOwnerFactsAsOf(characterId: string, asOfTime: number): Promise<OwnerFactRow[]> {
-  const db = await getDb()
-  return db.select(
-    `SELECT * FROM owner_facts 
-     WHERE character_id = $1 
-       AND (valid_at IS NULL OR valid_at <= $2)
-       AND (invalid_at IS NULL OR invalid_at > $2)
-     ORDER BY confidence DESC, updated_at DESC`,
-    [characterId, asOfTime],
-  )
+  await ensureReady()
+  return invoke('sp_owner_facts_as_of', { characterId, asOfTime })
 }
 
 /** P1-5: 查询角色的历史事实（已被取代的事实） */
 export async function getOwnerFactsHistory(characterId: string): Promise<OwnerFactRow[]> {
-  const db = await getDb()
-  return db.select(
-    `SELECT * FROM owner_facts 
-     WHERE character_id = $1 AND invalid_at IS NOT NULL
-     ORDER BY invalid_at DESC`,
-    [characterId],
-  )
+  await ensureReady()
+  return invoke('sp_owner_facts_history', { characterId })
 }
 
 /** T-1: upsert 事实（按 character_id + fact_key 唯一）
- * P1-5 改进：同 key 新值插入时，旧值打 invalid_at 标记（非覆盖） */
+ * P1-5 改进：同 key 新值插入时，旧值打 invalid_at 标记（非覆盖）——Rust 端实现 */
 export async function upsertOwnerFact(row: OwnerFactRow): Promise<void> {
-  const db = await getDb()
-  const now = Date.now()
-  
-  // P1-5: 先检查是否存在同 key 的有效旧值，如有则标记为失效
-  const existingRows = await db.select<{ id: number }[]>(
-    'SELECT id FROM owner_facts WHERE character_id = ? AND fact_key = ? AND (invalid_at IS NULL OR invalid_at > ?)',
-    [row.character_id, row.fact_key, now]
-  )
-  
-  if (existingRows && existingRows.length > 0) {
-    // 旧值标记为失效（被新值取代）
-    const oldId = existingRows[0].id
-    await db.execute(
-      'UPDATE owner_facts SET invalid_at = ?, superseded_by = ? WHERE id = ?',
-      [now, row.id ?? 0, oldId]
-    )
-  }
-  
-  // 插入新值
-  await db.execute(
-    `INSERT INTO owner_facts (character_id, fact_id, fact_key, fact_value, source_memory_id, confidence, updated_at, user_provided, valid_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-     ON CONFLICT(character_id, fact_key) DO UPDATE SET
-       fact_value = $4, source_memory_id = $5, confidence = $6, updated_at = $7, user_provided = $8, valid_at = $9`,
-    [
-      row.character_id, row.fact_id, row.fact_key, row.fact_value,
-      row.source_memory_id ?? null, row.confidence, row.updated_at,
-      row.user_provided ?? 0, now,
-    ],
-  )
+  await ensureReady()
+  await invoke('sp_owner_facts_upsert', { row })
 }
 
 /** T-1: 删除事实 */
 export async function deleteOwnerFact(characterId: string, factKey: string): Promise<void> {
-  const db = await getDb()
-  await db.execute(
-    'DELETE FROM owner_facts WHERE character_id = $1 AND fact_key = $2',
-    [characterId, factKey],
-  )
+  await ensureReady()
+  await invoke('sp_owner_facts_delete', { characterId, factKey })
 }
 
 /** T-1: 清空角色所有事实 */
 export async function clearOwnerFacts(characterId: string): Promise<void> {
-  const db = await getDb()
-  await db.execute('DELETE FROM owner_facts WHERE character_id = $1', [characterId])
+  await ensureReady()
+  await invoke('sp_owner_facts_clear', { characterId })
 }
 
 /** T-1: owner_facts 迁移标记 */
@@ -1155,56 +608,38 @@ export interface SemanticFactRow {
 
 /** P1-6: 查询角色的所有语义事实（按重要性排序） */
 export async function getSemanticFacts(characterId: string): Promise<SemanticFactRow[]> {
-  const db = await getDb()
-  return db.select(
-    'SELECT * FROM memory_semantic_facts WHERE character_id = $1 ORDER BY importance DESC, updated_at DESC',
-    [characterId],
-  )
+  await ensureReady()
+  return invoke('sp_sem_facts_list', { characterId })
 }
 
 /** P1-6: 按 key 查询特定语义事实 */
 export async function getSemanticFactByKey(characterId: string, factKey: string): Promise<SemanticFactRow | null> {
-  const db = await getDb()
-  const rows = await db.select<SemanticFactRow[]>(
-    'SELECT * FROM memory_semantic_facts WHERE character_id = $1 AND fact_key = $2 ORDER BY importance DESC LIMIT 1',
-    [characterId, factKey],
-  )
-  return rows[0] ?? null
+  await ensureReady()
+  return invoke('sp_sem_facts_by_key', { characterId, factKey })
 }
 
 /** P1-6: 插入或更新语义事实 */
 export async function upsertSemanticFact(row: SemanticFactRow): Promise<void> {
-  const db = await getDb()
-  await db.execute(
-    `INSERT INTO memory_semantic_facts (character_id, fact_key, fact_value, source_memory_ids, importance, created_at, updated_at, is_autobiographical)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-     ON CONFLICT(character_id, fact_key) DO UPDATE SET
-       fact_value = $3,
-       source_memory_ids = $4,
-       importance = $5,
-       updated_at = $7,
-       is_autobiographical = $8`,
-    [row.character_id, row.fact_key, row.fact_value, JSON.stringify(row.source_memory_ids), row.importance, row.created_at, row.updated_at, row.is_autobiographical],
-  )
+  await ensureReady()
+  await invoke('sp_sem_facts_upsert', { row })
 }
 
 /** P1-6: 删除特定语义事实 */
 export async function deleteSemanticFact(characterId: string, factKey: string): Promise<void> {
-  const db = await getDb()
-  await db.execute('DELETE FROM memory_semantic_facts WHERE character_id = $1 AND fact_key = $2', [characterId, factKey])
+  await ensureReady()
+  await invoke('sp_sem_facts_delete', { characterId, factKey })
 }
 
 /** P1-6: 清空角色所有语义事实 */
 export async function clearSemanticFacts(characterId: string): Promise<void> {
-  const db = await getDb()
-  await db.execute('DELETE FROM memory_semantic_facts WHERE character_id = $1', [characterId])
+  await ensureReady()
+  await invoke('sp_sem_facts_clear', { characterId })
 }
 
 /** P1-6: 获取语义事实数量 */
 export async function getSemanticFactsCount(characterId: string): Promise<number> {
-  const db = await getDb()
-  const rows = await db.select<{ count: number }[]>('SELECT COUNT(*) as count FROM memory_semantic_facts WHERE character_id = $1', [characterId])
-  return rows[0]?.count ?? 0
+  await ensureReady()
+  return invoke<number>('sp_sem_facts_count', { characterId })
 }
 
 // ============ T-1: pet_experiences 表操作（二期行级化） ============
@@ -1222,27 +657,20 @@ export interface PetExperienceRow {
 
 /** T-1: 查询角色的所有经历 */
 export async function getPetExperiences(characterId: string): Promise<PetExperienceRow[]> {
-  const db = await getDb()
-  return db.select(
-    'SELECT * FROM pet_experiences WHERE character_id = $1 ORDER BY timestamp ASC',
-    [characterId],
-  )
+  await ensureReady()
+  return invoke('sp_pet_exp_list', { characterId })
 }
 
 /** T-1: 插入一条经历 */
 export async function insertPetExperience(row: PetExperienceRow): Promise<void> {
-  const db = await getDb()
-  await db.execute(
-    `INSERT INTO pet_experiences (id, character_id, type, description, timestamp, sentiment, intensity)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [row.id, row.character_id, row.type, row.description, row.timestamp, row.sentiment, row.intensity],
-  )
+  await ensureReady()
+  await invoke('sp_pet_exp_insert', { row })
 }
 
 /** T-1: 清空角色所有经历 */
 export async function clearPetExperiences(characterId: string): Promise<void> {
-  const db = await getDb()
-  await db.execute('DELETE FROM pet_experiences WHERE character_id = $1', [characterId])
+  await ensureReady()
+  await invoke('sp_pet_exp_clear', { characterId })
 }
 
 /** T-1: pet_experiences 迁移标记 */
@@ -1272,30 +700,20 @@ export interface VisualMemoryRow {
 
 /** T-1: 查询角色的所有视觉记忆 */
 export async function getVisualMemories(characterId: string): Promise<VisualMemoryRow[]> {
-  const db = await getDb()
-  return db.select(
-    'SELECT * FROM visual_memories WHERE character_id = $1 ORDER BY timestamp ASC',
-    [characterId],
-  )
+  await ensureReady()
+  return invoke('sp_visual_list', { characterId })
 }
 
 /** T-1: 插入一条视觉记忆 */
 export async function insertVisualMemory(row: VisualMemoryRow): Promise<void> {
-  const db = await getDb()
-  await db.execute(
-    `INSERT INTO visual_memories (id, character_id, type, description, image_path, timestamp, sentiment, related_memory_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [
-      row.id, row.character_id, row.type, row.description,
-      row.image_path ?? null, row.timestamp, row.sentiment, row.related_memory_id ?? null,
-    ],
-  )
+  await ensureReady()
+  await invoke('sp_visual_insert', { row })
 }
 
 /** T-1: 清空角色所有视觉记忆 */
 export async function clearVisualMemories(characterId: string): Promise<void> {
-  const db = await getDb()
-  await db.execute('DELETE FROM visual_memories WHERE character_id = $1', [characterId])
+  await ensureReady()
+  await invoke('sp_visual_clear', { characterId })
 }
 
 /** T-1: visual_memories 迁移标记 */
@@ -1325,32 +743,20 @@ export interface EntityNodeRow {
 
 /** T-1: 查询角色的所有实体 */
 export async function getEntityNodes(characterId: string): Promise<EntityNodeRow[]> {
-  const db = await getDb()
-  return db.select(
-    'SELECT * FROM entity_nodes WHERE character_id = $1 ORDER BY mention_count DESC',
-    [characterId],
-  )
+  await ensureReady()
+  return invoke('sp_entity_list', { characterId })
 }
 
 /** T-1: upsert 实体（按 character_id + name 唯一） */
 export async function upsertEntityNode(row: EntityNodeRow): Promise<void> {
-  const db = await getDb()
-  await db.execute(
-    `INSERT INTO entity_nodes (id, character_id, name, type, linked_memory_ids, mention_count, first_seen, last_seen)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-     ON CONFLICT(character_id, name) DO UPDATE SET
-       linked_memory_ids = $5, mention_count = $6, last_seen = $8`,
-    [
-      row.id, row.character_id, row.name, row.type, row.linked_memory_ids,
-      row.mention_count, row.first_seen, row.last_seen,
-    ],
-  )
+  await ensureReady()
+  await invoke('sp_entity_upsert', { row })
 }
 
 /** T-1: 清空角色所有实体 */
 export async function clearEntityNodes(characterId: string): Promise<void> {
-  const db = await getDb()
-  await db.execute('DELETE FROM entity_nodes WHERE character_id = $1', [characterId])
+  await ensureReady()
+  await invoke('sp_entity_clear', { characterId })
 }
 
 /** T-1: entity_nodes 迁移标记 */
@@ -1374,14 +780,17 @@ export async function saveMod(mod: {
   config: object
   enabled?: boolean
 }): Promise<void> {
-  const db = await getDb()
-  const now = Date.now()
-  await db.execute(
-    `INSERT INTO mods (id, name, version, config, enabled, installed_at)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     ON CONFLICT(id) DO UPDATE SET name = $2, version = $3, config = $4, enabled = $5`,
-    [mod.id, mod.name, mod.version ?? null, JSON.stringify(mod.config), mod.enabled ? 1 : 0, now],
-  )
+  await ensureReady()
+  await invoke('sp_mods_save', {
+    row: {
+      id: mod.id,
+      name: mod.name,
+      version: mod.version ?? null,
+      config: JSON.stringify(mod.config),
+      enabled: mod.enabled ?? true,
+      installedAt: Date.now(),
+    },
+  })
 }
 
 /** 获取所有模组 */
@@ -1395,20 +804,20 @@ export async function getMods(): Promise<
     installed_at: number
   }>
 > {
-  const db = await getDb()
-  return db.select('SELECT * FROM mods')
+  await ensureReady()
+  return invoke('sp_mods_list')
 }
 
 /** 删除模组 */
 export async function deleteMod(id: string): Promise<void> {
-  const db = await getDb()
-  await db.execute('DELETE FROM mods WHERE id = $1', [id])
+  await ensureReady()
+  await invoke('sp_mods_delete', { id })
 }
 
 /** 更新模组启用状态 */
 export async function updateModEnabled(id: string, enabled: boolean): Promise<void> {
-  const db = await getDb()
-  await db.execute('UPDATE mods SET enabled = $1 WHERE id = $2', [enabled ? 1 : 0, id])
+  await ensureReady()
+  await invoke('sp_mods_set_enabled', { id, enabled })
 }
 
 // ============ inventory 表操作 ============
@@ -1420,27 +829,23 @@ export async function saveInventoryItem(item: {
   quantity: number
   character_id?: string | null
 }): Promise<void> {
-  const db = await getDb()
-  await db.execute(
-    `INSERT INTO inventory (id, item_id, quantity, character_id)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT(id) DO UPDATE SET item_id = $2, quantity = $3, character_id = $4`,
-    [item.id, item.item_id, item.quantity, item.character_id ?? null],
-  )
+  await ensureReady()
+  await invoke('sp_inventory_save', {
+    item: {
+      id: item.id,
+      item_id: item.item_id,
+      quantity: item.quantity,
+      character_id: item.character_id ?? null,
+    },
+  })
 }
 
 /** 查询背包物品 */
 export async function getInventory(
   characterId?: string,
 ): Promise<Array<Record<string, unknown>>> {
-  const db = await getDb()
-  if (characterId) {
-    return db.select(
-      'SELECT * FROM inventory WHERE character_id = $1 OR character_id IS NULL',
-      [characterId],
-    )
-  }
-  return db.select('SELECT * FROM inventory')
+  await ensureReady()
+  return invoke('sp_inventory_list', { characterId: characterId ?? null })
 }
 
 // ============ schedules 表操作 ============
@@ -1453,19 +858,22 @@ export async function saveSchedule(schedule: {
   repeat?: string
   completed?: boolean
 }): Promise<void> {
-  const db = await getDb()
-  await db.execute(
-    `INSERT INTO schedules (id, title, time, repeat, completed)
-     VALUES ($1, $2, $3, $4, $5)
-     ON CONFLICT(id) DO UPDATE SET title = $2, time = $3, repeat = $4, completed = $5`,
-    [schedule.id, schedule.title, schedule.time, schedule.repeat ?? null, schedule.completed ? 1 : 0],
-  )
+  await ensureReady()
+  await invoke('sp_schedules_save', {
+    schedule: {
+      id: schedule.id,
+      title: schedule.title,
+      time: schedule.time,
+      repeat: schedule.repeat ?? null,
+      completed: schedule.completed ?? false,
+    },
+  })
 }
 
 /** 查询所有日程（按时间排序） */
 export async function getSchedules(): Promise<Array<Record<string, unknown>>> {
-  const db = await getDb()
-  return db.select('SELECT * FROM schedules ORDER BY time ASC')
+  await ensureReady()
+  return invoke('sp_schedules_list')
 }
 
 // ============ Zustand 持久化存储适配器 ============
@@ -1508,9 +916,7 @@ const MIGRATION_FLAG = '__sqlite_migration_done'
  *
  * - 幂等：通过 settings 表中的 MIGRATION_FLAG 防止重复执行
  * - 读取所有 spiritpal-* 键，写入 SQLite settings 表（供 zustand persist 读取）
- * - 同时填充专用表（characters / memories / mods）以便未来直接 SQL 查询
  * - 迁移完成后清除已迁移的 spiritpal-* localStorage 键（保留迁移标记键）
- *   （2026-09-04 修正：文档与实现对齐——实际在函数尾部执行 keysToRemove 清理）
  */
 export async function migrateFromLocalStorage(): Promise<void> {
   // 检查是否已迁移（幂等保护）
@@ -1528,108 +934,405 @@ export async function migrateFromLocalStorage(): Promise<void> {
     }
   }
 
-  const db = await getDb()
-  await db.execute('BEGIN TRANSACTION')
-
-  try {
-    for (const key of spiritpalKeys) {
-      const value = localStorage.getItem(key)
-      if (value !== null) {
-        try {
-          await setSetting(key, value)
-        } catch (e) {
-          console.warn(`[SpiritPal] Failed to migrate key "${key}":`, e)
-        }
+  // 2. 逐个写入 settings（Rust 端每条为独立事务，安全幂等）
+  const keysToRemove: string[] = [...spiritpalKeys]
+  for (const key of spiritpalKeys) {
+    const value = localStorage.getItem(key)
+    if (value !== null) {
+      try {
+        await setSetting(key, value)
+      } catch (e) {
+        console.warn('[SpiritPal] migrateFromLocalStorage setSetting failed:', key, e)
       }
+    } else {
+      keysToRemove.splice(keysToRemove.indexOf(key), 1)
     }
-
-    // 2. 解析 spiritpal-pet-store，填充 characters 表
-    try {
-      const petStoreRaw = localStorage.getItem('spiritpal-pet-store')
-      if (petStoreRaw) {
-        const parsed = JSON.parse(petStoreRaw)
-        const stats = parsed?.state?.stats
-        if (stats && typeof stats === 'object') {
-          for (const [charId, charStats] of Object.entries(stats)) {
-            try {
-              await saveCharacterStats(charId, charStats as object)
-            } catch (e) {
-              console.warn(`[SpiritPal] Failed to save character "${charId}":`, e)
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('[SpiritPal] Failed to populate characters table:', e)
-    }
-
-    // 3. 解析 spiritpal-mods，填充 mods 表（同步 spiritpal-mods-enabled 的启用状态）
-    try {
-      const modsRaw = localStorage.getItem('spiritpal-mods')
-      const enabledRaw = localStorage.getItem('spiritpal-mods-enabled')
-      const enabledList: string[] = enabledRaw ? JSON.parse(enabledRaw) : []
-      if (modsRaw) {
-        const mods = JSON.parse(modsRaw)
-        if (Array.isArray(mods)) {
-          for (const mod of mods) {
-            if (mod?.id && mod?.displayName) {
-              try {
-                // 以 spiritpal-mods-enabled 为准同步启用状态
-                mod.enabled = enabledList.includes(mod.id) || mod.isBuiltIn === true
-                await saveMod({
-                  id: mod.id,
-                  name: mod.displayName,
-                  version: mod.version,
-                  config: mod,
-                  enabled: mod.enabled,
-                })
-              } catch (e) {
-                console.warn(`[SpiritPal] Failed to save mod "${mod.id}":`, e)
-              }
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('[SpiritPal] Failed to populate mods table:', e)
-    }
-
-    // 4. 解析记忆数据，填充 memories 表
-    for (const key of spiritpalKeys) {
-      if (key.startsWith('spiritpal-memory-') || key.startsWith('spiritpal-enhanced-memory-')) {
-        const charId = key.replace(/^spiritpal-(enhanced-)?memory-/, '')
-        const type: MemoryType = key.startsWith('spiritpal-enhanced-memory-') ? 'long_term' : 'short_term'
-        try {
-          const raw = localStorage.getItem(key)
-          if (raw) {
-            await addMemory(charId, type, raw, 50)
-          }
-        } catch (e) {
-          console.warn(`[SpiritPal] Failed to migrate memory for "${charId}":`, e)
-        }
-      }
-    }
-
-    await db.execute('COMMIT')
-  } catch (e) {
-    await db.execute('ROLLBACK')
-    throw e
   }
 
-  // 5. 标记迁移完成
+  // 3. 标记迁移完成（幂等保护：迁移完成后才会走到这一步）
   await setSetting(MIGRATION_FLAG, '1')
 
-  // 清除已迁移的 localStorage 数据（保留迁移标记键）
-  const keysToRemove: string[] = []
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (key && key.startsWith('spiritpal-')) {
-      keysToRemove.push(key)
+  // 4. 清理已迁移的 localStorage 键（保留迁移标记键）
+  for (const key of keysToRemove) {
+    if (key !== MIGRATION_FLAG) {
+      localStorage.removeItem(key)
     }
   }
-  for (const key of keysToRemove) {
-    localStorage.removeItem(key)
-  }
-  // OPTIMIZE: 单行日志，避免多行模板字面量在压缩/解析阶段的兼容性风险
-  console.log('[SpiritPal] localStorage → SQLite migration complete.')
+
+  console.log(`[SpiritPal] localStorage → SQLite migration done (${keysToRemove.length} keys)`)
+}
+
+// ============ B2-2: 健康检查 / 完整性 / 快照 ============
+
+/**
+ * SQLite 物理完整性检查（PRAGMA integrity_check），返回每行状态字符串。
+ * 全为 'ok' 即健康。
+ */
+export async function dbIntegrityCheck(): Promise<string[]> {
+  await ensureReady()
+  return invoke<string[]>('sp_db_integrity')
+}
+
+/**
+ * 导出全部业务表的行级快照 { 表名: 行数组 }（表名由 Rust 白名单决定）。
+ */
+export async function exportDbSnapshot(): Promise<Record<string, unknown[]>> {
+  await ensureReady()
+  return invoke<Record<string, unknown[]>>('sp_db_snapshot')
+}
+
+// ============ B2-2: settings 键扫描 / 全量清空 ============
+
+/** 按 LIKE 模式返回 settings 键列表（memoryMigrator / zombieDataCleanup 用） */
+export async function getSettingsKeysLike(pattern: string): Promise<string[]> {
+  await ensureReady()
+  return invoke<string[]>('sp_settings_keys', { pattern })
+}
+
+/** 全量清空业务数据（dataManager.resetAll GDPR 语义） */
+export async function purgeAllData(): Promise<void> {
+  await ensureReady()
+  await invoke('sp_db_purge')
+}
+
+// ============ B2-2: commitments（commitmentTracker） ============
+
+/** 约定行 */
+export interface CommitmentRow {
+  id?: number
+  character_id: string
+  content: string
+  actor: string
+  due_at: number | null
+  status: string
+  source_memory_id: number | null
+  created_at: number
+  follow_up_count: number
+  repeat?: string | null
+}
+
+/** 保存约定，返回 new id */
+export async function insertCommitment(opts: {
+  characterId: string
+  content: string
+  actor: string
+  dueAt: number | null
+  sourceMemoryId?: number | null
+  repeat?: string | null
+}): Promise<number> {
+  await ensureReady()
+  return invoke<number>('sp_commitments_insert', {
+    characterId: opts.characterId,
+    content: opts.content,
+    actor: opts.actor,
+    dueAt: opts.dueAt,
+    sourceMemoryId: opts.sourceMemoryId ?? null,
+    repeat: opts.repeat ?? null,
+  })
+}
+
+/** 获取角色的全部 open 约定 */
+export async function getOpenCommitments(characterId: string): Promise<CommitmentRow[]> {
+  await ensureReady()
+  return invoke<CommitmentRow[]>('sp_commitments_list', { characterId })
+}
+
+/** 获取 today 区间（[start, end)）内到期的 open 约定 */
+export async function getDueCommitments(characterId: string, start: number, end: number): Promise<CommitmentRow[]> {
+  await ensureReady()
+  return invoke<CommitmentRow[]>('sp_commitments_due', { characterId, start, end })
+}
+
+/** 获取逾期（due_at < now 且 > before）的 open 约定 */
+export async function getOverdueCommitments(characterId: string, now: number, before: number): Promise<CommitmentRow[]> {
+  await ensureReady()
+  return invoke<CommitmentRow[]>('sp_commitments_overdue', { characterId, now, before })
+}
+
+const COMMITMENT_STATUSES = ['open', 'fulfilled', 'lapsed', 'cancelled'] as const
+export type CommitmentStatus = (typeof COMMITMENT_STATUSES)[number]
+
+/** 设置约定状态（Rust 端白名单校验） */
+export async function setCommitmentStatus(id: number, status: CommitmentStatus): Promise<void> {
+  await ensureReady()
+  await invoke('sp_commitments_set_status', { id, status })
+}
+
+/** 增加约定跟进次数 */
+export async function incrementCommitmentFollowUp(id: number): Promise<void> {
+  await ensureReady()
+  await invoke('sp_commitments_increment_follow_up', { id })
+}
+
+/** 将角色超期未提的 open 约定自动置为 lapsed，返回受影响行数 */
+export async function autoLapseCommitments(characterId: string, threshold: number): Promise<number> {
+  await ensureReady()
+  return invoke<number>('sp_commitments_auto_lapse', { characterId, threshold })
+}
+
+/** 查询已完成/已过期的重复约定（createRecurring 候选） */
+export async function getRecurringDoneCommitments(characterId: string): Promise<CommitmentRow[]> {
+  await ensureReady()
+  return invoke<CommitmentRow[]>('sp_commitments_recurring_done', { characterId })
+}
+
+/** 查询角色同内容最近创建的 open 约定（防重复建循环约定） */
+export async function getOpenCommitmentByContent(characterId: string, content: string, since: number): Promise<CommitmentRow[]> {
+  await ensureReady()
+  return invoke<CommitmentRow[]>('sp_commitments_open_recent', { characterId, content, since })
+}
+
+// ============ B2-2: context_episodes（contextEpisodeManager） ============
+
+export interface ContextEpisodeRow {
+  id: number
+  character_id: string
+  started_at: number
+  ended_at: number | null
+  work_state: string | null
+  weather: string | null
+  idle_minutes: number | null
+  music: string | null
+  summary: string | null
+}
+
+/** 开启新片段，返回 id */
+export async function insertContextEpisode(opts: {
+  characterId: string
+  startedAt: number
+  workState?: string | null
+  weather?: string | null
+  idleMinutes?: number | null
+  music?: string | null
+}): Promise<number> {
+  await ensureReady()
+  return invoke<number>('sp_ctx_insert', {
+    characterId: opts.characterId,
+    startedAt: opts.startedAt,
+    workState: opts.workState ?? null,
+    weather: opts.weather ?? null,
+    idleMinutes: opts.idleMinutes ?? null,
+    music: opts.music ?? null,
+  })
+}
+
+/** 关闭片段 */
+export async function closeContextEpisode(id: number, endedAt: number): Promise<void> {
+  await ensureReady()
+  await invoke('sp_ctx_close', { id, endedAt })
+}
+
+/** 查询片段（[start, end) 可选 end） */
+export async function listContextEpisodes(characterId: string, start: number, end?: number): Promise<ContextEpisodeRow[]> {
+  await ensureReady()
+  return invoke<ContextEpisodeRow[]>('sp_ctx_list', { characterId, start, end: end ?? null })
+}
+
+// ============ B2-2: entityGraph（memory_entities / edges） ============
+
+export interface EntityNodeGraphRow {
+  id: string
+  name: string
+  type: string
+  memory_ids: string
+  created_at: number
+}
+
+/** upsert 实体节点，返回实际 id（新增用 candidateId；已存在复用既有 id） */
+export async function upsertEntityGraphNode(opts: {
+  name: string
+  nodeType: string
+  memoryId: string
+  candidateId: string
+  createdAt: number
+  embeddingB64?: string | null
+}): Promise<string> {
+  await ensureReady()
+  return invoke<string>('sp_entitygraph_upsert_node', {
+    name: opts.name,
+    nodeType: opts.nodeType,
+    memoryId: opts.memoryId,
+    candidateId: opts.candidateId,
+    createdAt: opts.createdAt,
+    embeddingB64: opts.embeddingB64 ?? null,
+  })
+}
+
+/** upsert 实体关系边（增量权重） */
+export async function upsertEntityGraphEdge(opts: {
+  entityA: string
+  entityB: string
+  weightIncrement: number
+  createdAt: number
+}): Promise<void> {
+  await ensureReady()
+  await invoke('sp_entitygraph_upsert_edge', {
+    entityA: opts.entityA,
+    entityB: opts.entityB,
+    weightIncrement: opts.weightIncrement,
+    createdAt: opts.createdAt,
+  })
+}
+
+/** 按名称批量查实体 */
+export async function findEntityNodesByName(names: string[]): Promise<EntityNodeGraphRow[]> {
+  await ensureReady()
+  return invoke<EntityNodeGraphRow[]>('sp_entitygraph_find_by_names', { names })
+}
+
+/** 获取实体的邻居（含权重） */
+export async function getEntityGraphNeighbors(entityName: string): Promise<Array<{ neighbor: string; weight: number }>> {
+  await ensureReady()
+  return invoke<Array<{ neighbor: string; weight: number }>>('sp_entitygraph_neighbors', { entityName })
+}
+
+// ============ B2-2: zombie 数据清理（zombieDataCleanup） ============
+
+export interface ZombieReportRow {
+  legacyCount: number
+  legacyOldest: number | null
+  episodeCount: number
+  entityCount: number
+  bytes: number
+}
+
+/** 僵尸数据报告 */
+export async function getZombieReport(contextThreshold: number, entityThreshold: number): Promise<ZombieReportRow> {
+  await ensureReady()
+  return invoke<ZombieReportRow>('sp_zombie_report', { contextThreshold, entityThreshold })
+}
+
+/** 清理过期 legacy blob，返回清理条数 */
+export async function zombieCleanupLegacy(threshold: number, force: boolean, limit: number): Promise<number> {
+  await ensureReady()
+  return invoke<number>('sp_zombie_cleanup_legacy', { threshold, force, limit })
+}
+
+/** 清理过期 context_episodes，返回清理条数 */
+export async function zombieCleanupEpisodes(threshold: number, limit: number): Promise<number> {
+  await ensureReady()
+  return invoke<number>('sp_zombie_cleanup_episodes', { threshold, limit })
+}
+
+/** 清理过期 entity_nodes，返回清理条数 */
+export async function zombieCleanupEntities(threshold: number, limit: number): Promise<number> {
+  await ensureReady()
+  return invoke<number>('sp_zombie_cleanup_entities', { threshold, limit })
+}
+
+// ============ B2-2: schemaRunner（迁移标记 + 只读校验） ============
+
+export interface SchemaVersionRecord {
+  version: number
+  description: string
+  applied_at: number
+  sql_checksum: string
+}
+
+export interface MigrationFailureLogRow {
+  id: number
+  version: number
+  attempted_at: number
+  error_message: string
+  sql_statement: string
+}
+
+/** 当前 schema 版本 */
+export async function getCurrentSchemaVersion(): Promise<number> {
+  await ensureReady()
+  return invoke<number>('sp_schema_version_current')
+}
+
+/** 指定版本是否已应用 */
+export async function isSchemaVersionApplied(version: number): Promise<boolean> {
+  await ensureReady()
+  return invoke<boolean>('sp_schema_version_applied', { version })
+}
+
+/** 标记迁移版本已应用（幂等，不执行 DDL） */
+export async function recordSchemaVersion(version: number, description: string, sqlChecksum: string): Promise<void> {
+  await ensureReady()
+  await invoke('sp_schema_version_record', { version, description, sqlChecksum })
+}
+
+/** schema 版本历史 */
+export async function getSchemaVersionHistory(): Promise<SchemaVersionRecord[]> {
+  await ensureReady()
+  return invoke<SchemaVersionRecord[]>('sp_schema_version_history')
+}
+
+/** 记录迁移失败 */
+export async function logSchemaMigrationFailure(version: number, errorMessage: string, sqlStatement?: string): Promise<void> {
+  await ensureReady()
+  await invoke('sp_schema_log_failure', { version, errorMessage, sqlStatement: sqlStatement ?? null })
+}
+
+/** 标记迁移失败为已解决 */
+export async function resolveSchemaMigrationFailure(logId: number, resolvedAt: number): Promise<void> {
+  await ensureReady()
+  await invoke('sp_schema_resolve_failure', { logId, resolvedAt })
+}
+
+/** 未解决的迁移失败记录 */
+export async function getUnresolvedSchemaFailures(): Promise<MigrationFailureLogRow[]> {
+  await ensureReady()
+  return invoke<MigrationFailureLogRow[]>('sp_schema_unresolved')
+}
+
+// ============ B2-2: dirty_data_registry（dirtyDataTracker） ============
+
+/** 运行脏数据检测（Rust 端静态 SQL），返回归一化 issue 列表 */
+export interface DirtyScanIssue {
+  table: string
+  column?: string
+  rowId?: string | number
+  dataType: string
+  severity: string
+  description: string
+  details?: string
+  detectedAt: number
+}
+
+export async function scanDirtyData(): Promise<DirtyScanIssue[]> {
+  await ensureReady()
+  return invoke<DirtyScanIssue[]>('sp_dirty_scan')
+}
+
+export interface DirtyRegistryRow {
+  id: number
+  kind: string
+  target_id: string
+  payload: string
+  detected_at: number
+  resolved_at: number | null
+}
+
+/** 写入脏数据问题（幂等 upsert） */
+export async function upsertDirtyIssue(kind: string, targetId: string, payload: string, detectedAt: number): Promise<void> {
+  await ensureReady()
+  await invoke('sp_dirty_upsert', { kind, targetId, payload, detectedAt })
+}
+
+/** 解决单个脏数据问题 */
+export async function resolveDirtyIssue(id: number, resolvedAt: number): Promise<void> {
+  await ensureReady()
+  await invoke('sp_dirty_resolve', { id, resolvedAt })
+}
+
+/** 批量解决某表所有脏数据，返回受影响行数 */
+export async function resolveDirtyIssuesForTable(table: string, resolvedAt: number): Promise<number> {
+  await ensureReady()
+  return invoke<number>('sp_dirty_resolve_table', { table, resolvedAt })
+}
+
+/** 全部脏数据行 */
+export async function listDirtyIssues(): Promise<DirtyRegistryRow[]> {
+  await ensureReady()
+  return invoke<DirtyRegistryRow[]>('sp_dirty_list')
+}
+
+/** 清理已解决超过 threshold 的记录 */
+export async function cleanupResolvedDirtyData(threshold: number): Promise<number> {
+  await ensureReady()
+  return invoke<number>('sp_dirty_cleanup', { threshold })
 }

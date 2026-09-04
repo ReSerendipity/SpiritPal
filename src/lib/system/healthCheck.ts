@@ -17,7 +17,7 @@
  */
 
 import { IPC_DEFAULT_TIMEOUT_MS } from '@/lib/data/constants'
-import { getDb } from '@/lib/data/db'
+import { dbIntegrityCheck } from '@/lib/data/db'
 import { tauriInvokeNoRetry } from './tauriInvoker'
 
 // ============ 类型定义 ============
@@ -80,16 +80,15 @@ export async function runHealthCheck(): Promise<HealthCheckResult> {
 }
 
 /**
- * 数据库连接检查：执行简单 SELECT 1 验证连接可用。
+ * 数据库连接检查：执行 PRAGMA integrity_check 验证连接可用。
  */
 async function checkDatabase(): Promise<HealthCheckItem> {
   const start = Date.now()
   const name = 'database'
 
   try {
-    const db = await getDb()
-    const result = await db.select<{ '1': number }[]>('SELECT 1 as "1"')
-    if (result.length > 0) {
+    const rows = await dbIntegrityCheck()
+    if (rows.length > 0) {
       return {
         name,
         status: 'pass',

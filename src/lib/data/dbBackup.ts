@@ -11,7 +11,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core'
-import { getDb } from './db'
+import { dbIntegrityCheck, exportDbSnapshot } from './db'
 
 // ============ 物理完整性检查 ============
 
@@ -25,13 +25,10 @@ export const DB_INTEGRITY_FAILED_EVENT = 'spiritpal:db-integrity-failed'
  */
 export async function checkDbIntegrity(): Promise<boolean> {
   try {
-    const db = await getDb()
-    const rows = await db.select<{ integrity_check: string }[]>(
-      'SELECT * FROM pragma_integrity_check'
-    )
-    const ok = rows.every((r) => String(r.integrity_check).trim().toLowerCase() === 'ok')
+    const rows = await dbIntegrityCheck()
+    const ok = rows.every((r) => String(r).trim().toLowerCase() === 'ok')
     if (!ok) {
-      const sample = rows.map((r) => String(r.integrity_check)).slice(0, 5).join('; ')
+      const sample = rows.map((r) => String(r)).slice(0, 5).join('; ')
       console.error(`[DataHealth] 数据库完整性检查失败: ${sample}`)
       if (typeof window !== 'undefined') {
         try {
@@ -62,23 +59,7 @@ export async function checkDbIntegrity(): Promise<boolean> {
  * 治理元数据表（schema 系列、dirty_data_registry、memory_entities 系列）跳过。
  */
 export async function exportDatabaseSnapshot(): Promise<Record<string, unknown[]>> {
-  const db = await getDb()
-  const tables = await db.select<{ name: string }[]>(
-    `SELECT name FROM sqlite_master
-     WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'dirty_data_%'
-       AND name NOT LIKE 'schema_%' AND name <> 'memory_entities' AND name <> 'memory_entity_edges'
-     ORDER BY name`
-  )
-  const snapshot: Record<string, unknown[]> = {}
-  for (const { name } of tables) {
-    try {
-      snapshot[name] = (await db.select(`SELECT * FROM "${name}"`)) as unknown[]
-    } catch {
-      // 单表失败不阻断整体导出
-      console.warn(`[DataHealth] 导出表 ${name} 失败，已跳过`)
-    }
-  }
-  return snapshot
+  return exportDbSnapshot()
 }
 
 // ============ 本地自动备份（Rust 命令封装） ============

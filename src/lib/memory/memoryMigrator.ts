@@ -20,9 +20,9 @@
 
 import { decryptBlob } from '@/lib/data/blobCrypto'
 import {
-  getDb,
   getSetting,
   setSetting,
+  getSettingsKeysLike,
   insertMemoryRow,
   upsertMemorySummary,
   upsertMemoryState,
@@ -149,11 +149,7 @@ export async function migrateCharacterMemory(characterId: string): Promise<Migra
     return result
   }
 
-  const db = await getDb()
-
   try {
-    await db.execute('BEGIN TRANSACTION')
-
     // 1. 迁移记忆行
     const workingMemory = (data.workingMemory as EnhancedMemory[]) ?? []
     const episodicMemory = (data.episodicMemory as EnhancedMemory[]) ?? []
@@ -215,15 +211,12 @@ export async function migrateCharacterMemory(characterId: string): Promise<Migra
     // 4. 旧 blob 副本写入 .legacy 键（保留，不删除）
     await setSetting(`${blobKey}.legacy`, raw)
 
-    await db.execute('COMMIT')
-
     // 5. 写迁移标记
     await setMemoryMigrated()
 
     result.success = true
     console.log(`[S2-Migration] Migrated ${result.memoriesMigrated} memories for ${characterId}`)
   } catch (e) {
-    await db.execute('ROLLBACK')
     result.error = `Migration failed: ${e}`
     console.error(`[S2-Migration] Failed for ${characterId}:`, e)
   }
@@ -242,16 +235,18 @@ export async function migrateAllCharacterMemories(): Promise<MigrationResult[]> 
     return [{ success: true, characterId: '*', memoriesMigrated: 0, summaryMigrated: false, stateMigrated: false, error: 'Legacy mode forced' }]
   }
 
-  const db = await getDb()
   // 查找所有 spiritpal-enhanced-memory- 开头的 key（排除 .legacy / .corrupt）
-  const rows = await db.select<{ key: string }[]>(
-    "SELECT key FROM settings WHERE key LIKE 'spiritpal-enhanced-memory-%' AND key NOT LIKE '%.legacy' AND key NOT LIKE '%.corrupt'",
-  )
+  const rows = await getSettingsKeysLike('spiritpal-enhanced-memory-%')
+  const legacyRows = await getSettingsKeysLike('%.legacy')
+  const corruptRows = await getSettingsKeysLike('%.corrupt')
+  const legacySet = new Set(legacyRows)
+  const corruptSet = new Set(corruptRows)
+  const keys = rows.filter((k) => !legacySet.has(k) && !corruptSet.has(k))
 
   const results: MigrationResult[] = []
-  for (const row of rows) {
+  for (const row of keys) {
     // 提取 characterId
-    const charId = row.key.replace('spiritpal-enhanced-memory-', '')
+    const charId = row.replace('spiritpal-enhanced-memory-', '')
     if (charId) {
       const result = await migrateCharacterMemory(charId)
       results.push(result)

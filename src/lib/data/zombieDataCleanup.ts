@@ -35,7 +35,14 @@
  */
 
 import { auditLog, AuditEventType } from '@/lib/system/auditLogger'
-import { getDb, getSetting, setSetting, removeSetting } from './db'
+import {
+  getSetting,
+  setSetting,
+  getZombieReport,
+  zombieCleanupLegacy,
+  zombieCleanupEpisodes,
+  zombieCleanupEntities,
+} from './db'
 
 /** 清理配置 */
 interface CleanupConfig {
@@ -82,49 +89,18 @@ export interface CleanupResult {
  */
 export async function getZombieDataReport(config: Partial<CleanupConfig> = {}): Promise<ZombieDataReport> {
   const cfg = { ...DEFAULT_CONFIG, ...config }
-  const db = await getDb()
   const now = Date.now()
-
-  // 1. 统计 .legacy blob
-  // B-3: 旧库行 updated_at=0（无时间戳），不计入 oldest，避免把迁移时间误解为 1970
-  const legacyResult = await db.select<{ count: number; oldest: number | null }[]>(
-    `SELECT COUNT(*) as count,
-            MIN(CASE WHEN updated_at > 0 THEN updated_at END) as oldest
-     FROM settings
-     WHERE key LIKE '%.legacy'`
-  )
-  const legacyCount = legacyResult[0]?.count ?? 0
-  const legacyOldest = legacyResult[0]?.oldest ?? null
-
-  // 2. 统计过期 context_episodes
   const episodeThreshold = now - cfg.contextEpisodeRetentionDays * 24 * 60 * 60 * 1000
-  const episodeResult = await db.select<{ count: number }[]>(
-    'SELECT COUNT(*) as count FROM context_episodes WHERE started_at < ?',
-    [episodeThreshold]
-  )
-  const episodeCount = episodeResult[0]?.count ?? 0
-
-  // 3. 统计过期 entity_nodes
   const entityThreshold = now - cfg.entityNodeExpirationDays * 24 * 60 * 60 * 1000
-  const entityResult = await db.select<{ count: number }[]>(
-    `SELECT COUNT(*) as count FROM entity_nodes
-     WHERE last_seen < ? AND mention_count < 3`,
-    [entityThreshold]
-  )
-  const entityCount = entityResult[0]?.count ?? 0
 
-  // 估算存储空间（rough estimate）
-  const legacyBlobs = await db.select<{ value: string }[]>(
-    `SELECT value FROM settings WHERE key LIKE '%.legacy'`
-  )
-  const estimatedBytes = legacyBlobs.reduce((sum, row) => sum + (row.value?.length ?? 0), 0)
+  const report = await getZombieReport(episodeThreshold, entityThreshold)
 
   return {
-    legacyBlobCount: legacyCount,
-    legacyBlobOldest: legacyOldest,
-    expiredEpisodeCount: episodeCount,
-    expiredEntityCount: entityCount,
-    totalEstimatedBytes: estimatedBytes,
+    legacyBlobCount: report.legacyCount,
+    legacyBlobOldest: report.legacyOldest,
+    expiredEpisodeCount: report.episodeCount,
+    expiredEntityCount: report.entityCount,
+    totalEstimatedBytes: report.bytes,
   }
 }
 
@@ -132,62 +108,19 @@ export async function getZombieDataReport(config: Partial<CleanupConfig> = {}): 
  * 清理 .legacy 后缀的 JSON blob
  * 仅清理超过保留期的 blob
  */
-async function cleanupLegacyBlobs(
-  config: CleanupConfig,
-  db: Awaited<ReturnType<typeof getDb>>,
-): Promise<number> {
+async function cleanupLegacyBlobs(config: CleanupConfig): Promise<number> {
   // .legacy blob 的 updated_at 是 blob 写入时间（即迁移时间）
   const threshold = Date.now() - config.legacyBlobRetentionDays * 24 * 60 * 60 * 1000
-
-  // 查找过期的 legacy blob。
-  // B-3 安全约束：自动清理只处理「有真实时间戳且超保留期」的行；
-  // updated_at=0（升级前旧库写入，无时间可考）不自动删，交给用户手动清理入口。
-  const expiredBlobs = await db.select<{ key: string }[]>(
-    `SELECT key FROM settings
-     WHERE key LIKE '%.legacy'
-       AND (${config.forceLegacyCleanup ? '1=1' : "updated_at > 0 AND updated_at < ?"})
-     LIMIT ?`,
-    config.forceLegacyCleanup
-      ? [config.maxEntriesPerRun]
-      : [threshold, config.maxEntriesPerRun]
-  )
-
-  if (expiredBlobs.length === 0) return 0
-
-  // 删除过期 blob
-  let cleaned = 0
-  for (const blob of expiredBlobs) {
-    try {
-      await db.execute('DELETE FROM settings WHERE key = ?', [blob.key])
-      cleaned++
-    } catch (e) {
-      console.warn(`[ZombieCleanup] Failed to delete legacy blob ${blob.key}:`, e)
-    }
-  }
-
-  return cleaned
+  return zombieCleanupLegacy(threshold, config.forceLegacyCleanup ?? false, config.maxEntriesPerRun)
 }
 
 /**
  * 清理过期的 context_episodes
  */
-async function cleanupExpiredEpisodes(
-  config: CleanupConfig,
-  db: Awaited<ReturnType<typeof getDb>>,
-): Promise<number> {
+async function cleanupExpiredEpisodes(config: CleanupConfig): Promise<number> {
   const threshold = Date.now() - config.contextEpisodeRetentionDays * 24 * 60 * 60 * 1000
-
   try {
-    const result = await db.execute(
-      `DELETE FROM context_episodes
-       WHERE id IN (
-         SELECT id FROM context_episodes
-         WHERE started_at < ?
-         LIMIT ?
-       )`,
-      [threshold, config.maxEntriesPerRun],
-    )
-    return result.rowsAffected ?? 0
+    return await zombieCleanupEpisodes(threshold, config.maxEntriesPerRun)
   } catch (e) {
     console.warn('[ZombieCleanup] Failed to cleanup expired episodes:', e)
     return 0
@@ -197,23 +130,10 @@ async function cleanupExpiredEpisodes(
 /**
  * 清理过期的 entity_nodes（低提及频率 + 长期未出现）
  */
-async function cleanupExpiredEntities(
-  config: CleanupConfig,
-  db: Awaited<ReturnType<typeof getDb>>,
-): Promise<number> {
+async function cleanupExpiredEntities(config: CleanupConfig): Promise<number> {
   const threshold = Date.now() - config.entityNodeExpirationDays * 24 * 60 * 60 * 1000
-
   try {
-    const result = await db.execute(
-      `DELETE FROM entity_nodes
-       WHERE id IN (
-         SELECT id FROM entity_nodes
-         WHERE last_seen < ? AND mention_count < 3
-         LIMIT ?
-       )`,
-      [threshold, config.maxEntriesPerRun],
-    )
-    return result.rowsAffected ?? 0
+    return await zombieCleanupEntities(threshold, config.maxEntriesPerRun)
   } catch (e) {
     console.warn('[ZombieCleanup] Failed to cleanup expired entities:', e)
     return 0
@@ -235,7 +155,6 @@ export async function cleanupZombieData(
   config: Partial<CleanupConfig> = {},
 ): Promise<CleanupResult> {
   const cfg = { ...DEFAULT_CONFIG, ...config }
-  const db = await getDb()
   const errors: string[] = []
   let cleanedBlobs = 0
   let cleanedEpisodes = 0
@@ -243,7 +162,7 @@ export async function cleanupZombieData(
 
   // 1. 清理 .legacy blob
   try {
-    cleanedBlobs = await cleanupLegacyBlobs(cfg, db)
+    cleanedBlobs = await cleanupLegacyBlobs(cfg)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     errors.push(`Legacy blob cleanup failed: ${msg}`)
@@ -251,7 +170,7 @@ export async function cleanupZombieData(
 
   // 2. 清理过期 context_episodes
   try {
-    cleanedEpisodes = await cleanupExpiredEpisodes(cfg, db)
+    cleanedEpisodes = await cleanupExpiredEpisodes(cfg)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     errors.push(`Episode cleanup failed: ${msg}`)
@@ -259,7 +178,7 @@ export async function cleanupZombieData(
 
   // 3. 清理过期 entity_nodes
   try {
-    cleanedEntities = await cleanupExpiredEntities(cfg, db)
+    cleanedEntities = await cleanupExpiredEntities(cfg)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     errors.push(`Entity cleanup failed: ${msg}`)
