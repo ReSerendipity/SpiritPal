@@ -54,6 +54,8 @@ import { getChatStageManager } from '@/lib/ai/chatStages'
 import { getAchievementManager } from '@/lib/nurture/achievementSystem'
 import { getScheduleManager } from '@/lib/nurture/scheduleManager'
 import { detectAgentIntent, processAgentRequest } from '@/lib/ai/aiAgent'
+// P0-1：注入真实工具确认处理器（高风险工具默认需确认；无处理器时 fail-closed 一律拒绝）
+import { setToolConfirmationHandler } from '@/lib/ai/agentSandbox'
 // P1-1：接线日记系统
 import { getDiarySystemManager } from '@/lib/nurture/diarySystem'
 // P1-6：接线防重复机制
@@ -199,9 +201,20 @@ export default function ChatWindow() {
   // 组件挂载时触发 input 阶段（宠物坐下听）
   useEffect(() => {
     chatStageMgr.setStage('input')
+    // P0-1：注册真实工具确认处理器。write_file/execute_command 等豁免名单之外的
+    // 高风险工具在执行前会弹系统确认框；组件卸载时恢复 fail-closed 默认（一律拒绝）。
+    setToolConfirmationHandler((toolName, params) => {
+      const paramSummary = JSON.stringify(params, null, 2)
+      const approved = window.confirm(
+        `SpiritPal 请求执行以下操作：\n\n工具：${toolName}\n参数：\n${paramSummary}\n\n是否允许执行？`,
+      )
+      return { approved, reason: approved ? '用户已确认' : '用户拒绝' }
+    })
     return () => {
       // 组件卸载时恢复 idle
       chatStageMgr.restore()
+      // 注销确认处理器（恢复 fail-closed）
+      setToolConfirmationHandler(null)
     }
   }, [chatStageMgr])
 
