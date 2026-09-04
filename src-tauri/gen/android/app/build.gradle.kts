@@ -13,7 +13,8 @@ val tauriProperties = Properties().apply {
     }
 }
 
-// 签名配置：优先从 keystore.properties 读取，否则使用项目内置 debug/release keystore
+// 签名配置：只从 keystore.properties 读取，拒绝硬编码口令回退。
+// 口令泄漏面治理（P1-3）：缺失时仅告警不签名（不产出分发物）。
 val keystorePropsFile = file("keystore.properties")
 val keystoreProps = Properties()
 if (keystorePropsFile.exists()) {
@@ -34,10 +35,20 @@ android {
 
     signingConfigs {
         create("release") {
-            keyAlias = keystoreProps.getProperty("keyAlias", "spiritpal")
-            keyPassword = keystoreProps.getProperty("keyPassword", "spiritpal123")
-            storeFile = file(keystoreProps.getProperty("storeFile", "spiritpal-release.jks"))
-            storePassword = keystoreProps.getProperty("storePassword", "spiritpal123")
+            if (!keystorePropsFile.exists()) {
+                logger.warn("keystore.properties 缺失：release 签名未配置（不产出可分发产物）。请从安全渠道获取该文件（.gitignore 已忽略）。")
+            } else {
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                    ?: throw GradleException("keystore.properties 缺少 keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+                    ?: throw GradleException("keystore.properties 缺少 keyPassword")
+                storeFile = file(
+                    keystoreProps.getProperty("storeFile")
+                        ?: throw GradleException("keystore.properties 缺少 storeFile")
+                )
+                storePassword = keystoreProps.getProperty("storePassword")
+                    ?: throw GradleException("keystore.properties 缺少 storePassword")
+            }
         }
     }
 

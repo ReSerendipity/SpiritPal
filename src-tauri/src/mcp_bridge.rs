@@ -31,7 +31,9 @@ fn to_hex(bytes: &[u8]) -> String {
 }
 
 /// 生成一次性本地 Token（SHA-256 摘要）
-fn gen_token() -> String {
+///
+/// pub：memory_sidecar 复用同一派生逻辑（token 生成单点维护，M0 加固）。
+pub fn gen_token() -> String {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos())
@@ -52,11 +54,30 @@ pub fn spawn(app: &AppHandle) {
     // 生成并透出本地 Token：`spiritpal-mcp` 转发端需通过环境变量使用
     let token = gen_token();
     std::env::set_var("SPIRITPAL_MCP_BRIDGE_TOKEN", &token);
-    // 若配置了 token 文件路径，则落盘供外部 agent 读取
+    // 若配置了 token 文件路径，则落盘供外部 agent 读取。
+    // M0 加固：Unix 下以 0o600 写入，防止同机其他用户读取 token。
     if let Ok(token_file) = std::env::var("SPIRITPAL_MCP_TOKEN_FILE") {
-        let _ = std::fs::write(&token_file, &token);
+        #[cfg(unix)]
+        {
+            use std::io::Write;
+            use std::os::unix::fs::OpenOptionsExt;
+            if let Ok(mut f) = std::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .mode(0o600)
+                .open(&token_file)
+            {
+                let _ = f.write_all(token.as_bytes());
+            }
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = std::fs::write(&token_file, &token);
+        }
     }
-    println!("[MCP] command bridge listening on {addr} (token: {token})");
+    // M0 加固：不在 stdout 明文打印 token（同机进程可读 stdout/日志）。
+    println!("[MCP] command bridge listening on {addr}");
 
     let app = app.clone();
     std::thread::spawn(move || {
@@ -97,5 +118,50 @@ pub fn mcp_respond(id: String, result: String) -> bool {
     match sender {
         Some(tx) => tx.send(result).is_ok(),
         None => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gen_token_is_unique_hex() {
+        let a = gen_token();
+        let b = gen_token();
+        // SHA-256 hex = 64 字符
+        assert_eq!(a.len(), 64);
+        assert!(a.chars().all(|c| c.is_ascii_hexdigit()));
+        // 每次调用生成不同 Token
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn mcp_respond_delivers_result_to_pending() {
+        let (tx, rx) = mpsc::channel::<String>();
+        let id = "mcp-test-deliver".to_string();
+        pending().lock().unwrap().insert(id.clone(), tx);
+        assert!(mcp_respond(id.clone(), "reply-ok".to_string()));
+        assert_eq!(
+            rx.recv_timeout(Duration::from_secs(1)).unwrap(),
+            "reply-ok"
+        );
+        // 响应后挂起条目已被移除
+        assert!(pending().lock().unwrap().get(&id).is_none());
+    }
+
+    #[test]
+    fn mcp_respond_unknown_id_returns_false() {
+        assert!(!mcp_respond("mcp-no-such-id".to_string(), "x".to_string()));
+    }
+
+    #[test]
+    fn mcp_respond_dropped_channel_returns_false() {
+        // sender 已 drop（接收端丢弃）时，send 失败应返回 false
+        let (tx, _rx) = mpsc::channel::<String>();
+        drop(_rx);
+        let id = "mcp-test-dropped".to_string();
+        pending().lock().unwrap().insert(id.clone(), tx);
+        assert!(!mcp_respond(id, "x".to_string()));
     }
 }

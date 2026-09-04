@@ -20,7 +20,7 @@
 //! - fork 版本 API 与 crates.io 版本有差异：`Button` 而非 `ButtonType`，方向键为 `*Arrow`
 
 #[cfg(desktop)]
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 #[cfg(desktop)]
 use tauri::Emitter;
@@ -28,6 +28,29 @@ use tauri::Emitter;
 /// 全局监听标志 — 防止重复启动 rdev::listen
 #[cfg(desktop)]
 static IS_LISTENING: AtomicBool = AtomicBool::new(false);
+
+/// 上次 MouseMove emit 的时间戳（unix 毫秒）— P2-01 降频用
+#[cfg(desktop)]
+static LAST_MOVE_EMIT_MS: AtomicU64 = AtomicU64::new(0);
+
+/// MouseMove 最小发射间隔（毫秒）— 与前端 useInputReactions 的 60ms 节流对齐
+#[cfg(desktop)]
+const MOVE_EMIT_MIN_INTERVAL_MS: u64 = 60;
+
+/// 当前 unix 毫秒时间戳
+#[cfg(desktop)]
+fn now_millis() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+/// P2-01：判定是否应发射 MouseMove（距上次 >= 间隔才算）— 抽离为纯函数便于单测
+#[cfg(desktop)]
+fn should_emit_move(last_ms: u64, now_ms: u64) -> bool {
+    now_ms.saturating_sub(last_ms) >= MOVE_EMIT_MIN_INTERVAL_MS
+}
 
 // ============ 事件载荷类型 ============
 
@@ -220,8 +243,15 @@ pub fn start_device_listening(app_handle: tauri::AppHandle) -> Result<(), String
 
             match event.event_type {
                 rdev::EventType::MouseMove { x, y } => {
-                    let payload = MouseMovePayload { x, y };
-                    let _ = app_handle.emit("device-mouse-move", &payload);
+                    // P2-01：MouseMove 高频（125–1000Hz）降频到 ~16Hz，与前端 60ms 节流对齐，
+                    // 减少无关的 IPC 事件穿越，降低常驻 CPU/IPC/GC 开销
+                    let now_ms = now_millis();
+                    let last = LAST_MOVE_EMIT_MS.load(Ordering::Relaxed);
+                    if should_emit_move(last, now_ms) {
+                        LAST_MOVE_EMIT_MS.store(now_ms, Ordering::Relaxed);
+                        let payload = MouseMovePayload { x, y };
+                        let _ = app_handle.emit("device-mouse-move", &payload);
+                    }
                 }
                 rdev::EventType::ButtonPress(button) => {
                     // ButtonPress 不携带坐标，此处仅发送按键类型
@@ -293,4 +323,44 @@ pub fn stop_device_listening() -> Result<(), String> {
     IS_LISTENING.store(false, Ordering::Release);
     log::info!("[Device] stopped global input listener");
     Ok(())
+}
+
+#[cfg(all(test, desktop))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_should_emit_move_first_event() {
+        // 首次（last=0）：应立即发射
+        assert!(should_emit_move(0, 500));
+    }
+
+    #[test]
+    fn test_should_emit_move_throttled() {
+        // 距上次 30ms：应抑制
+        assert!(!should_emit_move(10_000, 10_030));
+        // 距上次 59ms：应抑制（边界）
+        assert!(!should_emit_move(10_000, 10_059));
+    }
+
+    #[test]
+    fn test_should_emit_move_interval_reached() {
+        // 距上次 >= 60ms：应发射（含边界值）
+        assert!(should_emit_move(10_000, 10_060));
+        assert!(should_emit_move(10_000, 10_500));
+    }
+
+    #[test]
+    fn test_should_emit_move_time_reversal_safe() {
+        // 时间回退（系统时钟跳变）不触发 panic，且按饱和运算抑制
+        assert!(!should_emit_move(10_500, 10_000));
+    }
+
+    #[test]
+    fn test_now_millis_monotonic_sane() {
+        let a = now_millis();
+        let b = now_millis();
+        assert!(b >= a);
+        assert!(b > 1_000_000_000, "unix 毫秒应当在合理范围");
+    }
 }

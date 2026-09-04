@@ -698,7 +698,8 @@ mod tests {
     #[test]
     fn test_pbkdf2_iterations_meets_nist() {
         // NIST SP 800-132 推荐至少 1000 次迭代，本项目使用 100,000 次
-        assert!(PBKDF2_ITERATIONS >= 100_000, "PBKDF2 迭代次数应 >= 100,000");
+        // 编译期断言（clippy 提示运行时断言为常量值）
+        const _: () = assert!(PBKDF2_ITERATIONS >= 100_000, "PBKDF2 迭代次数应 >= 100,000");
     }
 
     // ============ SHA-256 / sha256_to_hex 已知向量测试 ============
