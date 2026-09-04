@@ -29,6 +29,8 @@
  */
 
 import type { AIConfig, ChatMessage, LLMProvider } from '@/lib/data/types'
+// P0: 统一网络出口 — Ollama 探测也走 safeFetch（回环直通 + Tauri 下 Rust 代理）
+import { safeFetch } from '@/lib/system/ssrfProtection'
 
 // ============ 服务商预设 ============
 
@@ -150,7 +152,7 @@ export async function detectOllama(): Promise<boolean> {
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 2000)
-    const res = await fetch(OLLAMA_TAGS_URL, { signal: controller.signal })
+    const res = await safeFetch(OLLAMA_TAGS_URL, { signal: controller.signal })
     clearTimeout(timeout)
     if (!res.ok) return false
     const data = await res.json()
@@ -166,7 +168,7 @@ export async function listOllamaModels(): Promise<string[]> {
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 2000)
-    const res = await fetch(OLLAMA_TAGS_URL, { signal: controller.signal })
+    const res = await safeFetch(OLLAMA_TAGS_URL, { signal: controller.signal })
     clearTimeout(timeout)
     if (!res.ok) return []
     const data = await res.json()

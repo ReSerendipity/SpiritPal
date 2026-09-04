@@ -327,8 +327,59 @@ export class SSRFProtector {
 // ============ 安全 fetch 封装 ============
 
 /**
+ * 回环地址判断（localhost / 127/8 / ::1 / 0.0.0.0）
+ * 回环是用户显式配置的本地服务端点（如 Ollama），需绕过 SSRF 白名单拦截。
+ */
+function isLoopbackUrl(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase()
+    return (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      hostname === '[::1]' ||
+      hostname === '0.0.0.0'
+    )
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 统一的网络出口（P0）
+ * - 回环地址（本地模型服务等）：直接放行，不做 SSRF 白名单校验
+ *   （该校验会拦截本地地址），也不受 CSP 约束。
+ * - Tauri 运行时：经 Rust 侧 `http_proxy` 命令出网 —— 绕过生产 CSP 对境内/
+ *   本地服务商的阻断；Rust 侧执行第二道校验（私有 IP / 端口，见 http_proxy.rs）。
+ * - 非 Tauri 环境（浏览器开发 / Vitest / Playwright web 模式）：SSRF 校验后原生 fetch。
+ */
+async function networkFetch(
+  url: string,
+  options?: RequestInit,
+  protector?: SSRFProtector,
+  feature?: string,
+): Promise<Response> {
+  const guard = protector ?? getSSRFProtector()
+
+  if (!isLoopbackUrl(url)) {
+    const validation = guard.validate(url, feature)
+    if (!validation.allowed) {
+      throw new Error(`SSRF 防护: ${validation.reason}`)
+    }
+  }
+
+  // Tauri 运行时 → Rust 侧代理（生产 CSP 修复的唯一出口；Rust 侧自带私有 IP/端口校验）
+  if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+    const { proxyFetch } = await import('./netProxy')
+    return proxyFetch(url, options)
+  }
+
+  return fetch(url, options)
+}
+
+/**
  * 安全的网络请求封装
- * 在调用 fetch 前进行 SSRF 校验
+ * 在调用 fetch 前进行 SSRF 校验（回环地址直通；Tauri 下走 Rust 侧代理）
  */
 export async function safeFetch(
   url: string,
@@ -336,14 +387,7 @@ export async function safeFetch(
   protector?: SSRFProtector,
   feature?: string,
 ): Promise<Response> {
-  const guard = protector ?? getSSRFProtector()
-  const validation = guard.validate(url, feature)
-
-  if (!validation.allowed) {
-    throw new Error(`SSRF 防护: ${validation.reason}`)
-  }
-
-  return fetch(url, options)
+  return networkFetch(url, options, protector, feature)
 }
 
 // ============ 单例 ============
