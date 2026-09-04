@@ -279,8 +279,8 @@ jobs:
       - name: pnpm audit
         run: |
           # 临时使用官方 npm registry 进行 audit（npmmirror 不支持 audit 端点）
-          # 真实门禁：发现 CRITICAL 级漏洞即阻断合并（无法修复的传递依赖请用 pnpm audit --ignore <id> 并附 issue 跟踪）
-          pnpm audit --audit-level=critical --registry=https://registry.npmjs.org/
+          # 真实门禁：发现 CRITICAL 级漏洞即阻断（退出码门禁）；同时落盘 JSON 供棘轮基线比对
+          pnpm audit --json --audit-level=critical --registry=https://registry.npmjs.org/ > "$GITHUB_WORKSPACE/pnpm-audit.json"
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -291,9 +291,17 @@ jobs:
         run: cargo install cargo-audit --locked
 
       - name: cargo audit
-        working-directory: src-tauri
-        # 真实门禁：发现漏洞即阻断合并。网络抖动请重试 job，勿用 || true 静默放行。
-        run: cargo audit
+        # 真实门禁：发现漏洞即阻断合并（退出码门禁）；JSON 落盘仓库根供棘轮基线比对
+        run: cargo audit --json --manifest-path src-tauri/Cargo.toml > cargo-audit.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Execute security gate (棘轮基线)
+        shell: bash
+        run: |
+          python scripts/security_gate.py
 
       - name: Run osv-scanner
         uses: google/osv-scanner-action/osv-scanner-action@v1.9.0

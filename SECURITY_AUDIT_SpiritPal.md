@@ -24,11 +24,11 @@
 - **良性**：`src-tauri/tests/test_system_runtime.rs:84-97` 对命令白名单与 shell 元字符拼接有回归测试。✅
 
 ### 5. 配置-实现一致性（capability 视角）
-- **[S1-Medium/High] 过度授权的 IPC capability**：`src-tauri/capabilities/chat-window.json:25` 与 `settings-window.json:29` 均授予 `sql:allow-execute`——前端可经 Tauri SQL 插件执行**任意 SQL**。相比 `sql:allow-select/insert/update/delete` 的作用域权限，`allow-execute` 最宽松；任何 XSS 或恶意/被攻陷依赖都能读写删用户数据。建议：改为按查询作用域的细粒度权限，或把 SQL 收口到 Rust 命令后暴露。
+- **[S1-Medium/High] 过度授权的 IPC capability** ~~（chat-window.json:25 / settings-window.json:29 授予 `sql:allow-execute`）~~ **✅ 已修复（2026-09-04）**：capability 已移除全部 `sql:*`；SQL 全量收口到 Rust `sqlite.rs` 92 个 `sp_*` 语义命令（参数绑定、无字符串拼 SQL）；高敏自定义命令另经 `window_gate.rs` 窗口门禁。
 - **良性**：`capabilities/default.json` 含 `core:default` + 窗口/事件权限 + `deep-link:default`，未授予 `shell:*` 等高危权限（已 grep 确认 capabilities 目录无 `shell`/`allow-execute` 之外的越权项，除 S1 的 sql）。
 
 ### 6. 前端 / 客户端（XSS / WebView / 深链接）
-- **[S3-Low/Medium] DOM-XSS 经由 innerHTML**：`src/main.tsx:96-101` 将 `title`/`detail` 直接拼接进 `rootEl.innerHTML`；其中 `detail` 来自启动期错误 `importErr.message/stack`（`src/main.tsx:269-279`）。因 CSP `script-src 'self'`，无法执行内联脚本，最坏为 HTML 注入（伪造 UI/加载图片）；但若错误串含不可信内容仍应修。建议：改用 `textContent` 或 DOM 节点构造。
+- **[S3-Low/Medium] DOM-XSS 经由 innerHTML** ~~（`src/main.tsx:96-101` 拼接 `title`/`detail` 进 innerHTML）~~ **✅ 已修复（2026-09-04）**：`renderFatalErrorToRoot` 改为 DOM 构造 + `textContent`，不可信错误串不再进入 HTML。
 - **[S4-Low/Info] 深链接处理**：`tauri.conf.json:88-95` 注册 `spiritpal://` scheme；`src/lib/widgetState.ts:216-244` `handleWidgetDeepLink` 仅把 `item_id` 作为背包查找 key，不拼接 URL、不进 innerHTML、不导航 WebView——低风险。建议：保持 `item_id` 仅作标识符，勿进任何 HTML/命令路径。
 
 ## 门禁适用性说明
