@@ -34,7 +34,7 @@
  */
 
 import { CHARACTERS } from './characters'
-import { getSetting, setSetting, getDb } from './db'
+import { getSetting, setSetting, purgeAllData } from './db'
 import { encryptExportData, type EncryptedPayload } from './encryptedExport'
 import { getModManager } from './modManager'
 import { maskPIIInObject } from './piiMasking'
@@ -402,24 +402,9 @@ export class DataManager {
 
     // 2. F6：清理 SQLite 中的所有记忆相关数据
     try {
-      const db = await getDb()
-      // 清空记忆表（含 embedding）
-      await db.execute('DELETE FROM memories')
-      // 清空约定追踪表
-      await db.execute('DELETE FROM commitments')
-      // 清空上下文快照表
-      await db.execute('DELETE FROM context_episodes')
-      // 清空 settings 表中所有记忆相关键（enhancedMemory / ownerFacts / petExperience / visualMemory 等）
-      await db.execute("DELETE FROM settings WHERE key LIKE 'spiritpal:%'")
-      // 清空 schedules 表
-      await db.execute('DELETE FROM schedules')
-      // GDPR：清空实体图相关表（entityGraph 接入后新增；表可能尚未创建，单独容错）
-      try {
-        await db.execute('DELETE FROM memory_entity_edges')
-        await db.execute('DELETE FROM memory_entities')
-      } catch {
-        // 实体图表尚未创建时忽略
-      }
+      // 清空 memories / commitments / context_episodes / settings(spiritpal:*) /
+      // schedules / memory_entities / memory_entity_edges（Rust 侧 sp_db_purge 静态 SQL）
+      await purgeAllData()
       console.info('[DataManager] SQLite 数据已清除')
     } catch (e) {
       console.error('[DataManager] SQLite 清理失败:', e)

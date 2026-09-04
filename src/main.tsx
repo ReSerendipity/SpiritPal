@@ -65,6 +65,29 @@ async function safeInvoke<T = unknown>(cmd: string, args?: Record<string, unknow
 }
 
 /**
+ * D-6/D-7: 注册安全事件监听（懒加载 @tauri-apps/api/event，不影响启动链路）。
+ * 命中时通过 runtimeMonitor/Logger 记录；不做破坏性操作（安全模式由 Rust 拒绝敏感命令兜底）。
+ */
+async function registerSecurityEventListeners(): Promise<void> {
+  try {
+    const { listen } = await import('@tauri-apps/api/event')
+    await listen('spiritpal:security-mode', (_event) => {
+      Logger.warn('[security] 检测到调试器，已进入安全模式（敏感读取/命令将被拒绝）')
+    })
+    await listen('spiritpal:integrity-warning', () => {
+      Logger.warn('[security] 前端资源完整性校验失败（可能存在篡改）')
+    })
+  } catch {
+    // 监听注册失败不影响应用（Rust 侧已兜底）
+  }
+}
+
+/** 安全监听失败的静默吞错（非关键路径） */
+function swallowSecurityListenerError(): void {
+  /* no-op */
+}
+
+/**
  * 移除 index.html 中的 boot 加载遮罩
  * 不管是否有初始化错误，只要 React 挂载完成就移除遮罩，
  * 让用户看到真实的页面内容或 ErrorBoundary 的错误页面
@@ -93,12 +116,22 @@ function renderFatalErrorToRoot(title: string, detail: string) {
   dismissBootLoading(0)
   const rootEl = document.getElementById('root')
   if (rootEl) {
-    rootEl.innerHTML =
-      '<div style="padding:24px;color:var(--color-stat-bad,#ef4444);background:var(--color-error-bg,#1a0000);min-height:100vh;font-family:Consolas,monospace;font-size:13px;line-height:1.6;overflow:auto;">' +
-      '<h3 style="color:var(--color-stat-bad,#ef4444);margin:0 0 12px 0;">' + title + '</h3>' +
-      '<div style="white-space:pre-wrap;word-break:break-all;">' + detail + '</div>' +
-      '<div style="margin-top:16px;color:var(--color-ink-faint,#888);font-size:11px;">日志路径：%LOCALAPPDATA%\\com.spiritpal.desktop-pet\\logs\\spiritpal.log</div>' +
-      '</div>'
+    // S3 修复：改用 DOM 构造（textContent），title/detail 来自错误栈/URL，不得再进 innerHTML
+    const wrap = document.createElement('div')
+    wrap.style.cssText =
+      'padding:24px;color:var(--color-stat-bad,#ef4444);background:var(--color-error-bg,#1a0000);min-height:100vh;font-family:Consolas,monospace;font-size:13px;line-height:1.6;overflow:auto;'
+    const heading = document.createElement('h3')
+    heading.style.cssText = 'color:var(--color-stat-bad,#ef4444);margin:0 0 12px 0;'
+    heading.textContent = title
+    const body = document.createElement('div')
+    body.style.cssText = 'white-space:pre-wrap;word-break:break-all;'
+    body.textContent = detail
+    const hint = document.createElement('div')
+    hint.style.cssText = 'margin-top:16px;color:var(--color-ink-faint,#888);font-size:11px;'
+    hint.textContent = '日志路径：%LOCALAPPDATA%\\com.spiritpal.desktop-pet\\logs\\spiritpal.log'
+    wrap.append(heading, body, hint)
+    rootEl.innerHTML = ''
+    rootEl.appendChild(wrap)
   }
   void safeInvoke('log_frontend_error', {
     level: 'error',
@@ -280,6 +313,10 @@ if (!rootEl) {
         </React.StrictMode>,
       )
       dismissBootLoading()
+      // D-6/D-7: 注册安全事件监听（懒加载，保持顶层零静态依赖约定）
+      // - spiritpal:security-mode：检测到调试器（安全模式）
+      // - spiritpal:integrity-warning：前端资源哈希校验失败
+      registerSecurityEventListeners().catch(swallowSecurityListenerError)
     })
     .catch((importErr) => {
       const detail = importErr instanceof Error

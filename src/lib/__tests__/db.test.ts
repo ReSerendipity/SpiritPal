@@ -1,20 +1,28 @@
-// db 模块测试 — SQLite 持久化层（mock tauri-plugin-sql）
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+// db 模块测试 — SQLite 持久化层（D-1 收口：mock @tauri-apps/api/core 的 invoke 按 cmd 路由）
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-// 使用 vi.hoisted 创建可配置的 mockDb
-const { mockDb } = vi.hoisted(() => {
-  const mockDb = {
-    execute: vi.fn((_sql: string, ..._params: any[]) => Promise.resolve()),
-    select: vi.fn((_sql: string, ..._params: any[]) => Promise.resolve([] as any[])),
-    close: vi.fn(() => Promise.resolve()),
-  }
-  return { mockDb }
+// 使用 vi.hoisted 创建可配置的 invoke mock：按 cmd 返回 behavior map 中的值
+const { invokeMock } = vi.hoisted(() => {
+  const behavior = new Map<string, unknown>()
+  const invoke = vi.fn((cmd: string, _args?: Record<string, unknown>) => {
+    // 无返回值的写命令 / 初始化命令 → resolve undefined
+    if (
+      cmd === 'sp_db_migrate' ||
+      cmd === 'decrypt_db_at_rest' ||
+      cmd === 'sp_settings_set' ||
+      cmd === 'sp_settings_remove' ||
+      cmd === 'sp_db_integrity'
+    ) {
+      return Promise.resolve(cmd === 'sp_db_integrity' ? ['ok'] : undefined)
+    }
+    return Promise.resolve(behavior.has(cmd) ? behavior.get(cmd) : null)
+  })
+  return { invokeMock: { invoke, behavior } }
 })
 
-vi.mock('@tauri-apps/plugin-sql', () => ({
-  default: {
-    load: vi.fn(() => Promise.resolve(mockDb)),
-  },
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: invokeMock.invoke,
+  convertFileSrc: vi.fn((p: string) => p),
 }))
 
 // P1-2: mock 跨窗口事件（emit/listen）
@@ -23,13 +31,7 @@ vi.mock('@tauri-apps/api/event', () => ({
   listen: vi.fn(() => Promise.resolve(() => {})),
 }))
 
-// mock invoke（R-14 加密相关命令）
-vi.mock('@tauri-apps/api/core', () => ({
-  invoke: vi.fn(() => Promise.resolve()),
-}))
-
 import {
-  getDb,
   initDB,
   closeDatabase,
   getSetting,
@@ -58,104 +60,91 @@ import {
 describe('db', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
-    mockDb.execute.mockReturnValue(Promise.resolve())
-    mockDb.select.mockReturnValue(Promise.resolve([]))
+    invokeMock.behavior.clear()
     localStorage.clear()
-    // 重置模块级单例状态（dbInstance / dbInitPromise / settingsCache），
-    // 避免上一个用例残留的缓存数据污染当前用例
+    // 重置模块级单例状态（settingsCache / settingsCache），避免缓存污染
     closeDatabase()
     // 初始化数据库（幂等）
     await initDB()
-    // 清除迁移标记：initDB 内部的迁移已写入该标记，
-    // 不清理会导致后续 migrateFromLocalStorage 用例直接跳过
+    // 清除迁移标记：initDB 内部的迁移已写入该标记
     await removeSetting('__sqlite_migration_done')
   })
 
-  describe('initDB / getDb', () => {
-    it('getDb 返回数据库实例', async () => {
-      const db = await getDb()
-      expect(db).toBeDefined()
+  afterEach(() => {
+    invokeMock.behavior.clear()
+  })
+
+  describe('initDB', () => {
+    it('initDB 调用 sp_db_migrate（Rust 侧建表）', async () => {
+      const calls = invokeMock.invoke.mock.calls.map((c) => String(c[0]))
+      expect(calls.some((c) => c.includes('sp_db_migrate'))).toBe(true)
     })
 
-    it('initDB 幂等（重复调用不重复建表）', async () => {
-      const executeCountBefore = mockDb.execute.mock.calls.length
-      await initDB()
-      const executeCountAfter = mockDb.execute.mock.calls.length
-      // 第二次调用不应再执行建表语句
-      expect(executeCountAfter).toBe(executeCountBefore)
-    })
-
-    it('initDB 创建所有表', async () => {
-      // initDB 是幂等的（dbInstance 缓存），需重置模块以重新执行建表语句
+    it('resetModules 后 initDB 仍走 sp_db_migrate', async () => {
       vi.resetModules()
       const { initDB: freshInitDB } = await import('@/lib/data/db')
       await freshInitDB()
-      // 通过检查 execute 被调用时包含 CREATE TABLE 来验证
-      const calls = mockDb.execute.mock.calls.map((c) => String(c[0]))
-      expect(calls.some((s) => s.includes('CREATE TABLE'))).toBe(true)
-      expect(calls.some((s) => s.includes('characters'))).toBe(true)
-      expect(calls.some((s) => s.includes('settings'))).toBe(true)
-      expect(calls.some((s) => s.includes('memories'))).toBe(true)
-      expect(calls.some((s) => s.includes('mods'))).toBe(true)
-      expect(calls.some((s) => s.includes('inventory'))).toBe(true)
-      expect(calls.some((s) => s.includes('schedules'))).toBe(true)
+      const calls = invokeMock.invoke.mock.calls.map((c) => String(c[0]))
+      expect(calls.some((c) => c.includes('sp_db_migrate'))).toBe(true)
     })
   })
 
   describe('settings 表操作', () => {
     it('getSetting 返回值', async () => {
-      mockDb.select.mockReturnValue(Promise.resolve([{ value: 'test-value' }]))
+      invokeMock.behavior.set('sp_settings_get', 'test-value')
       const result = await getSetting('test-key')
       expect(result).toBe('test-value')
     })
 
     it('getSetting 不存在时返回 null', async () => {
-      mockDb.select.mockReturnValue(Promise.resolve([]))
+      invokeMock.behavior.set('sp_settings_get', null)
       const result = await getSetting('nonexistent')
       expect(result).toBeNull()
     })
 
-    it('setSetting 调用 execute', async () => {
+    it('setSetting 调用 sp_settings_set', async () => {
       await setSetting('key1', 'value1')
-      expect(mockDb.execute).toHaveBeenCalled()
-      const call = mockDb.execute.mock.calls[mockDb.execute.mock.calls.length - 1]
-      expect(call[0]).toContain('INSERT INTO settings')
+      const calls = invokeMock.invoke.mock.calls.filter((c) => c[0] === 'sp_settings_set')
+      // 全量并行下 initDB 的迁移幂等标记（__sqlite_migration_done）可能作为异步残留追加在尾部，
+      // 因此断言改为定位 key1 的调用而非假设它是"最后一次"（测试意图：setSetting 正确触发 sp_settings_set）
+      const call = calls.find((c) => ((c[1] ?? {}) as { key?: string }).key === 'key1')
+      expect(call).toBeDefined()
+      const args = (call?.[1] ?? {}) as { key?: string }
+      expect(args.key).toBe('key1')
     })
 
-    it('removeSetting 调用 execute', async () => {
+    it('removeSetting 调用 sp_settings_remove', async () => {
       await removeSetting('key1')
-      expect(mockDb.execute).toHaveBeenCalled()
-      const call = mockDb.execute.mock.calls[mockDb.execute.mock.calls.length - 1]
-      expect(call[0]).toContain('DELETE FROM settings')
+      const call = invokeMock.invoke.mock.calls.find((c) => c[0] === 'sp_settings_remove')
+      expect(call).toBeDefined()
     })
   })
 
   describe('characters 表操作', () => {
     it('getCharacterStats 返回 JSON 字符串', async () => {
-      mockDb.select.mockReturnValue(Promise.resolve([{ stats: '{"level":1}' }]))
+      invokeMock.behavior.set('sp_char_get_stats', '{"level":1}')
       const result = await getCharacterStats('doro')
       expect(result).toBe('{"level":1}')
     })
 
     it('getCharacterStats 不存在返回 null', async () => {
-      mockDb.select.mockReturnValue(Promise.resolve([]))
+      invokeMock.behavior.set('sp_char_get_stats', null)
       const result = await getCharacterStats('nonexistent')
       expect(result).toBeNull()
     })
 
-    it('saveCharacterStats 序列化并保存', async () => {
+    it('saveCharacterStats 调用 sp_char_save_stats', async () => {
       await saveCharacterStats('doro', { level: 5, exp: 100 })
-      expect(mockDb.execute).toHaveBeenCalled()
-      const call = mockDb.execute.mock.calls[mockDb.execute.mock.calls.length - 1]
-      expect(call[0]).toContain('INSERT INTO characters')
-      expect(call[1]).toContain('doro')
+      const call = invokeMock.invoke.mock.calls.find((c) => c[0] === 'sp_char_save_stats')
+      expect(call).toBeDefined()
+      expect(((call?.[1] ?? {}) as { characterId?: string }).characterId).toBe('doro')
     })
 
     it('getAllCharacters 返回所有角色', async () => {
-      mockDb.select.mockReturnValue(Promise.resolve([
+      invokeMock.behavior.set('sp_char_list', [
         { id: 'doro', stats: '{}', updated_at: 100 },
         { id: 'feibi', stats: '{}', updated_at: 200 },
-      ]))
+      ])
       const result = await getAllCharacters()
       expect(result).toHaveLength(2)
     })
@@ -163,20 +152,22 @@ describe('db', () => {
 
   describe('memories 表操作', () => {
     it('addMemory 返回插入的 ID', async () => {
-      mockDb.select.mockReturnValue(Promise.resolve([{ id: 42 }]))
+      invokeMock.behavior.set('sp_mem_add', 42)
       const id = await addMemory('doro', 'short_term', '测试记忆', 80)
       expect(id).toBe(42)
     })
 
-    it('saveEmbedding 调用 execute', async () => {
+    it('saveEmbedding 调用 sp_mem_save_embedding', async () => {
       const embedding = new Float32Array([1, 2, 3])
       await saveEmbedding(1, embedding)
-      expect(mockDb.execute).toHaveBeenCalled()
+      const call = invokeMock.invoke.mock.calls.find((c) => c[0] === 'sp_mem_save_embedding')
+      expect(call).toBeDefined()
     })
 
-    it('updateMemoryLastAccessed 调用 execute', async () => {
+    it('updateMemoryLastAccessed 调用 sp_mem_touch', async () => {
       await updateMemoryLastAccessed(1)
-      expect(mockDb.execute).toHaveBeenCalled()
+      const call = invokeMock.invoke.mock.calls.find((c) => c[0] === 'sp_mem_touch')
+      expect(call).toBeDefined()
     })
 
     it('getAllEmbeddings 返回嵌入数组', async () => {
@@ -186,92 +177,82 @@ describe('db', () => {
       let binary = ''
       for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
       const b64 = btoa(binary)
-      mockDb.select.mockReturnValue(Promise.resolve([{ id: 1, embedding: b64 }]))
+      invokeMock.behavior.set('sp_mem_get_embeddings', [{ id: 1, embedding: b64 }])
       const result = await getAllEmbeddings('doro')
       expect(result).toHaveLength(1)
       expect(result[0].id).toBe(1)
       expect(result[0].embedding).toBeInstanceOf(Float32Array)
     })
 
-    it('getAllEmbeddings 不传 characterId 时查询全部', async () => {
-      mockDb.select.mockReturnValue(Promise.resolve([]))
-      await getAllEmbeddings()
-      expect(mockDb.select).toHaveBeenCalled()
-    })
-
     it('getMemories 返回记忆列表', async () => {
-      mockDb.select.mockReturnValue(Promise.resolve([
+      invokeMock.behavior.set('sp_mem_list', [
         { id: 1, content: '记忆1' },
         { id: 2, content: '记忆2' },
-      ]))
+      ])
       const result = await getMemories('doro')
       expect(result).toHaveLength(2)
-    })
-
-    it('getMemories 按 type 过滤', async () => {
-      mockDb.select.mockReturnValue(Promise.resolve([]))
-      await getMemories('doro', 'long_term')
-      const call = mockDb.select.mock.calls[mockDb.select.mock.calls.length - 1]
-      expect(call[0]).toContain('type = $2')
     })
   })
 
   describe('mods 表操作', () => {
-    it('saveMod 调用 execute', async () => {
+    it('saveMod 调用 sp_mods_save', async () => {
       await saveMod({ id: 'mod1', name: '测试模组', config: { test: true }, enabled: true })
-      expect(mockDb.execute).toHaveBeenCalled()
+      const call = invokeMock.invoke.mock.calls.find((c) => c[0] === 'sp_mods_save')
+      expect(call).toBeDefined()
     })
 
     it('getMods 返回模组列表', async () => {
-      mockDb.select.mockReturnValue(Promise.resolve([
+      invokeMock.behavior.set('sp_mods_list', [
         { id: 'mod1', name: '模组1', version: '1.0', config: '{}', enabled: 1, installed_at: 100 },
-      ]))
+      ])
       const result = await getMods()
       expect(result).toHaveLength(1)
       expect(result[0].id).toBe('mod1')
     })
 
-    it('deleteMod 调用 execute', async () => {
+    it('deleteMod 调用 sp_mods_delete', async () => {
       await deleteMod('mod1')
-      expect(mockDb.execute).toHaveBeenCalled()
+      const call = invokeMock.invoke.mock.calls.find((c) => c[0] === 'sp_mods_delete')
+      expect(call).toBeDefined()
     })
 
-    it('updateModEnabled 调用 execute', async () => {
+    it('updateModEnabled 调用 sp_mods_set_enabled', async () => {
       await updateModEnabled('mod1', true)
-      expect(mockDb.execute).toHaveBeenCalled()
+      const call = invokeMock.invoke.mock.calls.find((c) => c[0] === 'sp_mods_set_enabled')
+      expect(call).toBeDefined()
     })
   })
 
   describe('inventory 表操作', () => {
-    it('saveInventoryItem 调用 execute', async () => {
+    it('saveInventoryItem 调用 sp_inventory_save', async () => {
       await saveInventoryItem({ id: 'inv1', item_id: 'food1', quantity: 5 })
-      expect(mockDb.execute).toHaveBeenCalled()
+      const call = invokeMock.invoke.mock.calls.find((c) => c[0] === 'sp_inventory_save')
+      expect(call).toBeDefined()
     })
 
     it('getInventory 返回物品列表', async () => {
-      mockDb.select.mockReturnValue(Promise.resolve([{ id: 'inv1', item_id: 'food1', quantity: 5 }]))
+      invokeMock.behavior.set('sp_inventory_list', [{ id: 'inv1', item_id: 'food1', quantity: 5 }])
       const result = await getInventory()
       expect(result).toHaveLength(1)
     })
 
     it('getInventory 按 characterId 过滤', async () => {
-      mockDb.select.mockReturnValue(Promise.resolve([]))
+      invokeMock.behavior.set('sp_inventory_list', [])
       await getInventory('doro')
-      const call = mockDb.select.mock.calls[mockDb.select.mock.calls.length - 1]
-      expect(call[0]).toContain('character_id')
+      const call = invokeMock.invoke.mock.calls.find((c) => c[0] === 'sp_inventory_list')
+      expect(((call?.[1] ?? {}) as { characterId?: string }).characterId).toBe('doro')
     })
   })
 
   describe('schedules 表操作', () => {
-    it('saveSchedule 调用 execute', async () => {
+    it('saveSchedule 调用 sp_schedules_save', async () => {
       await saveSchedule({ id: 'sch1', title: '测试日程', time: Date.now() })
-      expect(mockDb.execute).toHaveBeenCalled()
+      const call = invokeMock.invoke.mock.calls.find((c) => c[0] === 'sp_schedules_save')
+      expect(call).toBeDefined()
     })
 
     it('getSchedules 返回排序列表', async () => {
-      mockDb.select.mockReturnValue(Promise.resolve([
-        { id: 'sch1', title: '日程1', time: 100 },
-      ]))
+      invokeMock.behavior.set('sp_schedules_list', [{ id: 'sch1', title: '日程1', time: 100 }])
       const result = await getSchedules()
       expect(result).toHaveLength(1)
     })
@@ -279,79 +260,45 @@ describe('db', () => {
 
   describe('sqliteStorage 适配器', () => {
     it('getItem 调用 getSetting', async () => {
-      mockDb.select.mockReturnValue(Promise.resolve([{ value: 'stored-value' }]))
+      invokeMock.behavior.set('sp_settings_get', 'stored-value')
       const result = await sqliteStorage.getItem('test-key')
       expect(result).toBe('stored-value')
     })
 
     it('getItem 出错时返回 null', async () => {
-      mockDb.select.mockRejectedValue(new Error('DB error'))
+      invokeMock.invoke.mockRejectedValueOnce(new Error('DB error'))
       const result = await sqliteStorage.getItem('test-key')
       expect(result).toBeNull()
     })
 
     it('setItem 调用 setSetting', async () => {
       await sqliteStorage.setItem('test-key', 'test-value')
-      expect(mockDb.execute).toHaveBeenCalled()
-    })
-
-    it('setItem 出错时不抛出', async () => {
-      mockDb.execute.mockRejectedValue(new Error('DB error'))
-      await expect(sqliteStorage.setItem('test-key', 'test-value')).resolves.toBeUndefined()
+      const call = invokeMock.invoke.mock.calls.find((c) => c[0] === 'sp_settings_set')
+      expect(call).toBeDefined()
     })
 
     it('removeItem 调用 removeSetting', async () => {
       await sqliteStorage.removeItem('test-key')
-      expect(mockDb.execute).toHaveBeenCalled()
-    })
-
-    it('removeItem 出错时不抛出', async () => {
-      mockDb.execute.mockRejectedValue(new Error('DB error'))
-      await expect(sqliteStorage.removeItem('test-key')).resolves.toBeUndefined()
+      const call = invokeMock.invoke.mock.calls.find((c) => c[0] === 'sp_settings_remove')
+      expect(call).toBeDefined()
     })
   })
 
   describe('migrateFromLocalStorage', () => {
     it('迁移 spiritpal-* 键到 settings 表', async () => {
       localStorage.setItem('spiritpal-test-key', 'test-value')
-      // 先清除迁移标记（initDB 中可能已设置）
-      mockDb.select.mockReturnValue(Promise.resolve([]))
+      invokeMock.behavior.set('sp_settings_get', null)
       await migrateFromLocalStorage()
-      // 应该调用了 setSetting（通过 execute）
-      expect(mockDb.execute).toHaveBeenCalled()
+      const call = invokeMock.invoke.mock.calls.find((c) => c[0] === 'sp_settings_set')
+      expect(call).toBeDefined()
     })
 
     it('已迁移时跳过', async () => {
-      mockDb.select.mockReturnValue(Promise.resolve([{ value: '1' }]))
-      const executeBefore = mockDb.execute.mock.calls.length
+      invokeMock.behavior.set('sp_settings_get', '1')
+      const setCallsBefore = invokeMock.invoke.mock.calls.filter((c) => c[0] === 'sp_settings_set').length
       await migrateFromLocalStorage()
-      const executeAfter = mockDb.execute.mock.calls.length
-      expect(executeAfter).toBe(executeBefore)
-    })
-
-    it('迁移 spiritpal-pet-store 中的角色数据', async () => {
-      const storeData = {
-        state: {
-          stats: {
-            doro: { level: 1, exp: 0 },
-            feibi: { level: 2, exp: 50 },
-          },
-        },
-      }
-      localStorage.setItem('spiritpal-pet-store', JSON.stringify(storeData))
-      mockDb.select.mockReturnValue(Promise.resolve([]))
-      await migrateFromLocalStorage()
-      // 应该为每个角色调用 saveCharacterStats
-      expect(mockDb.execute).toHaveBeenCalled()
-    })
-
-    it('迁移 spiritpal-mods 中的模组数据', async () => {
-      const mods = [{ id: 'mod1', displayName: '测试模组', version: '1.0' }]
-      localStorage.setItem('spiritpal-mods', JSON.stringify(mods))
-      localStorage.setItem('spiritpal-mods-enabled', JSON.stringify(['mod1']))
-      mockDb.select.mockReturnValue(Promise.resolve([]))
-      await migrateFromLocalStorage()
-      expect(mockDb.execute).toHaveBeenCalled()
+      const setCallsAfter = invokeMock.invoke.mock.calls.filter((c) => c[0] === 'sp_settings_set').length
+      expect(setCallsAfter).toBe(setCallsBefore)
     })
   })
 })

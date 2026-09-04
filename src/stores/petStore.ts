@@ -3,7 +3,7 @@
  * @module stores/petStore
  * @description
  * 管理四维数值、经验等级、金币、背包、装饰品、背景等养成数据。
- * 使用 zustand v5 + persist 中间件，SQLite 持久化（tauri-plugin-sql）。
+ * 使用 zustand v5 + persist 中间件，SQLite 持久化（Rust sp_* 语义命令）。
  *
  * 核心状态：
  * - stats: 按角色独立的养成数值（饱食度、心情、健康、亲密度、等级、经验、金币）
@@ -954,8 +954,8 @@ function setupBuffHandler(
  * - 设置任务奖励回调
  */
 export function initAllCharacters(): void {
-  // 初始化 SQLite 数据库（异步）：创建表 schema + 执行 localStorage 迁移
-  // 不阻塞 UI——zustand persist 会自动 await getDb() 完成后 rehydrate
+  // 初始化 SQLite 数据库（异步）：Rust ensure_schema 建表 + 前端 localStorage 迁移
+  // 不阻塞 UI——zustand persist 会自动等待 initDB() 完成后 rehydrate
   initDB().catch((e) => {
     console.error('[SpiritPal] SQLite init failed:', e)
   })

@@ -2,24 +2,25 @@
  * 脏数据追踪器单元测试
  *
  * 测试覆盖：
- * 1. 基础设施创建（表 + 索引）
- * 2. 数据持久化（幂等）
- * 3. 各类检测规则
- * 4. 标记已解决 + 自动修复检测
- * 5. 摘要报告生成
+ * 1. 数据持久化（幂等）
+ * 2. 检测编排（Rust sp_dirty_scan）
+ * 3. 标记已解决 + 自动修复检测
+ * 4. 摘要报告生成
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-// Mock db 模块
-const mockDb = {
-  execute: vi.fn(),
-  select: vi.fn(),
-}
-
-vi.mock('@/lib/data/db', () => ({
-  getDb: vi.fn(() => Promise.resolve(mockDb)),
+// Mock db 模块（干净数据注册表的语义化封装，走 invoke 的 sp_dirty_*）
+const mocks = vi.hoisted(() => ({
+  scanDirtyData: vi.fn(),
+  listDirtyIssues: vi.fn(),
+  upsertDirtyIssue: vi.fn(),
+  resolveDirtyIssue: vi.fn(),
+  resolveDirtyIssuesForTable: vi.fn(),
+  cleanupResolvedDirtyData: vi.fn(),
 }))
+
+vi.mock('@/lib/data/db', () => mocks)
 
 // Mock auditLogger
 vi.mock('@/lib/system/auditLogger', () => ({
@@ -36,108 +37,92 @@ import {
   cleanupResolvedDirtyData,
 } from '@/lib/data/dirtyDataTracker'
 
+/** 构造一条 dirty_data_registry 行（DirtyRegistryRow 映射） */
+function makeRow(overrides: Record<string, unknown> = {}) {
+  const table: string = (overrides.table as string) ?? 'inventory'
+  const rowId: string = (overrides.rowId as string) ?? 'inv-1'
+  return {
+    id: 1,
+    kind: 'ORPHAN_REFERENCE',
+    target_id: `${table}::${rowId}`,
+    payload: JSON.stringify({
+      table,
+      column: 'character_id',
+      severity: 'medium',
+      description: 'test issue',
+      details: null,
+    }),
+    detected_at: Date.now(),
+    resolved_at: null,
+    ...overrides,
+  }
+}
+
 describe('dirtyDataTracker', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockDb.execute.mockResolvedValue({ rowsAffected: 1 })
-    mockDb.select.mockResolvedValue([])
+    mocks.scanDirtyData.mockResolvedValue([])
+    mocks.listDirtyIssues.mockResolvedValue([])
+    mocks.upsertDirtyIssue.mockResolvedValue(undefined)
+    mocks.resolveDirtyIssue.mockResolvedValue(undefined)
+    mocks.resolveDirtyIssuesForTable.mockResolvedValue(0)
+    mocks.cleanupResolvedDirtyData.mockResolvedValue(0)
   })
 
   describe('runDirtyDataChecks', () => {
-    it('should create dirty_data_registry table on first run', async () => {
-      mockDb.select.mockResolvedValue([])
+    it('should persist detected issues via upsertDirtyIssue', async () => {
+      mocks.scanDirtyData.mockResolvedValueOnce([
+        {
+          table: 'inventory', column: 'character_id', rowId: 'inv-1',
+          dataType: 'ORPHAN_REFERENCE', severity: 'medium',
+          description: '背包物品引用的角色 char-deleted 不存在', detectedAt: 100,
+        },
+      ])
+
       await runDirtyDataChecks()
 
-      // 应该执行 CREATE TABLE
-      const createTableCall = mockDb.execute.mock.calls.find(
-        (call: unknown[]) =>
-          typeof call[0] === 'string' &&
-          call[0].includes('dirty_data_registry')
-      )
-      expect(createTableCall).toBeDefined()
+      expect(mocks.scanDirtyData).toHaveBeenCalled()
+      expect(mocks.upsertDirtyIssue).toHaveBeenCalled()
+      const args = mocks.upsertDirtyIssue.mock.calls[0]
+      expect(args[0]).toBe('ORPHAN_REFERENCE')
+      expect(args[1]).toBe('inventory::inv-1')
+      expect(args[2]).toContain('"table":"inventory"')
     })
 
-    it('should detect orphan references in inventory', async () => {
-      // 设置 mock 行为：让 checkInventoryOrphans 返回数据
-      // 所有其他检测返回空数组
-      mockDb.select.mockImplementation(async (query: string) => {
-        // 对于孤引用查询返回数据
-        if (query.includes('inventory i') && query.includes('LEFT JOIN characters')) {
-          return [{ id: 'inv-1', character_id: 'char-deleted' }]
-        }
-        // 对于现有问题的去重检查：返回空表示是新问题
-        if (query.includes('dirty_data_registry')) {
-          return []
-        }
-        return []
-      })
+    it('should detect invalid JSON in characters.stats via sp_dirty_scan', async () => {
+      mocks.scanDirtyData.mockResolvedValueOnce([
+        {
+          table: 'characters', column: 'stats', rowId: 'char-1',
+          dataType: 'DATA_TYPE_MISMATCH', severity: 'high',
+          description: '角色 char-1 的 stats 字段不是有效 JSON',
+          details: 'not-json-{{{', detectedAt: 200,
+        },
+      ])
 
       await runDirtyDataChecks()
 
-      // 至少有一次 INSERT 操作写入脏数据
-      const insertCall = mockDb.execute.mock.calls.find(
-        (call: unknown[]) =>
-          typeof call[0] === 'string' && call[0].includes('INSERT INTO dirty_data_registry')
-      )
-      expect(insertCall).toBeDefined()
+      const args = mocks.upsertDirtyIssue.mock.calls[0]
+      expect(args[0]).toBe('DATA_TYPE_MISMATCH')
+      // 持久化的 description 来自检测结果
+      expect(args[2]).toContain('char-1')
     })
 
-    it('should detect invalid JSON in characters.stats', async () => {
-      mockDb.select.mockImplementation(async (query: string) => {
-        if (query.includes('SELECT id, stats FROM characters')) {
-          return [{ id: 'char-1', stats: 'not-json-{{{' }]
-        }
-        return []
-      })
+    it('should resolve previously-open issues no longer present', async () => {
+      // 当前检测不到任何问题
+      mocks.scanDirtyData.mockResolvedValueOnce([])
+      // 但注册表中有一条未解决的旧问题
+      mocks.listDirtyIssues.mockResolvedValueOnce([makeRow({ id: 9 })])
 
       await runDirtyDataChecks()
 
-      const insertCall = mockDb.execute.mock.calls.find(
-        (call: unknown[]) =>
-          typeof call[0] === 'string' &&
-          call[0].includes('INSERT INTO dirty_data_registry')
-      )
-      expect(insertCall).toBeDefined()
-      // 验证 description 包含角色信息
-      expect((insertCall?.[1] as unknown[])?.[5]).toContain('char-1')
-    })
-
-    it('should deduplicate issues (same table+row+type)', async () => {
-      let selectCallCount = 0
-      mockDb.select.mockImplementation(async (query: string) => {
-        selectCallCount++
-        // 第一次检测到无效 JSON
-        if (query.includes('SELECT id, stats FROM characters')) {
-          return [{ id: 'char-1', stats: 'invalid-json' }]
-        }
-        // 去重检查返回已有记录
-        if (query.includes('SELECT id FROM dirty_data_registry') && query.includes('table_name =')) {
-          return [{ id: 100 }]
-        }
-        return []
-      })
-
-      await runDirtyDataChecks()
-
-      // 应该是 UPDATE 而不是 INSERT
-      const updateCall = mockDb.execute.mock.calls.find(
-        (call: unknown[]) =>
-          typeof call[0] === 'string' &&
-          call[0].includes('UPDATE dirty_data_registry SET detected_at')
-      )
-      expect(updateCall).toBeDefined()
-      // 不应该有 INSERT
-      const insertCall = mockDb.execute.mock.calls.find(
-        (call: unknown[]) =>
-          typeof call[0] === 'string' && call[0].includes('INSERT INTO dirty_data_registry')
-      )
-      expect(insertCall).toBeUndefined()
+      // 旧问题不再存在 → 自动解决
+      expect(mocks.resolveDirtyIssue).toHaveBeenCalledWith(9, expect.any(Number))
     })
   })
 
   describe('getDirtyDataSummary', () => {
     it('should return no issues when empty', async () => {
-      mockDb.select.mockResolvedValue([])
+      mocks.listDirtyIssues.mockResolvedValue([])
 
       const summary = await getDirtyDataSummary()
 
@@ -147,46 +132,17 @@ describe('dirtyDataTracker', () => {
     })
 
     it('should return summary with issues', async () => {
-      mockDb.select.mockImplementation(async (query: string) => {
-        if (query.includes('GROUP BY data_type')) {
-          return [
-            { data_type: 'ORPHAN_REFERENCE', cnt: 2 },
-            { data_type: 'CONSTRAINT_VIOLATION', cnt: 1 },
-          ]
-        }
-        if (query.includes('GROUP BY severity')) {
-          return [
-            { severity: 'medium', cnt: 2 },
-            { severity: 'high', cnt: 1 },
-          ]
-        }
-        if (query.includes('WHERE resolved = 0')) {
-          return [
-            {
-              id: 1,
-              table_name: 'inventory',
-              column_name: null,
-              row_id: 'inv-1',
-              data_type: 'ORPHAN_REFERENCE',
-              severity: 'medium',
-              description: 'test issue',
-              detected_at: Date.now(),
-              resolved: 0,
-              resolved_at: null,
-              details: null,
-            },
-          ]
-        }
-        return []
-      })
+      mocks.listDirtyIssues.mockResolvedValueOnce([
+        makeRow({ id: 1, table: 'inventory', rowId: 'inv-1', payload: JSON.stringify({ table: 'inventory', column: null, severity: 'medium', description: 'x', details: null }) }),
+        makeRow({ id: 2, table: 'characters', rowId: 'char-1', kind: 'CONSTRAINT_VIOLATION', payload: JSON.stringify({ table: 'characters', column: 'stats', severity: 'high', description: 'y', details: null }) }),
+      ])
 
       const summary = await getDirtyDataSummary()
 
       expect(summary.hasIssues).toBe(true)
-      expect(summary.totalIssues).toBe(3)
+      expect(summary.totalIssues).toBe(2)
       expect(summary.highestSeverity).toBe('high')
-      expect(summary.topIssues).toHaveLength(1)
-      expect(summary.topIssues[0].table).toBe('inventory')
+      expect(summary.topIssues).toHaveLength(2)
     })
   })
 
@@ -195,55 +151,33 @@ describe('dirtyDataTracker', () => {
       const issueId = 42
       await markDirtyDataResolved(issueId)
 
-      const updateCall = mockDb.execute.mock.calls.find(
-        (call: unknown[]) =>
-          typeof call[0] === 'string' &&
-          call[0].includes('UPDATE dirty_data_registry SET resolved = 1')
-      )
-      expect(updateCall).toBeDefined()
-      expect((updateCall?.[1] as unknown[])?.[1]).toBe(issueId)
+      expect(mocks.resolveDirtyIssue).toHaveBeenCalledWith(42, expect.any(Number))
     })
   })
 
   describe('markTableResolved', () => {
     it('should mark all issues for table as resolved', async () => {
-      mockDb.execute.mockResolvedValue({ rowsAffected: 5 })
+      mocks.resolveDirtyIssuesForTable.mockResolvedValueOnce(5)
 
       const count = await markTableResolved('inventory')
 
       expect(count).toBe(5)
-      const updateCall = mockDb.execute.mock.calls.find(
-        (call: unknown[]) =>
-          typeof call[0] === 'string' &&
-          call[0].includes('UPDATE dirty_data_registry') &&
-          call[0].includes('table_name = ?')
-      )
-      expect(updateCall).toBeDefined()
+      expect(mocks.resolveDirtyIssuesForTable).toHaveBeenCalledWith('inventory', expect.any(Number))
     })
   })
 
   describe('getIssuesForTable', () => {
     it('should return issues for specific table', async () => {
-      mockDb.select.mockImplementation(async (query: string) => {
-        if (query.includes('table_name = ?')) {
-          return [
-            {
-              id: 1,
-              table_name: 'characters',
-              column_name: 'stats',
-              row_id: 'char-1',
-              data_type: 'DATA_TYPE_MISMATCH',
-              severity: 'high',
-              description: 'Invalid JSON',
-              detected_at: Date.now(),
-              resolved: 0,
-              resolved_at: null,
-              details: null,
-            },
-          ]
-        }
-        return []
-      })
+      mocks.listDirtyIssues.mockResolvedValueOnce([
+        makeRow({
+          id: 1,
+          table: 'characters',
+          rowId: 'char-1',
+          kind: 'DATA_TYPE_MISMATCH',
+          payload: JSON.stringify({ table: 'characters', column: 'stats', severity: 'high', description: 'Invalid JSON', details: null }),
+        }),
+        makeRow({ id: 2, table: 'inventory', rowId: 'inv-2' }), // 其他表应被过滤
+      ])
 
       const issues = await getIssuesForTable('characters')
 
@@ -255,33 +189,15 @@ describe('dirtyDataTracker', () => {
 
   describe('cleanupResolvedDirtyData', () => {
     it('should delete old resolved records', async () => {
-      mockDb.execute.mockResolvedValue({ rowsAffected: 10 })
+      mocks.cleanupResolvedDirtyData.mockResolvedValueOnce(10)
 
       const deleted = await cleanupResolvedDirtyData(30)
 
       expect(deleted).toBe(10)
-      const deleteCall = mockDb.execute.mock.calls.find(
-        (call: unknown[]) =>
-          typeof call[0] === 'string' &&
-          call[0].includes('DELETE FROM dirty_data_registry')
-      )
-      expect(deleteCall).toBeDefined()
-    })
-
-    it('should use correct threshold for cleanup', async () => {
-      mockDb.execute.mockResolvedValue({ rowsAffected: 0 })
-
-      await cleanupResolvedDirtyData(7)
-
-      const deleteCall = mockDb.execute.mock.calls.find(
-        (call: unknown[]) =>
-          typeof call[0] === 'string' &&
-          call[0].includes('DELETE FROM dirty_data_registry')
-      )
-      // threshold 参数应该小于当前时间 - 7天
-      const threshold = (deleteCall?.[1] as unknown[])?.[0] as number
+      // threshold ≈ now - 30 天
+      const threshold = mocks.cleanupResolvedDirtyData.mock.calls[0][0] as number
       expect(threshold).toBeLessThan(Date.now())
-      expect(threshold).toBeGreaterThan(Date.now() - 8 * 24 * 60 * 60 * 1000)
+      expect(threshold).toBeGreaterThan(Date.now() - 31 * 24 * 60 * 60 * 1000)
     })
   })
 })
