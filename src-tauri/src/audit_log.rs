@@ -25,6 +25,10 @@ use tauri::{AppHandle, Manager};
 
 /// 审计日志文件名
 const AUDIT_LOG_FILENAME: &str = "spiritpal_audit.log";
+/// 轮转时保留的上一份文件名（超出上限后当前文件改名为该文件，从头写新文件）
+const AUDIT_LOG_BACKUP_FILENAME: &str = "spiritpal_audit.old.log";
+/// 单文件大小上限（P1-04：常驻应用审计日志无轮转会无限增长占满磁盘；5MB 后轮转保留一份旧档）
+const AUDIT_MAX_BYTES: u64 = 5 * 1024 * 1024;
 
 /// 全局哈希链状态（上次写入的哈希）
 static LAST_HASH: Mutex<Option<String>> = Mutex::new(None);
@@ -105,6 +109,29 @@ fn compute_entry_hash(
     crate::crypto::sha256_to_hex(&result)
 }
 
+/// 单文件大小轮转：当前文件超限时，删除上一份备份，将当前文件改名保留（P1-04）
+///
+/// 哈希链连续性：轮转只改文件名，内存中 [`LAST_HASH`] 仍是旧链尾，
+/// 新文件首条日志的 `prev_hash` 仍引用旧链尾 → 跨文件哈希链不断裂。
+fn rotate_audit_if_needed(log_path: &std::path::Path, max_bytes: u64) {
+    let meta = match std::fs::metadata(log_path) {
+        Ok(m) => m,
+        Err(_) => return, // 文件不存在 → 无需轮转
+    };
+    if meta.len() < max_bytes {
+        return;
+    }
+    let backup = log_path.with_file_name(AUDIT_LOG_BACKUP_FILENAME);
+    if backup.exists() {
+        let _ = std::fs::remove_file(&backup); // 只保留一份旧档
+    }
+    if let Err(e) = std::fs::rename(log_path, &backup) {
+        log::error!("[Audit] 日志轮转失败（保留旧档）: {}", e);
+    } else {
+        log::info!("[Audit] 审计日志已达 {} 字节，已轮转到 {}", max_bytes, AUDIT_LOG_BACKUP_FILENAME);
+    }
+}
+
 /// 记录安全审计事件（Tauri 命令）
 ///
 /// 前端调用方式：`invoke('audit_log', { eventType: string, actor: string, message: string })`
@@ -125,12 +152,28 @@ pub async fn audit_log(
     actor: String,
     message: String,
 ) -> Result<(), String> {
-    let log_path = get_audit_log_path(&app)?;
+    record_audit(&app, &event_type, &actor, &message)
+}
+
+/// 同步写入一条审计日志（供命令与高危命令内部共用）
+///
+/// P1-07：`execute_command` / `take_screenshot` 等高危命令在非 async 分支
+/// 或 spawn_blocking 内也能直接调用本函数完成审计，无需经前端。
+pub fn record_audit(
+    app: &AppHandle,
+    event_type: &str,
+    actor: &str,
+    message: &str,
+) -> Result<(), String> {
+    let log_path = get_audit_log_path(app)?;
 
     // 确保目录存在
     if let Some(parent) = log_path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("创建审计日志目录失败: {}", e))?;
     }
+
+    // P1-04: 写入前轮转检查（防止常驻应用审计日志无限增长）
+    rotate_audit_if_needed(&log_path, AUDIT_MAX_BYTES);
 
     // 初始化哈希链（首次调用时）
     init_hash_chain(&log_path);
@@ -149,9 +192,9 @@ pub async fn audit_log(
     let this_hash = compute_entry_hash(
         &timestamp,
         "AUDIT",
-        &event_type,
-        &actor,
-        &message,
+        event_type,
+        actor,
+        message,
         &prev_hash,
     );
 
@@ -193,6 +236,48 @@ pub async fn audit_log(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_rotate_when_over_limit() {
+        let dir = std::env::temp_dir().join(format!("spiritpal_audit_rot_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let data = std::path::Path::new(&dir).join("spiritpal_audit.log");
+
+        std::fs::write(&data, "x".repeat(100)).unwrap();
+        rotate_audit_if_needed(&data, 50); // 100 > 50 → 触发轮转
+        assert!(!data.exists(), "超限后应轮到新文件（当前文件消失）");
+        assert!(data.with_file_name(AUDIT_LOG_BACKUP_FILENAME).exists(), "旧档应保留");
+
+        // 备份覆盖：再次写满并轮转，仍只保留一份旧档
+        std::fs::write(&data, "y".repeat(100)).unwrap();
+        rotate_audit_if_needed(&data, 50);
+        assert!(!data.exists());
+        let backup = data.with_file_name(AUDIT_LOG_BACKUP_FILENAME);
+        assert!(backup.exists());
+        let content = std::fs::read_to_string(&backup).unwrap();
+        assert!(content.starts_with("y"), "旧档应为最近一次轮转内容");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_no_rotate_under_limit() {
+        let dir = std::env::temp_dir().join(format!("spiritpal_audit_norot_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let data = std::path::Path::new(&dir).join("spiritpal_audit.log");
+
+        std::fs::write(&data, "abc").unwrap();
+        rotate_audit_if_needed(&data, 100); // 3 < 100 → 不轮转
+        assert!(data.exists());
+        assert!(!data.with_file_name(AUDIT_LOG_BACKUP_FILENAME).exists());
+
+        // 文件不存在 → 安静返回
+        rotate_audit_if_needed(&data.with_extension("nope"), 100);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn test_extract_hash_from_line() {

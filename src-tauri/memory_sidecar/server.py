@@ -18,12 +18,27 @@ logging.basicConfig(level=logging.INFO)
 _log = logging.getLogger("spiritpal.memory_sidecar")
 
 try:
-    from fastapi import FastAPI, HTTPException
+    from fastapi import Depends, FastAPI, HTTPException, Request
     from pydantic import BaseModel
 except ImportError as e:  # pragma: no cover
     raise SystemExit(f"memory_sidecar 依赖缺失，请先运行 bootstrap 脚本: {e}")
 
 app = FastAPI(title="SpiritPal Memory Sidecar (cognee)")
+
+# M0 加固：一次性鉴权 token。Rust 侧启动时经 SPIRITPAL_MEMORY_TOKEN 透出；
+# 若未配置（旧版启动方式）则鉴权关闭，保持向后兼容。
+_sidecar_token = os.environ.get("SPIRITPAL_MEMORY_TOKEN", "")
+
+
+async def _require_auth(request: Request) -> None:
+    """校验 Authorization: Bearer <token>；未配置 token 时跳过（向后兼容）。"""
+    if not _sidecar_token:
+        return
+    header = request.headers.get("authorization", "")
+    if not header.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="unauthorized: 缺少 Bridge Token")
+    if header.split(" ", 1)[1].strip() != _sidecar_token:
+        raise HTTPException(status_code=401, detail="unauthorized: 错误的 Bridge Token")
 
 # cognee 运行时惰性导入（避免打包产物无 Python 环境时硬性失败）
 _COGNEE = None
@@ -60,12 +75,12 @@ def _cognee_available() -> bool:
         return False
 
 
-@app.get("/health")
+@app.get("/health", dependencies=[Depends(_require_auth)])
 def health() -> dict:
     return {"status": "ok", "cognee_available": _cognee_available()}
 
 
-@app.post("/memory/add")
+@app.post("/memory/add", dependencies=[Depends(_require_auth)])
 def memory_add(req: AddRequest) -> dict:
     """抽取实体-关系并写入 cognee 知识图谱（按 character_id 隔离数据集）。"""
     cog = _cognee()
@@ -79,7 +94,7 @@ def memory_add(req: AddRequest) -> dict:
         raise HTTPException(status_code=500, detail=f"cognee add failed: {e}")
 
 
-@app.post("/memory/search")
+@app.post("/memory/search", dependencies=[Depends(_require_auth)])
 def memory_search(req: SearchRequest) -> dict:
     """图谱+向量混合检索（关系型记忆："X 与 Y 的关系"）。"""
     cog = _cognee()
@@ -99,4 +114,9 @@ if __name__ == "__main__":
     import uvicorn
 
     port = int(os.environ.get("SPIRITPAL_MEMORY_PORT", "7531"))
+    _log.info(
+        "memory sidecar 启动: 127.0.0.1:%s 鉴权=%s",
+        port,
+        "开启" if _sidecar_token else "关闭（未配置 SPIRITPAL_MEMORY_TOKEN）",
+    )
     uvicorn.run(app, host="127.0.0.1", port=port)

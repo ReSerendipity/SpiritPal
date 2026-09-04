@@ -29,6 +29,12 @@ static SIDECAR_STARTED: AtomicBool = AtomicBool::new(false);
 #[cfg(desktop)]
 static SIDECAR_CHILD: Mutex<Option<Child>> = Mutex::new(None);
 
+/// M0 加固：sidecar 一次性鉴权 token（进程存活期内有效）。
+/// 启动时生成并透出给子进程 + 前端（经 `get_memory_sidecar_token` 命令）；
+/// 停止时清空，防止复用旧 token。
+#[cfg(desktop)]
+static SIDECAR_TOKEN: Mutex<Option<String>> = Mutex::new(None);
+
 /// 启动 cognee 记忆 sidecar
 ///
 /// 在隔离 venv 中运行 `server.py`。资源目录解析参考 Tauri `resource_dir()`
@@ -65,21 +71,28 @@ pub fn start_memory_sidecar(app: tauri::AppHandle) -> Result<(), String> {
         );
     }
 
+    // M0 加固：与 MCP 桥复用同一 token 派生逻辑（单点维护）。
+    let token = crate::mcp_bridge::gen_token();
+
     match Command::new(&python)
         .arg(&server)
         .current_dir(&sidecar_dir)
+        // M0 加固：一次性 token 经环境变量透出给子进程，server.py 校验 Bearer。
+        .env("SPIRITPAL_MEMORY_TOKEN", &token)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
     {
         Ok(child) => {
             *SIDECAR_CHILD.lock().unwrap() = Some(child);
+            *SIDECAR_TOKEN.lock().unwrap() = Some(token);
             let _ = app.emit("memory-sidecar-status", "started");
             log::info!("[Memory] cognee sidecar started on :7531");
             Ok(())
         }
         Err(e) => {
             SIDECAR_STARTED.store(false, Ordering::SeqCst);
+            *SIDECAR_TOKEN.lock().unwrap() = None;
             Err(format!("启动记忆 sidecar 失败: {e}"))
         }
     }
@@ -102,7 +115,23 @@ pub fn stop_memory_sidecar(app: tauri::AppHandle) -> Result<(), String> {
             let _ = child.kill();
         }
     }
+    // M0 加固：停止时清空 token，防止复用旧 token。
+    *SIDECAR_TOKEN.lock().unwrap() = None;
     let _ = app.emit("memory-sidecar-status", "stopped");
     log::info!("[Memory] cognee sidecar stopped");
     Ok(())
+}
+
+/// 读取当前 sidecar 鉴权 token（供前端 cogneeClient 附加到请求头）。
+///
+/// 前端调用方式：`invoke('get_memory_sidecar_token')`
+///
+/// # Returns
+/// - `Ok(token)` — sidecar 正在运行且 token 有效
+/// - `Ok("")` — sidecar 未启动（前端据此不带 token / 走降级）
+#[cfg(desktop)]
+#[tauri::command]
+pub fn get_memory_sidecar_token() -> Result<String, String> {
+    let token = SIDECAR_TOKEN.lock().unwrap().clone();
+    Ok(token.unwrap_or_default())
 }

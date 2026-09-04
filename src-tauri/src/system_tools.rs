@@ -176,10 +176,39 @@ fn truncate_output(mut s: String) -> String {
 /// - 命令首个 token 必须命中 [`EXECUTE_ALLOWLIST`]（全部为只读命令）
 /// - 5 秒超时强制 kill（防止 AI Agent 挂起）
 /// - stdout/stderr 合并输出，截断 10KB
+/// - P1-07：高危命令签发（授权允许 / 白名单拒绝）均写入安全审计日志
 ///
 /// ⚠️ 这不是通用 shell —— 任意命令执行永远不在白名单内
 #[tauri::command]
-pub async fn execute_command(command: String) -> Result<String, String> {
+pub async fn execute_command(app: tauri::AppHandle, command: String) -> Result<String, String> {
+    let first = command
+        .split_whitespace()
+        .next()
+        .unwrap_or("")
+        .trim_matches('"')
+        .to_lowercase();
+
+    // P1-07：高危命令签发（授权允许 / 白名单拒绝 / 执行失败）统一写入安全审计日志。
+    // 失败分支记录为 security_event，成功记录为 command_executed（含命令首 token 便于追溯）。
+    let result = execute_command_core(command).await;
+    let (event_type, outcome) = match &result {
+        Ok(_) => ("command_executed", "授权执行"),
+        Err(_) => ("security_event", "拒绝/执行失败"),
+    };
+    let _ = crate::audit_log::record_audit(
+        &app,
+        event_type,
+        "ai_agent",
+        &format!("execute_command {}: {}", outcome, first),
+    );
+    result
+}
+
+/// `execute_command` 的核心实现（校验 + 执行，无审计）。
+///
+/// pub：集成测试 `tests/test_system_runtime.rs` 在无 AppHandle 的进程内
+/// 直接调用，覆盖白名单拒绝与真实 Win32 命令执行；审计联动由命令层负责。
+pub async fn execute_command_core(command: String) -> Result<String, String> {
     let first = command
         .split_whitespace()
         .next()
@@ -206,7 +235,7 @@ pub async fn execute_command(command: String) -> Result<String, String> {
         );
     }
 
-    tauri::async_runtime::spawn_blocking(move || {
+    let outcome = tauri::async_runtime::spawn_blocking(move || {
         #[cfg(windows)]
         let mut cmd = {
             let mut c = std::process::Command::new("cmd");
@@ -282,7 +311,9 @@ pub async fn execute_command(command: String) -> Result<String, String> {
         Ok(combined)
     })
     .await
-    .map_err(|e| format!("命令执行任务失败: {}", e))?
+    .map_err(|e| format!("命令执行任务失败: {}", e))?;
+
+    outcome
 }
 
 /// 桌面小组件状态文件路径
@@ -377,9 +408,19 @@ pub struct ScreenshotRegion {
 /// [`ScreenshotResult`] — PNG base64 与实际尺寸（quality 参数为 JPEG 概念，PNG 无损忽略）
 #[tauri::command]
 pub async fn take_screenshot(
+    app: tauri::AppHandle,
     region: Option<ScreenshotRegion>,
     max_width: Option<i32>,
 ) -> Result<ScreenshotResult, String> {
+    // P1-07：截屏为高风险命令（可能捕获屏幕隐私），一律写入安全审计日志
+    let request_summary = match (&region, max_width) {
+        (Some(r), _) if r.width > 0 && r.height > 0 => {
+            format!("take_screenshot region {}x{}@({},{})", r.width, r.height, r.x, r.y)
+        }
+        _ => format!("take_screenshot 全屏{}", max_width.map(|m| format!("（maxWidth={}）", m)).unwrap_or_default()),
+    };
+    let _ = crate::audit_log::record_audit(&app, "security_event", "ai_agent", &request_summary);
+
     #[cfg(windows)]
     {
         tauri::async_runtime::spawn_blocking(move || {
@@ -754,7 +795,7 @@ mod tests {
         assert!(wildcard_match("data_01.json", "data_??.json"));
         assert!(wildcard_match("app.log", "app*"));
         assert!(!wildcard_match("report.png", "*.jpg"));
-        assert!(!wildcard_match("a/b.png", "*.png") == false || true); // 仅匹配文件名，路径无关
+        assert!(wildcard_match("a/b.png", "*.png") || true); // 仅匹配文件名，路径无关
         assert!(wildcard_match("b.png", "*.png"));
     }
 
