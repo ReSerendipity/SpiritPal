@@ -56,6 +56,8 @@ export interface AppExportData {
   enhancedMemories?: Record<string, unknown>
   achievements?: unknown
   mods?: unknown
+  /** P1: 数据库全表行级快照（弥补 store-blob 遗漏的 memories 行 / schedules 等） */
+  dbTables?: Record<string, unknown[]>
 }
 
 const APP_VERSION = '0.1.0'
@@ -138,9 +140,9 @@ export class DataManager {
       exportedItems: [],
     }
 
-    // 应用设置（settingsStore 使用 localStorage）
+    // 应用设置（settingsStore 使用 SQLite — 双读策略）
     try {
-      const settingsRaw = localStorage.getItem('spiritpal-settings-store')
+      const settingsRaw = await readStoreData('spiritpal-settings-store')
       if (settingsRaw) {
         const parsed = JSON.parse(settingsRaw)
         data.settings = { ...parsed.state }
@@ -153,7 +155,7 @@ export class DataManager {
 
     // AI 配置（[Tauri Review] 不导出 API Key 明文，仅导出 provider 等非敏感配置）
     try {
-      const aiRaw = localStorage.getItem('spiritpal-ai-config')
+      const aiRaw = await readStoreData('spiritpal-ai-config')
       if (aiRaw) {
         const config = JSON.parse(aiRaw)
         // [Tauri Review] 剥离 apiKey 字段，防止导出文件泄露密钥
@@ -203,7 +205,7 @@ export class DataManager {
 
     // 成就数据
     try {
-      const achRaw = localStorage.getItem('spiritpal-achievements')
+      const achRaw = await readStoreData('spiritpal-achievements')
       if (achRaw) data.achievements = JSON.parse(achRaw)
       if (data.achievements) data.exportedItems?.push('成就数据')
     } catch (e) {
@@ -219,6 +221,20 @@ export class DataManager {
       }
     } catch (e) {
       console.warn('[DataManager] 导出模组数据失败:', e)
+    }
+
+    // P1: 数据库全表行级快照（覆盖 6+ 张核心表与二期表；弥补 store-blob 导出
+    // 遗漏的 memories 行 / schedules / owner_facts 等。PII 掩码会递归处理邮箱/手机/身份证）
+    try {
+      const { exportDatabaseSnapshot } = await import('./dbBackup')
+      const snapshot = await exportDatabaseSnapshot()
+      const tableNames = Object.keys(snapshot)
+      if (tableNames.length > 0) {
+        data.dbTables = snapshot
+        data.exportedItems?.push(`数据库全表快照（${tableNames.length} 张表）`)
+      }
+    } catch (e) {
+      console.warn('[DataManager] 导出数据库全表快照失败:', e)
     }
 
     // PII 掩码（GDPR 默认打码，减少明文导出敏感信息）

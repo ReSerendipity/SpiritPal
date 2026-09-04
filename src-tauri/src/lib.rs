@@ -119,7 +119,7 @@ use petmod::{
     import_petmod, install_petmod, pack_petmod, scan_mods_directory, uninstall_mod, validate_petmod,
 };
 // R-14: 数据库加密命令
-use encrypted_db::{decrypt_db_at_rest, encrypt_db_at_rest};
+use encrypted_db::{decrypt_db_at_rest, encrypt_db_at_rest, backup_db_at_rest, list_db_backups, restore_db_backup, delete_db_backup};
 // H-4: 审计日志命令
 use audit_log::audit_log;
 // P0: Rust 侧 HTTP 网络出口命令（绕过生产 CSP 对境内/本地服务商的阻断）
@@ -1378,6 +1378,11 @@ pub fn run() {
                     // R-14: 数据库加密
                     encrypt_db_at_rest,
                     decrypt_db_at_rest,
+                    // P1: 本地自动备份（无云端备份下的 durability:备份/列出/恢复/删除）
+                    backup_db_at_rest,
+                    list_db_backups,
+                    restore_db_backup,
+                    delete_db_backup,
                     // MCP 命令桥：webview 回调挂起的工具调用
                     mcp_respond,
                     // P1-2: 角色包导入
@@ -1410,6 +1415,11 @@ pub fn run() {
                     encrypt_data_chunked,
                     decrypt_data_chunked,
                     compute_sha256,
+                    // P1: 本地自动备份
+                    backup_db_at_rest,
+                    list_db_backups,
+                    restore_db_backup,
+                    delete_db_backup,
                     // 模组
                     import_petmod,
                     scan_mods_directory,

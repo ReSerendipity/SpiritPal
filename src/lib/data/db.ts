@@ -161,6 +161,10 @@ export async function encryptDatabaseAtRest(): Promise<void> {
     }
     // 加密数据库文件（Rust 端会进一步清理 -wal/-shm 残留）
     await invoke('encrypt_db_at_rest')
+    // P1: 无云端备份下的本地 durability —— 加密完成后自动备份一轮（保留最近 3 份）
+    await invoke('backup_db_at_rest').catch((e: unknown) => {
+      console.warn('[SpiritPal] Auto backup failed (non-fatal):', e)
+    })
   } catch (e) {
     console.warn('[SpiritPal] Failed to encrypt database at rest:', e)
   }
@@ -486,7 +490,9 @@ export async function initDB(): Promise<Database> {
       id TEXT PRIMARY KEY,
       item_id TEXT NOT NULL,
       quantity INTEGER NOT NULL,
-      character_id TEXT
+      -- P2: 新装库声明外键（foreign_keys=ON 生效）；已有旧库表结构不含 FK，
+      -- 由 dirtyDataTracker 的 ORPHAN_REFERENCE 检测 + 清理兜底
+      character_id TEXT REFERENCES characters(id) ON DELETE SET NULL
     )
   `)
 
@@ -551,6 +557,14 @@ export async function initDB(): Promise<Database> {
 
   // P1-2: 初始化跨窗口 settingsCache 一致性监听器
   await setupSettingsCacheListener()
+
+  // P1: 启动物理完整性检查（非阻塞）——SQLite 损坏时尽早发现并可通过本地备份恢复
+  try {
+    const { checkDbIntegrity } = await import('./dbBackup')
+    await checkDbIntegrity()
+  } catch (e) {
+    console.warn('[SpiritPal] 数据库完整性检查异常（非致命）:', e)
+  }
 
   return db
 }
