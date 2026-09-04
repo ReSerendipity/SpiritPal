@@ -90,26 +90,6 @@ export function redactErrorText(text: string): string {
 }
 
 /**
- * 判断 URL 是否为本地回环地址
- * 回环地址（localhost / 127.0.0.1 / ::1 / 0.0.0.0）是用户显式配置的本地服务端点，
- * 不属于 SSRF 防护的目标范围（SSRF 防护针对攻击者可控的远程 URL）
- */
-function isLoopbackUrl(url: string): boolean {
-  try {
-    const hostname = new URL(url).hostname.toLowerCase()
-    return (
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      hostname === '::1' ||
-      hostname === '[::1]' ||
-      hostname === '0.0.0.0'
-    )
-  } catch {
-    return false
-  }
-}
-
-/**
  * 带超时控制的 fetch
  * 使用 AbortController 在指定超时时间后中断请求
  * OPTIMIZE: 修复 userSignal 监听器未移除导致的内存泄漏（C8）
@@ -133,15 +113,11 @@ export async function fetchWithTimeout(
     userSignal.addEventListener('abort', onUserAbort, { once: true })
   }
   try {
-    // SECURITY R-09: SSRF 防护 — 对远程 URL 使用 safeFetch 拦截私有 IP 段。
-    // 本地回环地址（localhost / 127.0.0.1 / ::1 / 0.0.0.0）是用户在设置中显式配置的
-    // 本地服务（如 Ollama 默认 http://localhost:11434），直接放行原生 fetch，
-    // 否则会破坏本地模型服务这一核心功能。
-    const isLoopback = isLoopbackUrl(url)
-    const response = isLoopback
-      ? await fetch(url, { ...options, signal: controller.signal })
-      : await safeFetch(url, { ...options, signal: controller.signal }, undefined, 'llm')
-    return response
+    // SECURITY R-09: SSRF 防护 — 统一经 safeFetch 出网。
+    // safeFetch 内置：① 回环地址（localhost/127/::1，用户显式配置的本地服务如 Ollama）直通；
+    // ② 远程 URL 先按 SSRF 白名单校验；③ Tauri 运行时经 Rust 侧 http_proxy 出网
+    // （绕过生产 CSP 对境内/本地服务商的阻断，Rust 侧再做私有 IP/端口第二道校验）。
+    return await safeFetch(url, { ...options, signal: controller.signal }, undefined, 'llm')
   } catch (err) {
     // E2: 精准区分超时 abort 与用户主动 abort
     if (err instanceof Error && (err.name === 'AbortError' || controller.signal.aborted)) {
@@ -671,7 +647,8 @@ export class LLMClient {
       const controller = new AbortController()
       // OPTIMIZE: 超时常量外置
       const timeout = setTimeout(() => controller.abort(), OLLAMA_DETECT_TIMEOUT_MS)
-      const res = await fetch(OLLAMA_TAGS_URL, {
+      // SECURITY: 经 safeFetch 出网 — 回环地址直通（绕开 SSRF 白名单），Tauri 下走 Rust 代理
+      const res = await safeFetch(OLLAMA_TAGS_URL, {
         signal: controller.signal,
       })
       clearTimeout(timeout)

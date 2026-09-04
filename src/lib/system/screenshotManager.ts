@@ -31,6 +31,9 @@
  * Chapter 13: 截图隐私增强
  */
 
+// P0: 统一网络出口 — 隐私 API 上传播放端点走 safeFetch（Tauri 下 Rust 代理）
+import { safeFetch } from '@/lib/system/ssrfProtection'
+
 /** localStorage 存储键名 */
 const STORAGE_KEY = 'spiritpal-screenshots'
 /** 最大截图存储数量 */
@@ -465,7 +468,8 @@ export class PrivateScreenshotManager {
     if (!this.privacyConfig.apiEndpoint) return
 
     try {
-      await fetch(this.privacyConfig.apiEndpoint, {
+      // P0: 经 safeFetch 出网 — 隐私 API 端点为用户配置域名，Tauri 下走 Rust 代理
+      await safeFetch(this.privacyConfig.apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

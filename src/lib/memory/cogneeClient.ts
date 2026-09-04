@@ -8,6 +8,10 @@
  * 由上层 useEnhancedMemory 决定是否回退到本地时序索引。
  */
 
+// P0: 统一网络出口 — sidecar 地址为本地回环，生产 CSP 会拦截原生 fetch；
+// 经 safeFetch（回环直通 + Tauri 下 Rust 代理）保证可用。
+import { safeFetch } from '@/lib/system/ssrfProtection'
+
 const SIDECAR_BASE =
   (import.meta.env.VITE_MEMORY_SIDECAR_URL as string | undefined) ??
   'http://127.0.0.1:7531'
@@ -55,7 +59,7 @@ export async function cogneeHealth(): Promise<boolean> {
   try {
     const ctrl = new AbortController()
     const t = setTimeout(() => ctrl.abort(), 1500)
-    const r = await fetch(`${SIDECAR_BASE}/health`, {
+    const r = await safeFetch(`${SIDECAR_BASE}/health`, {
       headers: authHeaders(await sidecarToken(), {}),
       signal: ctrl.signal,
     })
@@ -98,7 +102,7 @@ export async function cogneeSearch(
   try {
     const ctrl = new AbortController()
     const t = setTimeout(() => ctrl.abort(), 5000)
-    const r = await fetch(`${SIDECAR_BASE}/memory/search`, {
+    const r = await safeFetch(`${SIDECAR_BASE}/memory/search`, {
       method: 'POST',
       headers: authHeaders(await sidecarToken()),
       body: JSON.stringify({ character_id: characterId, query, top_k: topK }),

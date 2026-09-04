@@ -32,6 +32,8 @@
  * - TTSEngineManager.updateConfig(): 更新配置
  */
 
+// P0: 统一网络出口 — TTS API 远端端点走 safeFetch（Tauri 下 Rust 代理）
+import { safeFetch } from '@/lib/system/ssrfProtection'
 import { type TTSAudioData, type TTSGenerateFn, type TTSPlayFn, getTTSTaskManager, resetTTSTaskManager } from './ttsTaskManager'
 
 // ============ 类型定义 ============
@@ -208,7 +210,8 @@ export function createApiTTSGenerate(config: TTSEngineConfig): TTSGenerateFn {
         headers['Authorization'] = `Bearer ${config.apiKey}`
       }
 
-      const response = await fetch(config.apiEndpoint, {
+      // P0: 经 safeFetch 出网 — TTS API 端点为用户配置域名，生产 CSP 外，Tauri 下走 Rust 代理
+      const response = await safeFetch(config.apiEndpoint, {
         method: 'POST',
         headers,
         body: JSON.stringify({
