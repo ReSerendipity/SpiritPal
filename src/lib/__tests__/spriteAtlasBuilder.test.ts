@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { createSpriteAtlas, getSpriteAtlasLoader } from '../spriteAtlasBuilder'
+import { createSpriteAtlas, getSpriteAtlasLoader } from '@/lib/render/spriteAtlasBuilder'
 
 /** 构造一个只记录 drawImage 调用的假画布上下文 */
 function createFakeCanvas() {

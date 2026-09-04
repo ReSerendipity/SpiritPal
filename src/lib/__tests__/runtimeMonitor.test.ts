@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { RuntimeMonitor, runtimeMonitor, withLLMMonitoring } from '../runtimeMonitor'
+import { RuntimeMonitor, runtimeMonitor, withLLMMonitoring } from '@/lib/system/runtimeMonitor'
 
 describe('RuntimeMonitor', () => {
   let monitor: RuntimeMonitor

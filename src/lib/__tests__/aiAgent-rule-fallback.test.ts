@@ -1,6 +1,6 @@
 // aiAgent 测试（拆分自 aiAgent.test.ts，审计 P1-6 God Test 拆分）
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { invoke } from '@tauri-apps/api/core'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // ============ Mock 依赖模块 ============
 // 使用 vi.hoisted 确保 mock 对象在 vi.mock 工厂执行前可用
@@ -41,21 +41,21 @@ const mocks = vi.hoisted(() => ({
   },
 }))
 
-vi.mock('../scheduleManager', () => ({
+vi.mock('@/lib/nurture/scheduleManager', () => ({
   getScheduleManager: vi.fn(() => mocks.schedMgr),
 }))
 
-vi.mock('../weatherAwareness', () => ({
+vi.mock('@/lib/system/weatherAwareness', () => ({
   getWeatherAwarenessManager: vi.fn(() => mocks.weatherMgr),
 }))
 
-vi.mock('../../stores/petStore', () => ({
+vi.mock('@/stores/petStore', () => ({
   usePetStore: {
     getState: () => mocks.petStoreState,
   },
 }))
 
-vi.mock('../llmClient', () => ({
+vi.mock('@/lib/ai/llmClient', () => ({
   getLLMClient: vi.fn(() => mocks.llmClient),
   DEFAULT_AI_CONFIG: {
     provider: 'openai',
@@ -67,12 +67,12 @@ vi.mock('../llmClient', () => ({
   },
 }))
 
-vi.mock('../secureStorage', () => ({
+vi.mock('@/lib/data/secureStorage', () => ({
   getApiKey: mocks.secureStorage.getApiKey,
 }))
 
-import { AGENT_TOOLS, detectAgentIntent, processAgentRequest, matchIntent } from '../aiAgent'
-import { toolOpenApplication } from '../agentTools'
+import { toolOpenApplication } from '@/lib/ai/agentTools'
+import { AGENT_TOOLS, detectAgentIntent, processAgentRequest, matchIntent } from '@/lib/ai/aiAgent'
 
 const EXPECTED_TOOL_NAMES = [
   'open_application',

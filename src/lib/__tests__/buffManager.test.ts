@@ -1,7 +1,7 @@
 // buffManager 单元测试 — BuffAdd/BuffAlt 类型、叠加规则、过期移除
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { BuffManager, getBuffManager } from '../buffManager'
-import type { BuffConfig } from '../types'
+import type { BuffConfig } from '@/lib/data/types'
+import { BuffManager, getBuffManager } from '@/lib/nurture/buffManager'
 
 function makeBuff(overrides: Partial<BuffConfig> = {}): BuffConfig {
   return {

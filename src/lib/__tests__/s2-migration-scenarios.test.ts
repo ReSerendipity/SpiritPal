@@ -27,7 +27,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 }))
 
 // Mock db 模块 — 使用内存 Map 模拟 settings 存储
-vi.mock('../db', () => {
+vi.mock('@/lib/data/db', () => {
   const mockDb = {
     execute: vi.fn(),
     select: vi.fn(),
@@ -75,7 +75,7 @@ vi.mock('../db', () => {
 })
 
 // Mock vectorSearch
-vi.mock('../vectorSearch', () => ({
+vi.mock('@/lib/system/vectorSearch', () => ({
   embed: vi.fn().mockResolvedValue(new Float32Array([1, 2, 3])),
   isVectorSearchAvailable: vi.fn().mockResolvedValue(true),
   searchSimilar: vi.fn().mockReturnValue([]),
@@ -83,7 +83,7 @@ vi.mock('../vectorSearch', () => ({
 }))
 
 // Mock ragRetrieval
-vi.mock('../ragRetrieval', () => ({
+vi.mock('@/lib/memory/ragRetrieval', () => ({
   getRAGRetriever: vi.fn().mockReturnValue({
     search: vi.fn().mockResolvedValue([]),
     addMemory: vi.fn(),
@@ -94,7 +94,7 @@ vi.mock('../ragRetrieval', () => ({
 }))
 
 // Mock entityLinking
-vi.mock('../entityLinking', () => ({
+vi.mock('@/lib/memory/entityLinking', () => ({
   getEntityManager: vi.fn().mockReturnValue({
     ensureLoaded: vi.fn().mockResolvedValue(undefined),
     getLinkedMemoryIds: vi.fn().mockReturnValue([]),
@@ -182,8 +182,8 @@ describe('S2: 迁移场景 — 4 种存量库场景', () => {
   })
 
   it('场景1: 空库（无 blob）→ 迁移应成功并设标记', async () => {
-    const { getSetting, isMemoryMigrated, isLegacyMode } = await import('../db')
-    const { migrateCharacterMemory } = await import('../memoryMigrator')
+    const { getSetting, isMemoryMigrated, isLegacyMode } = await import('@/lib/data/db')
+    const { migrateCharacterMemory } = await import('@/lib/memory/memoryMigrator')
 
     vi.mocked(getSetting).mockResolvedValueOnce(null)
     vi.mocked(isMemoryMigrated).mockResolvedValueOnce(false)
@@ -195,8 +195,8 @@ describe('S2: 迁移场景 — 4 种存量库场景', () => {
   })
 
   it('场景2: ENC1 旧库 → 迁移应解密并写入行', async () => {
-    const { getSetting, isMemoryMigrated, isLegacyMode, insertMemoryRow, upsertMemorySummary, upsertMemoryState } = await import('../db')
-    const { migrateCharacterMemory } = await import('../memoryMigrator')
+    const { getSetting, isMemoryMigrated, isLegacyMode, insertMemoryRow, upsertMemorySummary, upsertMemoryState } = await import('@/lib/data/db')
+    const { migrateCharacterMemory } = await import('@/lib/memory/memoryMigrator')
 
     const legacyData = makeLegacyBlobData([
       { user: '你好', assistant: '你好呀', id: 'mem-enc1-001' },
@@ -217,8 +217,8 @@ describe('S2: 迁移场景 — 4 种存量库场景', () => {
   })
 
   it('场景3: ENC2 旧库 → 迁移应解密并写入行', async () => {
-    const { getSetting, isMemoryMigrated, isLegacyMode, insertMemoryRow } = await import('../db')
-    const { migrateCharacterMemory } = await import('../memoryMigrator')
+    const { getSetting, isMemoryMigrated, isLegacyMode, insertMemoryRow } = await import('@/lib/data/db')
+    const { migrateCharacterMemory } = await import('@/lib/memory/memoryMigrator')
 
     const legacyData = makeLegacyBlobData([
       { user: '今天天气真好', assistant: '是呀很适合散步', id: 'mem-enc2-001' },
@@ -236,8 +236,8 @@ describe('S2: 迁移场景 — 4 种存量库场景', () => {
   })
 
   it('场景4: 已有部分行 → 迁移标记已设时应跳过', async () => {
-    const { isMemoryMigrated } = await import('../db')
-    const { migrateCharacterMemory } = await import('../memoryMigrator')
+    const { isMemoryMigrated } = await import('@/lib/data/db')
+    const { migrateCharacterMemory } = await import('@/lib/memory/memoryMigrator')
 
     vi.mocked(isMemoryMigrated).mockResolvedValueOnce(true)
 
@@ -247,8 +247,8 @@ describe('S2: 迁移场景 — 4 种存量库场景', () => {
   })
 
   it('迁移失败时应 ROLLBACK 且不设标记', async () => {
-    const { getSetting, isMemoryMigrated, isLegacyMode, insertMemoryRow } = await import('../db')
-    const { migrateCharacterMemory } = await import('../memoryMigrator')
+    const { getSetting, isMemoryMigrated, isLegacyMode, insertMemoryRow } = await import('@/lib/data/db')
+    const { migrateCharacterMemory } = await import('@/lib/memory/memoryMigrator')
 
     const legacyData = makeLegacyBlobData([
       { user: '数据', assistant: '回复', id: 'mem-fail-001' },
@@ -267,8 +267,8 @@ describe('S2: 迁移场景 — 4 种存量库场景', () => {
   })
 
   it('迁移后旧 blob 应保留为 .legacy 副本', async () => {
-    const { getSetting, setSetting, isMemoryMigrated, isLegacyMode } = await import('../db')
-    const { migrateCharacterMemory } = await import('../memoryMigrator')
+    const { getSetting, setSetting, isMemoryMigrated, isLegacyMode } = await import('@/lib/data/db')
+    const { migrateCharacterMemory } = await import('@/lib/memory/memoryMigrator')
 
     const legacyData = makeLegacyBlobData([])
     const encBlob = `ENC2:${legacyData}`
@@ -293,8 +293,8 @@ describe('S2: corrupt 保留逻辑', () => {
   })
 
   it('旧路径下解密失败应保留 .corrupt 副本', async () => {
-    const { getSetting, setSetting, isMemoryMigrated, isLegacyMode } = await import('../db')
-    const { EnhancedMemoryManager } = await import('../enhancedMemory')
+    const { getSetting, setSetting, isMemoryMigrated, isLegacyMode } = await import('@/lib/data/db')
+    const { EnhancedMemoryManager } = await import('@/lib/memory/enhancedMemory')
 
     // 模拟未迁移 → 走旧 blob 路径
     vi.mocked(isMemoryMigrated).mockResolvedValue(false)

@@ -17,12 +17,12 @@ const mockDb = {
   select: vi.fn(),
 }
 
-vi.mock('../db', () => ({
+vi.mock('@/lib/data/db', () => ({
   getDb: vi.fn(() => Promise.resolve(mockDb)),
 }))
 
 // Mock auditLogger
-vi.mock('../auditLogger', () => ({
+vi.mock('@/lib/system/auditLogger', () => ({
   auditLog: vi.fn(() => Promise.resolve()),
   AuditEventType: { SECURITY_EVENT: 'security_event' },
 }))
@@ -34,7 +34,7 @@ import {
   markTableResolved,
   getIssuesForTable,
   cleanupResolvedDirtyData,
-} from '../dirtyDataTracker'
+} from '@/lib/data/dirtyDataTracker'
 
 describe('dirtyDataTracker', () => {
   beforeEach(() => {

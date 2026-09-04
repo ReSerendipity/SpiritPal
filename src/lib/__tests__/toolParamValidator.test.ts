@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateToolParams, getToolSchemaSummary } from '../toolParamValidator'
+import { validateToolParams, getToolSchemaSummary } from '@/lib/system/toolParamValidator'
 
 describe('toolParamValidator', () => {
   describe('open_application', () => {

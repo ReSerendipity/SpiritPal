@@ -6,20 +6,20 @@
  * @tauri-apps/api/event 的 emit 由 setup.ts 全局 mock。
  * buildContext 为私有方法，通过 startPlugin 注入的 registerFn 间接验证沙箱能力。
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { emit } from '@tauri-apps/api/event'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   PluginManager,
   getPluginManager,
   resetPluginManager,
-} from '@/lib/pluginManager'
-import { resetPluginSandboxManager } from '@/lib/pluginPermissions'
+} from '@/lib/system/pluginManager'
+import { resetPluginSandboxManager } from '@/lib/system/pluginPermissions'
 import type {
   PluginManifest,
   Plugin,
   PluginPermission,
   SpiritPalPluginContext,
-} from '@/lib/pluginSdk'
+} from '@/lib/system/pluginSdk'
 
 // ============ 测试数据 ============
 

@@ -6,7 +6,7 @@ import {
   OLLAMA_TAGS_URL,
   detectOllama,
   listOllamaModels,
-} from '../llmProviders'
+} from '@/lib/ai/llmProviders'
 
 const EXPECTED_PROVIDER_IDS = [
   'deepseek',

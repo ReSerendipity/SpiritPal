@@ -18,7 +18,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 const mockAddExchange = vi.fn()
 const mockGetAutobiographicalMemories = vi.fn(() => [])
 
-vi.mock('../enhancedMemory', () => ({
+vi.mock('@/lib/memory/enhancedMemory', () => ({
   getEnhancedMemoryManager: vi.fn(() => ({
     ensureLoaded: vi.fn().mockResolvedValue(undefined),
     addExchange: mockAddExchange,
@@ -30,7 +30,7 @@ import {
   DiarySystemManager,
   DEFAULT_DIARY_CONFIG,
   getDiarySystemManager,
-} from '../diarySystem'
+} from '@/lib/nurture/diarySystem'
 
 describe('DiarySystemManager', () => {
   let manager: DiarySystemManager

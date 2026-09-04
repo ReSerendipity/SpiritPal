@@ -1,8 +1,8 @@
 // AI Agent 安全沙箱单元测试 — 权限校验与审计
 // P3-24: 安全沙箱+权限控制
 import { describe, it, expect, beforeEach } from 'vitest'
-import { AgentSandbox, getAgentSandbox } from '../agentSandbox'
-import { ToolMode } from '../agentTools'
+import { AgentSandbox, getAgentSandbox } from '@/lib/ai/agentSandbox'
+import { ToolMode } from '@/lib/ai/agentTools'
 
 // ============ 测试 ============
 

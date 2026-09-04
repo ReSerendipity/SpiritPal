@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import * as C from '../constants'
+import * as C from '@/lib/data/constants'
 
 describe('constants', () => {
   describe('窗口尺寸', () => {

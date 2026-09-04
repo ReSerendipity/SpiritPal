@@ -1,6 +1,6 @@
 // redactErrorText 单元测试 — R-13 v2.0 密钥脱敏正则覆盖测试
 import { describe, it, expect } from 'vitest'
-import { redactErrorText } from '../llmClient'
+import { redactErrorText } from '@/lib/ai/llmClient'
 
 describe('redactErrorText', () => {
   // ============ 原有用例（回归保护）============

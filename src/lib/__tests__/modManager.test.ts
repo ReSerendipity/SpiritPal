@@ -1,7 +1,7 @@
 // modManager 模块测试 — 模组安装/卸载/启用/导入（mock Tauri API + db）
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('../db', () => ({
+vi.mock('@/lib/data/db', () => ({
   saveMod: vi.fn(() => Promise.resolve()),
   getMods: vi.fn(() => Promise.resolve([])),
   deleteMod: vi.fn(() => Promise.resolve()),
@@ -29,8 +29,8 @@ vi.mock('@tauri-apps/api/path', () => ({
   join: vi.fn((...args: string[]) => Promise.resolve(args.join('/'))),
 }))
 
-import { ModManager, createModTemplate } from '../modManager'
-import type { CharacterMod } from '../modManager'
+import { ModManager, createModTemplate } from '@/lib/data/modManager'
+import type { CharacterMod } from '@/lib/data/modManager'
 import { invoke } from '@tauri-apps/api/core'
 import { open as openDialog, ask as askDialog } from '@tauri-apps/plugin-dialog'
 import { exists, readTextFile } from '@tauri-apps/plugin-fs'

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
-import { filterLLMOutput, isSafeText, getFilterStats } from '../toxicityFilter'
+import { filterLLMOutput, isSafeText, getFilterStats } from '@/lib/ai/toxicityFilter'
 
 // Mock piiMasking
-vi.mock('../piiMasking', () => ({
+vi.mock('@/lib/data/piiMasking', () => ({
   maskPII: vi.fn((s: string) => {
     // 模拟：将手机号替换为 138****1234
     return s.replace(/1[3-9]\d{9}/g, '138****1234')

@@ -17,11 +17,11 @@ import {
   VisualMemoryManager,
   getVisualMemoryManager,
   removeVisualMemoryManager,
-} from '@/lib/visualMemoryManager'
+} from '@/lib/memory/visualMemoryManager'
 
 // ============ Mock db ============
 
-vi.mock('../db', () => ({
+vi.mock('@/lib/data/db', () => ({
   getSetting: vi.fn(() => Promise.resolve(null)),
   setSetting: vi.fn(() => Promise.resolve()),
   getVisualMemories: vi.fn(() => Promise.resolve([])),

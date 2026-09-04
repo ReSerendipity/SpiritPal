@@ -14,12 +14,12 @@
  * 两者在 mock 下被短路）。数值用于回归检测（发现数量级劣化），不代表真机端到端延迟。
  */
 
-import { describe, it, expect, beforeAll, vi } from 'vitest'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { describe, it, expect, beforeAll, vi } from 'vitest'
 
 // ===== 存储层 mock（让检索路径不依赖真实 SQLite / 向量服务）=====
-vi.mock('../db', () => ({
+vi.mock('@/lib/data/db', () => ({
   getSetting: vi.fn(() => Promise.resolve(null)),
   setSetting: vi.fn(() => Promise.resolve()),
   addMemory: vi.fn(() => Promise.resolve()),
@@ -44,14 +44,14 @@ vi.mock('../db', () => ({
   clearSemanticFacts: vi.fn(() => Promise.resolve()),
 }))
 
-vi.mock('../vectorSearch', () => ({
+vi.mock('@/lib/system/vectorSearch', () => ({
   embed: vi.fn(() => Promise.resolve(new Float32Array(8))),
   isVectorSearchAvailable: vi.fn(() => Promise.resolve(false)),
   searchSimilar: vi.fn(() => Promise.resolve([])),
   terminateVectorSearch: vi.fn(),
 }))
 
-vi.mock('../ragRetrieval', () => ({
+vi.mock('@/lib/memory/ragRetrieval', () => ({
   getRAGRetriever: vi.fn(() => ({
     retrieve: vi.fn(() => []),
     buildIndex: vi.fn(() => Promise.resolve()),
@@ -60,18 +60,18 @@ vi.mock('../ragRetrieval', () => ({
   DEFAULT_RAG_CONFIG: { topK: 20, minScore: 0.1 },
 }))
 
-vi.mock('../memoryMigrator', () => ({
+vi.mock('@/lib/memory/memoryMigrator', () => ({
   needsMigration: vi.fn(() => Promise.resolve(false)),
   migrateCharacterMemory: vi.fn(() => Promise.resolve({ migrated: 0 })),
 }))
 
-vi.mock('../entityLinking', () => ({
+vi.mock('@/lib/memory/entityLinking', () => ({
   getEntityManager: vi.fn(() => ({
     getLinkedMemories: vi.fn(() => Promise.resolve([])),
   })),
 }))
 
-import { EnhancedMemoryManager } from '../enhancedMemory'
+import { EnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 
 const MEMORY_COUNT = 300
 const QUERY_COUNT = 50

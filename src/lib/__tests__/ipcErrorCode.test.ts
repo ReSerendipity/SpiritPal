@@ -16,7 +16,7 @@ import {
   isNotFoundError,
   isSystemError,
   IpcErrorType,
-} from '../ipcErrorCode'
+} from '@/lib/system/ipcErrorCode'
 
 describe('ipcErrorCode', () => {
   describe('parseIpcError — 结构化格式', () => {

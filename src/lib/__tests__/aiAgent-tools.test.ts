@@ -1,6 +1,6 @@
 // aiAgent 测试（拆分自 aiAgent.test.ts，审计 P1-6 God Test 拆分）
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { invoke } from '@tauri-apps/api/core'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // ============ Mock 依赖模块 ============
 // 使用 vi.hoisted 确保 mock 对象在 vi.mock 工厂执行前可用
@@ -41,21 +41,21 @@ const mocks = vi.hoisted(() => ({
   },
 }))
 
-vi.mock('../scheduleManager', () => ({
+vi.mock('@/lib/nurture/scheduleManager', () => ({
   getScheduleManager: vi.fn(() => mocks.schedMgr),
 }))
 
-vi.mock('../weatherAwareness', () => ({
+vi.mock('@/lib/system/weatherAwareness', () => ({
   getWeatherAwarenessManager: vi.fn(() => mocks.weatherMgr),
 }))
 
-vi.mock('../../stores/petStore', () => ({
+vi.mock('@/stores/petStore', () => ({
   usePetStore: {
     getState: () => mocks.petStoreState,
   },
 }))
 
-vi.mock('../llmClient', () => ({
+vi.mock('@/lib/ai/llmClient', () => ({
   getLLMClient: vi.fn(() => mocks.llmClient),
   DEFAULT_AI_CONFIG: {
     provider: 'openai',
@@ -67,12 +67,12 @@ vi.mock('../llmClient', () => ({
   },
 }))
 
-vi.mock('../secureStorage', () => ({
+vi.mock('@/lib/data/secureStorage', () => ({
   getApiKey: mocks.secureStorage.getApiKey,
 }))
 
-import { AGENT_TOOLS, detectAgentIntent, processAgentRequest, matchIntent } from '../aiAgent'
-import { toolOpenApplication } from '../agentTools'
+import { toolOpenApplication } from '@/lib/ai/agentTools'
+import { AGENT_TOOLS, detectAgentIntent, processAgentRequest, matchIntent } from '@/lib/ai/aiAgent'
 
 const EXPECTED_TOOL_NAMES = [
   'open_application',
@@ -468,21 +468,21 @@ describe('工具 execute 函数', () => {
 
 describe('C-2：工具模式权限（委托 agentTools 单一真相源）', () => {
   it('chat 模式不开放任何工具', async () => {
-    const { isToolAllowed } = await import('../aiAgent')
+    const { isToolAllowed } = await import('@/lib/ai/aiAgent')
     for (const tool of ['search_web', 'search_files', 'execute_command', 'write_file']) {
       expect(isToolAllowed('chat', tool)).toBe(false)
     }
   })
 
   it('agent 模式仅开放安全工具，不含文件/命令工具', async () => {
-    const { isToolAllowed } = await import('../aiAgent')
+    const { isToolAllowed } = await import('@/lib/ai/aiAgent')
     expect(isToolAllowed('agent', 'search_web')).toBe(true)
     expect(isToolAllowed('agent', 'search_files')).toBe(false)
     expect(isToolAllowed('agent', 'execute_command')).toBe(false)
   })
 
   it('developer 模式开放只读文件工具（此前因权限表副本过时而不可用）', async () => {
-    const { isToolAllowed } = await import('../aiAgent')
+    const { isToolAllowed } = await import('@/lib/ai/aiAgent')
     expect(isToolAllowed('developer', 'search_files')).toBe(true)
     expect(isToolAllowed('developer', 'read_file')).toBe(true)
     expect(isToolAllowed('developer', 'list_directory')).toBe(true)
@@ -492,14 +492,14 @@ describe('C-2：工具模式权限（委托 agentTools 单一真相源）', () =
   })
 
   it('worker 模式开放受限命令执行与文件写入', async () => {
-    const { isToolAllowed } = await import('../aiAgent')
+    const { isToolAllowed } = await import('@/lib/ai/aiAgent')
     expect(isToolAllowed('worker', 'execute_command')).toBe(true)
     expect(isToolAllowed('worker', 'write_file')).toBe(true)
     expect(isToolAllowed('worker', 'search_files')).toBe(true)
   })
 
   it('未实现的系统级工具在任何模式都不可用（不夸大能力边界）', async () => {
-    const { isToolAllowed } = await import('../aiAgent')
+    const { isToolAllowed } = await import('@/lib/ai/aiAgent')
     for (const mode of ['chat', 'agent', 'developer', 'worker'] as const) {
       for (const tool of ['install_package', 'system_setting', 'registry_edit']) {
         expect(isToolAllowed(mode, tool)).toBe(false)

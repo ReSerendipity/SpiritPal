@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, beforeAll, vi } from 'vitest'
-import { Live2DPysicsParser, PendulumSimulator } from '../live2dPhysicsParser'
+import { Live2DPysicsParser, PendulumSimulator } from '@/lib/render/live2dPhysicsParser'
 
 /** 内部简化格式 */
 const SIMPLE_CONFIG = JSON.stringify({

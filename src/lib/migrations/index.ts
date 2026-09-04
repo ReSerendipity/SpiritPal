@@ -27,13 +27,13 @@
  * ```
  */
 
-import type { Migration } from './schemaRunner'
 
 // ============ 迁移文件导入 ============
 // 在此处导入所有迁移文件
 import { v001_initialSchema } from './v001_initial_schema'
 import { v002_addSchemaTracking } from './v002_add_schema_tracking'
 import { v003_addDirtyDataRegistry } from './v003_add_dirty_data_registry'
+import type { Migration } from './types'
 
 // ============ 迁移注册列表 ============
 /**

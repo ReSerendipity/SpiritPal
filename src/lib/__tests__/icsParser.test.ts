@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { parseIcs, createIcsCalendarSource, unfoldIcsLines, parseIcsDateTime } from '../icsParser'
+import { parseIcs, createIcsCalendarSource, unfoldIcsLines, parseIcsDateTime } from '@/lib/system/icsParser'
 
 /** 构造一个最小 ICS */
 function ics(body: string): string {

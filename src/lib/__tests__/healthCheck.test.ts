@@ -11,17 +11,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mock getDb
-vi.mock('../db', () => ({
+vi.mock('@/lib/data/db', () => ({
   getDb: vi.fn(),
 }))
 
 // Mock tauriInvoker
-vi.mock('../tauriInvoker', () => ({
+vi.mock('@/lib/system/tauriInvoker', () => ({
   tauriInvokeNoRetry: vi.fn(),
 }))
 
 // Mock constants
-vi.mock('../constants', () => ({
+vi.mock('@/lib/data/constants', () => ({
   IPC_DEFAULT_TIMEOUT_MS: 30000,
 }))
 
@@ -43,9 +43,9 @@ vi.mock('@tauri-apps/plugin-sql', () => ({
   },
 }))
 
-import { getDb } from '../db'
-import { tauriInvokeNoRetry } from '../tauriInvoker'
-import { runHealthCheck } from '../healthCheck'
+import { getDb } from '@/lib/data/db'
+import { runHealthCheck } from '@/lib/system/healthCheck'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 
 const mockGetDb = vi.mocked(getDb)
 const mockInvoke = vi.mocked(tauriInvokeNoRetry)

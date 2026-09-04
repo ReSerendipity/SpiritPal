@@ -27,7 +27,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 }))
 
 // Mock db 模块 — 使用内存 Map 模拟 settings 存储
-vi.mock('../db', () => {
+vi.mock('@/lib/data/db', () => {
   const mockDb = {
     execute: vi.fn(),
     select: vi.fn(),
@@ -75,7 +75,7 @@ vi.mock('../db', () => {
 })
 
 // Mock vectorSearch
-vi.mock('../vectorSearch', () => ({
+vi.mock('@/lib/system/vectorSearch', () => ({
   embed: vi.fn().mockResolvedValue(new Float32Array([1, 2, 3])),
   isVectorSearchAvailable: vi.fn().mockResolvedValue(true),
   searchSimilar: vi.fn().mockReturnValue([]),
@@ -83,7 +83,7 @@ vi.mock('../vectorSearch', () => ({
 }))
 
 // Mock ragRetrieval
-vi.mock('../ragRetrieval', () => ({
+vi.mock('@/lib/memory/ragRetrieval', () => ({
   getRAGRetriever: vi.fn().mockReturnValue({
     search: vi.fn().mockResolvedValue([]),
     addMemory: vi.fn(),
@@ -94,7 +94,7 @@ vi.mock('../ragRetrieval', () => ({
 }))
 
 // Mock entityLinking
-vi.mock('../entityLinking', () => ({
+vi.mock('@/lib/memory/entityLinking', () => ({
   getEntityManager: vi.fn().mockReturnValue({
     ensureLoaded: vi.fn().mockResolvedValue(undefined),
     getLinkedMemoryIds: vi.fn().mockReturnValue([]),
@@ -182,13 +182,13 @@ describe('S2: 迁移标记', () => {
   })
 
   it('isMemoryMigrated 应返回布尔值', async () => {
-    const { isMemoryMigrated } = await import('../db')
+    const { isMemoryMigrated } = await import('@/lib/data/db')
     const result = await isMemoryMigrated()
     expect(typeof result).toBe('boolean')
   })
 
   it('isLegacyMode 应返回布尔值', async () => {
-    const { isLegacyMode } = await import('../db')
+    const { isLegacyMode } = await import('@/lib/data/db')
     const result = await isLegacyMode()
     expect(typeof result).toBe('boolean')
   })
@@ -200,8 +200,8 @@ describe('S2: 双模式回退', () => {
   })
 
   it('needsMigration 应在未迁移且有 blob 时返回 true', async () => {
-    const { getSetting, isMemoryMigrated, isLegacyMode } = await import('../db')
-    const { needsMigration } = await import('../memoryMigrator')
+    const { getSetting, isMemoryMigrated, isLegacyMode } = await import('@/lib/data/db')
+    const { needsMigration } = await import('@/lib/memory/memoryMigrator')
 
     vi.mocked(getSetting).mockResolvedValueOnce('ENC2:some-encrypted-data')
     vi.mocked(isMemoryMigrated).mockResolvedValueOnce(false)
@@ -212,8 +212,8 @@ describe('S2: 双模式回退', () => {
   })
 
   it('needsMigration 应在已迁移时返回 false', async () => {
-    const { isMemoryMigrated } = await import('../db')
-    const { needsMigration } = await import('../memoryMigrator')
+    const { isMemoryMigrated } = await import('@/lib/data/db')
+    const { needsMigration } = await import('@/lib/memory/memoryMigrator')
 
     vi.mocked(isMemoryMigrated).mockResolvedValueOnce(true)
 
@@ -222,8 +222,8 @@ describe('S2: 双模式回退', () => {
   })
 
   it('needsMigration 应在 legacy 模式时返回 false', async () => {
-    const { isMemoryMigrated, isLegacyMode } = await import('../db')
-    const { needsMigration } = await import('../memoryMigrator')
+    const { isMemoryMigrated, isLegacyMode } = await import('@/lib/data/db')
+    const { needsMigration } = await import('@/lib/memory/memoryMigrator')
 
     vi.mocked(isMemoryMigrated).mockResolvedValueOnce(false)
     vi.mocked(isLegacyMode).mockResolvedValueOnce(true)
@@ -233,8 +233,8 @@ describe('S2: 双模式回退', () => {
   })
 
   it('legacy 开关强制回旧路径时 needsMigration 返回 false', async () => {
-    const { isMemoryMigrated, isLegacyMode } = await import('../db')
-    const { needsMigration } = await import('../memoryMigrator')
+    const { isMemoryMigrated, isLegacyMode } = await import('@/lib/data/db')
+    const { needsMigration } = await import('@/lib/memory/memoryMigrator')
 
     // 即使未迁移，legacy 模式也不迁移
     vi.mocked(isMemoryMigrated).mockResolvedValueOnce(false)
@@ -251,7 +251,7 @@ describe('S2: export/import 兼容', () => {
   })
 
   it('export 应输出包含四层记忆的 JSON 字符串', async () => {
-    const { EnhancedMemoryManager } = await import('../enhancedMemory')
+    const { EnhancedMemoryManager } = await import('@/lib/memory/enhancedMemory')
     const mgr = new EnhancedMemoryManager('export-char')
     mgr.addExchange('你好', '你好呀')
     const json = mgr.export()
@@ -268,7 +268,7 @@ describe('S2: export/import 兼容', () => {
   })
 
   it('import 应恢复四层记忆数据', async () => {
-    const { EnhancedMemoryManager } = await import('../enhancedMemory')
+    const { EnhancedMemoryManager } = await import('@/lib/memory/enhancedMemory')
     const mgr = new EnhancedMemoryManager('import-char')
     const exportData = {
       workingMemory: [{ id: 'test-1', user: '测试', assistant: '回复', importance: 50, created_at: new Date().toISOString() }],
@@ -290,14 +290,14 @@ describe('S2: export/import 兼容', () => {
   })
 
   it('import 无效 JSON 应返回 false', async () => {
-    const { EnhancedMemoryManager } = await import('../enhancedMemory')
+    const { EnhancedMemoryManager } = await import('@/lib/memory/enhancedMemory')
     const mgr = new EnhancedMemoryManager('import-fail-char')
     const ok = mgr.import('not-valid-json{{{')
     expect(ok).toBe(false)
   })
 
   it('export → import 往返应保持记忆数量一致', async () => {
-    const { EnhancedMemoryManager } = await import('../enhancedMemory')
+    const { EnhancedMemoryManager } = await import('@/lib/memory/enhancedMemory')
     const mgr1 = new EnhancedMemoryManager('roundtrip-char')
     mgr1.addExchange('第一条消息', '第一条回复')
     mgr1.addExchange('第二条消息', '第二条回复')

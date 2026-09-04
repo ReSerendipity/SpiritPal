@@ -9,7 +9,7 @@ vi.mock('@tauri-apps/api/core', () => ({
   }),
 }))
 
-vi.mock('../db', () => ({
+vi.mock('@/lib/data/db', () => ({
   getSetting: vi.fn(() => Promise.resolve(null)),
   setSetting: vi.fn(() => Promise.resolve()),
   addMemory: vi.fn(() => Promise.resolve(1)),
@@ -19,17 +19,17 @@ vi.mock('../db', () => ({
   clearMemories: vi.fn(() => Promise.resolve()),
 }))
 
-vi.mock('../vectorSearch', () => ({
+vi.mock('@/lib/system/vectorSearch', () => ({
   embed: vi.fn(() => Promise.resolve(new Float32Array([0.1, 0.2, 0.3]))),
   cosineSimilarity: vi.fn(() => 0.8),
   isVectorSearchAvailable: vi.fn(() => Promise.resolve(false)),
   searchSimilar: vi.fn(() => [{ id: 1, score: 0.8 }]),
 }))
 
-import { EnhancedMemoryManager, getEnhancedMemoryManager } from '../enhancedMemory'
-import { getSetting, setSetting, getAllEmbeddings } from '../db'
+import { getSetting, setSetting, getAllEmbeddings } from '@/lib/data/db'
+import { EnhancedMemoryManager, getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 import { invoke } from '@tauri-apps/api/core'
-import { isVectorSearchAvailable, embed, searchSimilar } from '../vectorSearch'
+import { isVectorSearchAvailable, embed, searchSimilar } from '@/lib/system/vectorSearch'
 
 describe('EnhancedMemoryManager', () => {
   let mgr: EnhancedMemoryManager

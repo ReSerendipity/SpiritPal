@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   WeatherAwarenessManager,
   getWeatherAwarenessManager,
-} from '../weatherAwareness'
+} from '@/lib/system/weatherAwareness'
 
 // 辅助函数：设置 fetch mock，按 URL 分发 IP 定位与天气请求
 function setWeatherFetch(temp: number, weatherCode: number) {

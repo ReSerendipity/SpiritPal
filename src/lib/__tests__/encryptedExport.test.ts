@@ -7,7 +7,7 @@ import {
   isEncryptedFormat,
   parseEncryptedPayload,
   type EncryptedPayload,
-} from '../encryptedExport'
+} from '@/lib/data/encryptedExport'
 
 describe('encryptedExport', () => {
   const testData = JSON.stringify({

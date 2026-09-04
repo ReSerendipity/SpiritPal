@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { executeMcpTool } from '../mcpBridge'
-import { setToolAllowed } from '../mcpPermissions'
-import { usePetStore } from '../../stores/petStore'
+import { executeMcpTool } from '@/lib/system/mcpBridge'
+import { setToolAllowed } from '@/lib/system/mcpPermissions'
+import { usePetStore } from '@/stores/petStore'
 
-vi.mock('../db', () => ({
+vi.mock('@/lib/data/db', () => ({
   updateMemoryRow: vi.fn().mockResolvedValue(undefined),
 }))
 
-vi.mock('../enhancedMemory', () => ({
+vi.mock('@/lib/memory/enhancedMemory', () => ({
   getEnhancedMemoryManager: () => ({
     ensureLoaded: vi.fn().mockResolvedValue(undefined),
     search: vi.fn(() => []),

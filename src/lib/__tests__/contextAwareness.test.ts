@@ -8,7 +8,7 @@ import {
   getNotificationManager,
   SOFT_REMINDERS,
   type PetNotification,
-} from '../contextAwareness'
+} from '@/lib/ai/contextAwareness'
 
 describe('NotificationManager', () => {
   let mgr: NotificationManager

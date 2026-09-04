@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 // Mock piiMasking
-vi.mock('../piiMasking', () => ({
+vi.mock('@/lib/data/piiMasking', () => ({
   maskPII: vi.fn((s: string) => s.replace(/1[3-9]\d{9}/g, '138****1234')),
 }))
 
@@ -22,7 +22,7 @@ import {
   captureFeatureError,
   identifyUser,
   clearUserContext,
-} from '../sentry'
+} from '@/lib/system/sentry'
 
 describe('Sentry Integration', () => {
   beforeEach(() => {

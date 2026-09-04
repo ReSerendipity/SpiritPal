@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { getQualityMonitor, resetQualityMonitor, type QualityRecord } from '../qualityMonitor'
+import { getQualityMonitor, resetQualityMonitor, type QualityRecord } from '@/lib/system/qualityMonitor'
 
 // Mock analytics
-vi.mock('../analytics', () => ({
+vi.mock('@/lib/system/analytics', () => ({
   getAnalytics: () => ({
     track: vi.fn(),
     isEnabled: () => true,
@@ -10,7 +10,7 @@ vi.mock('../analytics', () => ({
 }))
 
 // Mock runtimeMonitor
-vi.mock('../runtimeMonitor', () => ({
+vi.mock('@/lib/system/runtimeMonitor', () => ({
   runtimeMonitor: {
     emitAlertProxy: vi.fn(),
     startLLMCall: vi.fn(() => ({ id: 'mock', provider: 'test', startTime: 0 })),
@@ -24,7 +24,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 }))
 
 // Mock stringSimilarity
-vi.mock('../stringSimilarity', () => ({
+vi.mock('@/lib/system/stringSimilarity', () => ({
   stringSimilarity: vi.fn(() => 0.3),
   tokenize: vi.fn((s: string) => {
     // 模拟中文分词：按字符切分（简化版）

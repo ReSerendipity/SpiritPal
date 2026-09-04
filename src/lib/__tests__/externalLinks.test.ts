@@ -1,7 +1,7 @@
 // 外链统一处理单元测试 — 判定逻辑 + 全局点击拦截
 // 背景：安卓 WebView 无 target=_blank 新窗口流程，外链需交给系统浏览器（复用 open_application 命令）
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { resolveExternalHref, setupExternalLinkInterceptor, isTauriEnvironment } from '../externalLinks'
+import { resolveExternalHref, setupExternalLinkInterceptor, isTauriEnvironment } from '@/lib/system/externalLinks'
 
 const mockInvoke = vi.fn()
 vi.mock('@tauri-apps/api/core', () => ({
