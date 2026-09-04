@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './setup/tauri-fixture';
 import AxeBuilder from '@axe-core/playwright';
 import { waitForSpiritPalApp } from './setup/tauri-helper';
 
@@ -8,7 +8,9 @@ import { waitForSpiritPalApp } from './setup/tauri-helper';
 
 test.describe('无障碍功能', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    // waitUntil=domcontentloaded：dev 环境下应用重资源（Live2D/模型）常导致 load 事件 >10s，
+    // 语义由 waitForSpiritPalApp（等待 #root 挂载，超时 30s）承接，避免误报超时
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForSpiritPalApp(page);
   });
 

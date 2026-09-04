@@ -1,0 +1,38 @@
+# Verify Release Version（P1-2 / 报告 5.3）
+# 独立校验门禁：打 tag v* 时校验「第四处版本真相」——
+#  1) package.json / Cargo.toml / tauri.conf.json 三处一致
+#  2) tag 与 package.json 版本一致（仅多一个 v 前缀）
+# 独立 workflow 而非并入 release.yml：避免在并行发布配置演进期间产生合并冲突。
+name: Verify Release Version
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check three-version consistency
+        run: node scripts/sync-version.mjs --check
+      - name: Check tag matches package.json version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          PKG=$(node -p "require('./package.json').version")
+          echo "tag=$TAG package.json=$PKG"
+          if [ "v$PKG" != "$TAG" ]; then
+            echo "::error::tag $TAG 与 package.json 版本 v$PKG 不一致（第 4 处版本真相失配），拒绝发版"
+            exit 1
+          fi
+          echo "version check passed: $TAG == v$PKG"
