@@ -92,6 +92,12 @@ use system_tools::{
 };
 // H-4: 安全审计日志（audit_log 命令）
 pub mod audit_log;
+// P1-05: 运行时日志级别（审计 LOG-04 修复 — get_log_level / set_log_level）
+pub mod log_level;
+use log_level::{get_log_level, set_log_level};
+// Q3: 崩溃本地留存与诊断导出（panic hook / export_diagnostics）
+pub mod diagnostics;
+use diagnostics::export_diagnostics;
 // P2: 素材管线命令（detect_asset_tools / run_asset_pipeline）
 mod asset_pipeline;
 // R-11: SRI 哈希（构建时自动生成）
@@ -116,6 +122,9 @@ use petmod::{
 use encrypted_db::{decrypt_db_at_rest, encrypt_db_at_rest};
 // H-4: 审计日志命令
 use audit_log::audit_log;
+// P0: Rust 侧 HTTP 网络出口命令（绕过生产 CSP 对境内/本地服务商的阻断）
+mod http_proxy;
+use http_proxy::http_proxy;
 
 #[cfg(desktop)]
 use device::{start_device_listening, stop_device_listening};
@@ -123,6 +132,9 @@ use device::{start_device_listening, stop_device_listening};
 use keychain::{delete_secret, get_secret, set_secret};
 #[cfg(desktop)]
 use mcp_bridge::mcp_respond;
+// 记忆系统 sidecar 命令（含 M0 加固的 token 读取命令）
+#[cfg(desktop)]
+use memory_sidecar::{get_memory_sidecar_token, start_memory_sidecar, stop_memory_sidecar};
 #[cfg(desktop)]
 use tray::{set_tray_icon, set_tray_icon_png, update_tray_icon};
 
@@ -161,6 +173,178 @@ use windows::Win32::Foundation::HWND;
 #[tauri::command]
 fn greet() -> String {
     "Hello from SpiritPal".to_string()
+}
+
+// ============ 窗口配置单一事实来源（S3）============
+// 前端 appWindows.ts 通过 get_window_config 查询本表；Rust 托盘/setup 创建窗口统一走
+// build_configured_window，消除「前端 WINDOW_CONFIGS 与 Rust 两处各自维护窗口参数」的双源漂移
+// （曾导致前端创建的窗口无法最大化/边缘缩放的历史 bug，见 appWindows.ts 源码注释）。
+
+#[derive(serde::Serialize)]
+pub struct WindowConfigDto {
+    title: String,
+    width: f64,
+    height: f64,
+    min_width: f64,
+    min_height: f64,
+    max_width: Option<f64>,
+    max_height: Option<f64>,
+    resizable: bool,
+    decorations: bool,
+    transparent: bool,
+    always_on_top: bool,
+    skip_taskbar: bool,
+    shadow: bool,
+    background_color: Option<String>,
+    url: String,
+}
+
+struct WindowConfig {
+    title: &'static str,
+    width: f64,
+    height: f64,
+    min_width: f64,
+    min_height: f64,
+    max_width: Option<f64>,
+    max_height: Option<f64>,
+    resizable: bool,
+    decorations: bool,
+    transparent: bool,
+    always_on_top: bool,
+    skip_taskbar: bool,
+    shadow: bool,
+    background_color: Option<&'static str>,
+    url: &'static str,
+}
+
+impl WindowConfig {
+    fn into_dto(self) -> WindowConfigDto {
+        WindowConfigDto {
+            title: self.title.to_string(),
+            width: self.width,
+            height: self.height,
+            min_width: self.min_width,
+            min_height: self.min_height,
+            max_width: self.max_width,
+            max_height: self.max_height,
+            resizable: self.resizable,
+            decorations: self.decorations,
+            transparent: self.transparent,
+            always_on_top: self.always_on_top,
+            skip_taskbar: self.skip_taskbar,
+            shadow: self.shadow,
+            background_color: self.background_color.map(|s| s.to_string()),
+            url: self.url.to_string(),
+        }
+    }
+}
+
+/// 窗口参数权威表：托盘/setup 创建与前端 ensureAppWindow 共用
+fn window_config(label: &str) -> Option<WindowConfig> {
+    Some(match label {
+        "pet-window" => WindowConfig {
+            title: "SpiritPal",
+            width: 224.0,
+            height: 304.0,
+            min_width: 160.0,
+            min_height: 200.0,
+            max_width: Some(720.0),
+            max_height: Some(900.0),
+            resizable: true,
+            decorations: false,
+            transparent: true,
+            always_on_top: true,
+            skip_taskbar: true,
+            shadow: false,
+            background_color: None,
+            url: "index.html#/pet",
+        },
+        "chat-window" => WindowConfig {
+            title: "SpiritPal Chat",
+            width: 420.0,
+            height: 600.0,
+            min_width: 320.0,
+            min_height: 400.0,
+            max_width: None,
+            max_height: None,
+            resizable: true,
+            decorations: false,
+            transparent: false,
+            always_on_top: false,
+            skip_taskbar: false,
+            shadow: true,
+            background_color: Some("#fdf6ec"),
+            url: "index.html#/chat",
+        },
+        "settings-window" => WindowConfig {
+            title: "SpiritPal Settings",
+            width: 720.0,
+            height: 540.0,
+            min_width: 580.0,
+            min_height: 400.0,
+            max_width: None,
+            max_height: None,
+            resizable: true,
+            decorations: false,
+            transparent: false,
+            always_on_top: false,
+            skip_taskbar: false,
+            shadow: true,
+            background_color: Some("#fdf6ec"),
+            url: "index.html#/settings",
+        },
+        _ => return None,
+    })
+}
+
+/// 查询窗口配置（前端 appWindows.ensureAppWindow 消费，替代前端自带 WINDOW_CONFIGS）
+#[tauri::command]
+fn get_window_config(label: String) -> Option<WindowConfigDto> {
+    window_config(&label).map(WindowConfig::into_dto)
+}
+
+/// 解析 "#RRGGBB" 为 tauri::window::Color
+/// 注意：tauri 2.x 的 Color 是元组结构体 `Color(pub u8, pub u8, pub u8, pub u8)`
+fn parse_hex_color(hex: &str) -> tauri::window::Color {
+    let hex = hex.trim_start_matches('#');
+    let digits = &hex[..hex.len().min(6)];
+    let val = u32::from_str_radix(digits, 16).unwrap_or(0);
+    tauri::window::Color(
+        ((val >> 16) & 0xFF) as u8,
+        ((val >> 8) & 0xFF) as u8,
+        (val & 0xFF) as u8,
+        255,
+    )
+}
+
+/// 按权威表创建窗口：托盘/setup 各创建点统一入口
+fn build_configured_window(
+    app: &tauri::AppHandle,
+    label: &str,
+) -> tauri::Result<Option<tauri::WebviewWindow>> {
+    use tauri::{WebviewUrl, WebviewWindowBuilder};
+    let Some(cfg) = window_config(label) else {
+        return Ok(None);
+    };
+    let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App(cfg.url.into()))
+        .title(cfg.title)
+        .inner_size(cfg.width, cfg.height)
+        .min_inner_size(cfg.min_width, cfg.min_height)
+        .resizable(cfg.resizable)
+        .decorations(cfg.decorations)
+        .transparent(cfg.transparent)
+        .always_on_top(cfg.always_on_top)
+        .skip_taskbar(cfg.skip_taskbar)
+        .shadow(cfg.shadow);
+    if let (Some(max_w), Some(max_h)) = (cfg.max_width, cfg.max_height) {
+        builder = builder.max_inner_size(max_w, max_h);
+    }
+    let win = builder.build()?;
+    // WebviewWindowBuilder 无 background_color 方法（tauri v2），建后运行时可设置
+    if let Some(bg) = cfg.background_color {
+        let _ = win.set_background_color(Some(parse_hex_color(bg)));
+    }
+    Ok(Some(win))
 }
 
 /// 打开系统文件管理器定位到指定路径（Windows 使用 explorer）
@@ -638,14 +822,13 @@ fn setup_environment() {
 }
 
 /// 构建日志插件（tauri_plugin_log），区分 debug/release 级别。
+///
+/// P1-05（审计 LOG-04）：插件侧固定全开，实际通过 log crate 全局 max_level 闸控，
+/// 由 setup 中 [log_level::apply_boot_level] 施加启动默认值，运行时可用
+/// `set_log_level` 命令动态调整（fern 的 Dispatch.level 构建后不可改，故不在此收窄）。
 fn build_log_plugin() -> impl tauri::plugin::Plugin<tauri::Wry> {
-    #[cfg(debug_assertions)]
-    let log_level = log::LevelFilter::Debug;
-    #[cfg(not(debug_assertions))]
-    let log_level = log::LevelFilter::Info;
-
     tauri_plugin_log::Builder::new()
-        .level(log_level)
+        .level(log::LevelFilter::Debug)
         .targets([
             tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
                 file_name: Some("spiritpal".to_string()),
@@ -694,24 +877,7 @@ fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Err
     // 移到此处后：只有第一个实例能到达 app setup 并创建窗口；
     // 后续实例在插件 setup 即被拦截退出，不再闪现窗口。
     {
-        use tauri::{WebviewUrl, WebviewWindowBuilder};
-        WebviewWindowBuilder::new(app, "pet-window", WebviewUrl::App("index.html#/pet".into()))
-            .title("SpiritPal")
-            // 默认 224×304 = 1.0× 宠物的基准适配尺寸（精灵 192×208 + 32 边距 + 64 气泡空间），
-            // 减少首帧与前端按持久化 petSize 校正后的落差闪烁；前端挂载后会立即按实际 petSize 校正
-            .inner_size(224.0, 304.0)
-            // 最小尺寸对齐前端 WIN_MIN_W/H(160×200)：宠物可缩小到 0.5×，
-            // 窗口需要能跟随宠物缩小（否则小宠物配大窗口，边框预览显示巨大空白）
-            .min_inner_size(160.0, 200.0)
-            .max_inner_size(720.0, 900.0)
-            .resizable(true)
-            .fullscreen(false)
-            .decorations(false)
-            .transparent(true)
-            .shadow(false)
-            .always_on_top(true)
-            .skip_taskbar(true)
-            .build()?;
+        let _w = build_configured_window(app.handle(), "pet-window")?;
     }
 
     let menu = tray::build_tray_menu(app)?;
@@ -777,19 +943,9 @@ fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Err
                     w
                 } else {
                     // 动态创建聊天窗口（无边框，自定义标题栏）
-                    match tauri::WebviewWindowBuilder::new(
-                        app,
-                        "chat-window",
-                        tauri::WebviewUrl::App("index.html#/chat".into()),
-                    )
-                    .title("SpiritPal Chat")
-                    .inner_size(420.0, 600.0)
-                    .min_inner_size(320.0, 400.0)
-                    .resizable(true)
-                    .decorations(false)
-                    .build()
-                    {
-                        Ok(w) => w,
+                    match build_configured_window(app, "chat-window") {
+                        Ok(Some(w)) => w,
+                        Ok(None) => return,
                         Err(e) => {
                             log::error!("[SpiritPal] Failed to create chat window: {}", e);
                             return;
@@ -947,6 +1103,10 @@ pub fn run() {
         .setup(|app| {
             println!("[SpiritPal] starting up...");
             log::info!("SpiritPal starting up");
+            // Q3: 尽早安装 panic hook（承接此后任何线程的崩溃现场落盘）
+            diagnostics::setup_panic_hook(app);
+            // P1-05: 施加启动日志级别（持久化配置 > 构建类型默认；release 默认 Info 不输出调试信息）
+            crate::log_level::apply_boot_level(app.handle());
             // R-12: 启动时反调试检查
             antidebug::startup_check();
             // R-11: 启动时 SRI 完整性验证
@@ -1087,19 +1247,9 @@ pub fn run() {
                                 w
                             } else {
                                 // 动态创建设置窗口（无边框，自定义标题栏）
-                                match tauri::WebviewWindowBuilder::new(
-                                    app,
-                                    "settings-window",
-                                    tauri::WebviewUrl::App("index.html#/settings".into()),
-                                )
-                                .title("SpiritPal Settings")
-                                .inner_size(720.0, 540.0)
-                                .min_inner_size(580.0, 400.0)
-                                .resizable(true)
-                                .decorations(false)
-                                .build()
-                                {
-                                    Ok(w) => w,
+                                match build_configured_window(app, "settings-window") {
+                                    Ok(Some(w)) => w,
+                                    Ok(None) => return,
                                     Err(e) => {
                                         log::error!(
                                             "[SpiritPal] Failed to create settings window: {}",
@@ -1172,6 +1322,7 @@ pub fn run() {
                     log_frontend_error,
                     open_application,
                     // 窗口与系统
+                    get_window_config,
                     set_pet_click_through,
                     remove_pet_click_through,
                     get_mouse_pos,
@@ -1218,6 +1369,8 @@ pub fn run() {
                     // 记忆系统 sidecar（cognee，ADR-0003）
                     start_memory_sidecar,
                     stop_memory_sidecar,
+                    // M0 加固：读取 sidecar 鉴权 token（前端 cogneeClient 附加请求头）
+                    get_memory_sidecar_token,
                     // macOS NSPanel 浮层
                     show_pet_window,
                     hide_pet_window,
@@ -1235,6 +1388,13 @@ pub fn run() {
                     run_asset_pipeline,
                     // H-4: 审计日志
                     audit_log,
+                    // P1-05: 运行时日志级别（LOG-04）
+                    get_log_level,
+                    set_log_level,
+                    // Q3: 诊断包导出（本地留存，用户主动触发）
+                    export_diagnostics,
+                    // P0: Rust 侧 HTTP 网络出口（代理 LLM / 天气 / 模组下载）
+                    http_proxy,
                 ]
             }
             #[cfg(not(desktop))]
@@ -1268,6 +1428,13 @@ pub fn run() {
                     run_asset_pipeline,
                     // H-4: 审计日志
                     audit_log,
+                    // P1-05: 运行时日志级别（LOG-04）
+                    get_log_level,
+                    set_log_level,
+                    // Q3: 诊断包导出（本地留存，用户主动触发）
+                    export_diagnostics,
+                    // P0: Rust 侧 HTTP 网络出口（代理 LLM / 天气 / 模组下载）
+                    http_proxy,
                 ]
             }
         });
@@ -1329,8 +1496,51 @@ mod tests {
     #[cfg(desktop)]
     use crate::tray::make_state_icon;
     use crate::validation::validate_app_name;
+    use super::{window_config, WindowConfig};
 
     // ============ validate_app_name 测试 ============
+
+    #[test]
+    fn test_window_config_single_source_of_truth() {
+        // S3: window_config() 是前端 get_window_config 与托盘创建的唯一参数源，
+        // 锁这些关键字段以防未来漂移（曾因前后端双源不一致导致窗口无法最大化）。
+        let settings = window_config("settings-window").expect("settings-window 配置必须存在");
+        assert_eq!(settings.url, "index.html#/settings");
+        assert_eq!(settings.width, 720.0);
+        assert_eq!(settings.height, 540.0);
+        assert_eq!(settings.min_width, 580.0);
+        assert_eq!(settings.min_height, 400.0);
+        assert!(settings.resizable);
+        assert!(!settings.decorations);
+        assert_eq!(settings.background_color, Some("#fdf6ec"));
+
+        let chat = window_config("chat-window").expect("chat-window 配置必须存在");
+        assert_eq!(chat.url, "index.html#/chat");
+        assert_eq!(chat.width, 420.0);
+        assert_eq!(chat.min_height, 400.0);
+        assert!(chat.resizable);
+
+        let pet = window_config("pet-window").expect("pet-window 配置必须存在");
+        assert_eq!(pet.url, "index.html#/pet");
+        assert!(pet.transparent);
+        assert!(pet.always_on_top);
+        assert_eq!(pet.max_width, Some(720.0));
+        assert_eq!(pet.max_height, Some(900.0));
+
+        assert!(window_config("unknown-window").is_none());
+    }
+
+    #[test]
+    fn test_window_config_dto_roundtrip() {
+        let dto = window_config("settings-window")
+            .map(WindowConfig::into_dto)
+            .expect("配置转 DTO 必须成功");
+        assert_eq!(dto.title, "SpiritPal Settings");
+        assert_eq!(dto.background_color.as_deref(), Some("#fdf6ec"));
+        // 前端 ensureAppWindow 依赖的字段必须齐全
+        assert!(dto.resizable);
+        assert!(!dto.transparent);
+    }
 
     #[test]
     fn test_validate_app_name_valid() {
@@ -1744,5 +1954,30 @@ mod tests {
         // 验证 get_pet_conf_field 来自 petmod 模块
         let json = serde_json::json!({"id": "regression"});
         assert_eq!(get_pet_conf_field(&json, "id"), "regression");
+    }
+
+    // ============ validate_upload_magic 命令测试（P1-4 补测） ============
+    // 命令为纯逻辑薄包装（不依赖 tauri 运行时），任何失败均 fail-closed 返回 Ok(false)。
+
+    #[test]
+    fn test_validate_upload_magic_matches() {
+        let png: Vec<u8> = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR".to_vec();
+        assert_eq!(super::validate_upload_magic(png, ".png".into()), Ok(true));
+        let zip: Vec<u8> = b"PK\x03\x04\x14\x00\x00\x00\x08\x00".to_vec();
+        assert_eq!(super::validate_upload_magic(zip, ".petmod".into()), Ok(true));
+    }
+
+    #[test]
+    fn test_validate_upload_magic_mismatch_returns_false() {
+        // 伪装文件：声明 png 实为 PE 可执行文件 → Ok(false)（fail-closed，不 panic）
+        let fake: Vec<u8> = b"MZ\x90\x00\x03\x00\x00\x00\x04\x00\x00\x00".to_vec();
+        assert_eq!(super::validate_upload_magic(fake, ".png".into()), Ok(false));
+    }
+
+    #[test]
+    fn test_validate_upload_magic_unknown_ext_returns_false() {
+        let png: Vec<u8> = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR".to_vec();
+        assert_eq!(super::validate_upload_magic(png.clone(), ".exe".into()), Ok(false));
+        assert_eq!(super::validate_upload_magic(png, "png".into()), Ok(false));
     }
 }
