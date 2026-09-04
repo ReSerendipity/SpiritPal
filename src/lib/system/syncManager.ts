@@ -116,8 +116,10 @@ class SyncManager {
   private config: SyncConfig = {
     enabled: false,
     autoSyncInterval: 5 * 60 * 1000, // 默认 5 分钟
-    transport: 'cloud',
-    cloudEndpoint: 'https://api.spiritpal.example.com/sync',
+    // P2: 默认传输改为 WebDAV（唯一已实现的真实通道）；
+    // cloud/lan 仍为占位（无后端 API / 局域网发现协议），不再默认指向虚构端点
+    transport: 'webdav',
+    cloudEndpoint: '',
     lanPort: 8420,
   }
 
