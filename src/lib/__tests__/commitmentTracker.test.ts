@@ -13,18 +13,20 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// Mock db — 使用 vi.hoisted 确保 mock 函数在 vi.mock 提升前已定义
-const { mockDbExecute, mockDbSelect } = vi.hoisted(() => ({
-  mockDbExecute: vi.fn(),
-  mockDbSelect: vi.fn(),
+// Mock db — mock 本模块依赖的语义化封装函数（走 invoke 的 sp_ 命令）
+const mocks = vi.hoisted(() => ({
+  insertCommitment: vi.fn(),
+  getOpenCommitments: vi.fn(),
+  getDueCommitments: vi.fn(),
+  getOverdueCommitments: vi.fn(),
+  setCommitmentStatus: vi.fn(),
+  incrementCommitmentFollowUp: vi.fn(),
+  autoLapseCommitments: vi.fn(),
+  getRecurringDoneCommitments: vi.fn(),
+  getOpenCommitmentByContent: vi.fn(),
 }))
 
-vi.mock('@/lib/data/db', () => ({
-  getDb: vi.fn().mockResolvedValue({
-    execute: mockDbExecute,
-    select: mockDbSelect,
-  }),
-}))
+vi.mock('@/lib/data/db', () => mocks)
 
 import { CommitmentTracker, getCommitmentTracker } from '@/lib/nurture/commitmentTracker'
 
@@ -33,8 +35,12 @@ describe('CommitmentTracker', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockDbExecute.mockResolvedValue(undefined)
-    mockDbSelect.mockResolvedValue([])
+    mocks.insertCommitment.mockResolvedValue(0)
+    mocks.getOpenCommitments.mockResolvedValue([])
+    mocks.getDueCommitments.mockResolvedValue([])
+    mocks.getOverdueCommitments.mockResolvedValue([])
+    mocks.getRecurringDoneCommitments.mockResolvedValue([])
+    mocks.getOpenCommitmentByContent.mockResolvedValue([])
     tracker = new CommitmentTracker('test-char')
   })
 
@@ -117,8 +123,8 @@ describe('CommitmentTracker', () => {
   })
 
   describe('数据库 CRUD', () => {
-    it('saveCommitment 应执行 INSERT 并返回 ID', async () => {
-      mockDbSelect.mockResolvedValueOnce([{ id: 42 }])
+    it('saveCommitment 应调用 sp_commitments_insert 并返回 ID', async () => {
+      mocks.insertCommitment.mockResolvedValueOnce(42)
 
       const id = await tracker.saveCommitment({
         content: '去买菜',
@@ -127,68 +133,58 @@ describe('CommitmentTracker', () => {
         repeat: null,
       })
 
-      expect(mockDbExecute).toHaveBeenCalledOnce()
+      expect(mocks.insertCommitment).toHaveBeenCalledTimes(1)
       expect(id).toBe(42)
     })
 
     it('getOpenCommitments 应查询 status=open 的约定', async () => {
       const mockData = [
-        { id: 1, character_id: 'test-char', content: '任务1', actor: 'owner', due_at: 1000, status: 'open', source_memory_id: null, created_at: 0, follow_up_count: 0 },
+        { id: 1, character_id: 'test-char', content: '任务1', actor: 'owner', due_at: 1000, status: 'open', source_memory_id: null, created_at: 0, follow_up_count: 0, repeat: null },
       ]
-      mockDbSelect.mockResolvedValueOnce(mockData)
+      mocks.getOpenCommitments.mockResolvedValueOnce(mockData)
 
       const result = await tracker.getOpenCommitments()
       expect(result).toEqual(mockData)
-      expect(mockDbSelect).toHaveBeenCalledOnce()
+      expect(mocks.getOpenCommitments).toHaveBeenCalledWith('test-char')
     })
 
-    it('markFulfilled 应执行 UPDATE', async () => {
+    it('markFulfilled 应调用 sp_commitments_set_status', async () => {
       await tracker.markFulfilled(1)
-      expect(mockDbExecute).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE commitments SET status'),
-        expect.arrayContaining([1]),
-      )
+      expect(mocks.setCommitmentStatus).toHaveBeenCalledWith(1, 'fulfilled')
     })
 
-    it('markLapsed 应执行 UPDATE', async () => {
+    it('markLapsed 应调用 sp_commitments_set_status', async () => {
       await tracker.markLapsed(2)
-      expect(mockDbExecute).toHaveBeenCalledWith(
-        expect.stringContaining("'lapsed'"),
-        expect.arrayContaining([2]),
-      )
+      expect(mocks.setCommitmentStatus).toHaveBeenCalledWith(2, 'lapsed')
     })
 
-    it('incrementFollowUp 应增加跟进次数', async () => {
+    it('incrementFollowUp 应调用 sp_commitments_increment_follow_up', async () => {
       await tracker.incrementFollowUp(3)
-      expect(mockDbExecute).toHaveBeenCalledWith(
-        expect.stringContaining('follow_up_count + 1'),
-        expect.arrayContaining([3]),
-      )
+      expect(mocks.incrementCommitmentFollowUp).toHaveBeenCalledWith(3)
     })
   })
 
   describe('到期/逾期查询', () => {
     it('getDueTodayCommitments 应查询今天的到期约定', async () => {
-      mockDbSelect.mockResolvedValueOnce([])
       await tracker.getDueTodayCommitments()
-      expect(mockDbSelect).toHaveBeenCalledOnce()
-      const call = mockDbSelect.mock.calls[0]
-      expect(call[0]).toContain('due_at >= $2 AND due_at < $3')
+      expect(mocks.getDueCommitments).toHaveBeenCalledTimes(1)
+      const call = mocks.getDueCommitments.mock.calls[0]
+      expect(call[0]).toBe('test-char')
+      expect(typeof call[1]).toBe('number') // todayStart
+      expect(typeof call[2]).toBe('number') // todayEnd
     })
 
     it('getOverdueCommitments 应查询 1-3 天内的逾期约定', async () => {
-      mockDbSelect.mockResolvedValueOnce([])
       await tracker.getOverdueCommitments()
-      expect(mockDbSelect).toHaveBeenCalledOnce()
-      const call = mockDbSelect.mock.calls[0]
-      expect(call[0]).toContain('due_at < $2 AND due_at > $3')
+      expect(mocks.getOverdueCommitments).toHaveBeenCalledTimes(1)
+      expect(mocks.getOverdueCommitments.mock.calls[0][0]).toBe('test-char')
     })
 
     it('autoLapseOverdue 应将超期 3 天的约定标记为 lapsed', async () => {
-      mockDbSelect.mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
+      mocks.autoLapseCommitments.mockResolvedValueOnce(2)
       const count = await tracker.autoLapseOverdue()
       expect(count).toBe(2)
-      expect(mockDbExecute).toHaveBeenCalledTimes(2) // 两次 markLapsed
+      expect(mocks.autoLapseCommitments).toHaveBeenCalledWith('test-char', expect.any(Number))
     })
   })
 
@@ -199,10 +195,8 @@ describe('CommitmentTracker', () => {
         due_at: Date.now(), status: 'open' as const, source_memory_id: null,
         created_at: 0, follow_up_count: 0,
       }
-      // Mock getDueTodayCommitments and getOverdueCommitments
-      mockDbSelect
-        .mockResolvedValueOnce([dueCommitment]) // getDueTodayCommitments
-        .mockResolvedValueOnce([]) // getOverdueCommitments
+      mocks.getDueCommitments.mockResolvedValueOnce([dueCommitment])
+      mocks.getOverdueCommitments.mockResolvedValueOnce([])
 
       const candidates = await tracker.generateFollowUpCandidates()
       expect(candidates.length).toBeGreaterThan(0)
@@ -216,9 +210,8 @@ describe('CommitmentTracker', () => {
         due_at: Date.now() - 86400000, status: 'open' as const, source_memory_id: null,
         created_at: 0, follow_up_count: 0,
       }
-      mockDbSelect
-        .mockResolvedValueOnce([]) // getDueTodayCommitments
-        .mockResolvedValueOnce([overdueCommitment]) // getOverdueCommitments
+      mocks.getDueCommitments.mockResolvedValueOnce([])
+      mocks.getOverdueCommitments.mockResolvedValueOnce([overdueCommitment])
 
       // Mock 当前时间为工作时间（下午 2 点）
       vi.useFakeTimers()
@@ -242,9 +235,8 @@ describe('CommitmentTracker', () => {
         due_at: Date.now() - 86400000, status: 'open' as const, source_memory_id: null,
         created_at: 0, follow_up_count: 0,
       }
-      mockDbSelect
-        .mockResolvedValueOnce([dueToday])
-        .mockResolvedValueOnce([overdue])
+      mocks.getDueCommitments.mockResolvedValueOnce([dueToday])
+      mocks.getOverdueCommitments.mockResolvedValueOnce([overdue])
 
       vi.useFakeTimers()
       vi.setSystemTime(new Date(2026, 7, 8, 14, 0, 0))
@@ -260,14 +252,14 @@ describe('CommitmentTracker', () => {
 
   describe('上下文构建', () => {
     it('无约定时应返回空字符串', async () => {
-      mockDbSelect.mockResolvedValueOnce([])
+      mocks.getOpenCommitments.mockResolvedValueOnce([])
       const ctx = await tracker.buildContext()
       expect(ctx).toBe('')
     })
 
     it('有约定时应返回格式化的上下文', async () => {
-      mockDbSelect.mockResolvedValueOnce([
-        { id: 1, character_id: 'test-char', content: '完成任务A', actor: 'owner', due_at: Date.now() + 86400000, status: 'open', source_memory_id: null, created_at: 0, follow_up_count: 0 },
+      mocks.getOpenCommitments.mockResolvedValueOnce([
+        { id: 1, character_id: 'test-char', content: '完成任务A', actor: 'owner', due_at: Date.now() + 86400000, status: 'open', source_memory_id: null, created_at: 0, follow_up_count: 0, repeat: null },
       ])
       const ctx = await tracker.buildContext()
       expect(ctx).toContain('【主人的计划与约定】')

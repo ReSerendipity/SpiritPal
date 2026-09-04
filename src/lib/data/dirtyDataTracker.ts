@@ -17,6 +17,9 @@
  * 5. DUPLICATE_ENTRY：主键/唯一键冲突（理论上不应发生但保险起见）
  * 6. INCONSISTENT_STATE：数据状态不一致（如角色有背包但主记录丢失）
  *
+ * D-1 收口：检测逻辑（静态 SQL + 白名单）已下沉 Rust `sp_dirty_scan`，
+ * 本模块只负责「扫描 → 持久化 → 统计 → 解决/清理」的编排。
+ *
  * 使用方式：
  * ```ts
  * import { runDirtyDataChecks, getDirtyDataSummary } from './dirtyDataTracker'
@@ -31,7 +34,15 @@
  */
 
 import { auditLog, AuditEventType } from '@/lib/system/auditLogger'
-import { getDb } from './db'
+import {
+  scanDirtyData,
+  listDirtyIssues,
+  upsertDirtyIssue,
+  resolveDirtyIssue,
+  resolveDirtyIssuesForTable,
+  cleanupResolvedDirtyData as dbCleanupResolvedDirtyData,
+  type DirtyRegistryRow,
+} from './db'
 
 // ============ 类型定义 ============
 
@@ -85,401 +96,96 @@ const DEFAULT_CHECK_CONFIG: CheckConfig = {
   auditHighSeverity: true,
 }
 
+// ============ 持久化映射（DirtyDataIssue ↔ dirty_data_registry） ============
+
+const TARGET_SEP = '::'
+
+function issueToTargetId(issue: DirtyDataIssue): string {
+  return `${issue.table}${TARGET_SEP}${issue.rowId?.toString() ?? ''}`
+}
+
+function issueToPayload(issue: DirtyDataIssue): string {
+  return JSON.stringify({
+    table: issue.table,
+    column: issue.column ?? null,
+    severity: issue.severity,
+    description: issue.description,
+    details: issue.details ?? null,
+  })
+}
+
+function rowToIssue(r: DirtyRegistryRow): DirtyDataIssue {
+  const sep = r.target_id.indexOf(TARGET_SEP)
+  const table = sep >= 0 ? r.target_id.slice(0, sep) : r.target_id
+  const rowId = sep >= 0 ? r.target_id.slice(sep + TARGET_SEP.length) : ''
+  let payload: {
+    table?: string
+    column?: string | null
+    severity?: string
+    description?: string
+    details?: string | null
+  } = {}
+  try {
+    if (r.payload) payload = JSON.parse(r.payload) ?? {}
+  } catch {
+    payload = {}
+  }
+  return {
+    id: r.id,
+    table: payload.table ?? table,
+    column: payload.column ?? undefined,
+    rowId: rowId || undefined,
+    dataType: r.kind as DirtyDataType,
+    severity: (payload.severity as DirtyDataSeverity) ?? 'medium',
+    description: payload.description ?? '',
+    detectedAt: r.detected_at,
+    resolved: r.resolved_at != null,
+    resolvedAt: r.resolved_at ?? undefined,
+    details: payload.details ?? undefined,
+  }
+}
+
 // ============ 基础设施 ============
 
 /**
- * 确保脏数据注册表存在
+ * 确保脏数据注册表存在（结构已由 Rust ensure_schema 幂等创建）。
+ * 前端不再执行任何 DDL，本函数为兼容保留的无操作。
  */
 async function ensureDirtyDataTable(): Promise<void> {
-  const db = await getDb()
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS dirty_data_registry (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      table_name TEXT NOT NULL,
-      column_name TEXT,
-      row_id TEXT,
-      data_type TEXT NOT NULL,
-      severity TEXT NOT NULL DEFAULT 'medium',
-      description TEXT NOT NULL,
-      details TEXT,
-      detected_at INTEGER NOT NULL,
-      resolved INTEGER DEFAULT 0,
-      resolved_at INTEGER
-    )
-  `)
-  await db.execute(
-    'CREATE INDEX IF NOT EXISTS idx_dirty_data_resolved ON dirty_data_registry(resolved)'
-  )
-  await db.execute(
-    'CREATE INDEX IF NOT EXISTS idx_dirty_data_type ON dirty_data_registry(data_type)'
-  )
-  await db.execute(
-    'CREATE INDEX IF NOT EXISTS idx_dirty_data_severity ON dirty_data_registry(severity)'
-  )
+  return
 }
 
 /**
  * 写入脏数据问题（幂等：同 table+row+type 不重复插入）
  */
 async function persistIssue(issue: DirtyDataIssue): Promise<void> {
-  const db = await getDb()
-
-  // 检查是否已存在相同问题（未解决的）
-  const existing = await db.select<{ id: number }[]>(
-    `SELECT id FROM dirty_data_registry
-     WHERE table_name = ? AND COALESCE(row_id, '') = COALESCE(?, '')
-       AND data_type = ? AND resolved = 0
-     LIMIT 1`,
-    [issue.table, issue.rowId?.toString() ?? '', issue.dataType]
-  )
-
-  if (existing.length > 0) {
-    // 已存在的未解决问题，更新时间戳
-    await db.execute(
-      'UPDATE dirty_data_registry SET detected_at = ? WHERE id = ?',
-      [issue.detectedAt, existing[0].id]
-    )
-  } else {
-    // 新问题
-    await db.execute(
-      `INSERT INTO dirty_data_registry
-       (table_name, column_name, row_id, data_type, severity, description, details, detected_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        issue.table,
-        issue.column ?? null,
-        issue.rowId?.toString() ?? null,
-        issue.dataType,
-        issue.severity,
-        issue.description,
-        issue.details ?? null,
-        issue.detectedAt,
-      ]
-    )
-  }
-}
-
-// ============ 检测规则 ============
-
-/**
- * 检测孤引用：inventory.character_id 指向不存在的 characters.id
- */
-async function checkInventoryOrphans(): Promise<DirtyDataIssue[]> {
-  const db = await getDb()
-  const issues: DirtyDataIssue[] = []
-
-  const orphans = await db.select<{ id: string; character_id: string }[]>(
-    `SELECT i.id, i.character_id FROM inventory i
-     LEFT JOIN characters c ON i.character_id = c.id
-     WHERE i.character_id IS NOT NULL AND c.id IS NULL`
-  )
-
-  for (const row of orphans) {
-    issues.push({
-      table: 'inventory',
-      column: 'character_id',
-      rowId: row.id,
-      dataType: 'ORPHAN_REFERENCE',
-      severity: 'medium',
-      description: `背包物品引用的角色 ${row.character_id} 不存在`,
-      detectedAt: Date.now(),
-      resolved: false,
-    })
-  }
-
-  return issues
-}
-
-/**
- * 检测孤引用：memories.character_id 指向不存在的 characters.id
- */
-async function checkMemoriesOrphans(): Promise<DirtyDataIssue[]> {
-  const db = await getDb()
-  const issues: DirtyDataIssue[] = []
-
-  const orphans = await db.select<{ id: number; character_id: string }[]>(
-    `SELECT m.id, m.character_id FROM memories m
-     LEFT JOIN characters c ON m.character_id = c.id
-     WHERE c.id IS NULL`
-  )
-
-  for (const row of orphans) {
-    issues.push({
-      table: 'memories',
-      column: 'character_id',
-      rowId: row.id,
-      dataType: 'ORPHAN_REFERENCE',
-      severity: 'medium',
-      description: `记忆 ${row.id} 引用的角色 ${row.character_id} 不存在`,
-      detectedAt: Date.now(),
-      resolved: false,
-    })
-  }
-
-  return issues
-}
-
-/**
- * 检测数据类型不匹配：characters.stats 不是有效 JSON
- */
-async function checkCharactersInvalidJson(): Promise<DirtyDataIssue[]> {
-  const db = await getDb()
-  const issues: DirtyDataIssue[] = []
-
-  const chars = await db.select<{ id: string; stats: string }[]>(
-    'SELECT id, stats FROM characters'
-  )
-
-  for (const row of chars) {
-    try {
-      JSON.parse(row.stats)
-    } catch {
-      issues.push({
-        table: 'characters',
-        column: 'stats',
-        rowId: row.id,
-        dataType: 'DATA_TYPE_MISMATCH',
-        severity: 'high',
-        description: `角色 ${row.id} 的 stats 字段不是有效 JSON`,
-        detectedAt: Date.now(),
-        resolved: false,
-        details: row.stats.substring(0, 100),
-      })
-    }
-  }
-
-  return issues
-}
-
-/**
- * 检测业务规则违反：inventory.quantity 为负数
- */
-async function checkInventoryNegativeQuantity(): Promise<DirtyDataIssue[]> {
-  const db = await getDb()
-  const issues: DirtyDataIssue[] = []
-
-  const invalid = await db.select<{ id: string; item_id: string; quantity: number }[]>(
-    'SELECT id, item_id, quantity FROM inventory WHERE quantity < 0'
-  )
-
-  for (const row of invalid) {
-    issues.push({
-      table: 'inventory',
-      column: 'quantity',
-      rowId: row.id,
-      dataType: 'BUSINESS_RULE_VIOLATION',
-      severity: 'medium',
-      description: `背包物品 ${row.item_id} 数量为负数 (${row.quantity})`,
-      detectedAt: Date.now(),
-      resolved: false,
-    })
-  }
-
-  return issues
-}
-
-/**
- * 检测业务规则违反：memories.importance 超出 0-100 范围
- */
-async function checkMemoriesInvalidImportance(): Promise<DirtyDataIssue[]> {
-  const db = await getDb()
-  const issues: DirtyDataIssue[] = []
-
-  const invalid = await db.select<{ id: number; importance: number }[]>(
-    'SELECT id, importance FROM memories WHERE importance < 0 OR importance > 100'
-  )
-
-  for (const row of invalid) {
-    issues.push({
-      table: 'memories',
-      column: 'importance',
-      rowId: row.id,
-      dataType: 'BUSINESS_RULE_VIOLATION',
-      severity: 'low',
-      description: `记忆 ${row.id} 的重要性值为 ${row.importance}（有效范围 0-100）`,
-      detectedAt: Date.now(),
-      resolved: false,
-    })
-  }
-
-  return issues
-}
-
-/**
- * 检测业务规则违反：memories.type 不在允许范围内
- */
-async function checkMemoriesInvalidType(): Promise<DirtyDataIssue[]> {
-  const db = await getDb()
-  const issues: DirtyDataIssue[] = []
-
-  const allowedTypes = [
-    'episodic', 'semantic', 'procedural', 'emotional',
-    'preference', 'fear', 'dream', 'event', 'skill'
-  ]
-
-  const invalid = await db.select<{ id: number; type: string }[]>(
-    `SELECT id, type FROM memories WHERE type NOT IN (${allowedTypes.map(() => '?').join(',')})`,
-    allowedTypes
-  )
-
-  for (const row of invalid) {
-    issues.push({
-      table: 'memories',
-      column: 'type',
-      rowId: row.id,
-      dataType: 'BUSINESS_RULE_VIOLATION',
-      severity: 'low',
-      description: `记忆 ${row.id} 的类型 "${row.type}" 不在允许范围内`,
-      detectedAt: Date.now(),
-      resolved: false,
-    })
-  }
-
-  return issues
-}
-
-/**
- * 检测约束违反：characters.stats 为空（NOT NULL 违反）
- */
-async function checkCharactersNullStats(): Promise<DirtyDataIssue[]> {
-  const db = await getDb()
-  const issues: DirtyDataIssue[] = []
-
-  const invalid = await db.select<{ id: string }[]>(
-    'SELECT id FROM characters WHERE stats IS NULL'
-  )
-
-  for (const row of invalid) {
-    issues.push({
-      table: 'characters',
-      column: 'stats',
-      rowId: row.id,
-      dataType: 'CONSTRAINT_VIOLATION',
-      severity: 'high',
-      description: `角色 ${row.id} 的 stats 字段违反 NOT NULL 约束`,
-      detectedAt: Date.now(),
-      resolved: false,
-    })
-  }
-
-  return issues
+  await upsertDirtyIssue(issue.dataType, issueToTargetId(issue), issueToPayload(issue), issue.detectedAt)
 }
 
 // ============ 核心功能 ============
 
 /**
- * 检测主键/唯一键冲突（DUPLICATE_ENTRY）：同一个角色的 memory_id 重复出现。
- * memory_id 由前端生成且业务上应唯一（旧 bug 曾产生孤儿行）；这里把
- * 老库中可能残留的重复 id 找出来，供 UI/工具清理。
- */
-async function checkDuplicateMemoryId(): Promise<DirtyDataIssue[]> {
-  const db = await getDb()
-  const issues: DirtyDataIssue[] = []
-
-  const dupes = await db.select<{ character_id: string; memory_id: string; cnt: number }[]>(
-    `SELECT character_id, memory_id, COUNT(*) as cnt FROM memories
-     WHERE memory_id IS NOT NULL
-     GROUP BY character_id, memory_id HAVING COUNT(*) > 1
-     LIMIT 50`
-  )
-
-  for (const row of dupes) {
-    issues.push({
-      table: 'memories',
-      column: 'memory_id',
-      rowId: row.memory_id,
-      dataType: 'DUPLICATE_ENTRY',
-      severity: 'medium',
-      description: `角色 ${row.character_id} 的记忆 memory_id=${row.memory_id} 重复出现 ${row.cnt} 次`,
-      detectedAt: Date.now(),
-      resolved: false,
-    })
-  }
-
-  return issues
-}
-
-/**
- * 检测数据状态不一致（INCONSISTENT_STATE）：级联删除不彻底导致的残留。
- * memory_summaries / memory_state / commitments / context_episodes 等表
- * 引用的角色在 characters 中已不存在 —— 删角色后残留了相关行。
- */
-async function checkInconsistentRemnants(): Promise<DirtyDataIssue[]> {
-  const db = await getDb()
-  const issues: DirtyDataIssue[] = []
-
-  const targets: Array<{ table: string; key: string }> = [
-    { table: 'memory_summaries', key: 'character_id' },
-    { table: 'memory_state', key: 'character_id' },
-    { table: 'commitments', key: 'character_id' },
-    { table: 'context_episodes', key: 'character_id' },
-    { table: 'owner_facts', key: 'character_id' },
-    { table: 'entity_nodes', key: 'character_id' },
-  ]
-
-  for (const { table, key } of targets) {
-    // 表可能尚未创建（老库）：跳过即可
-    try {
-      const rows = await db.select<{ id: number | string }[]>(
-        `SELECT t.rowid AS id FROM "${table}" t
-         LEFT JOIN characters c ON t.${key} = c.id
-         WHERE t.${key} IS NOT NULL AND c.id IS NULL
-         LIMIT 50`
-      )
-      for (const row of rows) {
-        issues.push({
-          table,
-          column: key,
-          rowId: row.id,
-          dataType: 'INCONSISTENT_STATE',
-          severity: 'medium',
-          description: `表 ${table} 残留引用已删除角色（行 id=${row.id}）`,
-          detectedAt: Date.now(),
-          resolved: false,
-        })
-      }
-    } catch {
-      // 表不存在或结构不同：跳过该表
-    }
-  }
-
-  return issues
-}
-
-/**
  * 运行数据检测，收集所有发现的脏数据问题
+ * 检测由 Rust `sp_dirty_scan`（静态 SQL）执行
  * @returns 检测到的脏数据问题列表
  */
 async function detectDirtyData(config: Partial<CheckConfig> = {}): Promise<DirtyDataIssue[]> {
   const cfg = { ...DEFAULT_CHECK_CONFIG, ...config }
-  const allIssues: DirtyDataIssue[] = []
-
-  const checkers = [
-    checkInventoryOrphans,
-    checkMemoriesOrphans,
-    checkCharactersInvalidJson,
-    checkInventoryNegativeQuantity,
-    checkMemoriesInvalidImportance,
-    checkMemoriesInvalidType,
-    checkCharactersNullStats,
-    // P1-2: 补齐六类中的最后两类（此前仅声明未实现）
-    checkDuplicateMemoryId,
-    checkInconsistentRemnants,
-  ]
-
-  for (const checker of checkers) {
-    try {
-      const issues = await checker()
-      allIssues.push(...issues)
-      if (allIssues.length >= cfg.maxIssuesPerRun) {
-        console.warn(`[DirtyDataTracker] Reached max issues limit (${cfg.maxIssuesPerRun})`)
-        break
-      }
-    } catch (e) {
-      console.error('[DirtyDataTracker] Check failed:', e)
-    }
+  const discovered = await scanDirtyData()
+  const allIssues: DirtyDataIssue[] = discovered.slice(0, cfg.maxIssuesPerRun).map((d) => ({
+    table: d.table,
+    column: d.column,
+    rowId: d.rowId,
+    dataType: d.dataType as DirtyDataType,
+    severity: d.severity as DirtyDataSeverity,
+    description: d.description,
+    details: d.details,
+    detectedAt: d.detectedAt,
+    resolved: false,
+  }))
+  if (discovered.length > cfg.maxIssuesPerRun) {
+    console.warn(`[DirtyDataTracker] Reached max issues limit (${cfg.maxIssuesPerRun})`)
   }
-
   return allIssues
 }
 
@@ -495,12 +201,14 @@ export async function runDirtyDataChecks(
 ): Promise<DirtyDataReport> {
   const cfg = { ...DEFAULT_CHECK_CONFIG, ...config }
   const now = Date.now()
+  const issues: DirtyDataIssue[] = []
 
-  // 1. 确保表存在
+  // 1. 确保表存在（Rust 已建，no-op）
   await ensureDirtyDataTable()
 
-  // 2. 执行检测
-  const issues = await detectDirtyData(cfg)
+  // 2. 执行检测（Rust sp_dirty_scan）
+  const detected = await detectDirtyData(cfg)
+  issues.push(...detected)
 
   // 3. 持久化问题
   for (const issue of issues) {
@@ -541,26 +249,21 @@ async function markAutoResolvedIssues(
   currentIssues: DirtyDataIssue[],
   now: number
 ): Promise<number> {
-  const db = await getDb()
-
-  // 获取当前未解决的所有问题
-  const openIssues = await db.select<{ id: number; table_name: string; row_id: string; data_type: string }[]>(
-    'SELECT id, table_name, row_id, data_type FROM dirty_data_registry WHERE resolved = 0'
-  )
+  const all = await listDirtyIssues()
+  // 仅处理未解决（resolved_at IS NULL）
+  const openIssues = all.filter((r) => r.resolved_at == null)
 
   let resolvedCount = 0
   for (const open of openIssues) {
+    const issue = rowToIssue(open)
     // 检查当前问题列表中是否还有这条记录
     const stillExists = currentIssues.some(
-      i => i.table === open.table_name &&
-           i.rowId?.toString() === (open.row_id ?? '') &&
-           i.dataType === open.data_type
+      i => i.table === issue.table &&
+           i.rowId?.toString() === (issue.rowId?.toString() ?? '') &&
+           i.dataType === issue.dataType
     )
     if (!stillExists) {
-      await db.execute(
-        'UPDATE dirty_data_registry SET resolved = 1, resolved_at = ? WHERE id = ?',
-        [now, open.id]
-      )
+      await resolveDirtyIssue(open.id, now)
       resolvedCount++
     }
   }
@@ -572,67 +275,34 @@ async function markAutoResolvedIssues(
  * 计算当前检测报告
  */
 async function computeReport(): Promise<DirtyDataReport> {
-  const db = await getDb()
+  const all = await listDirtyIssues()
+  const openRows = all.filter((r) => r.resolved_at == null)
+  const openIssues = openRows.map(rowToIssue)
 
-  // 统计各类型问题数量
-  const byType = await db.select<{ data_type: string; cnt: number }[]>(
-    'SELECT data_type, COUNT(*) as cnt FROM dirty_data_registry WHERE resolved = 0 GROUP BY data_type'
-  )
+  const byType: Record<DirtyDataType, number> = {
+    ORPHAN_REFERENCE: 0,
+    CONSTRAINT_VIOLATION: 0,
+    DATA_TYPE_MISMATCH: 0,
+    BUSINESS_RULE_VIOLATION: 0,
+    DUPLICATE_ENTRY: 0,
+    INCONSISTENT_STATE: 0,
+  }
+  const bySeverity: Record<DirtyDataSeverity, number> = { low: 0, medium: 0, high: 0, critical: 0 }
 
-  const bySeverity = await db.select<{ severity: string; cnt: number }[]>(
-    'SELECT severity, COUNT(*) as cnt FROM dirty_data_registry WHERE resolved = 0 GROUP BY severity'
-  )
-
-  // 获取最近检测的问题
-  const recentIssues = await db.select<{
-    id: number; table_name: string; column_name: string | null; row_id: string | null;
-    data_type: string; severity: string; description: string; detected_at: number;
-    resolved: number; resolved_at: number | null; details: string | null;
-  }[]>(
-    `SELECT * FROM dirty_data_registry WHERE resolved = 0
-     ORDER BY detected_at DESC LIMIT 50`
-  )
+  for (const issue of openIssues) {
+    if (issue.dataType in byType) byType[issue.dataType]++
+    if (issue.severity in bySeverity) bySeverity[issue.severity]++
+  }
 
   const report: DirtyDataReport = {
-    totalIssues: 0,
-    byType: {
-      ORPHAN_REFERENCE: 0,
-      CONSTRAINT_VIOLATION: 0,
-      DATA_TYPE_MISMATCH: 0,
-      BUSINESS_RULE_VIOLATION: 0,
-      DUPLICATE_ENTRY: 0,
-      INCONSISTENT_STATE: 0,
-    },
-    bySeverity: { low: 0, medium: 0, high: 0, critical: 0 },
-    newIssues: 0,
-    resolvedIssues: 0,
-    issues: recentIssues.map(r => ({
-      id: r.id,
-      table: r.table_name,
-      column: r.column_name ?? undefined,
-      rowId: r.row_id ?? undefined,
-      dataType: r.data_type as DirtyDataType,
-      severity: r.severity as DirtyDataSeverity,
-      description: r.description,
-      detectedAt: r.detected_at,
-      resolved: r.resolved === 1,
-      resolvedAt: r.resolved_at ?? undefined,
-      details: r.details ?? undefined,
-    })),
+    totalIssues: openIssues.length,
+    byType,
+    bySeverity,
+    newIssues: openRows.filter((r) => r.detected_at > Date.now() - 24 * 3600 * 1000).length,
+    resolvedIssues: all.length - openIssues.length,
+    issues: openIssues.slice(0, 50),
   }
 
-  for (const row of byType) {
-    if (row.data_type in report.byType) {
-      report.byType[row.data_type as DirtyDataType] = row.cnt
-    }
-  }
-  for (const row of bySeverity) {
-    if (row.severity in report.bySeverity) {
-      report.bySeverity[row.severity as DirtyDataSeverity] = row.cnt
-    }
-  }
-
-  report.totalIssues = Object.values(report.byType).reduce((a, b) => a + b, 0)
   return report
 }
 
@@ -680,11 +350,7 @@ export async function markDirtyDataResolved(
   issueId: number,
   autoDetected: boolean = false
 ): Promise<void> {
-  const db = await getDb()
-  await db.execute(
-    'UPDATE dirty_data_registry SET resolved = 1, resolved_at = ? WHERE id = ?',
-    [Date.now(), issueId]
-  )
+  await resolveDirtyIssue(issueId, Date.now())
 
   // 手动解决记录审计日志
   if (!autoDetected) {
@@ -704,41 +370,18 @@ export async function markDirtyDataResolved(
  * 批量标记某表的所有脏数据为已解决
  */
 export async function markTableResolved(tableName: string): Promise<number> {
-  const db = await getDb()
-  const result = await db.execute(
-    'UPDATE dirty_data_registry SET resolved = 1, resolved_at = ? WHERE table_name = ? AND resolved = 0',
-    [Date.now(), tableName]
-  )
-  return result.rowsAffected ?? 0
+  return resolveDirtyIssuesForTable(tableName, Date.now())
 }
 
 /**
  * 获取指定表的未解决脏数据
  */
 export async function getIssuesForTable(tableName: string): Promise<DirtyDataIssue[]> {
-  const db = await getDb()
-  const rows = await db.select<{
-    id: number; table_name: string; column_name: string | null; row_id: string | null;
-    data_type: string; severity: string; description: string; detected_at: number;
-    resolved: number; resolved_at: number | null; details: string | null;
-  }[]>(
-    'SELECT * FROM dirty_data_registry WHERE table_name = ? AND resolved = 0 ORDER BY detected_at DESC',
-    [tableName]
-  )
-
-  return rows.map(r => ({
-    id: r.id,
-    table: r.table_name,
-    column: r.column_name ?? undefined,
-    rowId: r.row_id ?? undefined,
-    dataType: r.data_type as DirtyDataType,
-    severity: r.severity as DirtyDataSeverity,
-    description: r.description,
-    detectedAt: r.detected_at,
-    resolved: r.resolved === 1,
-    resolvedAt: r.resolved_at ?? undefined,
-    details: r.details ?? undefined,
-  }))
+  const all = await listDirtyIssues()
+  const prefix = `${tableName}${TARGET_SEP}`
+  return all
+    .filter((r) => r.resolved_at == null && r.target_id.startsWith(prefix))
+    .map(rowToIssue)
 }
 
 /**
@@ -746,12 +389,6 @@ export async function getIssuesForTable(tableName: string): Promise<DirtyDataIss
  * 建议定期调用（每周一次）
  */
 export async function cleanupResolvedDirtyData(olderThanDays: number = 30): Promise<number> {
-  const db = await getDb()
   const threshold = Date.now() - olderThanDays * 24 * 60 * 60 * 1000
-
-  const result = await db.execute(
-    'DELETE FROM dirty_data_registry WHERE resolved = 1 AND resolved_at < ?',
-    [threshold]
-  )
-  return result.rowsAffected ?? 0
+  return dbCleanupResolvedDirtyData(threshold)
 }

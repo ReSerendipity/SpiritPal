@@ -3,7 +3,7 @@
  * @module stores/chatStore
  * @description
  * 每个角色独立的消息历史管理 + 流式生成控制。
- * 使用 zustand v5 + persist 中间件，SQLite 持久化（tauri-plugin-sql，与 petStore/uiStore 同源）。
+ * 使用 zustand v5 + persist 中间件，SQLite 持久化（Rust sp_* 语义命令）。
  *
  * 核心功能：
  * - 按角色隔离的消息列表存储

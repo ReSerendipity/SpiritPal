@@ -14,7 +14,12 @@
  * @requires ./db - SQLite 持久化
  */
 
-import { getDb } from '@/lib/data/db'
+import {
+  insertContextEpisode,
+  closeContextEpisode,
+  listContextEpisodes,
+  type ContextEpisodeRow,
+} from '@/lib/data/db'
 
 // ============ 类型定义 ============
 
@@ -71,11 +76,7 @@ export class ContextEpisodeManager {
     // 关闭上一个 episode
     if (this.currentEpisodeId !== null) {
       try {
-        const db = await getDb()
-        await db.execute(
-          'UPDATE context_episodes SET ended_at = $1 WHERE id = $2',
-          [now, this.currentEpisodeId],
-        )
+        await closeContextEpisode(this.currentEpisodeId, now)
       } catch {
         // ignore
       }
@@ -84,14 +85,14 @@ export class ContextEpisodeManager {
 
     // 开启新 episode
     try {
-      const db = await getDb()
-      await db.execute(
-        `INSERT INTO context_episodes (character_id, started_at, work_state, weather, idle_minutes, music)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [this.characterId, now, workState, weather ?? null, idleMinutes ?? null, music ?? null],
-      )
-      const rows = await db.select<{ id: number }[]>('SELECT last_insert_rowid() as id')
-      this.currentEpisodeId = rows[0]?.id ?? null
+      this.currentEpisodeId = await insertContextEpisode({
+        characterId: this.characterId,
+        startedAt: now,
+        workState,
+        weather: weather ?? null,
+        idleMinutes: idleMinutes ?? null,
+        music: music ?? null,
+      })
     } catch {
       // DB 不可用时不影响正常流程
     }
@@ -105,13 +106,9 @@ export class ContextEpisodeManager {
    * @returns 今日上下文片段列表
    */
   async getTodayEpisodes(): Promise<ContextEpisode[]> {
-    const db = await getDb()
     const now = new Date()
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-    return db.select(
-      `SELECT * FROM context_episodes WHERE character_id = $1 AND started_at >= $2 ORDER BY started_at ASC`,
-      [this.characterId, todayStart],
-    )
+    return (await listContextEpisodes(this.characterId, todayStart)) as ContextEpisode[]
   }
 
   /**
@@ -119,14 +116,10 @@ export class ContextEpisodeManager {
    * @param dateStr 日期字符串 YYYY-MM-DD
    */
   async getEpisodesByDate(dateStr: string): Promise<ContextEpisode[]> {
-    const db = await getDb()
     const [y, m, d] = dateStr.split('-').map(Number)
     const start = new Date(y, m - 1, d).getTime()
     const end = start + 86400000
-    return db.select(
-      `SELECT * FROM context_episodes WHERE character_id = $1 AND started_at >= $2 AND started_at < $3 ORDER BY started_at ASC`,
-      [this.characterId, start, end],
-    )
+    return (await listContextEpisodes(this.characterId, start, end)) as ContextEpisode[]
   }
 
   /**

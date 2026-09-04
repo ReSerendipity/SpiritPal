@@ -15,7 +15,18 @@
  * @requires ./db - SQLite 持久化
  */
 
-import { getDb } from '@/lib/data/db'
+import {
+  insertCommitment,
+  getOpenCommitments,
+  getDueCommitments,
+  getOverdueCommitments,
+  setCommitmentStatus,
+  incrementCommitmentFollowUp,
+  autoLapseCommitments,
+  getRecurringDoneCommitments,
+  getOpenCommitmentByContent,
+  type CommitmentRow,
+} from '@/lib/data/db'
 
 // ============ 类型定义 ============
 
@@ -145,98 +156,71 @@ export class CommitmentTracker {
    * P2-4：新增 repeat 字段存储
    */
   async saveCommitment(commitment: ExtractedCommitment, sourceMemoryId?: number): Promise<number> {
-    const db = await getDb()
-    const now = Date.now()
     const dueAt = commitment.due ? new Date(commitment.due).getTime() : null
     const repeatVal = commitment.repeat ?? null
-    await db.execute(
-      `INSERT INTO commitments (character_id, content, actor, due_at, status, source_memory_id, created_at, follow_up_count, repeat)
-       VALUES ($1, $2, $3, $4, 'open', $5, $6, 0, $7)`,
-      [this.characterId, commitment.content, commitment.actor, dueAt, sourceMemoryId ?? null, now, repeatVal],
-    )
-    const rows = await db.select<{ id: number }[]>('SELECT last_insert_rowid() as id')
-    return rows[0]?.id ?? 0
+    return insertCommitment({
+      characterId: this.characterId,
+      content: commitment.content,
+      actor: commitment.actor,
+      dueAt,
+      sourceMemoryId: sourceMemoryId ?? null,
+      repeat: repeatVal,
+    })
   }
 
   /**
    * 获取所有未完成的约定
    */
   async getOpenCommitments(): Promise<Commitment[]> {
-    const db = await getDb()
-    return db.select(
-      `SELECT * FROM commitments WHERE character_id = $1 AND status = 'open' ORDER BY due_at ASC`,
-      [this.characterId],
-    )
+    return (await getOpenCommitments(this.characterId)) as Commitment[]
   }
 
   /**
    * 获取今天到期的约定
    */
   async getDueTodayCommitments(): Promise<Commitment[]> {
-    const db = await getDb()
     const now = new Date()
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
     const todayEnd = todayStart + 86400000
-    return db.select(
-      `SELECT * FROM commitments WHERE character_id = $1 AND status = 'open' AND due_at >= $2 AND due_at < $3 ORDER BY due_at ASC`,
-      [this.characterId, todayStart, todayEnd],
-    )
+    return (await getDueCommitments(this.characterId, todayStart, todayEnd)) as Commitment[]
   }
 
   /**
    * 获取已逾期但未过期的约定（1-3 天内）
    */
   async getOverdueCommitments(): Promise<Commitment[]> {
-    const db = await getDb()
     const now = Date.now()
     const threeDaysAgo = now - 3 * 86400000
-    return db.select(
-      `SELECT * FROM commitments WHERE character_id = $1 AND status = 'open' AND due_at < $2 AND due_at > $3 ORDER BY due_at ASC`,
-      [this.characterId, now, threeDaysAgo],
-    )
+    return (await getOverdueCommitments(this.characterId, now, threeDaysAgo)) as Commitment[]
   }
 
   /**
    * 标记约定为已完成
    */
   async markFulfilled(id: number): Promise<void> {
-    const db = await getDb()
-    await db.execute(`UPDATE commitments SET status = 'fulfilled' WHERE id = $1`, [id])
+    await setCommitmentStatus(id, 'fulfilled')
   }
 
   /**
    * 标记约定为已过期
    */
   async markLapsed(id: number): Promise<void> {
-    const db = await getDb()
-    await db.execute(`UPDATE commitments SET status = 'lapsed' WHERE id = $1`, [id])
+    await setCommitmentStatus(id, 'lapsed')
   }
 
   /**
    * 增加跟进次数
    */
   async incrementFollowUp(id: number): Promise<void> {
-    const db = await getDb()
-    await db.execute(
-      `UPDATE commitments SET follow_up_count = follow_up_count + 1 WHERE id = $1`,
-      [id],
-    )
+    await incrementCommitmentFollowUp(id)
   }
 
   /**
    * 自动将超期 3 天未提及的约定标记为 lapsed
    */
   async autoLapseOverdue(): Promise<number> {
-    const db = await getDb()
     const threshold = Date.now() - 3 * 86400000
-    const result = await db.select<{ id: number }[]>(
-      `SELECT id FROM commitments WHERE character_id = $1 AND status = 'open' AND due_at < $2`,
-      [this.characterId, threshold],
-    )
-    for (const row of result) {
-      await this.markLapsed(row.id)
-    }
-    return result.length
+    return autoLapseCommitments(this.characterId, threshold)
   }
 
   /**
@@ -282,12 +266,8 @@ export class CommitmentTracker {
    * @returns 新创建的重复约定数量
    */
   async createRecurringCommitments(): Promise<number> {
-    const db = await getDb()
     // 查询所有已完成或已过期的重复约定
-    const recurring = await db.select<Commitment[]>(
-      `SELECT * FROM commitments WHERE character_id = $1 AND status IN ('fulfilled', 'lapsed') AND repeat IS NOT NULL AND repeat != 'null'`,
-      [this.characterId],
-    )
+    const recurring = (await getRecurringDoneCommitments(this.characterId)) as Commitment[]
 
     let created = 0
     const now = Date.now()
@@ -295,10 +275,7 @@ export class CommitmentTracker {
 
     for (const c of recurring) {
       // 避免重复创建：检查是否已有同内容的 open 约定
-      const existing = await db.select<{ id: number }[]>(
-        `SELECT id FROM commitments WHERE character_id = $1 AND content = $2 AND status = 'open' AND created_at > $3`,
-        [this.characterId, c.content, now - DAY_MS],
-      )
+      const existing = await getOpenCommitmentByContent(this.characterId, c.content, now - DAY_MS)
       if (existing.length > 0) continue
 
       // 计算下一次到期时间
@@ -309,11 +286,14 @@ export class CommitmentTracker {
         nextDue = now + 7 * DAY_MS
       }
 
-      await db.execute(
-        `INSERT INTO commitments (character_id, content, actor, due_at, status, source_memory_id, created_at, follow_up_count, repeat)
-         VALUES ($1, $2, $3, $4, 'open', NULL, $5, 0, $6)`,
-        [this.characterId, c.content, c.actor, nextDue, now, c.repeat],
-      )
+      await insertCommitment({
+        characterId: this.characterId,
+        content: c.content,
+        actor: c.actor,
+        dueAt: nextDue,
+        sourceMemoryId: null,
+        repeat: c.repeat ?? null,
+      })
       created++
     }
 

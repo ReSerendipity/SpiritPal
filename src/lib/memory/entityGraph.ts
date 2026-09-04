@@ -8,7 +8,12 @@
  * @module entityGraph
  */
 
-import { getDb } from '@/lib/data/db'
+import {
+  upsertEntityGraphNode,
+  upsertEntityGraphEdge,
+  findEntityNodesByName,
+  getEntityGraphNeighbors,
+} from '@/lib/data/db'
 import type { EnhancedMemory } from './memoryTypes'
 
 // ============ 类型定义 ============
@@ -42,41 +47,24 @@ export interface PPRResult {
 
 // ============ 数据库操作 ============
 
+/** Float32Array → base64（与 db.ts 存 memory_entities.embedding 一致） */
+function embeddingToBase64(arr: Float32Array): string {
+  const bytes = new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength)
+  let binary = ''
+  const CHUNK = 0x8000
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    const chunk = bytes.subarray(i, Math.min(i + CHUNK, bytes.length))
+    binary += String.fromCharCode.apply(null, chunk as unknown as number[])
+  }
+  return btoa(binary)
+}
+
 /**
- * 初始化实体图表（幂等）
+ * 初始化实体图表（幂等）。
+ * 表结构已由 Rust 端 ensure_schema 创建，此处为兼容保留的无操作。
  */
 export async function initEntityGraphTables(): Promise<void> {
-  const db = await getDb()
-  
-  // 实体节点表
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS memory_entities (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      type TEXT NOT NULL,
-      memory_ids TEXT NOT NULL,  -- JSON array of memory IDs
-      embedding BLOB,            -- optional embedding for semantic matching
-      created_at INTEGER NOT NULL
-    )
-  `)
-  await db.execute(`CREATE INDEX IF NOT EXISTS idx_entities_name ON memory_entities(name)`)
-  await db.execute(`CREATE INDEX IF NOT EXISTS idx_entities_type ON memory_entities(type)`)
-  
-  // 实体关系边表
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS memory_entity_edges (
-      id TEXT PRIMARY KEY,
-      entity_a TEXT NOT NULL,
-      entity_b TEXT NOT NULL,
-      weight REAL DEFAULT 1.0,
-      cooccur_count INTEGER DEFAULT 1,
-      created_at INTEGER NOT NULL,
-      FOREIGN KEY (entity_a) REFERENCES memory_entities(id),
-      FOREIGN KEY (entity_b) REFERENCES memory_entities(id)
-    )
-  `)
-  await db.execute(`CREATE INDEX IF NOT EXISTS idx_edges_a ON memory_entity_edges(entity_a)`)
-  await db.execute(`CREATE INDEX IF NOT EXISTS idx_edges_b ON memory_entity_edges(entity_b)`)
+  return
 }
 
 /**
@@ -88,35 +76,16 @@ export async function upsertEntity(
   memoryId: string,
   embedding?: Float32Array
 ): Promise<string> {
-  const db = await getDb()
-  const rows = await db.select<{ id: string; memory_ids: string }[]>(
-    'SELECT id, memory_ids FROM memory_entities WHERE name = ? AND type = ?',
-    [name, type]
-  )
-  
   const now = Date.now()
-  
-  if (rows && rows.length > 0) {
-    // 更新：追加 memoryId
-    const record = rows[0]
-    const memoryIds = JSON.parse(record.memory_ids)
-    if (!memoryIds.includes(memoryId)) {
-      memoryIds.push(memoryId)
-      await db.execute(
-        'UPDATE memory_entities SET memory_ids = ? WHERE id = ?',
-        [JSON.stringify(memoryIds), record.id]
-      )
-    }
-    return record.id
-  } else {
-    // 新建
-    const id = `ent-${now}-${Math.random().toString(36).slice(2, 9)}`
-    await db.execute(
-      'INSERT INTO memory_entities (id, name, type, memory_ids, embedding, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, name, type, JSON.stringify([memoryId]), embedding, now]
-    )
-    return id
-  }
+  const candidateId = `ent-${now}-${Math.random().toString(36).slice(2, 9)}`
+  return upsertEntityGraphNode({
+    name,
+    nodeType: type,
+    memoryId,
+    candidateId,
+    createdAt: now,
+    embeddingB64: embedding ? embeddingToBase64(embedding) : null,
+  })
 }
 
 /**
@@ -127,51 +96,18 @@ export async function upsertEntityEdge(
   entityB: string,
   weightIncrement: number = 1.0
 ): Promise<void> {
-  const db = await getDb()
   const [a, b] = entityA < entityB ? [entityA, entityB] : [entityB, entityA]  // 保证顺序一致
-  
-  const rows = await db.select<{ id: string; cooccur_count: number; weight: number }[]>(
-    'SELECT id, cooccur_count, weight FROM memory_entity_edges WHERE entity_a = ? AND entity_b = ?',
-    [a, b]
-  )
-  
-  const now = Date.now()
-  
-  if (rows && rows.length > 0) {
-    const record = rows[0]
-    const newCount = record.cooccur_count + 1
-    const newWeight = record.weight + weightIncrement
-    await db.execute(
-      'UPDATE memory_entity_edges SET cooccur_count = ?, weight = ? WHERE id = ?',
-      [newCount, newWeight, record.id]
-    )
-  } else {
-    const id = `edge-${now}-${Math.random().toString(36).slice(2, 9)}`
-    await db.execute(
-      'INSERT INTO memory_entity_edges (id, entity_a, entity_b, weight, cooccur_count, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, a, b, weightIncrement, 1, now]
-    )
-  }
+  await upsertEntityGraphEdge({ entityA: a, entityB: b, weightIncrement, createdAt: Date.now() })
 }
 
 /**
  * 从查询中提取实体名（简单分词后查表）
  */
 export async function findEntitiesByName(names: string[]): Promise<MemoryEntity[]> {
-  const db = await getDb()
   if (names.length === 0) return []
-  
-  const placeholders = names.map(() => '?').join(',')
-  const rows = await db.select<{
-    id: string
-    name: string
-    type: string
-    memory_ids: string
-  }[]>(
-    `SELECT id, name, type, memory_ids FROM memory_entities WHERE name IN (${placeholders})`,
-    names
-  )
-  
+
+  const rows = await findEntityNodesByName(names)
+
   return rows.map(r => ({
     id: r.id,
     name: r.name,
@@ -187,36 +123,7 @@ export async function findEntitiesByName(names: string[]): Promise<MemoryEntity[
 export async function getEntityNeighbors(
   entityName: string
 ): Promise<{ neighbor: string; weight: number }[]> {
-  const db = await getDb()
-  const entityRows = await db.select<{ id: string }[]>(
-    'SELECT id FROM memory_entities WHERE name = ?',
-    [entityName]
-  )
-  if (!entityRows || entityRows.length === 0) return []
-  
-  const entityId = entityRows[0].id
-  const edgeRows = await db.select<{
-    entity_a: string
-    entity_b: string
-    weight: number
-  }[]>(
-    `SELECT entity_a, entity_b, weight FROM memory_entity_edges 
-     WHERE entity_a = ? OR entity_b = ?`,
-    [entityId, entityId]
-  )
-  
-  const neighbors: { neighbor: string; weight: number }[] = []
-  for (const edge of edgeRows) {
-    const neighborId = edge.entity_a === entityId ? edge.entity_b : edge.entity_a
-    const neighborRows = await db.select<{ name: string }[]>(
-      'SELECT name FROM memory_entities WHERE id = ?',
-      [neighborId]
-    )
-    if (neighborRows && neighborRows.length > 0) {
-      neighbors.push({ neighbor: neighborRows[0].name, weight: edge.weight })
-    }
-  }
-  return neighbors
+  return getEntityGraphNeighbors(entityName)
 }
 
 // ============ PPR 算法 ============

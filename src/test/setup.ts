@@ -68,18 +68,7 @@ vi.mock('@tauri-apps/api/path', () => ({
 }))
 
 // ============ Mock @tauri-apps/plugin-* 插件 ============
-vi.mock('@tauri-apps/plugin-sql', () => {
-  const mockDb = {
-    execute: vi.fn(() => Promise.resolve()),
-    select: vi.fn(() => Promise.resolve([])),
-    close: vi.fn(() => Promise.resolve()),
-  }
-  return {
-    default: {
-      load: vi.fn(() => Promise.resolve(mockDb)),
-    },
-  }
-})
+// D-1: tauri-plugin-sql 已移除（SQL 收口 Rust 语义命令），mock 一并删除
 
 vi.mock('@tauri-apps/plugin-fs', () => ({
   readTextFile: vi.fn(() => Promise.resolve('{}')),

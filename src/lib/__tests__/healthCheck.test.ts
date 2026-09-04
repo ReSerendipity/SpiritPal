@@ -10,9 +10,9 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// Mock getDb
+// Mock dbIntegrityCheck（healthCheck.ts 由此验证数据库连接）
 vi.mock('@/lib/data/db', () => ({
-  getDb: vi.fn(),
+  dbIntegrityCheck: vi.fn(),
 }))
 
 // Mock tauriInvoker
@@ -36,18 +36,11 @@ vi.mock('@tauri-apps/api/event', () => ({
   listen: vi.fn(() => Promise.resolve(() => {})),
 }))
 
-// Mock @tauri-apps/plugin-sql (被 db.ts 导入)
-vi.mock('@tauri-apps/plugin-sql', () => ({
-  default: {
-    load: vi.fn(() => Promise.resolve({ execute: vi.fn(), select: vi.fn(), close: vi.fn() })),
-  },
-}))
-
-import { getDb } from '@/lib/data/db'
+import { dbIntegrityCheck } from '@/lib/data/db'
 import { runHealthCheck } from '@/lib/system/healthCheck'
 import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 
-const mockGetDb = vi.mocked(getDb)
+const mockDbIntegrity = vi.mocked(dbIntegrityCheck)
 const mockInvoke = vi.mocked(tauriInvokeNoRetry)
 
 describe('healthCheck', () => {
@@ -57,9 +50,7 @@ describe('healthCheck', () => {
 
   it('全量检查返回正确结构', async () => {
     // 数据库通过
-    mockGetDb.mockResolvedValueOnce({
-      select: vi.fn().mockResolvedValue([{ '1': 1 }]),
-    } as any)
+    mockDbIntegrity.mockResolvedValueOnce(['ok'])
     // 加密往返通过
     mockInvoke
       .mockResolvedValueOnce('encrypted-data') // encrypt
@@ -80,7 +71,7 @@ describe('healthCheck', () => {
   })
 
   it('数据库检查失败应返回 unhealthy', async () => {
-    mockGetDb.mockRejectedValueOnce(new Error('DB connection refused'))
+    mockDbIntegrity.mockRejectedValueOnce(new Error('DB connection refused'))
     // 加密和 MCP 不会被调用因为数据库失败了... 但实际上每个检查独立运行
     // 所以加密和 MCP 仍会执行
 
@@ -94,9 +85,7 @@ describe('healthCheck', () => {
 
   it('加密往返不一致应返回 unhealthy', async () => {
     // 数据库通过
-    mockGetDb.mockResolvedValueOnce({
-      select: vi.fn().mockResolvedValue([{ '1': 1 }]),
-    } as any)
+    mockDbIntegrity.mockResolvedValueOnce(['ok'])
     // 加密返回不匹配
     mockInvoke
       .mockResolvedValueOnce('encrypted-data') // encrypt
@@ -114,9 +103,7 @@ describe('healthCheck', () => {
 
   it('MCP 桥失败应返回 degraded 而非 unhealthy', async () => {
     // 数据库通过
-    mockGetDb.mockResolvedValueOnce({
-      select: vi.fn().mockResolvedValue([{ '1': 1 }]),
-    } as any)
+    mockDbIntegrity.mockResolvedValueOnce(['ok'])
     // 加密通过
     mockInvoke
       .mockResolvedValueOnce('encrypted-data')

@@ -12,18 +12,14 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// Mock db — 使用 vi.hoisted 确保 mock 函数在 vi.mock 提升前已定义
-const { mockDbExecute, mockDbSelect } = vi.hoisted(() => ({
-  mockDbExecute: vi.fn(),
-  mockDbSelect: vi.fn(),
+// Mock db — mock context_episodes 的语义化封装函数（走 invoke 的 sp_ctx_*）
+const mocks = vi.hoisted(() => ({
+  insertContextEpisode: vi.fn(),
+  closeContextEpisode: vi.fn(),
+  listContextEpisodes: vi.fn(),
 }))
 
-vi.mock('@/lib/data/db', () => ({
-  getDb: vi.fn().mockResolvedValue({
-    execute: mockDbExecute,
-    select: mockDbSelect,
-  }),
-}))
+vi.mock('@/lib/data/db', () => mocks)
 
 import {
   ContextEpisodeManager,
@@ -36,61 +32,63 @@ describe('ContextEpisodeManager', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockDbExecute.mockResolvedValue(undefined)
-    mockDbSelect.mockResolvedValue([])
+    mocks.insertContextEpisode.mockResolvedValue(1)
+    mocks.closeContextEpisode.mockResolvedValue(undefined)
+    mocks.listContextEpisodes.mockResolvedValue([])
     manager = new ContextEpisodeManager('test-char')
   })
 
   describe('状态变迁记录', () => {
     it('work_state 变化时应记录新片段', async () => {
-      mockDbSelect.mockResolvedValue([{ id: 1 }])
+      mocks.insertContextEpisode.mockResolvedValueOnce(1)
       await manager.recordStateChange('coding', 'sunny', 5, 'pop')
-      expect(mockDbExecute).toHaveBeenCalled()
+      expect(mocks.insertContextEpisode).toHaveBeenCalled()
     })
 
     it('work_state 未变化且空闲未跨越阈值时不应记录', async () => {
       // 先记录一次状态
-      mockDbSelect.mockResolvedValue([{ id: 1 }])
       await manager.recordStateChange('coding', 'sunny', 5, 'pop')
       vi.clearAllMocks()
-      mockDbExecute.mockResolvedValue(undefined)
-      mockDbSelect.mockResolvedValue([])
+      mocks.insertContextEpisode.mockResolvedValue(1)
+      mocks.listContextEpisodes.mockResolvedValue([])
 
       // 相同状态，不应记录
       await manager.recordStateChange('coding', 'sunny', 3, 'pop')
-      expect(mockDbExecute).not.toHaveBeenCalled()
+      expect(mocks.insertContextEpisode).not.toHaveBeenCalled()
     })
 
     it('空闲跨越 30 分钟阈值时应记录', async () => {
-      mockDbSelect.mockResolvedValue([{ id: 1 }])
       // 先记录初始状态
       await manager.recordStateChange('coding', 'sunny', 5)
       vi.clearAllMocks()
-      mockDbExecute.mockResolvedValue(undefined)
-      mockDbSelect.mockResolvedValue([{ id: 2 }])
+      mocks.insertContextEpisode.mockResolvedValue(2)
+      mocks.listContextEpisodes.mockResolvedValue([])
 
       // 空闲超过 30 分钟（需要 lastRecordAt > 0 且间隔 > 30s）
       await new Promise(resolve => setTimeout(resolve, 50)) // 等待一点时间
       await manager.recordStateChange('idle', 'sunny', 35)
-      // 应该关闭旧 episode 并开启新的
-      expect(mockDbExecute).toHaveBeenCalled()
+      expect(mocks.closeContextEpisode).toHaveBeenCalled() // 关闭旧 episode
+      expect(mocks.insertContextEpisode).toHaveBeenCalled() // 开启新 episode
     })
 
     it('应关闭前一个 episode 再开启新的', async () => {
-      mockDbSelect.mockResolvedValue([{ id: 1 }])
       await manager.recordStateChange('coding', 'sunny', 5)
       vi.clearAllMocks()
-      mockDbExecute.mockResolvedValue(undefined)
-      mockDbSelect.mockResolvedValue([{ id: 2 }])
+      mocks.insertContextEpisode.mockResolvedValue(2)
+      mocks.listContextEpisodes.mockResolvedValue([])
 
       await manager.recordStateChange('meeting', 'rainy', 2)
-      // 第一次 execute 是 UPDATE（关闭旧 episode）
-      expect(mockDbExecute.mock.calls[0][0]).toContain('UPDATE context_episodes SET ended_at')
+      // 先关闭旧 episode，再开启新的
+      expect(mocks.closeContextEpisode).toHaveBeenCalledTimes(1)
+      expect(mocks.insertContextEpisode).toHaveBeenCalledTimes(1)
+      const closeArgs = mocks.closeContextEpisode.mock.calls[0]
+      expect(closeArgs[0]).toBe(1) // 旧 episode id
+      expect(typeof closeArgs[1]).toBe('number') // ended_at
     })
 
     it('DB 不可用时应静默失败', async () => {
-      mockDbExecute.mockRejectedValue(new Error('DB error'))
-      mockDbSelect.mockRejectedValue(new Error('DB error'))
+      mocks.closeContextEpisode.mockRejectedValue(new Error('DB error'))
+      mocks.insertContextEpisode.mockRejectedValue(new Error('DB error'))
       // 不应抛出异常
       await manager.recordStateChange('coding', 'sunny', 5)
       expect(true).toBe(true)
@@ -102,18 +100,20 @@ describe('ContextEpisodeManager', () => {
       const mockEpisodes: ContextEpisode[] = [
         { id: 1, character_id: 'test-char', started_at: Date.now(), ended_at: null, work_state: 'coding', weather: null, idle_minutes: null, music: null, summary: null },
       ]
-      mockDbSelect.mockResolvedValueOnce(mockEpisodes)
+      mocks.listContextEpisodes.mockResolvedValueOnce(mockEpisodes)
       const result = await manager.getTodayEpisodes()
       expect(result).toEqual(mockEpisodes)
-      expect(mockDbSelect).toHaveBeenCalledOnce()
+      expect(mocks.listContextEpisodes).toHaveBeenCalledOnce()
     })
 
     it('getEpisodesByDate 应查询指定日期片段', async () => {
-      mockDbSelect.mockResolvedValueOnce([])
+      mocks.listContextEpisodes.mockResolvedValueOnce([])
       await manager.getEpisodesByDate('2026-08-08')
-      expect(mockDbSelect).toHaveBeenCalledOnce()
-      const call = mockDbSelect.mock.calls[0]
-      expect(call[0]).toContain('started_at >= $2 AND started_at < $3')
+      expect(mocks.listContextEpisodes).toHaveBeenCalledOnce()
+      const call = mocks.listContextEpisodes.mock.calls[0]
+      expect(call[0]).toBe('test-char')
+      expect(typeof call[1]).toBe('number') // start
+      expect(typeof call[2]).toBe('number') // end
     })
   })
 
@@ -165,13 +165,13 @@ describe('ContextEpisodeManager', () => {
 
   describe('LLM 浓缩', () => {
     it('无片段时应返回 null', async () => {
-      mockDbSelect.mockResolvedValueOnce([])
+      mocks.listContextEpisodes.mockResolvedValueOnce([])
       const result = await manager.condenseToObservation(vi.fn())
       expect(result).toBeNull()
     })
 
     it('有片段时应调用 LLM 浓缩', async () => {
-      mockDbSelect.mockResolvedValueOnce([
+      mocks.listContextEpisodes.mockResolvedValueOnce([
         { id: 1, character_id: 'test-char', started_at: Date.now(), ended_at: null, work_state: 'coding', weather: null, idle_minutes: null, music: null, summary: null },
       ])
       const condenser = vi.fn().mockResolvedValue('今天主要在写代码')
@@ -181,7 +181,7 @@ describe('ContextEpisodeManager', () => {
     })
 
     it('LLM 浓缩失败时应返回 null', async () => {
-      mockDbSelect.mockResolvedValueOnce([
+      mocks.listContextEpisodes.mockResolvedValueOnce([
         { id: 1, character_id: 'test-char', started_at: Date.now(), ended_at: null, work_state: 'coding', weather: null, idle_minutes: null, music: null, summary: null },
       ])
       const condenser = vi.fn().mockRejectedValue(new Error('LLM error'))
@@ -190,7 +190,7 @@ describe('ContextEpisodeManager', () => {
     })
 
     it('LLM 返回空字符串时应返回 null', async () => {
-      mockDbSelect.mockResolvedValueOnce([
+      mocks.listContextEpisodes.mockResolvedValueOnce([
         { id: 1, character_id: 'test-char', started_at: Date.now(), ended_at: null, work_state: 'coding', weather: null, idle_minutes: null, music: null, summary: null },
       ])
       const condenser = vi.fn().mockResolvedValue('   ')

@@ -25,38 +25,23 @@
  * ```
  */
 
-import { getDb } from '@/lib/data/db'
+import {
+  getCurrentSchemaVersion as dbGetCurrentSchemaVersion,
+  isSchemaVersionApplied,
+  recordSchemaVersion,
+  getSchemaVersionHistory as dbGetSchemaVersionHistory,
+  logSchemaMigrationFailure,
+  resolveSchemaMigrationFailure,
+  getUnresolvedSchemaFailures,
+} from '@/lib/data/db'
 import type { Migration, MigrationRecord, MigrationFailureLog } from './types'
 
 /**
- * 确保 schema_versions 表存在
- * 这是迁移系统的基础设施表，必须首先创建
+ * 确保 schema_versions 表存在（结构已由 Rust ensure_schema 幂等创建）。
+ * 前端不再执行任何 DDL，本函数为兼容保留的无操作。
  */
 async function ensureSchemaVersionTable(): Promise<void> {
-  const db = await getDb()
-
-  // 创建 Schema 版本追踪表
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS schema_versions (
-      version INTEGER PRIMARY KEY,
-      description TEXT NOT NULL,
-      applied_at INTEGER NOT NULL,
-      sql_checksum TEXT NOT NULL
-    )
-  `)
-
-  // 创建迁移失败日志表
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS schema_migration_log (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      version INTEGER NOT NULL,
-      attempted_at INTEGER NOT NULL,
-      error_message TEXT NOT NULL,
-      sql_statement TEXT,
-      resolved INTEGER DEFAULT 0,
-      resolved_at INTEGER
-    )
-  `)
+  return
 }
 
 /**
@@ -65,11 +50,7 @@ async function ensureSchemaVersionTable(): Promise<void> {
  */
 export async function getCurrentSchemaVersion(): Promise<number> {
   try {
-    const db = await getDb()
-    const result = await db.select<{ version: number }[]>(
-      'SELECT MAX(version) as version FROM schema_versions'
-    )
-    return result[0]?.version ?? 0
+    return await dbGetCurrentSchemaVersion()
   } catch {
     return 0
   }
@@ -80,12 +61,7 @@ export async function getCurrentSchemaVersion(): Promise<number> {
  */
 export async function isVersionApplied(version: number): Promise<boolean> {
   try {
-    const db = await getDb()
-    const result = await db.select<{ count: number }[]>(
-      'SELECT COUNT(*) as count FROM schema_versions WHERE version = ?',
-      [version]
-    )
-    return (result[0]?.count ?? 0) > 0
+    return await isSchemaVersionApplied(version)
   } catch {
     return false
   }
@@ -100,11 +76,7 @@ async function logMigrationFailure(
   sql: string,
 ): Promise<void> {
   try {
-    const db = await getDb()
-    await db.execute(
-      'INSERT INTO schema_migration_log (version, attempted_at, error_message, sql_statement) VALUES (?, ?, ?, ?)',
-      [version, Date.now(), error, sql],
-    )
+    await logSchemaMigrationFailure(version, error, sql)
   } catch {
     // 日志记录失败不阻断流程
     console.error('[SchemaMigration] Failed to log migration failure:', error)
@@ -115,11 +87,7 @@ async function logMigrationFailure(
  * 标记迁移失败为已解决
  */
 export async function resolveMigrationFailure(logId: number): Promise<void> {
-  const db = await getDb()
-  await db.execute(
-    'UPDATE schema_migration_log SET resolved = 1, resolved_at = ? WHERE id = ?',
-    [Date.now(), logId],
-  )
+  await resolveSchemaMigrationFailure(logId, Date.now())
 }
 
 /**
@@ -127,10 +95,7 @@ export async function resolveMigrationFailure(logId: number): Promise<void> {
  */
 export async function getUnresolvedFailures(): Promise<MigrationFailureLog[]> {
   try {
-    const db = await getDb()
-    return await db.select<MigrationFailureLog[]>(
-      'SELECT * FROM schema_migration_log WHERE resolved = 0 ORDER BY attempted_at DESC'
-    )
+    return await getUnresolvedSchemaFailures() as unknown as MigrationFailureLog[]
   } catch {
     return []
   }
@@ -150,11 +115,13 @@ function simpleChecksum(sql: string): string {
 }
 
 /**
- * 执行单个迁移
+ * 执行单个迁移（标记记录，不执行 DDL）
+ *
+ * D-1 之后表结构统一由 Rust ensure_schema 幂等创建，前端不再执行任何 DDL；
+ * 此处仅把迁移「标记为已应用」写入 schema_versions（幂等），保留版本治理语义。
  * @returns 是否成功
  */
 async function applyMigration(migration: Migration): Promise<boolean> {
-  const db = await getDb()
   const sqlStatements = Array.isArray(migration.sql) ? migration.sql : [migration.sql]
 
   try {
@@ -163,22 +130,12 @@ async function applyMigration(migration: Migration): Promise<boolean> {
       return true
     }
 
-    // 执行迁移 SQL
-    for (const sql of sqlStatements) {
-      if (sql.trim()) {
-        await db.execute(sql)
-      }
-    }
-
     // 计算校验和
     const allSql = sqlStatements.join(';')
     const checksum = simpleChecksum(allSql)
 
-    // 记录迁移版本
-    await db.execute(
-      'INSERT INTO schema_versions (version, description, applied_at, sql_checksum) VALUES (?, ?, ?, ?)',
-      [migration.version, migration.description, Date.now(), checksum],
-    )
+    // 记录迁移版本（不执行 SQL）
+    await recordSchemaVersion(migration.version, migration.description, checksum)
 
     console.log(`[SchemaMigration] Applied v${migration.version}: ${migration.description}`)
     return true
@@ -243,10 +200,13 @@ export async function runMigrations(
  */
 export async function getSchemaVersionHistory(): Promise<MigrationRecord[]> {
   try {
-    const db = await getDb()
-    return await db.select<MigrationRecord[]>(
-      'SELECT version, description, applied_at, sql_checksum FROM schema_versions ORDER BY version ASC'
-    )
+    const rows = await dbGetSchemaVersionHistory()
+    return rows.map((r) => ({
+      version: r.version,
+      applied_at: r.applied_at,
+      description: r.description,
+      sql_checksum: r.sql_checksum,
+    }))
   } catch {
     return []
   }
