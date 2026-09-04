@@ -12,7 +12,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde_json::json;
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 use spiritpal_mcp::run_bridge_server_auth;
 
@@ -51,8 +51,8 @@ pub fn gen_token() -> String {
 pub fn spawn(app: &AppHandle) {
     // M3 加固：端口冲突降级。默认 127.0.0.1:3124 被占用（多实例/其他程序）时
     // 回退到随机可用端口，避免 bridge 线程静默死亡（此前 bind 失败被 `let _ =` 吞掉）。
-    let wanted_addr = std::env::var("SPIRITPAL_MCP_BRIDGE_ADDR")
-        .unwrap_or_else(|_| "127.0.0.1:3124".to_string());
+    let wanted_addr =
+        std::env::var("SPIRITPAL_MCP_BRIDGE_ADDR").unwrap_or_else(|_| "127.0.0.1:3124".to_string());
     let (addr, port_fallback) = match std::net::TcpListener::bind(&wanted_addr) {
         Ok(_) => (wanted_addr, false), // 端口空闲，直接使用
         Err(_) => match std::net::TcpListener::bind("127.0.0.1:0") {
@@ -132,8 +132,25 @@ pub fn spawn(app: &AppHandle) {
 }
 
 /// webview 回调：完成挂起的 MCP 工具调用（由 `executeMcpTool` 结果触发）
+///
+/// D-9：校验调用方窗口必须是应用窗口（拒绝冷启动/外部 WebView 伪造回包）。
+/// 门禁失败返回 `false`（保持 bool 契约不变，前端按「未完成」处理）。
 #[tauri::command]
-pub fn mcp_respond(id: String, result: String) -> bool {
+pub fn mcp_respond(window: tauri::Window, id: String, result: String) -> bool {
+    if let Err(e) = crate::window_gate::require_window(&window, crate::window_gate::APP_WINDOWS) {
+        let _ = crate::audit_log::record_audit(
+            window.app_handle(),
+            "security_event",
+            "unknown",
+            &format!("mcp_respond 拒绝: {e}"),
+        );
+        return false;
+    }
+    mcp_respond_core(id, result)
+}
+
+/// 核心：回填挂起的 MCP 工具调用（无门禁；门禁由命令层负责，便于单测）
+fn mcp_respond_core(id: String, result: String) -> bool {
     let sender = pending().lock().unwrap().remove(&id);
     match sender {
         Some(tx) => tx.send(result).is_ok(),
@@ -161,18 +178,18 @@ mod tests {
         let (tx, rx) = mpsc::channel::<String>();
         let id = "mcp-test-deliver".to_string();
         pending().lock().unwrap().insert(id.clone(), tx);
-        assert!(mcp_respond(id.clone(), "reply-ok".to_string()));
-        assert_eq!(
-            rx.recv_timeout(Duration::from_secs(1)).unwrap(),
-            "reply-ok"
-        );
+        assert!(mcp_respond_core(id.clone(), "reply-ok".to_string()));
+        assert_eq!(rx.recv_timeout(Duration::from_secs(1)).unwrap(), "reply-ok");
         // 响应后挂起条目已被移除
         assert!(pending().lock().unwrap().get(&id).is_none());
     }
 
     #[test]
     fn mcp_respond_unknown_id_returns_false() {
-        assert!(!mcp_respond("mcp-no-such-id".to_string(), "x".to_string()));
+        assert!(!mcp_respond_core(
+            "mcp-no-such-id".to_string(),
+            "x".to_string()
+        ));
     }
 
     #[test]
@@ -182,6 +199,6 @@ mod tests {
         drop(_rx);
         let id = "mcp-test-dropped".to_string();
         pending().lock().unwrap().insert(id.clone(), tx);
-        assert!(!mcp_respond(id, "x".to_string()));
+        assert!(!mcp_respond_core(id, "x".to_string()));
     }
 }

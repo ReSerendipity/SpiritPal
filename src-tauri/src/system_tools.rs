@@ -38,30 +38,133 @@ const SEARCH_MAX_DEPTH: usize = 10;
 /// search_files 跳过的目录（依赖/构建产物，无搜索价值且巨大）
 const SEARCH_SKIP_DIRS: &[&str] = &[".git", "node_modules", "target", "dist", ".codebuddy"];
 
-/// execute_command 允许的只读命令白名单（首个 token 精确匹配，大小写不敏感）
-const EXECUTE_ALLOWLIST: &[&str] = &[
-    // Windows cmd 内置
-    "dir",
-    "type",
-    "echo",
-    "ver",
-    "tasklist",
-    "ipconfig",
-    "whoami",
-    "hostname",
-    "systeminfo",
-    "ping",
-    "netstat",
-    // Unix 常用
-    "ls",
-    "cat",
-    "pwd",
-    "date",
-    "df",
-    "free",
-    "uname",
-    "ps",
+/// execute_command 命令 → 可执行文件 + 参数策略映射（D-3 硬化）
+///
+/// 安全约束（相对旧版 `cmd /C` / `sh -c` 的改进）：
+/// - **无 shell**：直接 `Command::new(exe).args(…)`，链式/重定向/变量替换无解释器承接；
+/// - 移除可读任意文件的 shell 内置（type/dir/echo/ver/cat/ls 路径参数）→ 无 shell 内置命令；
+/// - `base_args` 为固定前缀；`host_arg=true` 的命令（ping）仅接收单个经字符白名单校验的主机名；
+/// - 其余命令的尾部参数原样传递（不执行、不解释，仅透传给可执行文件，无注入面）。
+struct CmdDef {
+    exe: &'static str,
+    base_args: &'static [&'static str],
+    /// 是否仅允许单个「主机名」参数（做字符白名单校验）
+    host_arg: bool,
+}
+
+/// Windows 命令默认落在 System32（PATH 可解析）；Unix 使用绝对路径避免依赖 PATH 污染
+const CMD_MAP: &[(&str, CmdDef)] = &[
+    // ---- Windows ----
+    (
+        "tasklist",
+        CmdDef {
+            exe: "tasklist.exe",
+            base_args: &[],
+            host_arg: false,
+        },
+    ),
+    (
+        "ipconfig",
+        CmdDef {
+            exe: "ipconfig.exe",
+            base_args: &[],
+            host_arg: false,
+        },
+    ),
+    (
+        "whoami",
+        CmdDef {
+            exe: "whoami.exe",
+            base_args: &[],
+            host_arg: false,
+        },
+    ),
+    (
+        "hostname",
+        CmdDef {
+            exe: "hostname.exe",
+            base_args: &[],
+            host_arg: false,
+        },
+    ),
+    (
+        "systeminfo",
+        CmdDef {
+            exe: "systeminfo.exe",
+            base_args: &[],
+            host_arg: false,
+        },
+    ),
+    (
+        "netstat",
+        CmdDef {
+            exe: "netstat.exe",
+            base_args: &[],
+            host_arg: false,
+        },
+    ),
+    (
+        "ping",
+        CmdDef {
+            exe: "ping.exe",
+            base_args: &["-n", "1", "-w", "1000"],
+            host_arg: true,
+        },
+    ),
+    // ---- Unix ----
+    (
+        "ls",
+        CmdDef {
+            exe: "/bin/ls",
+            base_args: &["-1"],
+            host_arg: false,
+        },
+    ),
+    (
+        "pwd",
+        CmdDef {
+            exe: "/bin/pwd",
+            base_args: &[],
+            host_arg: false,
+        },
+    ),
+    (
+        "date",
+        CmdDef {
+            exe: "/bin/date",
+            base_args: &[],
+            host_arg: false,
+        },
+    ),
+    (
+        "df",
+        CmdDef {
+            exe: "/bin/df",
+            base_args: &[],
+            host_arg: false,
+        },
+    ),
+    (
+        "free",
+        CmdDef {
+            exe: "/usr/bin/free",
+            base_args: &[],
+            host_arg: false,
+        },
+    ),
+    (
+        "uname",
+        CmdDef {
+            exe: "/bin/uname",
+            base_args: &[],
+            host_arg: false,
+        },
+    ),
 ];
+
+/// 历史白名单命令（含 shell 内置与任意文件读）— 记录用于明确拒绝提示
+const REMOVED_SHELL_BUILTINS: &[&str] = &["dir", "type", "echo", "ver", "cat", "ps"];
+
 /// execute_command 超时（秒）
 const EXECUTE_TIMEOUT_SECS: u64 = 5;
 /// execute_command 输出截断（字节）
@@ -137,17 +240,26 @@ fn search_recursive(
 /// # Returns
 /// 相对 `path` 的文件路径列表（`/` 分隔，最多 [`SEARCH_MAX_RESULTS`] 条）
 #[tauri::command]
-pub async fn search_files(path: String, pattern: String) -> Result<Vec<String>, String> {
+pub async fn search_files(
+    window: tauri::Window,
+    path: String,
+    pattern: String,
+) -> Result<Vec<String>, String> {
+    // D-2: 文件搜索属 Agent 工具面，仅应用窗口调用
+    crate::window_gate::require_window(&window, crate::window_gate::AGENT_WINDOWS)?;
     if pattern.trim().is_empty() {
         return Err("搜索模式不能为空".to_string());
     }
     tauri::async_runtime::spawn_blocking(move || {
-        let root = Path::new(&path);
+        // D-4: canonicalize 解析符号链接/相对路径，且以解析后路径为遍历基准，
+        // 防止通过 .. / 符号链接逃逸出用户指定目录
+        let root = std::fs::canonicalize(&path)
+            .map_err(|e| format!("路径无效（无法解析）: {}: {}", path, e))?;
         if !root.is_dir() {
-            return Err(format!("目录不存在: {}", path));
+            return Err(format!("目录不存在: {}", root.display()));
         }
         let mut results = Vec::new();
-        search_recursive(root, root, pattern.trim(), &mut results)?;
+        search_recursive(&root, &root, pattern.trim(), &mut results)?;
         Ok(results)
     })
     .await
@@ -180,7 +292,23 @@ fn truncate_output(mut s: String) -> String {
 ///
 /// ⚠️ 这不是通用 shell —— 任意命令执行永远不在白名单内
 #[tauri::command]
-pub async fn execute_command(app: tauri::AppHandle, command: String) -> Result<String, String> {
+pub async fn execute_command(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    command: String,
+) -> Result<String, String> {
+    // D-2: 仅允许应用窗口调用（Agent 工具窗口集）
+    crate::window_gate::require_window(&window, crate::window_gate::AGENT_WINDOWS)?;
+    // D-6: 安全模式（检测到调试器）下拒绝执行系统命令
+    if crate::antidebug::is_debugger_detected() {
+        let _ = crate::audit_log::record_audit(
+            &app,
+            "security_event",
+            "ai_agent",
+            "安全模式拒绝 execute_command",
+        );
+        return Err("安全模式（检测到调试器），拒绝执行系统命令".to_string());
+    }
     let first = command
         .split_whitespace()
         .next()
@@ -204,28 +332,42 @@ pub async fn execute_command(app: tauri::AppHandle, command: String) -> Result<S
     result
 }
 
-/// `execute_command` 的核心实现（校验 + 执行，无审计）。
-///
-/// pub：集成测试 `tests/test_system_runtime.rs` 在无 AppHandle 的进程内
-/// 直接调用，覆盖白名单拒绝与真实 Win32 命令执行；审计联动由命令层负责。
-pub async fn execute_command_core(command: String) -> Result<String, String> {
-    let first = command
-        .split_whitespace()
-        .next()
+/// 解析结果：具体的可执行文件 + 固定前缀参数 + 尾部透传参数（无 shell）
+struct ResolvedCmd {
+    exe: String,
+    base_args: Vec<String>,
+    rest: Vec<String>,
+}
+
+fn resolve_command(command: &str) -> Result<ResolvedCmd, String> {
+    let tokens: Vec<&str> = command.split_whitespace().collect();
+    let first = tokens
+        .first()
+        .copied()
         .unwrap_or("")
         .trim_matches('"')
         .to_lowercase();
-    if !EXECUTE_ALLOWLIST.contains(&first.as_str()) {
+
+    let def = CMD_MAP.iter().find(|(name, _)| *name == first.as_str());
+    let Some((_, def)) = def else {
         return Err(format!(
-            "命令不在只读白名单内: {}（允许: {}）",
-            first,
-            EXECUTE_ALLOWLIST.join(", ")
+            "命令不在只读白名单内: {first}（允许: {}）",
+            CMD_MAP
+                .iter()
+                .map(|(n, _)| *n)
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    };
+
+    // 明确拒绝历史 shell 内置命令（可读任意文件 / 无独立可执行体）
+    if REMOVED_SHELL_BUILTINS.contains(&first.as_str()) {
+        return Err(format!(
+            "命令 '{first}' 已因安全原因移除（shell 内置/可读任意文件），不再允许执行"
         ));
     }
 
-    // 安全：白名单只校验首 token，若不拦 shell 元字符，`tasklist & del evil.txt`
-    // 会被 cmd /C 链式执行后半段破坏性命令（Gotcha：只读白名单可被绕过）。
-    // 只读命令（tasklist/ipconfig/dir /s 等）只需空格与 / 参数，绝不需要下列元字符。
+    // 安全兜底：元字符黑名单（白名单只读命令绝不需要下列字符）
     const EXECUTE_FORBIDDEN_CHARS: &[char] = &[
         '&', '|', '>', '<', '^', ';', '`', '$', '\n', '\r', '(', ')', '%', '!',
     ];
@@ -235,19 +377,48 @@ pub async fn execute_command_core(command: String) -> Result<String, String> {
         );
     }
 
+    // 参数校验：host_arg 命令只允许单个主机名（字符白名单）
+    let rest: Vec<&str> = tokens[1..].to_vec();
+    if def.host_arg {
+        if rest.len() != 1 {
+            return Err("ping 仅支持单个主机名参数，如 `ping example.com`".to_string());
+        }
+        let host = rest[0];
+        let valid = !host.is_empty()
+            && host
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_');
+        if !valid {
+            return Err("主机名包含非法字符".to_string());
+        }
+    }
+
+    Ok(ResolvedCmd {
+        exe: def.exe.to_string(),
+        base_args: def.base_args.iter().map(|s| s.to_string()).collect(),
+        rest: rest.into_iter().map(String::from).collect(),
+    })
+}
+
+/// `execute_command` 的核心实现（解析校验 + 执行，无审计）。
+///
+/// pub：集成测试 `tests/test_system_runtime.rs` 在无 AppHandle 的进程内
+/// 直接调用，覆盖白名单拒绝与真实 Win32 命令执行；审计联动由命令层负责。
+///
+/// # D-3 硬化说明
+/// 旧实现用 `cmd /C` / `sh -c` 整串传递：白名单校验首 token 后仍会被
+/// shell 解释链式/重定向/内置读文件（如 `type C:\\secret.txt` 可读任意文件）。
+/// 现改为「命令 → 可执行文件 + 固定参数」显式映射，直接 `Command::new(exe).args(…)`
+/// 无 shell 解释器：
+/// - shell 内置（dir/type/echo/ver/cat/ps）不在映射表中 → 直接拒绝；
+/// - 尾部参数透传给可执行文件（无解释执行，无注入面）；ping 的主机名做字符白名单；
+/// - 元字符黑名单作为兜底仍保留。
+pub async fn execute_command_core(command: String) -> Result<String, String> {
+    let resolved = resolve_command(&command)?;
+
     let outcome = tauri::async_runtime::spawn_blocking(move || {
-        #[cfg(windows)]
-        let mut cmd = {
-            let mut c = std::process::Command::new("cmd");
-            c.args(["/C", &command]);
-            c
-        };
-        #[cfg(not(windows))]
-        let mut cmd = {
-            let mut c = std::process::Command::new("sh");
-            c.args(["-c", &command]);
-            c
-        };
+        let mut cmd = std::process::Command::new(&resolved.exe);
+        cmd.args(&resolved.base_args).args(&resolved.rest);
         cmd.stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped());
 
@@ -332,7 +503,12 @@ fn widget_state_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, Strin
 /// # Arguments
 /// - `state` — JSON 序列化的小组件状态（上限 1MB）
 #[tauri::command]
-pub async fn sync_widget_state(app: tauri::AppHandle, state: String) -> Result<(), String> {
+pub async fn sync_widget_state(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    state: String,
+) -> Result<(), String> {
+    crate::window_gate::require_window(&window, crate::window_gate::APP_WINDOWS)?;
     if state.len() > WIDGET_STATE_MAX_BYTES {
         return Err(format!(
             "小组件状态过大（{} bytes，上限 {}）",
@@ -358,7 +534,11 @@ pub async fn sync_widget_state(app: tauri::AppHandle, state: String) -> Result<(
 /// # Returns
 /// 此前保存的 JSON 字符串；从未保存过时返回空字符串
 #[tauri::command]
-pub async fn read_widget_state(app: tauri::AppHandle) -> Result<String, String> {
+pub async fn read_widget_state(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    crate::window_gate::require_window(&window, crate::window_gate::APP_WINDOWS)?;
     let path = widget_state_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || {
         if !path.exists() {
@@ -408,16 +588,37 @@ pub struct ScreenshotRegion {
 /// [`ScreenshotResult`] — PNG base64 与实际尺寸（quality 参数为 JPEG 概念，PNG 无损忽略）
 #[tauri::command]
 pub async fn take_screenshot(
+    window: tauri::Window,
     app: tauri::AppHandle,
     region: Option<ScreenshotRegion>,
     max_width: Option<i32>,
 ) -> Result<ScreenshotResult, String> {
+    // D-2: 截屏仅允许应用窗口调用
+    crate::window_gate::require_window(&window, crate::window_gate::APP_WINDOWS)?;
+    // D-6: 安全模式（检测到调试器）下拒绝截屏（防屏幕内容外带）
+    if crate::antidebug::is_debugger_detected() {
+        let _ = crate::audit_log::record_audit(
+            &app,
+            "security_event",
+            "ai_agent",
+            "安全模式拒绝 take_screenshot",
+        );
+        return Err("安全模式（检测到调试器），拒绝截屏".to_string());
+    }
     // P1-07：截屏为高风险命令（可能捕获屏幕隐私），一律写入安全审计日志
     let request_summary = match (&region, max_width) {
         (Some(r), _) if r.width > 0 && r.height > 0 => {
-            format!("take_screenshot region {}x{}@({},{})", r.width, r.height, r.x, r.y)
+            format!(
+                "take_screenshot region {}x{}@({},{})",
+                r.width, r.height, r.x, r.y
+            )
         }
-        _ => format!("take_screenshot 全屏{}", max_width.map(|m| format!("（maxWidth={}）", m)).unwrap_or_default()),
+        _ => format!(
+            "take_screenshot 全屏{}",
+            max_width
+                .map(|m| format!("（maxWidth={}）", m))
+                .unwrap_or_default()
+        ),
     };
     let _ = crate::audit_log::record_audit(&app, "security_event", "ai_agent", &request_summary);
 
@@ -630,7 +831,14 @@ fn encode_png(rgb: &[u8], w: usize, h: usize) -> Result<(Vec<u8>, usize, usize),
 ///
 /// 用途：AI 助手检测（`aiAssistantDetector` 判断用户是否在与别的 AI 聊天）
 #[tauri::command]
-pub async fn get_running_processes() -> Result<Vec<String>, String> {
+pub async fn get_running_processes(window: tauri::Window) -> Result<Vec<String>, String> {
+    // D-2: 进程枚举属强隐私能力，仅应用窗口调用
+    crate::window_gate::require_window(&window, crate::window_gate::APP_WINDOWS)?;
+    get_running_processes_core().await
+}
+
+/// 核心实现（无窗口门禁；供集成测试真机调用）
+pub async fn get_running_processes_core() -> Result<Vec<String>, String> {
     #[cfg(windows)]
     {
         use windows::Win32::Foundation::CloseHandle;
@@ -685,7 +893,8 @@ pub async fn get_running_processes() -> Result<Vec<String>, String> {
 ///
 /// 前端调用方式：`invoke('set_system_volume', { volume: 0.5 })`
 #[tauri::command]
-pub async fn set_system_volume(volume: f64) -> Result<(), String> {
+pub async fn set_system_volume(window: tauri::Window, volume: f64) -> Result<(), String> {
+    crate::window_gate::require_window(&window, crate::window_gate::APP_WINDOWS)?;
     if !(0.0..=1.0).contains(&volume) {
         return Err(format!("音量超出范围: {}（应为 0.0~1.0）", volume));
     }
@@ -740,7 +949,8 @@ pub async fn set_system_volume(volume: f64) -> Result<(), String> {
 /// `WmiMonitorBrightnessMethods`，外接屏走 DDC/CI。此处用 PowerShell WMI
 /// （无新 Rust 依赖）；不支持的硬件会得到明确错误而非静默失败。
 #[tauri::command]
-pub async fn set_system_brightness(brightness: f64) -> Result<(), String> {
+pub async fn set_system_brightness(window: tauri::Window, brightness: f64) -> Result<(), String> {
+    crate::window_gate::require_window(&window, crate::window_gate::APP_WINDOWS)?;
     if !(0.0..=100.0).contains(&brightness) {
         return Err(format!("亮度超出范围: {}（应为 0~100）", brightness));
     }
@@ -846,16 +1056,89 @@ mod tests {
     }
 
     #[test]
-    fn test_execute_allowlist_is_readonly() {
-        // 危险命令绝不允许混入白名单
+    fn test_cmd_map_has_no_shell_builtins() {
+        // 危险命令 / shell 内置 / 任意文件读命令绝不允许进入映射表
         for banned in [
-            "del", "rm", "format", "shutdown", "reg", "rmdir", "remove", "mv", "dd",
+            "del", "rm", "format", "shutdown", "reg", "rmdir", "remove", "mv", "dd", "dir", "type",
+            "echo", "ver", "cat", "ps",
         ] {
             assert!(
-                !EXECUTE_ALLOWLIST.contains(&banned),
-                "白名单不允许包含危险命令: {}",
+                !CMD_MAP.iter().any(|(name, _)| *name == banned),
+                "映射表不允许包含: {}",
                 banned
             );
         }
+    }
+
+    #[test]
+    fn test_cmd_map_resolves_exe() {
+        for (name, def) in CMD_MAP {
+            assert!(!def.exe.is_empty(), "{name} 的 exe 不能为空");
+            // host_arg 命令必须有 base args（固定前缀）
+            if def.host_arg {
+                assert!(
+                    !def.base_args.is_empty(),
+                    "{name} 作为 host 命令应有固定前缀参数"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_execute_rejects_removed_shell_builtins() {
+        // D-3：shell 内置 / 任意文件读命令必须被拒绝（不落入可执行路径）
+        for cmd in [
+            "type C:\\Users\\doro\\secrets.txt",
+            "dir C:\\Windows\\System32",
+            "cat /etc/shadow",
+            "echo x",
+            "ver",
+            "ps aux",
+        ] {
+            let res = resolve_command(cmd);
+            assert!(res.is_err(), "命令应被拒绝: {cmd}");
+        }
+    }
+
+    #[test]
+    fn test_execute_rejects_unknown_commands() {
+        assert!(resolve_command("format C: /y").is_err());
+        assert!(resolve_command("shutdown /s").is_err());
+        assert!(resolve_command("whoami | sudo").is_err());
+    }
+
+    #[test]
+    fn test_execute_rejects_metachars() {
+        assert!(
+            resolve_command("tasklist & del evil.txt").is_err(),
+            "链式命令必须被拒绝"
+        );
+        assert!(
+            resolve_command("netstat > c:\\pwn.txt").is_err(),
+            "重定向必须被拒绝"
+        );
+        assert!(
+            resolve_command("ipconfig $(whoami)").is_err(),
+            "变量替换必须被拒绝"
+        );
+    }
+
+    #[test]
+    fn test_execute_ping_host_validation() {
+        // 缺主机名 / 非法字符 / 多参数 → 拒绝；合法主机名 → 解析通过
+        assert!(resolve_command("ping").is_err());
+        assert!(resolve_command("ping ha;ck.com").is_err());
+        assert!(resolve_command("ping 127.0.0.1 8.8.8.8").is_err());
+        let ok = resolve_command("ping example.com").unwrap();
+        assert_eq!(ok.rest, vec!["example.com"]);
+    }
+
+    #[test]
+    fn test_execute_allowlisted_cmd_resolves() {
+        let ok = resolve_command("tasklist").unwrap();
+        assert!(!ok.exe.is_empty());
+        assert_eq!(ok.exe, "tasklist.exe");
+        let ok = resolve_command("netstat -ano").unwrap();
+        assert_eq!(ok.rest, vec!["-ano"]);
     }
 }

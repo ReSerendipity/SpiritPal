@@ -82,32 +82,28 @@ pub fn build_log_plugin() -> impl tauri::plugin::Plugin<tauri::Wry> {
 pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
-    use tauri::{Emitter, Manager};
     use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+    use tauri::{Emitter, Manager};
 
     {
         use tauri::{WebviewUrl, WebviewWindowBuilder};
-        WebviewWindowBuilder::new(
-            app,
-            "pet-window",
-            WebviewUrl::App("index.html#/pet".into()),
-        )
-        .title("SpiritPal")
-        // 默认 224×304 = 1.0× 宠物的基准适配尺寸（精灵 192×208 + 32 边距 + 64 气泡空间），
-        // 减少首帧与前端按持久化 petSize 校正后的落差闪烁；前端挂载后会立即按实际 petSize 校正
-        .inner_size(224.0, 304.0)
-        // 最小尺寸对齐前端 WIN_MIN_W/H(160×200)：宠物可缩小到 0.5×，
-        // 窗口需要能跟随宠物缩小（否则小宠物配大窗口，边框预览显示巨大空白）
-        .min_inner_size(160.0, 200.0)
-        .max_inner_size(720.0, 900.0)
-        .resizable(true)
-        .fullscreen(false)
-        .decorations(false)
-        .transparent(true)
-        .shadow(false)
-        .always_on_top(true)
-        .skip_taskbar(true)
-        .build()?;
+        WebviewWindowBuilder::new(app, "pet-window", WebviewUrl::App("index.html#/pet".into()))
+            .title("SpiritPal")
+            // 默认 224×304 = 1.0× 宠物的基准适配尺寸（精灵 192×208 + 32 边距 + 64 气泡空间），
+            // 减少首帧与前端按持久化 petSize 校正后的落差闪烁；前端挂载后会立即按实际 petSize 校正
+            .inner_size(224.0, 304.0)
+            // 最小尺寸对齐前端 WIN_MIN_W/H(160×200)：宠物可缩小到 0.5×，
+            // 窗口需要能跟随宠物缩小（否则小宠物配大窗口，边框预览显示巨大空白）
+            .min_inner_size(160.0, 200.0)
+            .max_inner_size(720.0, 900.0)
+            .resizable(true)
+            .fullscreen(false)
+            .decorations(false)
+            .transparent(true)
+            .shadow(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .build()?;
     }
 
     let menu = crate::tray::build_tray_menu(app)?;
@@ -184,10 +180,7 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
                     {
                         Ok(w) => w,
                         Err(e) => {
-                            log::error!(
-                                "[SpiritPal] Failed to create chat window: {}",
-                                e
-                            );
+                            log::error!("[SpiritPal] Failed to create chat window: {}", e);
                             return;
                         }
                     }
@@ -204,10 +197,7 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
                         Ok(Some(w)) => w,
                         Ok(None) => return,
                         Err(e) => {
-                            log::error!(
-                                "[SpiritPal] Failed to create settings window: {}",
-                                e
-                            );
+                            log::error!("[SpiritPal] Failed to create settings window: {}", e);
                             return;
                         }
                     }

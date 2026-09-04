@@ -23,7 +23,6 @@ log = "0.4"
 tauri-plugin-log = "2"
 tauri-plugin-store = "2"
 tauri-plugin-autostart = "2"
-tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-updater = "2"
@@ -64,6 +63,8 @@ spiritpal-mcp = { path = "mcp-server" }
 chrono = "0.4"
 # P0: Rust 侧 HTTP 网络出口（http_proxy.rs）——绕过生产 CSP 对境内/本地服务商的阻断
 reqwest = "0.12"
+# D-1: Rust 语义 SQL 命令层（sqlite.rs）——bundled SQLite，typed 访问 + 内存单测
+rusqlite = { version = "0.32", features = ["bundled"] }
 
 # macOS 平台专用依赖：仅在 macOS 编译时引入。
 # 提供 NSPanel 支持：将宠物窗口转为 NSPanel，实现不抢焦点、跨 Space、全屏可见浮层。

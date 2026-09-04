@@ -219,14 +219,41 @@ pub fn check_debugger() -> bool {
 /// 检查全局调试器检测标记是否被设置
 ///
 /// 可在其他模块中调用此函数，如果返回 true 则进入"安全模式"
-/// （加密功能返回 Err 但不崩）。
-#[allow(dead_code)]
+/// （加密/解密/读密钥等敏感命令返回 Err 但不崩）。
+/// 消费点（D-6 接线）：get_secret / decrypt_data(_chunked) / decrypt_db_at_rest /
+/// get_memory_sidecar_token / read_text_file / execute_command。
 pub fn is_debugger_detected() -> bool {
     DEBUGGER_DETECTED.load(Ordering::Relaxed)
 }
 
+/// 触发一次检测，并在命中时写审计 + 通知前端（供启动/周期调用）
+///
+/// # Returns
+/// - `true` — 检测到调试器（已进入安全模式）
+/// - `false` — 未检测到
+pub fn check_and_notify(app: &tauri::AppHandle) -> bool {
+    let detected = check_debugger();
+    if detected {
+        let _ = crate::audit_log::record_audit(
+            app,
+            "antidebug",
+            "system",
+            "检测到调试器，已进入安全模式",
+        );
+        use tauri::Emitter;
+        let _ = app.emit(
+            "spiritpal:security-mode",
+            serde_json::json!({ "detected": true }),
+        );
+    }
+    detected
+}
+
 /// 启动时反调试检查
-/// 在 Tauri setup hook 中调用
-pub fn startup_check() {
-    let _ = check_debugger();
+/// 在 Tauri setup hook 中调用；传入 `Some(app)` 时命中会写审计并通知前端。
+pub fn startup_check(app: Option<&tauri::AppHandle>) -> bool {
+    match app {
+        Some(app) => check_and_notify(app),
+        None => check_debugger(),
+    }
 }

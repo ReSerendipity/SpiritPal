@@ -77,9 +77,7 @@ impl SecretStore for SystemKeychainStore {
 static STORE: std::sync::OnceLock<Arc<dyn SecretStore>> = std::sync::OnceLock::new();
 
 fn store() -> Arc<dyn SecretStore> {
-    STORE
-        .get_or_init(|| Arc::new(SystemKeychainStore))
-        .clone()
+    STORE.get_or_init(|| Arc::new(SystemKeychainStore)).clone()
 }
 
 // ============ 业务逻辑（可脱离 tauri 运行时单测） ============
@@ -116,7 +114,9 @@ fn delete_secret_inner(store: &dyn SecretStore, key: &str) -> Result<(), String>
 /// - `Err(String)` — Keychain 访问失败或任务执行失败
 #[cfg(desktop)]
 #[tauri::command]
-pub async fn set_secret(key: String, value: String) -> Result<(), String> {
+pub async fn set_secret(window: tauri::Window, key: String, value: String) -> Result<(), String> {
+    // D-2: Keychain 写入仅允许应用窗口
+    crate::window_gate::require_window(&window, crate::window_gate::APP_WINDOWS)?;
     let store = store();
     tauri::async_runtime::spawn_blocking(move || set_secret_inner(&*store, &key, &value))
         .await
@@ -135,7 +135,13 @@ pub async fn set_secret(key: String, value: String) -> Result<(), String> {
 /// - `Err(String)` — Keychain 访问失败（非 NoEntry 错误）或任务执行失败
 #[cfg(desktop)]
 #[tauri::command]
-pub async fn get_secret(key: String) -> Result<Option<String>, String> {
+pub async fn get_secret(window: tauri::Window, key: String) -> Result<Option<String>, String> {
+    // D-2: Keychain 读取仅允许应用窗口
+    crate::window_gate::require_window(&window, crate::window_gate::APP_WINDOWS)?;
+    // D-6: 安全模式（检测到调试器）下拒绝读取密钥（防凭据外带）
+    if crate::antidebug::is_debugger_detected() {
+        return Err("安全模式（检测到调试器），拒绝读取密钥".to_string());
+    }
     let store = store();
     tauri::async_runtime::spawn_blocking(move || get_secret_inner(&*store, &key))
         .await
@@ -154,7 +160,9 @@ pub async fn get_secret(key: String) -> Result<Option<String>, String> {
 /// - `Err(String)` — Keychain 访问失败（非 NoEntry 错误）或任务执行失败
 #[cfg(desktop)]
 #[tauri::command]
-pub async fn delete_secret(key: String) -> Result<(), String> {
+pub async fn delete_secret(window: tauri::Window, key: String) -> Result<(), String> {
+    // D-2: Keychain 删除仅允许应用窗口
+    crate::window_gate::require_window(&window, crate::window_gate::APP_WINDOWS)?;
     let store = store();
     tauri::async_runtime::spawn_blocking(move || delete_secret_inner(&*store, &key))
         .await
@@ -224,7 +232,10 @@ mod tests {
         let store = memory_store();
         assert!(set_secret_inner(&*store, "k", "v1").is_ok());
         assert!(set_secret_inner(&*store, "k", "v2").is_ok());
-        assert_eq!(get_secret_inner(&*store, "k").unwrap(), Some("v2".to_string()));
+        assert_eq!(
+            get_secret_inner(&*store, "k").unwrap(),
+            Some("v2".to_string())
+        );
     }
 
     #[test]
@@ -232,7 +243,13 @@ mod tests {
         let store = memory_store();
         assert!(set_secret_inner(&*store, "a", "1").is_ok());
         assert!(set_secret_inner(&*store, "b", "2").is_ok());
-        assert_eq!(get_secret_inner(&*store, "a").unwrap(), Some("1".to_string()));
-        assert_eq!(get_secret_inner(&*store, "b").unwrap(), Some("2".to_string()));
+        assert_eq!(
+            get_secret_inner(&*store, "a").unwrap(),
+            Some("1".to_string())
+        );
+        assert_eq!(
+            get_secret_inner(&*store, "b").unwrap(),
+            Some("2".to_string())
+        );
     }
 }
