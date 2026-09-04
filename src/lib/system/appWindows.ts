@@ -2,9 +2,15 @@
  * 应用窗口管理（共享窗口配置与创建逻辑）
  *
  * 供 usePetWindows（窗口管理 Hook）与 petForm（形态切换）复用。
+ *
+ * 窗口配置单一事实来源：Rust 侧 `window_config()`（src-tauri/src/lib.rs），
+ * 前端通过 `get_window_config` 命令查询，不再自带 WINDOW_CONFIGS——
+ * 消除「前端与 Rust 两处各自维护窗口参数」的双源漂移
+ * （曾导致前端创建的窗口无法最大化/边缘缩放的历史 bug）。
  */
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { getAllWindows, type Window } from '@tauri-apps/api/window'
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { invoke } from '@tauri-apps/api/core'
 
 export interface WindowConfig {
   title: string
@@ -22,31 +28,13 @@ export interface WindowConfig {
   minHeight?: number
 }
 
-export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
-  'settings-window': {
-    title: 'SpiritPal Settings',
-    width: 720,
-    height: 540,
-    url: 'index.html#/settings',
-    decorations: false,
-    backgroundColor: '#fdf6ec',
-    // 与 Rust 托盘路径创建的 settings-window 保持一致（resizable + 最小尺寸），
-    // 否则前端创建出来的窗口无法最大化/边缘缩放
-    resizable: true,
-    minWidth: 580,
-    minHeight: 400,
-  },
-  'chat-window': {
-    title: 'SpiritPal Chat',
-    width: 420,
-    height: 600,
-    url: 'index.html#/chat',
-    decorations: false,
-    backgroundColor: '#fdf6ec',
-    resizable: true,
-    minWidth: 320,
-    minHeight: 400,
-  },
+/** 从 Rust 权威表查询窗口配置（不存在时返回 null） */
+export async function getWindowConfig(label: string): Promise<WindowConfig | null> {
+  try {
+    return await invoke<WindowConfig | null>('get_window_config', { label })
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -58,7 +46,7 @@ export async function ensureAppWindow(label: string): Promise<Window | null> {
     const existing = wins.find((w) => w.label === label)
     if (existing) return existing
 
-    const config = WINDOW_CONFIGS[label]
+    const config = await getWindowConfig(label)
     if (!config) return null
 
     return new WebviewWindow(label, {
