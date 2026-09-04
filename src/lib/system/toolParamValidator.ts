@@ -35,6 +35,26 @@ const MAX_MESSAGE_LENGTH = 500
 /** 时间描述最大长度 */
 const MAX_TIME_LENGTH = 100
 
+/** 文件路径最大长度 */
+const MAX_PATH_LENGTH = 500
+
+/** 文件内容最大长度（约 100KB，防止超大写入 / DoS） */
+const MAX_CONTENT_LENGTH = 100_000
+
+/** 搜索文件通配模式最大长度 */
+const MAX_PATTERN_LENGTH = 100
+
+/** 命令最大长度 */
+const MAX_COMMAND_LENGTH = 1000
+
+/** 全局禁止的通配路径片段（敏感目录，配合 Rust 侧路径白名单双端兜底） */
+const FORBIDDEN_PATH_SEGMENTS = [
+  /[/\\]\.ssh[/\\]/i,
+  /[/\\]\.gnupg[/\\]/i,
+  /[/\\]\.aws[/\\]/i,
+  /[/\\]\.config[/\\]/i,
+]
+
 /** 允许的应用名字符模式（字母、数字、空格、点、下划线、连字符） */
 const SAFE_APP_NAME_PATTERN = /^[a-zA-Z0-9\u4e00-\u9fff\s._-]+$/
 
@@ -104,6 +124,71 @@ export const getWeatherSchema = z.object({}).optional()
 /** get_pet_status 工具参数 schema（无参数） */
 export const getPetStatusSchema = z.object({}).optional()
 
+// ============ 高权限工具 Schema（P0-1 补全）============
+
+/** 通用路径校验器：禁止敏感目录 + 控制字符，限制长度 */
+const pathField = z
+  .string()
+  .max(MAX_PATH_LENGTH, `路径不能超过 ${MAX_PATH_LENGTH} 字符`)
+  .refine((val) => !DANGEROUS_CHARS.test(val), '路径包含危险字符')
+  .refine(
+    (val) => !FORBIDDEN_PATH_SEGMENTS.some((re) => re.test(val)),
+    '路径指向敏感目录，已被拦截',
+  )
+
+/** read_file 工具参数 schema */
+export const readFileSchema = z.object({
+  path: pathField.refine((val) => val.trim().length > 0, '路径不能为空'),
+})
+
+/** list_directory 工具参数 schema（path 可选，默认当前目录） */
+export const listDirectorySchema = z.object({
+  path: pathField.optional(),
+})
+
+/** search_files 工具参数 schema（pattern 必填 + 通配模式长度限制） */
+export const searchFilesSchema = z.object({
+  pattern: z
+    .string()
+    .min(1, '搜索模式不能为空')
+    .max(MAX_PATTERN_LENGTH, `搜索模式不能超过 ${MAX_PATTERN_LENGTH} 字符`)
+    .refine((val) => !DANGEROUS_CHARS.test(val), '搜索模式包含危险字符'),
+  path: pathField.optional(),
+})
+
+/** write_file 工具参数 schema：路径 + 内容双校验（内容长度上限 + 控制字符过滤） */
+export const writeFileSchema = z.object({
+  path: pathField.refine((val) => val.trim().length > 0, '路径不能为空'),
+  content: z
+    .string()
+    .max(MAX_CONTENT_LENGTH, `内容不能超过 ${MAX_CONTENT_LENGTH} 字符`)
+    .refine((val) => !val.includes('\x00'), '内容包含空字节，已被拦截'),
+})
+
+/** execute_command 镜像 Rust 只读白名单的前端校验：首个 token 白名单 + 元字符黑名单 + 危险命令前缀 */
+// 与 src-tauri/src/system_tools.rs CMD_MAP 保持一致（Rust 为权威白名单，无 shell 直调）：
+// - Windows：tasklist / ipconfig / whoami / hostname / systeminfo / netstat / ping
+// - Unix：ls / pwd / date / df / free / uname（ps 已从 Rust 白名单移除）
+const EXECUTE_ALLOWED_PREFIXES = [
+  'tasklist', 'ipconfig', 'whoami', 'hostname', 'systeminfo', 'netstat', 'ping',
+  'ls', 'pwd', 'date', 'df', 'free', 'uname',
+]
+const EXECUTE_FORBIDDEN_CHARS = /[&|><^;`$()[\]{}%!\r\n]/
+const EXECUTE_DANGEROUS_PREFIX = /^(rm\s+-rf|del\s+\/[sfq]|format\s+[a-z]:|shutdown|reboot)/i
+
+export const executeCommandSchema = z.object({
+  command: z
+    .string()
+    .min(1, '命令不能为空')
+    .max(MAX_COMMAND_LENGTH, `命令不能超过 ${MAX_COMMAND_LENGTH} 字符`)
+    .refine((val) => !EXECUTE_FORBIDDEN_CHARS.test(val), '命令包含非法 shell 元字符')
+    .refine((val) => !EXECUTE_DANGEROUS_PREFIX.test(val.trim()), '命令为危险命令，已被拦截')
+    .refine((val) => {
+      const first = val.trim().split(/\s+/)[0]?.replace(/^"|"$/g, '').toLowerCase() ?? ''
+      return EXECUTE_ALLOWED_PREFIXES.includes(first)
+    }, '命令不在只读白名单内，已被拦截'),
+})
+
 // ============ Schema 注册表 ============
 
 /** 工具名 → Zod schema 映射 */
@@ -115,6 +200,12 @@ const TOOL_SCHEMAS: Record<string, z.ZodType> = {
   adjust_pet_state: adjustPetStateSchema,
   get_weather: getWeatherSchema,
   get_pet_status: getPetStatusSchema,
+  // 高权限工具（P0-1）：read_file / list_directory / search_files / write_file / execute_command
+  read_file: readFileSchema,
+  list_directory: listDirectorySchema,
+  search_files: searchFilesSchema,
+  write_file: writeFileSchema,
+  execute_command: executeCommandSchema,
 }
 
 // ============ 校验 API ============

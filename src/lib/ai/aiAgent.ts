@@ -40,6 +40,11 @@ import {
   toolAdjustPetState,
   toolGetWeather,
   toolGetPetStatus,
+  toolReadFile,
+  toolWriteFile,
+  toolListDirectory,
+  toolSearchFiles,
+  toolExecuteCommand,
   extractAppName,
   extractSearchQuery,
   extractPetAction,
@@ -48,11 +53,16 @@ import {
   // 导致 agentTools 已实现的 search_files / execute_command 在 isToolAllowed 下不可用。
   getToolsForMode,
   isToolAvailableInMode,
+  isToolConfirmationRequired,
   ToolMode as AgentToolMode,
 } from './agentTools'
 import { loadAIConfig } from './aiConfig'
 import { getLLMClient } from './llmClient'
 import { getPrompt } from './promptRegistry'
+// P0-1：接入 zod 输出参数校验（LLM 输出 → 工具参数的第一道防线）
+import { validateToolParams } from '@/lib/system/toolParamValidator'
+// P0-1：接入工具级确认闸门（fail-closed，豁免名单外必须确认）
+import { requestToolConfirmation } from './agentSandbox'
 
 // ============ 工具定义类型 ============
 
@@ -157,6 +167,51 @@ export const AGENT_TOOLS: ToolDefinition[] = [
     description: '获取宠物当前状态（等级/饱食度/心情/健康/亲密度）',
     parameters: {},
     execute: toolGetPetStatus,
+  },
+  // ============ 高权限工具（P0-1 注册）========================
+  // 以下工具仅出现在 Developer / Worker 模式的 TOOL_MODE_PERMISSIONS 中，
+  // 低权限模式不会被注入 LLM 工具描述。执行前经 zod 参数校验 + 确认闸门。
+  {
+    name: 'read_file',
+    description: '读取指定文本文件的内容（只读，限安全路径；高风险需人工二次确认）',
+    parameters: {
+      path: { type: 'string', description: '文件绝对路径', required: true },
+    },
+    execute: toolReadFile,
+  },
+  {
+    name: 'list_directory',
+    description: '列出指定目录下的条目（只读）',
+    parameters: {
+      path: { type: 'string', description: '目录绝对路径（缺省为当前目录）' },
+    },
+    execute: toolListDirectory,
+  },
+  {
+    name: 'search_files',
+    description: '按通配模式在指定目录内搜索匹配的文件名（只读，深度/结果数受限）',
+    parameters: {
+      pattern: { type: 'string', description: '通配模式，如 *.ts、*.txt', required: true },
+      path: { type: 'string', description: '搜索根目录（缺省为当前目录）' },
+    },
+    execute: toolSearchFiles,
+  },
+  {
+    name: 'write_file',
+    description: '向指定文件写入文本内容（覆盖写入，高风险操作，必须用户确认，禁止写入系统目录）',
+    parameters: {
+      path: { type: 'string', description: '目标文件绝对路径', required: true },
+      content: { type: 'string', description: '写入的文本内容', required: true },
+    },
+    execute: toolWriteFile,
+  },
+  {
+    name: 'execute_command',
+    description: '执行受限只读命令（白名单：tasklist/ipconfig/dir/type/whoami/netstat 等，禁止链式/重定向/任意 shell；高风险操作，必须用户确认）',
+    parameters: {
+      command: { type: 'string', description: '单条只读命令', required: true },
+    },
+    execute: toolExecuteCommand,
   },
 ]
 
@@ -314,18 +369,33 @@ export async function processAgentRequest(
     return '🔧 未识别到需要执行的操作'
   }
 
-  // 3. 执行工具
+  // 3. 执行工具（P0-1：接入 zod 参数校验 + 确认闸门）
   const toolDef = AGENT_TOOLS.find((t) => t.name === plan!.tool)
   if (!toolDef) {
     return `🔧 未知工具：${plan.tool}`
   }
 
   try {
+    // 3.1 zod 参数校验（防 Prompt Injection / 危险参数，覆盖全部已注册工具）
+    const validation = validateToolParams(plan.tool, plan.params)
+    if (!validation.valid) {
+      return `🔧 工具「${plan.tool}」参数校验失败：${validation.errors.join('；')}`
+    }
+    const sanitizedParams = validation.sanitizedParams ?? plan.params
+
+    // 3.2 确认闸门（默认拒绝 + 豁免名单之外必须用户确认，fail-closed）
+    if (isToolConfirmationRequired(plan.tool)) {
+      const confirmation = await requestToolConfirmation(plan.tool, sanitizedParams, 'worker')
+      if (!confirmation.approved) {
+        return `🔧 已拒绝执行「${plan.tool}」：${confirmation.reason ?? '用户未确认'}`
+      }
+    }
+
     // set_reminder 需要额外的 userMessage 和 characterId
     if (plan.tool === TOOL_SET_REMINDER) {
-      return await toolSetReminder(plan.params, userMessage, characterId)
+      return await toolSetReminder(sanitizedParams, userMessage, characterId)
     }
-    return await toolDef.execute(plan.params)
+    return await toolDef.execute(sanitizedParams)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     return `🔧 执行「${plan.tool}」时出错：${msg}`
@@ -606,7 +676,7 @@ export async function processReActRequest(
           continue
         }
 
-        // 执行工具
+        // 执行工具（P0-1：接入 zod 参数校验 + 确认闸门）
         const toolDef = availableTools.find(t => t.name === tool)
         let observation: string
 
@@ -614,10 +684,28 @@ export async function processReActRequest(
           observation = `错误：未知工具 "${tool}"`
         } else {
           try {
-            if (tool === TOOL_SET_REMINDER) {
-              observation = await toolSetReminder(params, userMessage, characterId)
+            // 1. zod 参数校验（防 Prompt Injection / 危险参数）
+            const validation = validateToolParams(tool, params)
+            if (!validation.valid) {
+              observation = `错误：工具「${tool}」参数校验失败：${validation.errors.join('；')}`
             } else {
-              observation = await toolDef.execute(params)
+              const sanitizedParams = validation.sanitizedParams ?? params
+
+              // 2. 确认闸门（豁免名单之外必须用户确认，fail-closed）
+              if (isToolConfirmationRequired(tool)) {
+                const confirmation = await requestToolConfirmation(tool, sanitizedParams, toolMode)
+                if (!confirmation.approved) {
+                  observation = `已拒绝执行「${tool}」：${confirmation.reason ?? '用户未确认'}`
+                } else if (tool === TOOL_SET_REMINDER) {
+                  observation = await toolSetReminder(sanitizedParams, userMessage, characterId)
+                } else {
+                  observation = await toolDef.execute(sanitizedParams)
+                }
+              } else if (tool === TOOL_SET_REMINDER) {
+                observation = await toolSetReminder(sanitizedParams, userMessage, characterId)
+              } else {
+                observation = await toolDef.execute(sanitizedParams)
+              }
             }
           } catch (err) {
             observation = `执行错误：${err instanceof Error ? err.message : String(err)}`
