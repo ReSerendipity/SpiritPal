@@ -236,6 +236,154 @@ pub async fn decrypt_db_at_rest(app: AppHandle) -> Result<bool, String> {
     Ok(true)
 }
 
+// ============ 自动备份（P1：无云端备份下的本地 durability）============
+// 备份对象为「加密后的 spiritpal.db.enc」，位于 app data 目录 backups/ 下，
+// 与主库同密钥（同机可恢复；跨机恢复需使用 .spiritpal 导出包）。
+// 保留最近 BACKUP_KEEP_COUNT 份，按修改时间轮转。
+
+/// 备份保留份数
+const BACKUP_KEEP_COUNT: usize = 3;
+
+/// 备份目录名
+const BACKUP_DIR_NAME: &str = "backups";
+
+/// 备份文件信息（供前端 UI 列示）
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DBBackupInfo {
+    pub name: String,
+    pub size_bytes: u64,
+    pub modified_at: u64,
+}
+
+/// 获取备份目录路径
+fn get_backup_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("获取数据目录失败: {e}"))?;
+    Ok(data_dir.join(BACKUP_DIR_NAME))
+}
+
+/// 备份文件名（时间戳到秒，唯一）
+fn backup_filename() -> String {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    format!("spiritpal-backup-{now}.db.enc")
+}
+
+/// 列出全部备份（按修改时间倒序）
+fn list_backup_files(app: &AppHandle) -> Result<Vec<DBBackupInfo>, String> {
+    let dir = get_backup_dir(app)?;
+    if !dir.exists() {
+        return Ok(vec![]);
+    }
+    let mut items: Vec<DBBackupInfo> = vec![];
+    for entry in std::fs::read_dir(&dir).map_err(|e| format!("读取备份目录失败: {e}"))? {
+        let entry = entry.map_err(|e| format!("遍历备份目录失败: {e}"))?;
+        let meta = entry.metadata().map_err(|e| format!("读取备份元数据失败: {e}"))?;
+        if meta.is_file() {
+            let modified_at = meta
+                .modified()
+                .map(|t| {
+                    t.duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis() as u64
+                })
+                .unwrap_or(0);
+            items.push(DBBackupInfo {
+                name: entry.file_name().to_string_lossy().to_string(),
+                size_bytes: meta.len(),
+                modified_at,
+            });
+        }
+    }
+    items.sort_by(|a, b| b.modified_at.cmp(&a.modified_at));
+    Ok(items)
+}
+
+/// 轮转：只保留最新的 BACKUP_KEEP_COUNT 份
+fn rotate_backups(app: &AppHandle) -> Result<(), String> {
+    let dir = get_backup_dir(app)?;
+    let items = list_backup_files(app)?;
+    if items.len() <= BACKUP_KEEP_COUNT {
+        return Ok(());
+    }
+    for old in &items[BACKUP_KEEP_COUNT..] {
+        let _ = std::fs::remove_file(dir.join(&old.name));
+    }
+    Ok(())
+}
+
+/// 自动备份：把加密库文件复制到 backups/ 并轮转（应用关闭加密完成后调用）
+#[tauri::command]
+pub async fn backup_db_at_rest(app: AppHandle) -> Result<Option<String>, String> {
+    let enc_path = get_encrypted_db_path(&app)?;
+    if !enc_path.exists() {
+        // 无加密库（首次运行/未加密）则静默跳过
+        return Ok(None);
+    }
+    let backup_dir = get_backup_dir(&app)?;
+    std::fs::create_dir_all(&backup_dir)
+        .map_err(|e| format!("创建备份目录失败: {e}"))?;
+
+    let name = backup_filename();
+    let target = backup_dir.join(&name);
+    std::fs::copy(&enc_path, &target)
+        .map_err(|e| format!("复制备份失败: {e}"))?;
+
+    rotate_backups(&app)?;
+    log::info!("[encrypted_db] Auto backup created: {}", target.display());
+    Ok(Some(name))
+}
+
+/// 列出全部可用备份（前端 UI 展示:名称/大小/时间）
+#[tauri::command]
+pub async fn list_db_backups(app: AppHandle) -> Result<Vec<DBBackupInfo>, String> {
+    list_backup_files(&app)
+}
+
+/// 从指定备份恢复：备份文件（合法备份即 spiritpal.db.enc 的副本）覆盖加密库
+/// 恢复后需重启应用（下次启动 decrypt_db_at_rest 会解出明文库）。
+#[tauri::command]
+pub async fn restore_db_backup(app: AppHandle, name: String) -> Result<(), String> {
+    // 防路径穿越：只允许 backups 目录内的文件名
+    if name.contains('/') || name.contains('\\') || name.contains("..") {
+        return Err("备份文件名非法".into());
+    }
+    let backup_dir = get_backup_dir(&app)?;
+    let src = backup_dir.join(&name);
+    // 备份文件即使存在也需确认（不读了再写，避免损坏源）
+    if !src.exists() {
+        return Err(format!("备份不存在: {name}"));
+    }
+
+    // 恢复前先移除当前加密库（若存在），再复制（避免旧库残留被新库覆盖时同文件 io 冲突）
+    let enc_path = get_encrypted_db_path(&app)?;
+    if enc_path.exists() {
+        std::fs::remove_file(&enc_path).map_err(|e| format!("移除当前加密库失败: {e}"))?;
+    }
+    std::fs::copy(&src, &enc_path).map_err(|e| format!("恢复备份失败: {e}"))?;
+    log::warn!("[encrypted_db] Database restored from backup: {name}");
+    Ok(())
+}
+
+/// 删除指定备份
+#[tauri::command]
+pub async fn delete_db_backup(app: AppHandle, name: String) -> Result<(), String> {
+    if name.contains('/') || name.contains('\\') || name.contains("..") {
+        return Err("备份文件名非法".into());
+    }
+    let dir = get_backup_dir(&app)?;
+    let target = dir.join(&name);
+    if target.exists() {
+        std::fs::remove_file(&target).map_err(|e| format!("删除备份失败: {e}"))?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use base64::Engine;

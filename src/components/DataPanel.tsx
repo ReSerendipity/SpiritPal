@@ -25,8 +25,24 @@ import { useState, useRef, useEffect } from 'react'
 import { Download, Upload, AlertCircle, Check, Database, RotateCcw, Cloud, CloudOff, Link, Loader2, Trash2 } from 'lucide-react'
 import { getDataManager } from '@/lib/data/dataManager'
 import { cleanupZombieData, getZombieDataReport, type ZombieDataReport } from '@/lib/data/zombieDataCleanup'
+// P1: 数据健康检查 — 接入启动链路（runMigrations + runDirtyDataChecks）的结果展示
+import {
+  getDataHealthSnapshot,
+  subscribeDataHealth,
+  runGovernanceChecks,
+  resolveDirtyIssue,
+  migrationFailureText,
+  type DataHealthSnapshot,
+} from '@/lib/data/dataHealth'
 import { syncManager, type SyncStatus } from '@/lib/system/syncManager'
 import { getWebDAVClient, type WebDAVTestResult } from '@/lib/system/webdavClient'
+// P1: 本地自动备份 — 退出自动备份加密库（保留 3 份）+ 列出/恢复/删除
+import {
+  listDbBackups,
+  restoreDbBackup,
+  deleteDbBackup,
+  type DBBackupInfoTs,
+} from '@/lib/data/dbBackup'
 // B-3: 数据治理 —— 迁移遗留（.legacy）数据清理
 
 /**
@@ -57,6 +73,11 @@ export function DataPanel() {
   // B-3: 数据治理 —— 迁移遗留数据报告与清理状态
   const [zombieReport, setZombieReport] = useState<ZombieDataReport | null>(null)
   const [cleaning, setCleaning] = useState(false)
+  // P1: 数据健康快照（启动时由 runGovernanceChecks 广播）
+  const [health, setHealth] = useState<DataHealthSnapshot | null>(() => getDataHealthSnapshot())
+  const [healthChecking, setHealthChecking] = useState(false)
+  // P1: 本地自动备份列表
+  const [backups, setBackups] = useState<DBBackupInfoTs[]>([])
 
   // 从 Keychain 加载密码（异步回调中 setState）+ 订阅同步状态
   useEffect(() => {
@@ -72,6 +93,65 @@ export function DataPanel() {
       .then(setZombieReport)
       .catch(() => setZombieReport(null))
   }, [])
+
+  // P1: 订阅数据健康快照；启动时若尚未检查（如直接进入设置页），主动补一次
+  useEffect(() => {
+    const unsub = subscribeDataHealth(setHealth)
+    if (!getDataHealthSnapshot()) {
+      setHealthChecking(true)
+      void runGovernanceChecks()
+        .then(setHealth)
+        .catch(() => setHealth(null))
+        .finally(() => setHealthChecking(false))
+    }
+    return unsub
+  }, [])
+
+  // P1: 手动重新检测数据健康
+  async function handleRecheckHealth() {
+    setHealthChecking(true)
+    try {
+      setHealth(await runGovernanceChecks())
+    } catch (e) {
+      flash('error', `数据健康检测失败: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setHealthChecking(false)
+    }
+  }
+
+  // P1: 加载本地自动备份列表
+  function loadBackups() {
+    void listDbBackups()
+      .then(setBackups)
+      .catch(() => setBackups([]))
+  }
+
+  useEffect(() => {
+    loadBackups()
+  }, [])
+
+  // P1: 恢复指定备份（需重启生效）
+  async function handleRestoreBackup(name: string) {
+    if (!window.confirm(`从备份「${name}」恢复？恢复后当前数据将被覆盖，且需重启应用生效。`)) return
+    try {
+      await restoreDbBackup(name)
+      flash('success', `已从备份恢复，请重启应用生效`)
+    } catch (e) {
+      flash('error', `恢复失败: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  // P1: 删除指定备份
+  async function handleDeleteBackup(name: string) {
+    if (!window.confirm(`删除备份「${name}」？该操作不可恢复。`)) return
+    try {
+      await deleteDbBackup(name)
+      loadBackups()
+      flash('success', '备份已删除')
+    } catch (e) {
+      flash('error', `删除失败: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
 
   function flash(type: 'success' | 'error', text: string) {
     setMessage({ type, text })
@@ -253,6 +333,69 @@ export function DataPanel() {
         </div>
       )}
 
+      {/* 数据健康检查（P1：迁移失败 / 脏数据告警） */}
+      <div className={`rounded-xl p-4 ${health && (health.dirtyTotal > 0 || health.migrationFailed > 0) ? 'bg-yellow-900/20' : 'bg-surface/60'}`}>
+        <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Database size={16} className="text-ink-muted" />
+            <h3 className="text-sm font-semibold">数据健康检查</h3>
+            {healthChecking && <Loader2 size={13} className="animate-spin text-ink-muted" />}
+          </div>
+          <button
+            onClick={handleRecheckHealth}
+            disabled={healthChecking}
+            className="flex items-center gap-1 rounded-lg border border-ink/20 px-2.5 py-1 text-[11px] text-ink-muted hover:bg-ink/5 disabled:opacity-50"
+          >
+            <RotateCcw size={11} /> 重新检测
+          </button>
+        </div>
+
+        {health && health.migrationFailed === 0 && health.dirtyTotal === 0 && (
+          <p className="text-[11px] text-green-300">
+            数据库结构健康（Schema v{health.schemaVersion}），未发现脏数据。
+          </p>
+        )}
+
+        {health && health.migrationFailed > 0 && (
+          <div className="mb-2 rounded-lg bg-red-900/25 px-3 py-2 text-[11px] text-red-300">
+            <div className="mb-1 flex items-center gap-1.5 font-semibold">
+              <AlertCircle size={12} /> {migrationFailureText(health.migrationFailed, health.schemaVersion)}
+            </div>
+            <div className="text-red-300/80">详情见数据库 schema_migration_log 表。</div>
+          </div>
+        )}
+
+        {health && health.dirtyTotal > 0 && (
+          <div className="rounded-lg bg-yellow-900/20 px-3 py-2">
+            <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-yellow-300">
+              <AlertCircle size={12} />
+              发现 {health.dirtyTotal} 条未解决脏数据（最高严重度：{health.highestSeverity ?? '无'}）
+            </div>
+            {health.topIssues.map((issue, idx) => (
+              <div key={`${issue.table}-${idx}`} className="flex items-start justify-between gap-2 py-0.5 text-[11px] text-yellow-200/80">
+                <span className="min-w-0 flex-1 truncate">
+                  <span className="font-mono text-yellow-500/90">[{issue.severity}]</span> {issue.description}
+                </span>
+                {issue.id != null && (
+                  <button
+                    onClick={() => {
+                      void resolveDirtyIssue(issue.id as number)
+                    }}
+                    className="shrink-0 rounded bg-yellow-900/40 px-1.5 py-0.5 text-[10px] hover:bg-yellow-800/40"
+                  >
+                    已解决
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!health && !healthChecking && (
+          <p className="text-[11px] text-ink-muted">启动时数据健康检查尚未运行，点击「重新检测」查看。</p>
+        )}
+      </div>
+
       {/* WebDAV 云同步 */}
       <div className="rounded-xl bg-surface/60 p-4">
         <div className="mb-2 flex items-center justify-between">
@@ -397,6 +540,59 @@ export function DataPanel() {
         >
           <Database size={16} /> 导出加密备份 (.spiritpal)
         </button>
+      </div>
+
+      {/* P1: 本地自动备份（退出自动备份加密库 — 无云端备份下的 durability） */}
+      <div className="rounded-xl bg-surface/60 p-4">
+        <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Database size={16} className="text-indigo-300" />
+            <h3 className="text-sm font-semibold">本地自动备份</h3>
+          </div>
+          <button
+            onClick={loadBackups}
+            className="flex items-center gap-1 rounded-lg border border-ink/20 px-2.5 py-1 text-[11px] text-ink-muted hover:bg-ink/5"
+          >
+            <RotateCcw size={11} /> 刷新
+          </button>
+        </div>
+        <p className="mb-3 text-[11px] text-ink-muted">
+          每次退出应用时自动备份本地加密数据库（保留最近 3 份），用于防误删 / 物理损坏恢复。
+          换机或重装请使用上方「导出加密备份 (.spiritpal)」生成可迁移的完整备份。
+        </p>
+        {backups.length === 0 ? (
+          <p className="text-[11px] text-ink-muted">暂无自动备份（首次正常退出后生成）</p>
+        ) : (
+          <ul className="space-y-1 rounded-lg bg-cream-deep/30 px-3 py-2">
+            {backups.map((b) => {
+              const d = new Date(b.modifiedAt)
+              return (
+                <li key={b.name} className="flex items-center justify-between gap-2 text-[11px]">
+                  <span className="min-w-0 flex-1 truncate text-ink-muted">
+                    {Number.isNaN(d.getTime()) ? b.name : d.toLocaleString()} · {formatBytes(b.sizeBytes)}
+                  </span>
+                  <div className="flex shrink-0 gap-1">
+                    <button
+                      onClick={() => void handleRestoreBackup(b.name)}
+                      className="rounded bg-indigo-900/40 px-1.5 py-0.5 text-[10px] hover:bg-indigo-800/40"
+                    >
+                      恢复
+                    </button>
+                    <button
+                      onClick={() => void handleDeleteBackup(b.name)}
+                      className="rounded bg-red-900/30 px-1.5 py-0.5 text-[10px] hover:bg-red-800/40"
+                    >
+                      删除
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
+            <li className="pt-1 text-[10px] text-ink-faint">
+              共 {backups.length} 份（自动保留最近 3 份）
+            </li>
+          </ul>
+        )}
       </div>
 
       {/* 数据导入 */}

@@ -37,8 +37,9 @@ describe('syncManager', () => {
       const config = syncManager.getConfig()
       // enabled 和 autoSyncInterval 由 beforeEach 设置（false/0）以避免测试中触发自动同步
       expect(config.enabled).toBe(false)
-      expect(config.transport).toBe('cloud')
-      expect(config.cloudEndpoint).toBe('https://api.spiritpal.example.com/sync')
+      // P2: 默认传输为 WebDAV（唯一已实现的真实通道）；云端端点不再默认指向虚构域名
+      expect(config.transport).toBe('webdav')
+      expect(config.cloudEndpoint).toBe('')
       expect(config.lanPort).toBe(8420)
     })
 
