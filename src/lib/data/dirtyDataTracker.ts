@@ -368,6 +368,85 @@ async function checkCharactersNullStats(): Promise<DirtyDataIssue[]> {
 // ============ 核心功能 ============
 
 /**
+ * 检测主键/唯一键冲突（DUPLICATE_ENTRY）：同一个角色的 memory_id 重复出现。
+ * memory_id 由前端生成且业务上应唯一（旧 bug 曾产生孤儿行）；这里把
+ * 老库中可能残留的重复 id 找出来，供 UI/工具清理。
+ */
+async function checkDuplicateMemoryId(): Promise<DirtyDataIssue[]> {
+  const db = await getDb()
+  const issues: DirtyDataIssue[] = []
+
+  const dupes = await db.select<{ character_id: string; memory_id: string; cnt: number }[]>(
+    `SELECT character_id, memory_id, COUNT(*) as cnt FROM memories
+     WHERE memory_id IS NOT NULL
+     GROUP BY character_id, memory_id HAVING COUNT(*) > 1
+     LIMIT 50`
+  )
+
+  for (const row of dupes) {
+    issues.push({
+      table: 'memories',
+      column: 'memory_id',
+      rowId: row.memory_id,
+      dataType: 'DUPLICATE_ENTRY',
+      severity: 'medium',
+      description: `角色 ${row.character_id} 的记忆 memory_id=${row.memory_id} 重复出现 ${row.cnt} 次`,
+      detectedAt: Date.now(),
+      resolved: false,
+    })
+  }
+
+  return issues
+}
+
+/**
+ * 检测数据状态不一致（INCONSISTENT_STATE）：级联删除不彻底导致的残留。
+ * memory_summaries / memory_state / commitments / context_episodes 等表
+ * 引用的角色在 characters 中已不存在 —— 删角色后残留了相关行。
+ */
+async function checkInconsistentRemnants(): Promise<DirtyDataIssue[]> {
+  const db = await getDb()
+  const issues: DirtyDataIssue[] = []
+
+  const targets: Array<{ table: string; key: string }> = [
+    { table: 'memory_summaries', key: 'character_id' },
+    { table: 'memory_state', key: 'character_id' },
+    { table: 'commitments', key: 'character_id' },
+    { table: 'context_episodes', key: 'character_id' },
+    { table: 'owner_facts', key: 'character_id' },
+    { table: 'entity_nodes', key: 'character_id' },
+  ]
+
+  for (const { table, key } of targets) {
+    // 表可能尚未创建（老库）：跳过即可
+    try {
+      const rows = await db.select<{ id: number | string }[]>(
+        `SELECT t.rowid AS id FROM "${table}" t
+         LEFT JOIN characters c ON t.${key} = c.id
+         WHERE t.${key} IS NOT NULL AND c.id IS NULL
+         LIMIT 50`
+      )
+      for (const row of rows) {
+        issues.push({
+          table,
+          column: key,
+          rowId: row.id,
+          dataType: 'INCONSISTENT_STATE',
+          severity: 'medium',
+          description: `表 ${table} 残留引用已删除角色（行 id=${row.id}）`,
+          detectedAt: Date.now(),
+          resolved: false,
+        })
+      }
+    } catch {
+      // 表不存在或结构不同：跳过该表
+    }
+  }
+
+  return issues
+}
+
+/**
  * 运行数据检测，收集所有发现的脏数据问题
  * @returns 检测到的脏数据问题列表
  */
@@ -383,6 +462,9 @@ async function detectDirtyData(config: Partial<CheckConfig> = {}): Promise<Dirty
     checkMemoriesInvalidImportance,
     checkMemoriesInvalidType,
     checkCharactersNullStats,
+    // P1-2: 补齐六类中的最后两类（此前仅声明未实现）
+    checkDuplicateMemoryId,
+    checkInconsistentRemnants,
   ]
 
   for (const checker of checkers) {
