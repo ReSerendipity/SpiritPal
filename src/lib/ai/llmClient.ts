@@ -35,7 +35,7 @@ import { extractJSONString } from '@/lib/data/jsonUtils'
 import type { AIConfig, ChatMessage, CharacterProfile } from '@/lib/data/types'
 import { runtimeMonitor } from '@/lib/system/runtimeMonitor'
 import { safeFetch } from '@/lib/system/ssrfProtection'
-import { OLLAMA_TAGS_URL } from './llmProviders'
+import { OLLAMA_TAGS_URL, recordUsage } from './llmProviders'
 import { getPrompt } from './promptRegistry'
 // [Quality Review] DRY 提取：共享 SSE 流解析和 JSON 提取逻辑
 import { readTextStream, type StreamLineType } from './sseUtils'
@@ -299,6 +299,8 @@ export class LLMClient {
       throw new Error('响应中没有可读流')
     }
 
+    // P1-1: 收集 OpenAI 兼容接口流末 `usage` 行（prompt/completion_tokens）
+    let lastUsage: { input: number; output: number } | null = null
     return readTextStream(
       response.body,
       {
@@ -307,9 +309,23 @@ export class LLMClient {
           const j = json as { choices?: { delta?: { content?: string } }[] }
           return j?.choices?.[0]?.delta?.content ?? null
         },
+        onMeta: (json: unknown) => {
+          const j = json as { usage?: { prompt_tokens?: number; completion_tokens?: number } }
+          if (j?.usage && (j.usage.prompt_tokens != null || j.usage.completion_tokens != null)) {
+            lastUsage = {
+              input: j.usage.prompt_tokens ?? 0,
+              output: j.usage.completion_tokens ?? 0,
+            }
+          }
+        },
       },
       onChunk,
-    )
+    ).then((text) => {
+      if (lastUsage) {
+        recordUsage(this.config.provider, this.config.model ?? '', lastUsage.input, lastUsage.output)
+      }
+      return text
+    })
   }
 
   // ============ Ollama 本地 ============
@@ -349,6 +365,8 @@ export class LLMClient {
       throw new Error('响应中没有可读流')
     }
 
+    // P1-1: 收集 Ollama done 行的 token 计数（prompt_eval_count / eval_count）
+    let lastUsage: { input: number; output: number } | null = null
     return readTextStream(
       response.body,
       {
@@ -358,9 +376,20 @@ export class LLMClient {
           return j?.message?.content ?? null
         },
         isTerminated: (json: unknown) => (json as { done?: boolean })?.done === true,
+        onMeta: (json: unknown) => {
+          const j = json as { done?: boolean; prompt_eval_count?: number; eval_count?: number }
+          if (j?.done && (j.prompt_eval_count != null || j.eval_count != null)) {
+            lastUsage = { input: j.prompt_eval_count ?? 0, output: j.eval_count ?? 0 }
+          }
+        },
       },
       onChunk,
-    )
+    ).then((text) => {
+      if (lastUsage) {
+        recordUsage(this.config.provider, this.config.model ?? '', lastUsage.input, lastUsage.output)
+      }
+      return text
+    })
   }
 
   // ============ Anthropic Claude ============
@@ -418,6 +447,8 @@ export class LLMClient {
       throw new Error('响应中没有可读流')
     }
 
+    // P1-1: 收集 Claude message_delta 事件中的 usage（input/output_tokens）
+    let lastUsage: { input: number; output: number } | null = null
     return readTextStream(
       response.body,
       {
@@ -427,9 +458,23 @@ export class LLMClient {
           return j?.type === 'content_block_delta' ? (j?.delta?.text ?? null) : null
         },
         isTerminated: (json: unknown) => (json as { type?: string })?.type === 'message_stop',
+        onMeta: (json: unknown) => {
+          const j = json as { type?: string; usage?: { input_tokens?: number; output_tokens?: number } }
+          if (j?.type === 'message_delta' && j?.usage) {
+            lastUsage = {
+              input: j.usage.input_tokens ?? 0,
+              output: j.usage.output_tokens ?? 0,
+            }
+          }
+        },
       },
       onChunk,
-    )
+    ).then((text) => {
+      if (lastUsage) {
+        recordUsage(this.config.provider, this.config.model ?? '', lastUsage.input, lastUsage.output)
+      }
+      return text
+    })
   }
 
   // ============ Google Gemini ============
@@ -493,6 +538,8 @@ export class LLMClient {
       throw new Error('响应中没有可读流')
     }
 
+    // P1-1: 收集 Gemini usageMetadata（promptTokenCount / candidatesTokenCount）
+    let lastUsage: { input: number; output: number } | null = null
     return readTextStream(
       response.body,
       {
@@ -504,9 +551,25 @@ export class LLMClient {
           const text = parts.map((p) => p?.text).filter((t): t is string => typeof t === 'string' && t.length > 0).join('')
           return text.length > 0 ? text : null
         },
+        onMeta: (json: unknown) => {
+          const j = json as {
+            usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number }
+          }
+          if (j?.usageMetadata) {
+            lastUsage = {
+              input: j.usageMetadata.promptTokenCount ?? 0,
+              output: j.usageMetadata.candidatesTokenCount ?? 0,
+            }
+          }
+        },
       },
       onChunk,
-    )
+    ).then((text) => {
+      if (lastUsage) {
+        recordUsage(this.config.provider, this.config.model ?? '', lastUsage.input, lastUsage.output)
+      }
+      return text
+    })
   }
 
   // 非流式聊天（一次性返回完整文本）

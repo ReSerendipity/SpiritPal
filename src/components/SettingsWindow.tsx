@@ -63,7 +63,9 @@ import { SpriteSheetPanel } from '@/components/SpriteSheetPanel'
 import { BrandButton, BrandInput, BrandSelect, BrandSlider } from '@/components/ui'
 import { WindowControls } from '@/components/WindowControls'
 import { DEFAULT_AI_CONFIG } from '@/lib/ai/llmClient'
-import { LLM_PROVIDERS, getProvider, detectOllama, listOllamaModels } from '@/lib/ai/llmProviders'
+import { LLM_PROVIDERS, getProvider, detectOllama, listOllamaModels, costTracker } from '@/lib/ai/llmProviders'
+// P1-2/P1-3: 双脑路由汇总（升级率/慢脑占比）与 AI 用量成本卡片
+import { getDualBrainRoutingSummary } from '@/lib/ai/dualBrain'
 import { getCharacter, getAllCharacters } from '@/lib/data/characters'
 import { setApiKey, getApiKey, deleteApiKey } from '@/lib/data/secureStorage'
 import type { AIConfig, AppSettings, BackgroundConfig, BackgroundType } from '@/lib/data/types'
@@ -665,6 +667,53 @@ const [showImporter, setShowImporter] = useState(false)
             <BrandButton onClick={flashSaved} aria-label="保存 AI 配置">
               保存
             </BrandButton>
+
+            {/* P1-3: AI 用量与成本估算（BYOK 可观测；数据来自 llmClient → costTracker） */}
+            <div className="rounded-xl border border-ink-faint/20 bg-egg/40 p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold">本次运行 AI 用量</h3>
+                <span className="text-[10px] text-ink-faint">会话内统计</span>
+              </div>
+              {(() => {
+                const costs = costTracker.getAllCosts()
+                const totalTokens = costs.reduce((s, c) => s + c.totalTokens, 0)
+                const totalCost = costTracker.getTotalCost()
+                const routing = getDualBrainRoutingSummary()
+                if (costs.length === 0) {
+                  return (
+                    <p className="mt-2 text-xs text-ink-faint">
+                      暂无对话记录——开始聊天后这里会显示 Token 消耗与预估成本。
+                    </p>
+                  )
+                }
+                return (
+                  <>
+                    <ul className="mt-2 space-y-1">
+                      {costs.map((c) => (
+                        <li key={c.providerId} className="flex items-center justify-between text-xs">
+                          <span className="text-ink-soft">{getProvider(c.providerId)?.name ?? c.providerId}</span>
+                          <span className="text-ink-faint">
+                            {c.totalTokens.toLocaleString()} tokens = ${c.totalCostUsd.toFixed(4)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-2 flex items-center justify-between border-t border-ink-faint/10 pt-2 text-xs">
+                      <span className="text-ink-soft">合计（本次运行）</span>
+                      <span className="font-medium">{totalTokens.toLocaleString()} tokens · ${totalCost.toFixed(4)}</span>
+                    </div>
+                    {routing.total > 0 && (
+                      <div className="mt-1 flex items-center justify-between text-[11px] text-ink-faint">
+                        <span>双脑路由（Fast→Slow 升级率）</span>
+                        <span>
+                          {Math.round(routing.slowRatio * 100)}% 慢脑 · {Math.round(routing.escalationRatio * 100)}% 升级
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
+            </div>
           </div>
         )}
 

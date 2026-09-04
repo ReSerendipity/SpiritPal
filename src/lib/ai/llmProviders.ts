@@ -433,6 +433,31 @@ export class CostTrackingManager {
   }
 }
 
+// ============ P1-1：全局成本追踪单例（usage 计量接线）============
+
+/** 应用级成本追踪单例：llmClient 每次调用后 recordRequest，UI（设置页）读取展示 */
+export const costTracker = new CostTrackingManager()
+
+/**
+ * 记录一次 LLM 请求的 token 用量（P1-1 接线）
+ *
+ * 由 llmClient 各协议分支在流解析（onMeta）+ 非流式响应中调用。
+ * 模型命中 [`MODEL_PRICING`] 时同时折算成本；未知模型仅累计 token（成本记 0）。
+ *
+ * @param provider      provider id（如 deepseek / claude / gemini）
+ * @param model         模型名（用于定价查询）
+ * @param inputTokens   本次请求输入 token 数（服务商 usage 返回；缺失传 0）
+ * @param outputTokens  本次请求输出 token 数
+ */
+export function recordUsage(
+  provider: string,
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+): void {
+  costTracker.recordRequest(provider, model, inputTokens, outputTokens)
+}
+
 // ============ 速率限制 ============
 
 /** 速率限制配置 */
