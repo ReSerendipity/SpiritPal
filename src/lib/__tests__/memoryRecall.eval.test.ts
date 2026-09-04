@@ -24,7 +24,17 @@
 
 import { describe, it, expect, beforeAll, vi } from 'vitest'
 
-vi.mock('@/lib/data/db', () => ({
+/**
+ * P2: 真实向量路径开关。
+ * - 默认（CI/本地）保持 mock 短路（不下载 @xenova/transformers 模型），
+ *   考察纯本地 LCS + 多因子打分链路（回归保护线）。
+ * - 设置 REAL_VECTOR_EVAL=1 时不再 mock ragRetrieval/vectorSearch，
+ *   让评测走「真实本地向量检索 + RRF」链路（需本地具备 xeova 模型缓存，
+ *   README 提及的 RAG case 可在该模式下验证与解锁）。
+ */
+const REAL_VECTOR_EVAL = process.env.REAL_VECTOR_EVAL === '1'
+
+vi.mock('../db', () => ({
   getSetting: vi.fn(() => Promise.resolve(null)),
   setSetting: vi.fn(() => Promise.resolve()),
   addMemory: vi.fn(() => Promise.resolve()),
@@ -49,21 +59,23 @@ vi.mock('@/lib/data/db', () => ({
   clearSemanticFacts: vi.fn(() => Promise.resolve()),
 }))
 
-vi.mock('@/lib/system/vectorSearch', () => ({
-  embed: vi.fn(() => Promise.resolve(new Float32Array(8))),
-  isVectorSearchAvailable: vi.fn(() => Promise.resolve(false)),
-  searchSimilar: vi.fn(() => Promise.resolve([])),
-  terminateVectorSearch: vi.fn(),
-}))
+if (!REAL_VECTOR_EVAL) {
+  vi.mock('@/lib/system/vectorSearch', () => ({
+    embed: vi.fn(() => Promise.resolve(new Float32Array(8))),
+    isVectorSearchAvailable: vi.fn(() => Promise.resolve(false)),
+    searchSimilar: vi.fn(() => Promise.resolve([])),
+    terminateVectorSearch: vi.fn(),
+  }))
 
-vi.mock('@/lib/memory/ragRetrieval', () => ({
-  getRAGRetriever: vi.fn(() => ({
-    retrieve: vi.fn(() => []),
-    buildIndex: vi.fn(() => Promise.resolve()),
-    clear: vi.fn(),
-  })),
-  DEFAULT_RAG_CONFIG: { topK: 20, minScore: 0.1 },
-}))
+  vi.mock('@/lib/memory/ragRetrieval', () => ({
+    getRAGRetriever: vi.fn(() => ({
+      retrieve: vi.fn(() => []),
+      buildIndex: vi.fn(() => Promise.resolve()),
+      clear: vi.fn(),
+    })),
+    DEFAULT_RAG_CONFIG: { topK: 20, minScore: 0.1 },
+  }))
+}
 
 vi.mock('@/lib/memory/memoryMigrator', () => ({
   needsMigration: vi.fn(() => Promise.resolve(false)),
