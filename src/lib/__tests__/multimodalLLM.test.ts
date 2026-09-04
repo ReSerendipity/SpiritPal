@@ -149,8 +149,8 @@ describe('VisionLLMClient', () => {
 
   it('batchAnalyzeImages 单张失败降级为 分析失败，不影响后续', async () => {
     mockStat
-      .mockResolvedValueOnce({ size: 10 * 1024 * 1024 }) // 第一张超限失败
-      .mockResolvedValueOnce({ size: 100 }) // 第二张正常
+      .mockResolvedValueOnce({ size: 10 * 1024 * 1024 } as unknown as StatsLike) // 第一张超限失败
+      .mockResolvedValueOnce({ size: 100 } as unknown as StatsLike) // 第二张正常
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const results = await client.batchAnalyzeImages(['/a.png', '/b.png'])
