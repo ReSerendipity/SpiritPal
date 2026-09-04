@@ -19,6 +19,8 @@ import { existsSync } from 'node:fs'
 // ============ 配置 ============
 
 const SIZE_LIMIT_MB = 30
+/** 高占用预警线：达到限值的 85% 时告警（P2-03：当前 29.18MB ≈ 97%，新增功能即超标） */
+const SIZE_WARN_RATIO = 0.85
 const ROOT_DIR = join(import.meta.dirname, '..')
 const BUNDLE_DIR = join(ROOT_DIR, 'src-tauri', 'target', 'release', 'bundle')
 const NSIS_DIR = join(ROOT_DIR, 'src-tauri', 'target', 'release', 'bundle', 'nsis')
@@ -133,6 +135,7 @@ async function checkPackageSizes() {
   console.log('├─────────────────────────┼──────────────┼──────────┼────────┤')
 
   let allPassed = true
+  let nearLimit = false
 
   for (const r of results) {
     const status = r.platform.includes('Binary')
@@ -141,6 +144,7 @@ async function checkPackageSizes() {
         ? '✅ 通过'
         : '❌ 超标'
     if (!r.passed && !r.platform.includes('Binary')) allPassed = false
+    if (!r.platform.includes('Binary') && r.sizeMB > SIZE_LIMIT_MB * SIZE_WARN_RATIO) nearLimit = true
     const name = r.name.length > 12 ? r.name.slice(0, 11) + '…' : r.name
     console.log(`│ ${r.platform.padEnd(23)} │ ${name.padEnd(12)} │ ${formatSize(r.size).padEnd(8)} │ ${status.padEnd(6)} │`)
   }
@@ -150,6 +154,9 @@ async function checkPackageSizes() {
   console.log()
   if (allPassed) {
     console.log('✅ 所有安装包均满足 PRD 指标 (<30MB)')
+    if (nearLimit) {
+      console.log(`⚠️  有安装包已达限值的 ${(SIZE_WARN_RATIO * 100).toFixed(0)}% 以上 — 建议尽早扩容阈值或精简体积，防止新增功能即超标（P2-03）`)
+    }
   } else {
     console.log('❌ 部分安装包超出 PRD 指标限制')
   }

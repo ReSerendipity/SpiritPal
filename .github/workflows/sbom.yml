@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   generate-sbom:
@@ -60,3 +60,15 @@ jobs:
             sbom-npm.xml
             src-tauri/*.cdx.json
           retention-days: 90
+
+      # P2-2: SBOM 随发布 tag 附带进 GitHub Release（draft，与 release.yml 对齐），
+      # 使发布资产包含完整依赖清单，避免 SBOM 只存在于 90 天后过期的 workflow artifact 中。
+      - name: Attach SBOM to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          draft: true
+          files: |
+            sbom-npm.json
+            sbom-npm.xml
+            src-tauri/*.cdx.json

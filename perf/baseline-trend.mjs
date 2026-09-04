@@ -49,6 +49,10 @@ function main() {
   console.log('  📈 性能基线趋势监控 (Performance Baseline Trend)')
   console.log('━'.repeat(60))
 
+  // --read-only: 只比对、不更新基线（供并发 CI job 使用，避免跨 job 写竞态）
+  const readOnly = process.argv.includes('--read-only')
+  if (readOnly) console.log('  ℹ️  只读模式：仅比对回归，不更新基线')
+
   // 读取当前性能结果
   const current = {}
   const coldStartFile = join(RESULTS_DIR, 'cold-start.json')
@@ -77,7 +81,13 @@ function main() {
   const baseline = loadBaseline()
 
   if (!baseline) {
-    console.log('  ℹ️  无历史基线，当前结果将作为新基线保存。')
+    console.log('  ⚠️  无历史基线（perf/results/baseline.json 缺失）。')
+    if (readOnly) {
+      // 只读模式不落盘：等待可写 job（Windows）首跑成基
+      console.log('  ⚠️  只读模式跳过成基，等待主 job 生成基线入库。')
+      process.exit(0)
+    }
+    console.log('  ℹ️  当前结果将作为新基线保存（建议将真实基线提交入库，作为长期回归基准）。')
     saveBaseline({ timestamp: new Date().toISOString(), ...current })
     console.log('  ✅ 基线已保存。')
     process.exit(0)
@@ -90,9 +100,11 @@ function main() {
 
   if (regressions.length === 0) {
     console.log('  ✅ 无性能回归。')
-    // 更新基线（取更好值）
-    const updated = { ...baseline, ...current, timestamp: new Date().toISOString() }
-    saveBaseline(updated)
+    // 更新基线（取更好值）；只读模式不落盘
+    if (!readOnly) {
+      const updated = { ...baseline, ...current, timestamp: new Date().toISOString() }
+      saveBaseline(updated)
+    }
   } else {
     console.log(`  ⚠️  检测到 ${regressions.length} 项性能回归:`)
     for (const r of regressions) {

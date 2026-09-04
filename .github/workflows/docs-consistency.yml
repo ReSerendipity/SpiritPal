@@ -16,3 +16,13 @@ jobs:
           python-version: '3.12'
       - name: Audit spec references
         run: python scripts/check_spec_refs.py
+
+  version-consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify version consistency (package.json / Cargo.toml / tauri.conf.json)
+        run: node scripts/sync-version.mjs --check
