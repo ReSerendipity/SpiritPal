@@ -383,6 +383,10 @@ pub async fn encrypt_data(data: String, password: String) -> Result<String, Stri
 // [Tauri Review] 改为 async，避免 get_machine_id() 中的阻塞 I/O
 #[tauri::command]
 pub async fn decrypt_data(encrypted: String, password: String) -> Result<String, String> {
+    // D-6: 安全模式（检测到调试器）下拒绝解密（防加密数据外带）
+    if crate::antidebug::is_debugger_detected() {
+        return Err("安全模式（检测到调试器），拒绝解密数据".to_string());
+    }
     // [Tauri Review] 将阻塞操作（机器 ID 获取 + base64 解码 + AES）移至 spawn_blocking
     let result = tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
         // [SECURITY] D3 - Fail Fast：机器 ID 获取失败时拒绝解密
@@ -584,6 +588,10 @@ fn decrypt_chunked_internal(pwd: &str, encrypted: &str) -> Result<String, String
 
 #[tauri::command]
 pub async fn decrypt_data_chunked(encrypted: String, password: String) -> Result<String, String> {
+    // D-6: 安全模式（检测到调试器）下拒绝分块解密
+    if crate::antidebug::is_debugger_detected() {
+        return Err("安全模式（检测到调试器），拒绝解密数据".to_string());
+    }
     let result = tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
         let pwd = resolve_password(&password)?;
         decrypt_chunked_internal(&pwd, &encrypted)

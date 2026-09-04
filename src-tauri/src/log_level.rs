@@ -76,10 +76,7 @@ pub fn apply_boot_level(app: &tauri::AppHandle) {
                 let level_str = config.get("level").and_then(|s| s.as_str());
                 if let Some(l) = level_str.and_then(parse_level) {
                     apply_level(l);
-                    log::info!(
-                        "[LogLevel] 已按持久化配置应用日志级别: {}",
-                        level_name(l)
-                    );
+                    log::info!("[LogLevel] 已按持久化配置应用日志级别: {}", level_name(l));
                     return;
                 }
             }
@@ -127,8 +124,11 @@ pub fn set_log_level(app: tauri::AppHandle, level: String) -> Result<String, Str
         let _ = std::fs::create_dir_all(parent);
     }
     let payload = json!({ "level": level_name(filter) });
-    std::fs::write(&path, serde_json::to_string_pretty(&payload).unwrap_or_default())
-        .map_err(|e| format!("持久化日志级别失败: {}", e))?;
+    std::fs::write(
+        &path,
+        serde_json::to_string_pretty(&payload).unwrap_or_default(),
+    )
+    .map_err(|e| format!("持久化日志级别失败: {}", e))?;
 
     apply_level(filter);
     log::info!("[LogLevel] 日志级别已设置为: {}", level_name(filter));

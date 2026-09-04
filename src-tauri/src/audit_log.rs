@@ -128,7 +128,11 @@ fn rotate_audit_if_needed(log_path: &std::path::Path, max_bytes: u64) {
     if let Err(e) = std::fs::rename(log_path, &backup) {
         log::error!("[Audit] 日志轮转失败（保留旧档）: {}", e);
     } else {
-        log::info!("[Audit] 审计日志已达 {} 字节，已轮转到 {}", max_bytes, AUDIT_LOG_BACKUP_FILENAME);
+        log::info!(
+            "[Audit] 审计日志已达 {} 字节，已轮转到 {}",
+            max_bytes,
+            AUDIT_LOG_BACKUP_FILENAME
+        );
     }
 }
 
@@ -189,14 +193,7 @@ pub fn record_audit(
     };
 
     // 计算本条日志的哈希
-    let this_hash = compute_entry_hash(
-        &timestamp,
-        "AUDIT",
-        event_type,
-        actor,
-        message,
-        &prev_hash,
-    );
+    let this_hash = compute_entry_hash(&timestamp, "AUDIT", event_type, actor, message, &prev_hash);
 
     // 格式化日志行
     let entry = format!(
@@ -247,7 +244,10 @@ mod tests {
         std::fs::write(&data, "x".repeat(100)).unwrap();
         rotate_audit_if_needed(&data, 50); // 100 > 50 → 触发轮转
         assert!(!data.exists(), "超限后应轮到新文件（当前文件消失）");
-        assert!(data.with_file_name(AUDIT_LOG_BACKUP_FILENAME).exists(), "旧档应保留");
+        assert!(
+            data.with_file_name(AUDIT_LOG_BACKUP_FILENAME).exists(),
+            "旧档应保留"
+        );
 
         // 备份覆盖：再次写满并轮转，仍只保留一份旧档
         std::fs::write(&data, "y".repeat(100)).unwrap();
@@ -263,7 +263,8 @@ mod tests {
 
     #[test]
     fn test_no_rotate_under_limit() {
-        let dir = std::env::temp_dir().join(format!("spiritpal_audit_norot_{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("spiritpal_audit_norot_{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let data = std::path::Path::new(&dir).join("spiritpal_audit.log");

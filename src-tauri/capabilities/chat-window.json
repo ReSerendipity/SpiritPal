@@ -21,8 +21,6 @@
     "store:default",
     "store:allow-load",
     "store:allow-get",
-    "sql:default",
-    "sql:allow-execute",
     "notification:default",
     "notification:allow-notify"
   ]

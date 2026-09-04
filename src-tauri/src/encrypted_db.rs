@@ -113,8 +113,18 @@ fn remove_file_with_retry(path: &PathBuf, max_retries: u32) -> Result<(), String
 ///
 /// 读取 spiritpal.db 明文，使用 AES-256-GCM 加密，写入 spiritpal.db.enc
 /// 加密成功后删除明文 spiritpal.db
+/// 命令包装层：门禁 + 委托内部实现（Tauri 不支持 Option<Window> 注入，故拆两层）
 #[tauri::command]
-pub async fn encrypt_db_at_rest(app: AppHandle) -> Result<bool, String> {
+pub async fn encrypt_db_at_rest(window: tauri::Window, app: AppHandle) -> Result<bool, String> {
+    // D-2: 来自 WebView 的调用必须来自应用窗口
+    crate::window_gate::require_window(&window, crate::window_gate::APP_WINDOWS)?;
+    encrypt_db_at_rest_internal(app).await
+}
+
+/// 内部实现：无窗口门禁（供退出钩子等 Rust 内部路径调用）
+pub async fn encrypt_db_at_rest_internal(app: AppHandle) -> Result<bool, String> {
+    // D-1: 关闭 rusqlite 连接，避免文件锁导致 fs::read 失败/残留
+    crate::sqlite::close();
     let db_path = get_db_path(&app)?;
     let enc_path = get_encrypted_db_path(&app)?;
 
@@ -193,8 +203,18 @@ pub async fn encrypt_db_at_rest(app: AppHandle) -> Result<bool, String> {
 ///
 /// 读取 spiritpal.db.enc 密文，使用 AES-256-GCM 解密，写入 spiritpal.db
 /// 解密成功后删除加密文件
+/// 命令包装层：门禁 + 委托内部实现
 #[tauri::command]
-pub async fn decrypt_db_at_rest(app: AppHandle) -> Result<bool, String> {
+pub async fn decrypt_db_at_rest(window: tauri::Window, app: AppHandle) -> Result<bool, String> {
+    // D-2: 来自 WebView 的调用必须来自应用窗口
+    crate::window_gate::require_window(&window, crate::window_gate::APP_WINDOWS)?;
+    decrypt_db_at_rest_internal(app).await
+}
+
+/// 内部实现：无窗口门禁
+pub async fn decrypt_db_at_rest_internal(app: AppHandle) -> Result<bool, String> {
+    // D-1: 关闭 rusqlite 连接，避免覆盖明文文件时被锁
+    crate::sqlite::close();
     let db_path = get_db_path(&app)?;
     let enc_path = get_encrypted_db_path(&app)?;
 
@@ -283,7 +303,9 @@ fn list_backup_files(app: &AppHandle) -> Result<Vec<DBBackupInfo>, String> {
     let mut items: Vec<DBBackupInfo> = vec![];
     for entry in std::fs::read_dir(&dir).map_err(|e| format!("读取备份目录失败: {e}"))? {
         let entry = entry.map_err(|e| format!("遍历备份目录失败: {e}"))?;
-        let meta = entry.metadata().map_err(|e| format!("读取备份元数据失败: {e}"))?;
+        let meta = entry
+            .metadata()
+            .map_err(|e| format!("读取备份元数据失败: {e}"))?;
         if meta.is_file() {
             let modified_at = meta
                 .modified()
@@ -300,7 +322,7 @@ fn list_backup_files(app: &AppHandle) -> Result<Vec<DBBackupInfo>, String> {
             });
         }
     }
-    items.sort_by(|a, b| b.modified_at.cmp(&a.modified_at));
+    items.sort_by_key(|a| std::cmp::Reverse(a.modified_at));
     Ok(items)
 }
 
@@ -326,13 +348,11 @@ pub async fn backup_db_at_rest(app: AppHandle) -> Result<Option<String>, String>
         return Ok(None);
     }
     let backup_dir = get_backup_dir(&app)?;
-    std::fs::create_dir_all(&backup_dir)
-        .map_err(|e| format!("创建备份目录失败: {e}"))?;
+    std::fs::create_dir_all(&backup_dir).map_err(|e| format!("创建备份目录失败: {e}"))?;
 
     let name = backup_filename();
     let target = backup_dir.join(&name);
-    std::fs::copy(&enc_path, &target)
-        .map_err(|e| format!("复制备份失败: {e}"))?;
+    std::fs::copy(&enc_path, &target).map_err(|e| format!("复制备份失败: {e}"))?;
 
     rotate_backups(&app)?;
     log::info!("[encrypted_db] Auto backup created: {}", target.display());
@@ -347,8 +367,28 @@ pub async fn list_db_backups(app: AppHandle) -> Result<Vec<DBBackupInfo>, String
 
 /// 从指定备份恢复：备份文件（合法备份即 spiritpal.db.enc 的副本）覆盖加密库
 /// 恢复后需重启应用（下次启动 decrypt_db_at_rest 会解出明文库）。
+/// 命令包装层：门禁 + 审计 + 委托内部实现
 #[tauri::command]
-pub async fn restore_db_backup(app: AppHandle, name: String) -> Result<(), String> {
+pub async fn restore_db_backup(
+    window: tauri::Window,
+    app: AppHandle,
+    name: String,
+) -> Result<(), String> {
+    // D-2: 恢复属高敏文件操作，仅应用窗口调用
+    crate::window_gate::require_window(&window, crate::window_gate::APP_WINDOWS)?;
+    restore_db_backup_internal(app, name).await
+}
+
+/// 内部实现：无窗口门禁
+async fn restore_db_backup_internal(app: AppHandle, name: String) -> Result<(), String> {
+    let _ = crate::audit_log::record_audit(
+        &app,
+        "data_restore",
+        "user",
+        &format!("restore_db_backup: {name}"),
+    );
+    // D-1: 关闭 rusqlite 连接，避免恢复覆盖时文件被锁
+    crate::sqlite::close();
     // 防路径穿越：只允许 backups 目录内的文件名
     if name.contains('/') || name.contains('\\') || name.contains("..") {
         return Err("备份文件名非法".into());

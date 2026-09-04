@@ -131,7 +131,13 @@ pub fn stop_memory_sidecar(app: tauri::AppHandle) -> Result<(), String> {
 /// - `Ok("")` — sidecar 未启动（前端据此不带 token / 走降级）
 #[cfg(desktop)]
 #[tauri::command]
-pub fn get_memory_sidecar_token() -> Result<String, String> {
+pub fn get_memory_sidecar_token(window: tauri::Window) -> Result<String, String> {
+    // D-2: sidecar 鉴权 token 读取仅允许应用窗口
+    crate::window_gate::require_window(&window, crate::window_gate::APP_WINDOWS)?;
+    // D-6: 安全模式（检测到调试器）下拒绝下发 sidecar token
+    if crate::antidebug::is_debugger_detected() {
+        return Err("安全模式（检测到调试器），拒绝读取 sidecar token".to_string());
+    }
     let token = SIDECAR_TOKEN.lock().unwrap().clone();
     Ok(token.unwrap_or_default())
 }

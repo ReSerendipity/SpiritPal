@@ -22,10 +22,10 @@ use crate::character_import;
 use crate::magic_check;
 use crate::validation;
 
-#[cfg(desktop)]
-use crate::win32;
 #[cfg(target_os = "macos")]
 use crate::macos;
+#[cfg(desktop)]
+use crate::win32;
 
 // ============================================================
 // 通用 Tauri 命令
@@ -251,7 +251,23 @@ pub fn scan_character_directory(path: String) -> Result<Vec<String>, String> {
 ///
 /// 前端调用方式：`invoke('read_text_file', { path: string })`
 #[tauri::command]
-pub fn read_text_file(path: String) -> Result<String, String> {
+pub fn read_text_file(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    path: String,
+) -> Result<String, String> {
+    // D-2: 文件读取仅允许应用窗口
+    crate::window_gate::require_window(&window, crate::window_gate::APP_WINDOWS)?;
+    // D-6: 安全模式（检测到调试器）下拒绝读取文件（防数据外带）
+    if crate::antidebug::is_debugger_detected() {
+        let _ = crate::audit_log::record_audit(
+            &app,
+            "security_event",
+            "user",
+            "安全模式拒绝 read_text_file",
+        );
+        return Err("安全模式（检测到调试器），拒绝读取文件".to_string());
+    }
     character_import::read_text_file(&path)
 }
 
@@ -541,7 +557,10 @@ pub static TOPMOST_KEEPALIVE_STARTED: AtomicBool = AtomicBool::new(false);
 
 #[cfg(desktop)]
 #[tauri::command]
-pub fn start_topmost_keepalive(app: tauri::AppHandle, _window: WebviewWindow) -> Result<(), String> {
+pub fn start_topmost_keepalive(
+    app: tauri::AppHandle,
+    _window: WebviewWindow,
+) -> Result<(), String> {
     #[cfg(windows)]
     {
         // 强制只对 pet-window 保活：main.tsx 在每个窗口的 webview 中都会执行
@@ -710,7 +729,10 @@ mod tests {
         let png: Vec<u8> = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR".to_vec();
         assert_eq!(super::validate_upload_magic(png, ".png".into()), Ok(true));
         let zip: Vec<u8> = b"PK\x03\x04\x14\x00\x00\x00\x08\x00".to_vec();
-        assert_eq!(super::validate_upload_magic(zip, ".petmod".into()), Ok(true));
+        assert_eq!(
+            super::validate_upload_magic(zip, ".petmod".into()),
+            Ok(true)
+        );
     }
 
     #[test]
@@ -723,7 +745,10 @@ mod tests {
     #[test]
     fn test_validate_upload_magic_unknown_ext_returns_false() {
         let png: Vec<u8> = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR".to_vec();
-        assert_eq!(super::validate_upload_magic(png.clone(), ".exe".into()), Ok(false));
+        assert_eq!(
+            super::validate_upload_magic(png.clone(), ".exe".into()),
+            Ok(false)
+        );
         assert_eq!(super::validate_upload_magic(png, "png".into()), Ok(false));
     }
 }
