@@ -61,6 +61,8 @@ obfstr = "0.4"
 spiritpal-mcp = { path = "mcp-server" }
 # H-4: 审计日志 ISO8601 时间戳
 chrono = "0.4"
+# P0: Rust 侧 HTTP 网络出口（http_proxy.rs）——绕过生产 CSP 对境内/本地服务商的阻断
+reqwest = "0.12"
 
 # macOS 平台专用依赖：仅在 macOS 编译时引入。
 # 提供 NSPanel 支持：将宠物窗口转为 NSPanel，实现不抢焦点、跨 Space、全屏可见浮层。

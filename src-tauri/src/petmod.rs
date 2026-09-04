@@ -895,7 +895,7 @@ mod tests {
 
         assert!(result.success);
         assert!(result.size_bytes.unwrap() > 0);
-        assert!(result.sha256.as_deref().map_or(false, |h| h.len() == 64));
+        assert!(result.sha256.as_deref().is_some_and(|h| h.len() == 64));
 
         // 产物必须是可读的 zip，且排除规则生效
         let bytes = fs::read(&out).unwrap();
@@ -986,7 +986,7 @@ mod tests {
         let manifest: serde_json::Value =
             serde_json::from_str(result.manifest_json.as_deref().unwrap()).unwrap();
         assert_eq!(manifest["version"], "2.0.0");
-        assert!(result.sha256.as_deref().map_or(false, |h| h.len() == 64));
+        assert!(result.sha256.as_deref().is_some_and(|h| h.len() == 64));
 
         let _ = fs::remove_dir_all(&base);
     }
