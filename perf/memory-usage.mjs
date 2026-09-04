@@ -32,6 +32,7 @@ import {
   waitForProcess,
   sleep,
   formatResult,
+  saveResultJson,
   printResult,
   EXE_CANDIDATES,
   PROJECT_ROOT,
