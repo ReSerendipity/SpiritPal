@@ -1,0 +1,6 @@
+{
+  "timestamp": "2026-09-04T12:50:28.619Z",
+  "fps": 59.1,
+  "packageSize": 29.18,
+  "_note": "初始基线（2026-09-04 由 perf/results 现存数据合成）。coldStart/memory 两项需发布版 release exe 才能离线采集，待 CI perf-baseline job 首次全量运行后补齐并提交更新。"
+}
