@@ -29,6 +29,8 @@
  * Open-Meteo API 文档：https://open-meteo.com/en/docs
  */
 
+import { safeFetch } from '@/lib/system/ssrfProtection'
+
 // ============ 类型定义 ============
 
 /**
@@ -302,7 +304,7 @@ export class WeatherAwarenessManager {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), WEATHER_FETCH_TIMEOUT_MS)
     try {
-      const res = await fetch(url, { signal: controller.signal })
+      const res = await safeFetch(url, { signal: controller.signal })
       // 非 ok 视为失败
       if (!res.ok) return null
       const data = await res.json()

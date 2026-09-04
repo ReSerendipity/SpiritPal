@@ -12,6 +12,17 @@ import {
 } from '@/lib/system/ttsEngine'
 import type { TTSAudioData } from '@/lib/system/ttsTaskManager'
 
+// P0: TTS API 请求走统一网络出口 safeFetch；单测隔离网络层（mock safeFetch，
+// 不再 stub 全局 fetch/URL —— 后者会破坏 SSRF 校验中的 `new URL()` 解析）
+vi.mock('@/lib/system/ssrfProtection', () => ({
+  safeFetch: vi.fn(),
+  getSSRFProtector: vi.fn(),
+  resetSSRFProtector: vi.fn(),
+}))
+
+import { safeFetch } from '@/lib/system/ssrfProtection'
+const mockSafeFetch = vi.mocked(safeFetch)
+
 // ============ Mock SpeechSynthesis ============
 
 const mockSpeak = vi.fn()
@@ -109,12 +120,11 @@ describe('createApiTTSGenerate', () => {
 
   it('正确发送 API 请求', async () => {
     const mockBlob = new Blob(['audio data'], { type: 'audio/wav' })
-    const mockFetch = vi.fn().mockResolvedValue({
+    mockSafeFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
       blob: () => Promise.resolve(mockBlob),
-    })
-    vi.stubGlobal('fetch', mockFetch)
+    } as unknown as Response)
     vi.stubGlobal('URL', {
       ...URL,
       createObjectURL: vi.fn().mockReturnValue('blob:mock-url'),
@@ -134,7 +144,7 @@ describe('createApiTTSGenerate', () => {
     const generate = createApiTTSGenerate(config)
     const result = await generate('你好')
 
-    expect(mockFetch).toHaveBeenCalledWith(
+    expect(mockSafeFetch).toHaveBeenCalledWith(
       'https://tts.example.com/api/generate',
       expect.objectContaining({
         method: 'POST',
@@ -146,15 +156,15 @@ describe('createApiTTSGenerate', () => {
     expect(result.url).toBeTruthy()
     expect(result.durationMs).toBeGreaterThan(0)
 
-    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+    mockSafeFetch.mockReset()
   })
 
   it('API 错误时抛出异常', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
+    mockSafeFetch.mockResolvedValueOnce({
       ok: false,
       status: 500,
-    })
-    vi.stubGlobal('fetch', mockFetch)
+    } as unknown as Response)
 
     const config: TTSEngineConfig = {
       engine: 'api',
@@ -167,7 +177,7 @@ describe('createApiTTSGenerate', () => {
     const generate = createApiTTSGenerate(config)
     await expect(generate('你好')).rejects.toThrow('500')
 
-    vi.restoreAllMocks()
+    mockSafeFetch.mockReset()
   })
 })
 

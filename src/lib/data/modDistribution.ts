@@ -29,6 +29,8 @@
  */
 
 import type { PetmodManifest } from './modManager'
+// P0: 统一网络出口 — 模组仓库不在 CSP 白名单，Tauri 下经 Rust 代理出网
+import { safeFetch } from '@/lib/system/ssrfProtection'
 
 // ============ 类型定义 ============
 
@@ -196,7 +198,8 @@ export class ModDistributionClient {
    */
   async download(modId: string, version: string, targetDir: string): Promise<string> {
     const url = this.getDownloadUrl(modId, version)
-    const response = await fetch(url, {
+    // P0: 经 safeFetch 出网 — Tauri 下走 Rust 代理（registry.spiritpal.app 不在 CSP 白名单）
+    const response = await safeFetch(url, {
       headers: this.getAuthHeaders(),
     })
     if (!response.ok) {
@@ -313,7 +316,7 @@ export class ModDistributionClient {
       ...this.getAuthHeaders(),
     }
 
-    const response = await fetch(url, {
+    const response = await safeFetch(url, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
