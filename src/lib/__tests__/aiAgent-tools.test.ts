@@ -85,8 +85,15 @@ const EXPECTED_TOOL_NAMES = [
 ]
 
 describe('AGENT_TOOLS', () => {
-  it('包含 7 个工具定义', () => {
-    expect(AGENT_TOOLS).toHaveLength(7)
+  it('包含 12 个工具定义（7 基础 + 5 高权限，P0-1）', () => {
+    expect(AGENT_TOOLS).toHaveLength(12)
+  })
+
+  it('注册了 5 个高权限工具（P0-1）', () => {
+    const names = AGENT_TOOLS.map((t) => t.name)
+    for (const name of ['read_file', 'list_directory', 'search_files', 'write_file', 'execute_command']) {
+      expect(names).toContain(name)
+    }
   })
 
   it('工具名唯一且符合预期', () => {

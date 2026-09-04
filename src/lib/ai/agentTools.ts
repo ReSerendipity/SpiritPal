@@ -331,10 +331,36 @@ const TOOL_MODE_PERMISSIONS: Record<ToolMode, string[]> = {
   ],
 }
 
-/** 需要用户确认的工具（Worker 模式下仍需确认） */
-const CONFIRMATION_REQUIRED_TOOLS = new Set([
-  'write_file',
-  'execute_command',
+/**
+ * 确认豁免工具（默认无需确认即可执行）
+ *
+ * 安全语义：**默认拒绝确认** —— 不在本豁免白名单内的工具一律视为需用户确认。
+ * 反向演进自旧的 `CONFIRMATION_REQUIRED_TOOLS`（白名单式仅列出 write_file/execute_command，
+ * 新增工具忘记登记即默认免确认，属安全隐患——LLM 输出可被注入诱使调用未登记的高危工具）。
+ *
+ * 豁免名单仅包含低/中风险工具：
+ * - 7 个基础安全工具（open_application / search_web / set_reminder / manage_schedule /
+ *   adjust_pet_state / get_weather / get_pet_status）
+ * - 3 个只读文件工具（read_file / list_directory / search_files）——虽为只读，
+ *   Rust 侧另有路径白名单兜底（见 system_tools.rs）
+ *
+ * 其余工具（write_file / execute_command / 未来新增的工具）一律
+ * `isToolConfirmationRequired() === true`。新增工具时若确属低风险，必须显式加入本名单，
+ * 否则默认拦截——防范「忘记登记即放行」。
+ */
+const CONFIRMATION_EXEMPT_TOOLS = new Set([
+  // 基础安全工具
+  'open_application',
+  'search_web',
+  'set_reminder',
+  'manage_schedule',
+  'adjust_pet_state',
+  'get_weather',
+  'get_pet_status',
+  // 只读文件工具（Rust 路径白名单兜底）
+  'read_file',
+  'list_directory',
+  'search_files',
 ])
 
 /**
@@ -362,11 +388,14 @@ export function isToolAvailableInMode(toolName: string, mode: ToolMode): boolean
 /**
  * 检查工具是否需要用户确认才能执行
  *
+ * 安全语义：**默认可信 + 豁免名单**。不在 [`CONFIRMATION_EXEMPT_TOOLS`] 内的工具
+ * 一律返回 true（需确认）；只有显式列入豁免名单的低风险工具才免确认。
+ *
  * @param toolName 工具名称
  * @returns 是否需要确认
  */
 export function isToolConfirmationRequired(toolName: string): boolean {
-  return CONFIRMATION_REQUIRED_TOOLS.has(toolName)
+  return !CONFIRMATION_EXEMPT_TOOLS.has(toolName)
 }
 
 /**

@@ -1,8 +1,13 @@
 // AI Agent 安全沙箱单元测试 — 权限校验与审计
 // P3-24: 安全沙箱+权限控制
 import { describe, it, expect, beforeEach } from 'vitest'
-import { AgentSandbox, getAgentSandbox } from '@/lib/ai/agentSandbox'
-import { ToolMode } from '@/lib/ai/agentTools'
+import {
+  AgentSandbox,
+  getAgentSandbox,
+  requestToolConfirmation,
+  setToolConfirmationHandler,
+} from '@/lib/ai/agentSandbox'
+import { ToolMode, getToolsForMode, isToolConfirmationRequired } from '@/lib/ai/agentTools'
 
 // ============ 测试 ============
 
@@ -259,6 +264,50 @@ describe('AgentSandbox', () => {
       const a = getAgentSandbox()
       const b = getAgentSandbox()
       expect(a).toBe(b)
+    })
+  })
+
+  describe('P0-1 确认闸门契约（默认拒绝 + 豁免名单）', () => {
+    it('高风险工具默认需确认（write_file / execute_command）', () => {
+      expect(isToolConfirmationRequired('write_file')).toBe(true)
+      expect(isToolConfirmationRequired('execute_command')).toBe(true)
+    })
+
+    it('豁免名单内的低风险工具无需确认', () => {
+      for (const tool of ['search_web', 'open_application', 'set_reminder', 'read_file', 'list_directory', 'search_files']) {
+        expect(isToolConfirmationRequired(tool)).toBe(false)
+      }
+    })
+
+    it('默认拒绝未来新增工具（未登记豁免 → 需确认）', () => {
+      expect(isToolConfirmationRequired('future_high_risk_tool')).toBe(true)
+    })
+
+    it('所有需确认工具均来自 enable 名单之外（无遗漏）', () => {
+      // Worker 模式工具集中任一工具都必须有明确的确认判定
+      for (const tool of getToolsForMode(ToolMode.Worker)) {
+        expect(typeof isToolConfirmationRequired(tool)).toBe('boolean')
+      }
+    })
+
+    it('未注册确认处理器时 fail-closed 拒绝并记录审计', async () => {
+      setToolConfirmationHandler(null)
+      const sandbox = getAgentSandbox()
+      const result = await requestToolConfirmation('execute_command', { command: 'whoami' }, 'worker')
+      expect(result.approved).toBe(false)
+      expect(result.reason).toContain('拒绝')
+      const log = sandbox.getAuditLog()
+      expect(log.some((e) => e.toolName === 'execute_command' && e.result === 'denied')).toBe(true)
+    })
+
+    it('确认处理器批准后放行并记录 confirmed 审计', async () => {
+      setToolConfirmationHandler(() => ({ approved: true, reason: '测试批准' }))
+      const sandbox = getAgentSandbox()
+      const result = await requestToolConfirmation('execute_command', { command: 'whoami' }, 'worker')
+      expect(result.approved).toBe(true)
+      const log = sandbox.getAuditLog()
+      expect(log.some((e) => e.toolName === 'execute_command' && e.result === 'confirmed')).toBe(true)
+      setToolConfirmationHandler(null)
     })
   })
 })

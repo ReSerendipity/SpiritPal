@@ -248,10 +248,11 @@ export class AgentSandbox {
     this.pendingRequests.set(requestId, request)
 
     // 通知权限回调
+    // P0-1：移除旧的「开发模式自动授予」占位。
+    // 未注入的真实 UI 弹窗前 request 保持 pending（fail-closed），
+    // 谈不上任何自动授予——调用方必须显式 respondToPermission() 才能放行。
     if (this.responseCallback) {
-      // 在实际实现中，这里应该弹窗让用户确认
-      // 目前自动授予（开发模式）
-      this.responseCallback(requestId, true)
+      this.responseCallback(requestId, false)
     }
 
     return requestId
@@ -364,4 +365,84 @@ export function getAgentSandbox(): AgentSandbox {
     sandbox = new AgentSandbox()
   }
   return sandbox
+}
+
+// ============ 工具级确认 Handler（P0-1：默认拒绝 + 豁免名单之外必须确认）============
+
+/** 工具确认结果 */
+export interface ToolConfirmationResult {
+  /** 是否批准执行 */
+  approved: boolean
+  /** 拒绝/确认原因（供展示与审计） */
+  reason?: string
+}
+
+/**
+ * 工具确认处理器签名。
+ * 由 UI（ChatWindow / PetWindow）注入真实弹窗实现；
+ * 未注入时 [`requestToolConfirmation`] 一律返回拒绝（fail-closed），
+ * 绝不自动放行高风险工具。
+ */
+export type ToolConfirmationHandler = (
+  toolName: string,
+  params: Record<string, unknown>,
+) => ToolConfirmationResult | Promise<ToolConfirmationResult>
+
+let toolConfirmationHandler: ToolConfirmationHandler | null = null
+
+/**
+ * 注册/注销全局工具确认处理器（输入 null 即恢复 fail-closed 默认）。
+ * 供 UI 在应用初始化或 Agent 面板挂载时注入。
+ */
+export function setToolConfirmationHandler(handler: ToolConfirmationHandler | null): void {
+  toolConfirmationHandler = handler
+}
+
+/**
+ * 请求用户确认某个工具的执行（ReAct 执行链在调用 execute 前调用本函数）。
+ *
+ * 安全默认（fail-closed）：
+ * 1. 未注册任何确认处理器 → 拒绝并记录审计
+ * 2. 处理器返回 approved=false → 拒绝并记录审计
+ * 3. 处理器返回 approved=true → 放行并记录审计
+ *
+ * @param toolName 工具名
+ * @param params 工具参数
+ * @param mode 当前工具模式（审计）
+ * @returns 确认结果
+ */
+export async function requestToolConfirmation(
+  toolName: string,
+  params: Record<string, unknown>,
+  mode: string,
+): Promise<ToolConfirmationResult> {
+  const sandbox = getAgentSandbox()
+
+  if (!toolConfirmationHandler) {
+    sandbox.logAudit({
+      toolName,
+      params,
+      riskLevel: TOOL_RISK_MAP[toolName] ?? 'medium',
+      mode: mode as ToolMode,
+      result: 'denied',
+      reason: '未注册工具确认处理器（fail-closed 默认拒绝）',
+    })
+    return {
+      approved: false,
+      reason: `工具「${toolName}」需要确认但当前无确认机制，已安全拒绝`,
+    }
+  }
+
+  const result = await toolConfirmationHandler(toolName, params)
+
+  sandbox.logAudit({
+    toolName,
+    params,
+    riskLevel: TOOL_RISK_MAP[toolName] ?? 'medium',
+    mode: mode as ToolMode,
+    result: result.approved ? 'confirmed' : 'denied',
+    reason: result.reason,
+  })
+
+  return result
 }
