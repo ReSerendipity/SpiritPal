@@ -28,6 +28,9 @@ export type DeltaExtractor = (json: unknown) => string | null
 /** 判断流是否应终止 */
 export type TerminationChecker = (json: unknown) => boolean
 
+/** 整行 JSON 元数据回调（P1-1：供调用方收集 usage / 元数据行，如 OpenAI usage、Gemini usageMetadata） */
+export type MetaExtractor = (json: unknown) => void
+
 /** SSE 行类型 */
 export type StreamLineType = 'sse' | 'raw_json'
 
@@ -38,7 +41,7 @@ export type StreamLineType = 'sse' | 'raw_json'
  * 使用 string[] 累积文本避免 O(n²) 字符串拼接。
  *
  * @param body      ReadableStream（来自 fetch response.body）
- * @param options   解析配置
+ * @param options   解析配置（onMeta 为可选元数据钩子，P1-1 新增，向后兼容）
  * @param onChunk   每收到一个文本片段时调用
  * @returns         完整文本
  */
@@ -48,6 +51,7 @@ export async function readTextStream(
     lineType: StreamLineType
     extractDelta: DeltaExtractor
     isTerminated?: TerminationChecker
+    onMeta?: MetaExtractor
   },
   onChunk?: (chunk: string) => void,
 ): Promise<string> {
@@ -83,6 +87,8 @@ export async function readTextStream(
 
         try {
           const json = JSON.parse(data)
+          // P1-1: 元数据钩子先于 delta 提取触发（usage 行通常同时出现或紧随其后）
+          options.onMeta?.(json)
           const delta = options.extractDelta(json)
           if (typeof delta === 'string' && delta.length > 0) {
             chunks.push(delta)
