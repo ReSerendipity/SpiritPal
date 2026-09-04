@@ -32,16 +32,16 @@ if %errorlevel% equ 0 (
 echo.
 
 :: ------------------------------------------
-:: 2. Vitest 单元测试
+:: 2. Vitest 单元测试（含覆盖率门禁，与 CI 对齐）
 :: ------------------------------------------
-echo [2/4] Vitest 单元测试 (pnpm test) ...
+echo [2/4] Vitest 单元测试+覆盖率门禁 (pnpm test:coverage) ...
 echo ----------------------------------------
-call pnpm test
+call pnpm test:coverage
 if %errorlevel% equ 0 (
-    echo   [PASS] Vitest 单元测试通过
+    echo   [PASS] Vitest 单元测试与覆盖率门禁通过
     set /a PASS_COUNT+=1
 ) else (
-    echo   [FAIL] Vitest 单元测试失败
+    echo   [FAIL] Vitest 单元测试或覆盖率门禁失败
     set /a FAIL_COUNT+=1
 )
 echo.
