@@ -49,8 +49,21 @@ pub fn gen_token() -> String {
 
 /// 启动 MCP 命令桥（阻塞线程；在 app setup 中调用）
 pub fn spawn(app: &AppHandle) {
-    let addr =
-        std::env::var("SPIRITPAL_MCP_BRIDGE_ADDR").unwrap_or_else(|_| "127.0.0.1:3124".to_string());
+    // M3 加固：端口冲突降级。默认 127.0.0.1:3124 被占用（多实例/其他程序）时
+    // 回退到随机可用端口，避免 bridge 线程静默死亡（此前 bind 失败被 `let _ =` 吞掉）。
+    let wanted_addr = std::env::var("SPIRITPAL_MCP_BRIDGE_ADDR")
+        .unwrap_or_else(|_| "127.0.0.1:3124".to_string());
+    let (addr, port_fallback) = match std::net::TcpListener::bind(&wanted_addr) {
+        Ok(_) => (wanted_addr, false), // 端口空闲，直接使用
+        Err(_) => match std::net::TcpListener::bind("127.0.0.1:0") {
+            Ok(l) => (
+                l.local_addr().map(|a| a.to_string()).unwrap_or(wanted_addr),
+                true,
+            ),
+            Err(_) => (wanted_addr, true), // 随机端口也失败：仍尝试原地址，由监视线程记录
+        },
+    };
+
     // 生成并透出本地 Token：`spiritpal-mcp` 转发端需通过环境变量使用
     let token = gen_token();
     std::env::set_var("SPIRITPAL_MCP_BRIDGE_TOKEN", &token);
@@ -76,8 +89,15 @@ pub fn spawn(app: &AppHandle) {
             let _ = std::fs::write(&token_file, &token);
         }
     }
+    // 实际监听地址透出给转发端（环境变量被覆盖后，spiritpal-mcp 的 bridge_addr()
+    // 读到的就是真实端口；token 文件场景由 agent 侧按需读取）。
+    std::env::set_var("SPIRITPAL_MCP_BRIDGE_ADDR", &addr);
     // M0 加固：不在 stdout 明文打印 token（同机进程可读 stdout/日志）。
-    println!("[MCP] command bridge listening on {addr}");
+    if port_fallback {
+        println!("[MCP] command bridge: 3124 被占用，已降级监听 {addr}");
+    } else {
+        println!("[MCP] command bridge listening on {addr}");
+    }
 
     let app = app.clone();
     std::thread::spawn(move || {
