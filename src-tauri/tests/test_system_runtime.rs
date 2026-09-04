@@ -13,7 +13,7 @@
 
 #![cfg(windows)]
 
-use spiritpal_lib::system_tools::{execute_command_core, get_running_processes};
+use spiritpal_lib::system_tools::{execute_command_core, get_running_processes_core};
 
 // 这些命令内部用 tauri::async_runtime::spawn_blocking，需在其全局运行时内 block_on
 fn rt<T>(fut: impl std::future::Future<Output = T>) -> T {
@@ -23,7 +23,8 @@ fn rt<T>(fut: impl std::future::Future<Output = T>) -> T {
 #[test]
 fn runtime_get_running_processes_returns_real_windows_processes() {
     // 真调 CreateToolhelp32Snapshot + Process32First/NextW
-    let procs = rt(get_running_processes()).expect("get_running_processes 应在真实 Windows 上成功");
+    let procs = rt(get_running_processes_core())
+        .expect("get_running_processes_core 应在真实 Windows 上成功");
     assert!(procs.len() > 5, "应枚举到多个进程，实际 {}", procs.len());
     // svchost.exe 几乎必然存在；explorer.exe 在有桌面会话时存在。至少命中其一。
     let has_core = procs.iter().any(|p| p.eq_ignore_ascii_case("svchost.exe"))
@@ -43,7 +44,8 @@ fn runtime_get_running_processes_returns_real_windows_processes() {
 #[test]
 fn runtime_execute_command_whitelisted_tasklist_actually_runs() {
     // 真起 cmd 子进程执行 tasklist（只读白名单内）
-    let out = rt(execute_command_core("tasklist".to_string())).expect("tasklist 在白名单内，应成功执行");
+    let out =
+        rt(execute_command_core("tasklist".to_string())).expect("tasklist 在白名单内，应成功执行");
     // tasklist 输出应包含常见进程名与图像 PID 表头
     let hits = out.contains(".exe") || out.to_lowercase().contains("svchost");
     assert!(
@@ -55,7 +57,8 @@ fn runtime_execute_command_whitelisted_tasklist_actually_runs() {
 
 #[test]
 fn runtime_execute_command_whitelisted_ipconfig_runs() {
-    let out = rt(execute_command_core("ipconfig".to_string())).expect("ipconfig 在白名单内，应成功执行");
+    let out =
+        rt(execute_command_core("ipconfig".to_string())).expect("ipconfig 在白名单内，应成功执行");
     // 中文/英文 Windows 均可能：IPv / 适配器 / adapter
     let ok = out.to_lowercase().contains("ipv")
         || out.contains("适配器")
@@ -84,8 +87,10 @@ fn runtime_execute_command_rejects_non_whitelisted_delete() {
 #[test]
 fn runtime_execute_command_rejects_shell_injection_chain() {
     // 安全边界：即使首个 token 合法，含 shell 元字符的拼接也应被 validate 拦截
-    let err = rt(execute_command_core("tasklist & del C:\\evil.txt".to_string()))
-        .expect_err("含 & 拼接的命令应被拒绝");
+    let err = rt(execute_command_core(
+        "tasklist & del C:\\evil.txt".to_string(),
+    ))
+    .expect_err("含 & 拼接的命令应被拒绝");
     assert!(
         err.contains("白名单")
             || err.contains("非法")

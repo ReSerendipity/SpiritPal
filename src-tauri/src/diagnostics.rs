@@ -100,15 +100,23 @@ pub fn export_diagnostics(app: tauri::AppHandle) -> Result<ExportDiagnosticsResu
 
     let ts = chrono::Utc::now().format("%Y%m%d_%H%M%S");
     let out_dir = data_dir.join("exports").join(format!("diagnostics_{}", ts));
-    std::fs::create_dir_all(&out_dir)
-        .map_err(|e| format!("创建导出目录失败: {}", e))?;
+    std::fs::create_dir_all(&out_dir).map_err(|e| format!("创建导出目录失败: {}", e))?;
 
     // 待收集源文件 → 目标文件名
     let mut candidates: Vec<(PathBuf, String)> = vec![
         (log_dir.join("spiritpal.log"), "spiritpal.log".to_string()),
-        (data_dir.join("spiritpal_audit.log"), "spiritpal_audit.log".to_string()),
-        (data_dir.join("spiritpal_audit.old.log"), "spiritpal_audit.old.log".to_string()),
-        (data_dir.join("log-level.json"), "log-level.json".to_string()),
+        (
+            data_dir.join("spiritpal_audit.log"),
+            "spiritpal_audit.log".to_string(),
+        ),
+        (
+            data_dir.join("spiritpal_audit.old.log"),
+            "spiritpal_audit.old.log".to_string(),
+        ),
+        (
+            data_dir.join("log-level.json"),
+            "log-level.json".to_string(),
+        ),
     ];
     // 崩溃日志（匹配当前及历史 crash_*.log）
     if let Ok(entries) = std::fs::read_dir(&log_dir) {

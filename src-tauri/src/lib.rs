@@ -68,13 +68,13 @@ mod antidebug;
 // pub mod: 允许集成测试 (tests/) 访问公开 API
 pub mod crypto;
 mod device;
-mod memory_sidecar;
 pub mod encrypted_db;
 mod keychain;
 #[cfg(target_os = "macos")]
 mod macos;
 mod magic_check;
 mod mcp_bridge;
+mod memory_sidecar;
 mod petmod;
 mod system;
 mod tray;
@@ -92,6 +92,11 @@ use system_tools::{
     execute_command, get_running_processes, read_widget_state, search_files, set_system_brightness,
     set_system_volume, sync_widget_state, take_screenshot,
 };
+// D-1: Rust 语义 SQL 命令层（sp_* 命令；替代前端 plugin-sql 直执行 SQL）
+// 命令以 sqlite::sp_xxx 路径形式注册进 invoke_handler，无需逐个 use。
+mod sqlite;
+// D-2: 自定义命令窗口级门禁（高敏命令校验调用方窗口 label）
+mod window_gate;
 // H-4: 安全审计日志（audit_log 命令）
 pub mod audit_log;
 // P1-05: 运行时日志级别（审计 LOG-04 修复 — get_log_level / set_log_level）
@@ -121,7 +126,10 @@ use petmod::{
     import_petmod, install_petmod, pack_petmod, scan_mods_directory, uninstall_mod, validate_petmod,
 };
 // R-14: 数据库加密命令
-use encrypted_db::{decrypt_db_at_rest, encrypt_db_at_rest, backup_db_at_rest, list_db_backups, restore_db_backup, delete_db_backup};
+use encrypted_db::{
+    backup_db_at_rest, decrypt_db_at_rest, delete_db_backup, encrypt_db_at_rest, list_db_backups,
+    restore_db_backup,
+};
 // H-4: 审计日志命令
 use audit_log::audit_log;
 // P0: Rust 侧 HTTP 网络出口命令（绕过生产 CSP 对境内/本地服务商的阻断）
@@ -153,15 +161,15 @@ use tauri::{Emitter, Manager, WebviewWindow};
 // 窗口/通用命令迁入 commands::window（greet/窗口配置/点击穿透/置顶/macOS 浮层等）；
 // 其余命令保持独立模块文件，由下方 invoke_handler 统一注册。
 mod commands;
+use commands::window::{
+    detect_asset_tools, get_window_config, greet, log_frontend_error, open_application,
+    read_text_file, run_asset_pipeline, scan_character_directory, validate_upload_magic,
+};
 #[cfg(desktop)]
 use commands::window::{
     get_active_window, get_idle_time, get_mouse_pos, hide_pet_window, open_path,
     remove_pet_click_through, set_pet_always_on_top, set_pet_click_through, show_pet_window,
     start_topmost_keepalive,
-};
-use commands::window::{
-    detect_asset_tools, get_window_config, greet, log_frontend_error, open_application,
-    read_text_file, run_asset_pipeline, scan_character_directory, validate_upload_magic,
 };
 
 // ============================================================
@@ -195,7 +203,8 @@ pub fn run() {
     let mut builder = tauri::Builder::default()
         .plugin(setup::build_log_plugin())
         .plugin(tauri_plugin_store::Builder::new().build())
-        .plugin(tauri_plugin_sql::Builder::default().build())
+        // D-1: 已移除 tauri-plugin-sql —— SQL 全量收口 Rust 语义命令（sqlite.rs），
+        // capability 中 sql:* 授权一并删除（S1 闭合）。
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
@@ -253,10 +262,14 @@ pub fn run() {
             diagnostics::setup_panic_hook(app);
             // P1-05: 施加启动日志级别（持久化配置 > 构建类型默认；release 默认 Info 不输出调试信息）
             crate::log_level::apply_boot_level(app.handle());
-            // R-12: 启动时反调试检查
-            antidebug::startup_check();
-            // R-11: 启动时 SRI 完整性验证
-            let _ = generated::sri_hashes::verify_integrity();
+            // R-12: 启动时反调试检查（D-6：命中写审计 + emit 前端安全模式事件）
+            antidebug::startup_check(Some(app.handle()));
+            // R-11: 启动时 SRI 完整性验证（D-7：消费返回布尔 —— 不匹配记 error + 通知前端，不阻断启动）
+            if !generated::sri_hashes::verify_integrity() {
+                log::error!("[SRI] 前端资源完整性校验失败（可能被篡改）");
+                use tauri::Emitter;
+                let _ = app.emit("spiritpal:integrity-warning", true);
+            }
             // R-14: 启动时解密数据库
             // V-1 修复：移除 Rust 端 spawn 异步解密——前端 db.ts initDB() 中已调用 invoke('decrypt_db_at_rest')
             // 之前 Rust 端 spawn 解密与前端 invoke 解密并发执行，可能导致竞争（两个解密同时写 spiritpal.db）
@@ -382,6 +395,100 @@ pub fn run() {
                     export_diagnostics,
                     // P0: Rust 侧 HTTP 网络出口（代理 LLM / 天气 / 模组下载）
                     http_proxy,
+                    // D-1: Rust 语义 SQL 命令层（替代前端 plugin-sql 的 sql:* 授权）
+                    sqlite::sp_db_migrate,
+                    sqlite::sp_settings_get,
+                    sqlite::sp_settings_set,
+                    sqlite::sp_settings_remove,
+                    sqlite::sp_char_get_stats,
+                    sqlite::sp_char_save_stats,
+                    sqlite::sp_char_list,
+                    sqlite::sp_mem_add,
+                    sqlite::sp_mem_save_embedding,
+                    sqlite::sp_mem_save_embeddings_batch,
+                    sqlite::sp_mem_touch,
+                    sqlite::sp_mem_get_embeddings,
+                    sqlite::sp_mem_list,
+                    sqlite::sp_mem_delete,
+                    sqlite::sp_mem_clear,
+                    sqlite::sp_mem_insert_row,
+                    sqlite::sp_mem_update_row,
+                    sqlite::sp_mem_by_tier,
+                    sqlite::sp_mem_by_character,
+                    sqlite::sp_mem_summary_get,
+                    sqlite::sp_mem_summary_upsert,
+                    sqlite::sp_mem_summary_delete,
+                    sqlite::sp_mem_state_get,
+                    sqlite::sp_mem_state_upsert,
+                    sqlite::sp_mem_state_delete,
+                    sqlite::sp_mem_clear_all,
+                    sqlite::sp_owner_facts_list,
+                    sqlite::sp_owner_facts_as_of,
+                    sqlite::sp_owner_facts_history,
+                    sqlite::sp_owner_facts_upsert,
+                    sqlite::sp_owner_facts_delete,
+                    sqlite::sp_owner_facts_clear,
+                    sqlite::sp_sem_facts_list,
+                    sqlite::sp_sem_facts_by_key,
+                    sqlite::sp_sem_facts_upsert,
+                    sqlite::sp_sem_facts_delete,
+                    sqlite::sp_sem_facts_clear,
+                    sqlite::sp_sem_facts_count,
+                    sqlite::sp_pet_exp_list,
+                    sqlite::sp_pet_exp_insert,
+                    sqlite::sp_pet_exp_clear,
+                    sqlite::sp_visual_list,
+                    sqlite::sp_visual_insert,
+                    sqlite::sp_visual_clear,
+                    sqlite::sp_entity_list,
+                    sqlite::sp_entity_upsert,
+                    sqlite::sp_entity_clear,
+                    sqlite::sp_mods_save,
+                    sqlite::sp_mods_list,
+                    sqlite::sp_mods_delete,
+                    sqlite::sp_mods_set_enabled,
+                    sqlite::sp_inventory_save,
+                    sqlite::sp_inventory_list,
+                    sqlite::sp_schedules_save,
+                    sqlite::sp_schedules_list,
+                    // B2-2: 健康检查/快照/清理/约定/上下文/实体图/schema/dirty
+                    sqlite::sp_db_integrity,
+                    sqlite::sp_db_snapshot,
+                    sqlite::sp_settings_keys,
+                    sqlite::sp_db_purge,
+                    sqlite::sp_commitments_insert,
+                    sqlite::sp_commitments_list,
+                    sqlite::sp_commitments_due,
+                    sqlite::sp_commitments_overdue,
+                    sqlite::sp_commitments_set_status,
+                    sqlite::sp_commitments_increment_follow_up,
+                    sqlite::sp_commitments_auto_lapse,
+                    sqlite::sp_commitments_recurring_done,
+                    sqlite::sp_commitments_open_recent,
+                    sqlite::sp_ctx_insert,
+                    sqlite::sp_ctx_close,
+                    sqlite::sp_ctx_list,
+                    sqlite::sp_entitygraph_upsert_node,
+                    sqlite::sp_entitygraph_upsert_edge,
+                    sqlite::sp_entitygraph_find_by_names,
+                    sqlite::sp_entitygraph_neighbors,
+                    sqlite::sp_zombie_report,
+                    sqlite::sp_zombie_cleanup_legacy,
+                    sqlite::sp_zombie_cleanup_episodes,
+                    sqlite::sp_zombie_cleanup_entities,
+                    sqlite::sp_schema_version_current,
+                    sqlite::sp_schema_version_applied,
+                    sqlite::sp_schema_version_record,
+                    sqlite::sp_schema_version_history,
+                    sqlite::sp_schema_log_failure,
+                    sqlite::sp_schema_resolve_failure,
+                    sqlite::sp_schema_unresolved,
+                    sqlite::sp_dirty_scan,
+                    sqlite::sp_dirty_upsert,
+                    sqlite::sp_dirty_resolve,
+                    sqlite::sp_dirty_resolve_table,
+                    sqlite::sp_dirty_list,
+                    sqlite::sp_dirty_cleanup,
                 ]
             }
             #[cfg(not(desktop))]
@@ -427,6 +534,100 @@ pub fn run() {
                     export_diagnostics,
                     // P0: Rust 侧 HTTP 网络出口（代理 LLM / 天气 / 模组下载）
                     http_proxy,
+                    // D-1: Rust 语义 SQL 命令层（移动端同样需要数据访问）
+                    sqlite::sp_db_migrate,
+                    sqlite::sp_settings_get,
+                    sqlite::sp_settings_set,
+                    sqlite::sp_settings_remove,
+                    sqlite::sp_char_get_stats,
+                    sqlite::sp_char_save_stats,
+                    sqlite::sp_char_list,
+                    sqlite::sp_mem_add,
+                    sqlite::sp_mem_save_embedding,
+                    sqlite::sp_mem_save_embeddings_batch,
+                    sqlite::sp_mem_touch,
+                    sqlite::sp_mem_get_embeddings,
+                    sqlite::sp_mem_list,
+                    sqlite::sp_mem_delete,
+                    sqlite::sp_mem_clear,
+                    sqlite::sp_mem_insert_row,
+                    sqlite::sp_mem_update_row,
+                    sqlite::sp_mem_by_tier,
+                    sqlite::sp_mem_by_character,
+                    sqlite::sp_mem_summary_get,
+                    sqlite::sp_mem_summary_upsert,
+                    sqlite::sp_mem_summary_delete,
+                    sqlite::sp_mem_state_get,
+                    sqlite::sp_mem_state_upsert,
+                    sqlite::sp_mem_state_delete,
+                    sqlite::sp_mem_clear_all,
+                    sqlite::sp_owner_facts_list,
+                    sqlite::sp_owner_facts_as_of,
+                    sqlite::sp_owner_facts_history,
+                    sqlite::sp_owner_facts_upsert,
+                    sqlite::sp_owner_facts_delete,
+                    sqlite::sp_owner_facts_clear,
+                    sqlite::sp_sem_facts_list,
+                    sqlite::sp_sem_facts_by_key,
+                    sqlite::sp_sem_facts_upsert,
+                    sqlite::sp_sem_facts_delete,
+                    sqlite::sp_sem_facts_clear,
+                    sqlite::sp_sem_facts_count,
+                    sqlite::sp_pet_exp_list,
+                    sqlite::sp_pet_exp_insert,
+                    sqlite::sp_pet_exp_clear,
+                    sqlite::sp_visual_list,
+                    sqlite::sp_visual_insert,
+                    sqlite::sp_visual_clear,
+                    sqlite::sp_entity_list,
+                    sqlite::sp_entity_upsert,
+                    sqlite::sp_entity_clear,
+                    sqlite::sp_mods_save,
+                    sqlite::sp_mods_list,
+                    sqlite::sp_mods_delete,
+                    sqlite::sp_mods_set_enabled,
+                    sqlite::sp_inventory_save,
+                    sqlite::sp_inventory_list,
+                    sqlite::sp_schedules_save,
+                    sqlite::sp_schedules_list,
+                    // B2-2: 健康检查/快照/清理/约定/上下文/实体图/schema/dirty
+                    sqlite::sp_db_integrity,
+                    sqlite::sp_db_snapshot,
+                    sqlite::sp_settings_keys,
+                    sqlite::sp_db_purge,
+                    sqlite::sp_commitments_insert,
+                    sqlite::sp_commitments_list,
+                    sqlite::sp_commitments_due,
+                    sqlite::sp_commitments_overdue,
+                    sqlite::sp_commitments_set_status,
+                    sqlite::sp_commitments_increment_follow_up,
+                    sqlite::sp_commitments_auto_lapse,
+                    sqlite::sp_commitments_recurring_done,
+                    sqlite::sp_commitments_open_recent,
+                    sqlite::sp_ctx_insert,
+                    sqlite::sp_ctx_close,
+                    sqlite::sp_ctx_list,
+                    sqlite::sp_entitygraph_upsert_node,
+                    sqlite::sp_entitygraph_upsert_edge,
+                    sqlite::sp_entitygraph_find_by_names,
+                    sqlite::sp_entitygraph_neighbors,
+                    sqlite::sp_zombie_report,
+                    sqlite::sp_zombie_cleanup_legacy,
+                    sqlite::sp_zombie_cleanup_episodes,
+                    sqlite::sp_zombie_cleanup_entities,
+                    sqlite::sp_schema_version_current,
+                    sqlite::sp_schema_version_applied,
+                    sqlite::sp_schema_version_record,
+                    sqlite::sp_schema_version_history,
+                    sqlite::sp_schema_log_failure,
+                    sqlite::sp_schema_resolve_failure,
+                    sqlite::sp_schema_unresolved,
+                    sqlite::sp_dirty_scan,
+                    sqlite::sp_dirty_upsert,
+                    sqlite::sp_dirty_resolve,
+                    sqlite::sp_dirty_resolve_table,
+                    sqlite::sp_dirty_list,
+                    sqlite::sp_dirty_cleanup,
                 ]
             }
         });
@@ -462,7 +663,7 @@ pub fn run() {
             // 同步执行加密（blocking），确保退出前完成
             let app = app_handle.clone();
             tauri::async_runtime::block_on(async move {
-                let _ = encrypted_db::encrypt_db_at_rest(app).await;
+                let _ = encrypted_db::encrypt_db_at_rest_internal(app).await;
             });
             log::info!("[SpiritPal] Database encryption complete, exiting.");
         }

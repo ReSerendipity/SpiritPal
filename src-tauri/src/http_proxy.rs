@@ -39,7 +39,10 @@ const ALLOWED_METHODS: &[&str] = &[
 /// IPv4 段判定用的 (start, end) 数值对
 fn ipv4_ranges() -> Vec<(u32, u32, &'static str)> {
     let n = |a: &str| {
-        let p: Vec<u64> = a.split('.').map(|x| x.parse::<u64>().unwrap_or(0)).collect();
+        let p: Vec<u64> = a
+            .split('.')
+            .map(|x| x.parse::<u64>().unwrap_or(0))
+            .collect();
         ((p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]) as u32
     };
     vec![
@@ -98,7 +101,10 @@ fn validate_target(method: &str, url: &reqwest::Url) -> Result<(), String> {
     }
     if let Some(port) = url.port() {
         // 常见内网服务端口一律拒绝（数据库 / SSH / 缓存等）
-        if matches!(port, 22 | 25 | 465 | 587 | 6379 | 27017 | 9200 | 9300 | 5432 | 3306) {
+        if matches!(
+            port,
+            22 | 25 | 465 | 587 | 6379 | 27017 | 9200 | 9300 | 5432 | 3306
+        ) {
             return Err(format!("不允许的端口: {port}"));
         }
     }
@@ -161,17 +167,13 @@ pub async fn http_proxy(
         .build()
         .map_err(|e| format!("HTTP 客户端初始化失败: {e}"))?;
 
-    let mut builder = client
-        .request(
-            request.method.parse::<reqwest::Method>().unwrap(),
-            url,
-        );
+    let mut builder = client.request(request.method.parse::<reqwest::Method>().unwrap(), url);
 
     if let Some(headers) = &request.headers {
         let mut map = HeaderMap::new();
         for (k, v) in headers {
-            let name = HeaderName::from_bytes(k.as_bytes())
-                .map_err(|_| format!("请求头名称非法: {k}"))?;
+            let name =
+                HeaderName::from_bytes(k.as_bytes()).map_err(|_| format!("请求头名称非法: {k}"))?;
             let value = HeaderValue::from_str(v).map_err(|_| format!("请求头值非法: {k}"))?;
             map.insert(name, value);
         }
@@ -186,16 +188,18 @@ pub async fn http_proxy(
         builder = builder.body(bytes);
     }
 
-    let response = builder
-        .send()
-        .await
-        .map_err(|e| format!("请求失败: {e}"))?;
+    let response = builder.send().await.map_err(|e| format!("请求失败: {e}"))?;
 
     let status = response.status().as_u16();
     let headers: Vec<(String, String)> = response
         .headers()
         .iter()
-        .map(|(k, v)| (k.as_str().to_string(), v.to_str().unwrap_or("<non-utf8>").to_string()))
+        .map(|(k, v)| {
+            (
+                k.as_str().to_string(),
+                v.to_str().unwrap_or("<non-utf8>").to_string(),
+            )
+        })
         .collect();
 
     // 限制响应体大小：防御大文件整包缓冲（模组下载等）
@@ -254,9 +258,15 @@ mod tests {
 
     #[test]
     fn bad_scheme_and_port_rejected() {
-        assert!(validate_target("GET", &reqwest::Url::parse("file:///etc/passwd").unwrap()).is_err());
-        assert!(validate_target("GET", &reqwest::Url::parse("https://a.com:22/").unwrap()).is_err());
-        assert!(validate_target("GET", &reqwest::Url::parse("https://a.com:6379/").unwrap()).is_err());
+        assert!(
+            validate_target("GET", &reqwest::Url::parse("file:///etc/passwd").unwrap()).is_err()
+        );
+        assert!(
+            validate_target("GET", &reqwest::Url::parse("https://a.com:22/").unwrap()).is_err()
+        );
+        assert!(
+            validate_target("GET", &reqwest::Url::parse("https://a.com:6379/").unwrap()).is_err()
+        );
     }
 
     #[test]
