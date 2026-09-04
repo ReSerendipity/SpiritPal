@@ -21,9 +21,6 @@ import { describe, it, expect } from 'vitest'
 // ============================================================
 
 const KNOWN_PLUGIN_COMMANDS = new Set([
-  // Tauri plugin-fs 命令（注意：read_text_file 已由 SpiritPal 自定义实现，不在排除列表中）
-  'write_file',
-  'read_file',
   // Tauri plugin-store 命令
   'plugin_storage_set',
   'plugin_storage_delete',
@@ -41,6 +38,8 @@ const KNOWN_PLUGIN_COMMANDS = new Set([
   //   set_system_brightness / search_files / execute_command /
   //   sync_widget_state / read_widget_state
   // 已在 src-tauri/src/system_tools.rs 实现，不再排除
+  // P0-2：read_file / write_file / list_directory 已在 system_tools.rs
+  //   真实实现（带路径白名单），不再排除
   // 视觉感知命令：需要 llmClient 多模态（content 数组）支持后由前端直连
   // Vision LLM，属独立特性，当前仍为计划中（visionPerception 有本地降级路径）
   'analyze_screen_content',
@@ -284,6 +283,28 @@ const COMMAND_CONTRACTS: CommandContract[] = [
     description: '停止全局键鼠监听',
     expectedParams: [],
     expectedReturnType: 'void',
+  },
+  // ===== P0-2：Agent 文件工具（已注册 Rust 实现，带路径白名单） =====
+  {
+    command: 'read_file',
+    description: '读取文本文件（Agent read_file，敏感目录拒绝，限 1MB）',
+    expectedParams: [{ name: 'path', type: 'string' }],
+    expectedReturnType: 'string',
+  },
+  {
+    command: 'write_file',
+    description: '写入文本文件（Agent write_file，敏感目录拒绝，限 512KB，需确认）',
+    expectedParams: [
+      { name: 'path', type: 'string' },
+      { name: 'content', type: 'string' },
+    ],
+    expectedReturnType: 'string',
+  },
+  {
+    command: 'list_directory',
+    description: '列出目录条目（Agent list_directory，敏感目录拒绝，上限 500 条）',
+    expectedParams: [{ name: 'path', type: 'string' }],
+    expectedReturnType: 'array',
   },
 ]
 

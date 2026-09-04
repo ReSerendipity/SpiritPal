@@ -1142,3 +1142,267 @@ mod tests {
         assert_eq!(ok.rest, vec!["-ano"]);
     }
 }
+
+// ============ P0-2：Agent 文件读写工具（read_file / write_file / list_directory）============
+
+/// read_file 内容上限（字节，约 1MB）
+const READ_FILE_MAX_BYTES: usize = 1024 * 1024;
+/// write_file 内容上限（字节，约 512KB）
+const WRITE_FILE_MAX_BYTES: usize = 512 * 1024;
+/// list_directory 条目上限
+const LIST_DIR_MAX_ENTRIES: usize = 500;
+
+/// 敏感路径片段（大小写不敏感，匹配规范化绝对路径）。
+/// 与前端 `toolParamValidator.ts` 的 `FORBIDDEN_PATH_SEGMENTS` 双端对齐。
+const SENSITIVE_PATH_SEGMENTS: &[&str] = &[
+    "/.ssh/",
+    "/.gnupg/",
+    "/.aws/",
+    "/.config/",
+    "/.git/",
+    "/windows/system32/",
+    "/program files/",
+    "/program files (x86)/",
+    "/etc/",
+    "/usr/",
+    "/bin/",
+    "/sbin/",
+];
+
+/// 校验规范化绝对路径是否触及敏感目录
+/// 统一将反斜杠归一为正斜杠，使 Windows（`C:\...\.ssh\...`）与 Unix 片段匹配一致
+fn is_sensitive_path(normalized: &str) -> bool {
+    let normalized = normalized.replace('\\', "/");
+    let lower = normalized.to_lowercase();
+    SENSITIVE_PATH_SEGMENTS
+        .iter()
+        .any(|seg| lower.contains(seg))
+}
+
+/// read_file / list_directory 的路径解析：canonicalize（解析符号链接 / 相对路径，防 `..` 逃逸）
+fn resolve_path(path: &str) -> Result<std::path::PathBuf, String> {
+    let real = std::fs::canonicalize(path)
+        .map_err(|e| format!("路径无效（无法解析）: {}: {}", path, e))?;
+    if is_sensitive_path(&real.to_string_lossy()) {
+        return Err(format!(
+            "路径位于敏感目录，已被拦截: {}",
+            real.display()
+        ));
+    }
+    Ok(real)
+}
+
+/// write_file 目标解析：父目录 canonicalize + 拼接文件名（目标文件可尚未存在），再校验敏感路径
+fn resolve_write_target(path: &str) -> Result<std::path::PathBuf, String> {
+    let p = std::path::Path::new(path);
+    let parent = p.parent().ok_or_else(|| "路径缺少父目录".to_string())?;
+    let file_name = p.file_name().ok_or_else(|| "路径缺少文件名".to_string())?;
+    let parent_real = std::fs::canonicalize(parent)
+        .map_err(|e| format!("父目录无法解析: {}: {}", parent.display(), e))?;
+    let target = parent_real.join(file_name);
+    if is_sensitive_path(&target.to_string_lossy()) {
+        return Err(format!(
+            "目标路径位于敏感目录，已被拦截: {}",
+            target.display()
+        ));
+    }
+    Ok(target)
+}
+
+/// 读取文件文本内容（Agent 工具：`read_file`）
+///
+/// 前端调用：`invoke('read_file', { path: string })`
+///
+/// # 安全约束
+/// - 仅应用窗口（chat-window / main）可调用（D-2 窗口门禁）
+/// - canonicalize 解析符号链接 / 相对路径，防止 `..` 逃逸（D-4）
+/// - 敏感目录（~/.ssh、/etc、Windows 系统区等）拒绝读取
+/// - 仅文本文件（UTF-8），二进制报错；大小上限 1MB
+#[tauri::command]
+pub async fn read_file(window: tauri::Window, path: String) -> Result<String, String> {
+    crate::window_gate::require_window(&window, crate::window_gate::AGENT_WINDOWS)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let real = resolve_path(&path)?;
+        if !real.is_file() {
+            return Err(format!("不是文件: {}", real.display()));
+        }
+        let meta = std::fs::metadata(&real)
+            .map_err(|e| format!("读取文件元信息失败: {}", e))?;
+        if meta.len() > READ_FILE_MAX_BYTES as u64 {
+            return Err(format!(
+                "文件过大（>{:.1}MB），拒绝读取: {}",
+                READ_FILE_MAX_BYTES as f64 / (1024.0 * 1024.0),
+                real.display()
+            ));
+        }
+        let text = std::fs::read_to_string(&real).map_err(|e| {
+            if e.kind() == std::io::ErrorKind::InvalidData {
+                format!("二进制文件不支持文本读取: {}", real.display())
+            } else {
+                format!("读取文件失败: {}", e)
+            }
+        })?;
+        Ok(text)
+    })
+    .await
+    .map_err(|e| format!("读取任务执行失败: {}", e))?
+}
+
+/// 目录条目信息（`list_directory` 返回）
+#[derive(serde::Serialize)]
+pub struct DirEntryInfo {
+    pub name: String,
+    pub is_dir: bool,
+    pub size: u64,
+}
+
+/// 列出目录条目（Agent 工具：`list_directory`）
+///
+/// 前端调用：`invoke('list_directory', { path?: string })`
+///
+/// # 安全约束
+/// - 仅应用窗口可调用（D-2 窗口门禁）
+/// - canonicalize 解析 + 敏感目录拒绝；条目数上限 500
+#[tauri::command]
+pub async fn list_directory(
+    window: tauri::Window,
+    path: Option<String>,
+) -> Result<Vec<DirEntryInfo>, String> {
+    crate::window_gate::require_window(&window, crate::window_gate::AGENT_WINDOWS)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let dir_str = path.unwrap_or_else(|| ".".to_string());
+        let real = resolve_path(&dir_str)?;
+        if !real.is_dir() {
+            return Err(format!("不是目录: {}", real.display()));
+        }
+        let entries = std::fs::read_dir(&real)
+            .map_err(|e| format!("读取目录失败 {}: {}", real.display(), e))?;
+        let mut out = Vec::new();
+        for entry in entries.flatten().take(LIST_DIR_MAX_ENTRIES) {
+            let meta = entry
+                .metadata()
+                .map_err(|e| format!("读取条目元信息失败: {}", e))?;
+            out.push(DirEntryInfo {
+                name: entry.file_name().to_string_lossy().into_owned(),
+                is_dir: meta.is_dir(),
+                size: if meta.is_file() { meta.len() } else { 0 },
+            });
+        }
+        Ok(out)
+    })
+    .await
+    .map_err(|e| format!("列目录任务执行失败: {}", e))?
+}
+
+/// 写入文件文本内容（Agent 工具：`write_file`，高风险操作）
+///
+/// 前端调用：`invoke('write_file', { path: string, content: string })`
+///
+/// # 安全约束
+/// - 仅应用窗口可调用（D-2 窗口门禁）；安全模式（检测到调试器，D-6）拒绝写入
+/// - canonicalize 父目录 + 敏感路径校验（禁止写 ~/.ssh、/etc、Windows 系统区、Program Files 等）
+/// - 内容上限 512KB；拒绝 / 成功 / 失败均写安全审计日志（P1-07 风格）
+#[tauri::command]
+pub async fn write_file(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    path: String,
+    content: String,
+) -> Result<String, String> {
+    crate::window_gate::require_window(&window, crate::window_gate::AGENT_WINDOWS)?;
+    // D-6: 安全模式（检测到调试器）下拒绝写入文件
+    if crate::antidebug::is_debugger_detected() {
+        let _ = crate::audit_log::record_audit(
+            &app,
+            "security_event",
+            "ai_agent",
+            "安全模式拒绝 write_file",
+        );
+        return Err("安全模式（检测到调试器），拒绝写入文件".to_string());
+    }
+    if content.len() > WRITE_FILE_MAX_BYTES {
+        return Err(format!(
+            "内容过大（>{:.1}KB），拒绝写入",
+            WRITE_FILE_MAX_BYTES as f64 / 1024.0
+        ));
+    }
+    // 路径解析（canonicalize 父目录）放阻塞线程，避免在 async 上下文做文件 IO
+    let target = tauri::async_runtime::spawn_blocking({
+        let path = path.clone();
+        move || resolve_write_target(&path)
+    })
+    .await
+    .map_err(|e| format!("路径解析任务失败: {}", e))??;
+
+    // 审计需要目标路径展示；转成 String 避免 PathBuf 移动语义问题
+    let target_display = target.to_string_lossy().into_owned();
+    let display_in_closure = target_display.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        std::fs::write(&target, content.as_bytes())
+            .map_err(|e| format!("写入文件失败 {}: {}", target.display(), e))?;
+        Ok::<String, String>(format!(
+            "已写入 {}（{} 字节）",
+            display_in_closure, content.len()
+        ))
+    })
+    .await
+    .map_err(|e| format!("写入任务执行失败: {}", e))?;
+
+    // P1-07 风格：高危写操作的签发 / 拒绝均写安全审计日志
+    let (event_type, outcome) = match &result {
+        Ok(_) => ("command_executed", "授权写入"),
+        Err(_) => ("security_event", "拒绝/写入失败"),
+    };
+    let _ = crate::audit_log::record_audit(
+        &app,
+        event_type,
+        "ai_agent",
+        &format!("write_file {}: {}", outcome, target_display),
+    );
+    result
+}
+
+#[cfg(test)]
+mod p0_2_tests {
+    use super::*;
+
+    #[test]
+    fn test_is_sensitive_path_blocks_private_dirs() {
+        // 敏感目录（大小写不敏感）必须拦截
+        assert!(is_sensitive_path(r"C:\Users\me\.ssh\id_rsa"));
+        assert!(is_sensitive_path("/home/u/.config/app.conf"));
+        assert!(is_sensitive_path("C:\\Windows\\System32\\config\\sam"));
+        assert!(is_sensitive_path("/etc/passwd"));
+        assert!(is_sensitive_path("/home/u/.aws/credentials"));
+        assert!(is_sensitive_path("C:\\Program Files\\test\\app.exe"));
+        // 普通用户目录 / 项目目录放行
+        assert!(!is_sensitive_path(r"C:\Users\me\Documents\test.txt"));
+        assert!(!is_sensitive_path("/home/u/project/src/main.rs"));
+        assert!(!is_sensitive_path(r"C:\Users\me\Desktop\notes.md"));
+    }
+
+    #[test]
+    fn test_resolve_write_target_rejects_sensitive_parent() {
+        // 指向系统 / 私密目录的写入目标必须被拒绝
+        assert!(resolve_write_target(r"C:\Windows\System32\evil.txt").is_err());
+        assert!(resolve_write_target("/home/u/.ssh/authorized_keys").is_err());
+        assert!(resolve_write_target("C:\\Program Files\\x\\y.tmp").is_err());
+    }
+
+    #[test]
+    fn test_resolve_write_target_accepts_user_dir() {
+        // 临时目录下的文件（可不存在）解析成功，且可写
+        let tmp = std::env::temp_dir();
+        let path = tmp.join("spiritpal-p0-2-write-test.txt");
+        let resolved = resolve_write_target(path.to_str().unwrap()).expect("用户临时目录应可写");
+        let ok = std::fs::write(&resolved, "p0-2 test").is_ok();
+        std::fs::remove_file(&resolved).ok();
+        assert!(ok);
+    }
+
+    #[test]
+    fn test_resolve_path_rejects_missing_and_sensitive() {
+        assert!(resolve_path("/nonexistent/definitely/missing").is_err());
+        assert!(resolve_path("/etc/hosts").is_err());
+    }
+}
