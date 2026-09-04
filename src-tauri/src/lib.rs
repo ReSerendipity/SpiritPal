@@ -89,8 +89,9 @@ mod character_import;
 pub mod system_tools;
 #[cfg(desktop)]
 use system_tools::{
-    execute_command, get_running_processes, read_widget_state, search_files, set_system_brightness,
-    set_system_volume, sync_widget_state, take_screenshot,
+    execute_command, get_running_processes, list_directory, read_file, read_widget_state,
+    search_files, set_system_brightness, set_system_volume, sync_widget_state, take_screenshot,
+    write_file,
 };
 // D-1: Rust 语义 SQL 命令层（sp_* 命令；替代前端 plugin-sql 直执行 SQL）
 // 命令以 sqlite::sp_xxx 路径形式注册进 invoke_handler，无需逐个 use。
@@ -331,6 +332,10 @@ pub fn run() {
                     set_system_brightness,
                     search_files,
                     execute_command,
+                    // P0-2: Agent 文件读写工具（read_file / write_file / list_directory，带路径白名单）
+                    read_file,
+                    write_file,
+                    list_directory,
                     sync_widget_state,
                     read_widget_state,
                     // 托盘
