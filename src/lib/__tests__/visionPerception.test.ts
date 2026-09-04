@@ -10,19 +10,19 @@
  *  3. 截屏失败 → onError 回调 + 返回 null（不抛未捕获异常）
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { getVisionPerceptionManager, resetVisionPerceptionManager } from '../visionPerception'
 import { invoke } from '@tauri-apps/api/core'
-import { getKeyframeMemory } from '../keyframeMemory'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { getKeyframeMemory } from '@/lib/memory/keyframeMemory'
+import { getVisionPerceptionManager, resetVisionPerceptionManager } from '@/lib/memory/visionPerception'
 
 const mockInvoke = vi.mocked(invoke)
 
-vi.mock('../promptRegistry', () => ({
+vi.mock('@/lib/ai/promptRegistry', () => ({
   getPrompt: vi.fn(() => '你是桌面宠物的视觉分析系统。'),
 }))
 
 // keyframeMemory 走真实实现可能报错，mock 掉 addFrame 相关的即可
-vi.mock('../keyframeMemory', () => ({
+vi.mock('@/lib/memory/keyframeMemory', () => ({
   getKeyframeMemory: vi.fn(() => ({
     addFrame: vi.fn(),
   })),

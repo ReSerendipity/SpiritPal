@@ -1,6 +1,6 @@
 // personalityTemplates 单元测试 — 5 种性格预设模板完整性
 import { describe, it, expect } from 'vitest'
-import { PERSONALITY_TEMPLATES, getTemplate } from '../personalityTemplates'
+import { PERSONALITY_TEMPLATES, getTemplate } from '@/lib/ai/personalityTemplates'
 
 const EXPECTED_IDS = ['soft', 'energetic', 'poisonous', 'intellectual', 'tsundere']
 const EXPECTED_NAMES = ['软萌', '元气', '毒舌', '知性', '傲娇']

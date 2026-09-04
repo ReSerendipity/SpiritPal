@@ -49,23 +49,23 @@ vi.mock('@modelcontextprotocol/sdk/client/stdio.js', () => ({
   }),
 }))
 
-vi.mock('../mcpInputValidator', () => ({
+vi.mock('@/lib/system/mcpInputValidator', () => ({
   validateMcpInput: vi.fn().mockReturnValue({ valid: true }),
   MAX_TEXT_LENGTH: 2000,
   MAX_ID_LENGTH: 100,
 }))
 
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import {
   McpClientManager,
   getMcpClientManager,
   resetMcpClientManager,
   type McpServerConfig,
   type PermissionRule,
-} from '../mcpClient'
-import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
-import { validateMcpInput } from '../mcpInputValidator'
+} from '@/lib/system/mcpClient'
+import { validateMcpInput } from '@/lib/system/mcpInputValidator'
 
 /** 构造一个心跳关闭、重连关闭的 SSE 配置，避免测试触发真实定时器 */
 function sseConfig(overrides: Partial<McpServerConfig> = {}): McpServerConfig {

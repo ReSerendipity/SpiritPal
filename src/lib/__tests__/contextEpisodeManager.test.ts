@@ -18,7 +18,7 @@ const { mockDbExecute, mockDbSelect } = vi.hoisted(() => ({
   mockDbSelect: vi.fn(),
 }))
 
-vi.mock('../db', () => ({
+vi.mock('@/lib/data/db', () => ({
   getDb: vi.fn().mockResolvedValue({
     execute: mockDbExecute,
     select: mockDbSelect,
@@ -29,7 +29,7 @@ import {
   ContextEpisodeManager,
   getContextEpisodeManager,
   type ContextEpisode,
-} from '../contextEpisodeManager'
+} from '@/lib/memory/contextEpisodeManager'
 
 describe('ContextEpisodeManager', () => {
   let manager: ContextEpisodeManager

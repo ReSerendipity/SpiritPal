@@ -15,7 +15,7 @@ import {
   tauriInvokeNoRetry,
   IpcTimeoutError,
   IpcRetryExhaustedError,
-} from '../tauriInvoker'
+} from '@/lib/system/tauriInvoker'
 
 // Mock @tauri-apps/api/core
 vi.mock('@tauri-apps/api/core', () => ({

@@ -22,12 +22,43 @@ export interface CogneeHealth {
   cogneeAvailable: boolean
 }
 
+// M0 加固：sidecar 鉴权 token（进程存活期有效）。
+// 未启动 sidecar 时命令返回空串 → 不带 token（服务端未配置 token 时向后兼容）。
+// 单次读取后缓存，避免每次请求都打一次 IPC。
+let memoizedToken: string | null | undefined = undefined
+
+async function sidecarToken(): Promise<string | null> {
+  if (memoizedToken !== undefined) return memoizedToken
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    const t = (await invoke<string>('get_memory_sidecar_token')) || ''
+    memoizedToken = t || null
+  } catch {
+    memoizedToken = null
+  }
+  return memoizedToken
+}
+
+function authHeaders(token: string | null, extra: Record<string, string> = {}): HeadersInit {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...extra,
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+  return headers
+}
+
 /** 探测 sidecar 与 cognee 是否可用（超时 1.5s）。 */
 export async function cogneeHealth(): Promise<boolean> {
   try {
     const ctrl = new AbortController()
     const t = setTimeout(() => ctrl.abort(), 1500)
-    const r = await fetch(`${SIDECAR_BASE}/health`, { signal: ctrl.signal })
+    const r = await fetch(`${SIDECAR_BASE}/health`, {
+      headers: authHeaders(await sidecarToken(), {}),
+      signal: ctrl.signal,
+    })
     clearTimeout(t)
     if (!r.ok) return false
     const j = (await r.json()) as CogneeHealth
@@ -48,7 +79,7 @@ export async function cogneeAdd(
     const t = setTimeout(() => ctrl.abort(), 5000)
     await fetch(`${SIDECAR_BASE}/memory/add`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(await sidecarToken()),
       body: JSON.stringify({ character_id: characterId, text, metadata }),
       signal: ctrl.signal,
     })
@@ -69,7 +100,7 @@ export async function cogneeSearch(
     const t = setTimeout(() => ctrl.abort(), 5000)
     const r = await fetch(`${SIDECAR_BASE}/memory/search`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(await sidecarToken()),
       body: JSON.stringify({ character_id: characterId, query, top_k: topK }),
       signal: ctrl.signal,
     })

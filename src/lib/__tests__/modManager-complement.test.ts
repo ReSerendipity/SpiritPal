@@ -16,7 +16,7 @@ import {
   satisfiesVersionConstraint,
   validatePetmodManifest,
   createModTemplate,
-} from '@/lib/modManager'
+} from '@/lib/data/modManager'
 
 // ============ 导出存在 ============
 

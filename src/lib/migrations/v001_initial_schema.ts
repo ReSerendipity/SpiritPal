@@ -13,7 +13,7 @@
  * @since v0.1.0
  */
 
-import type { Migration } from './schemaRunner'
+import type { Migration } from './types'
 
 export const v001_initialSchema: Migration = {
   version: 1,

@@ -27,7 +27,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 }))
 
 // Mock db 模块 — 使用内存 Map 模拟 settings 存储
-vi.mock('../db', () => {
+vi.mock('@/lib/data/db', () => {
   const mockDb = {
     execute: vi.fn(),
     select: vi.fn(),
@@ -75,7 +75,7 @@ vi.mock('../db', () => {
 })
 
 // Mock vectorSearch
-vi.mock('../vectorSearch', () => ({
+vi.mock('@/lib/system/vectorSearch', () => ({
   embed: vi.fn().mockResolvedValue(new Float32Array([1, 2, 3])),
   isVectorSearchAvailable: vi.fn().mockResolvedValue(true),
   searchSimilar: vi.fn().mockReturnValue([]),
@@ -83,7 +83,7 @@ vi.mock('../vectorSearch', () => ({
 }))
 
 // Mock ragRetrieval
-vi.mock('../ragRetrieval', () => ({
+vi.mock('@/lib/memory/ragRetrieval', () => ({
   getRAGRetriever: vi.fn().mockReturnValue({
     search: vi.fn().mockResolvedValue([]),
     addMemory: vi.fn(),
@@ -94,7 +94,7 @@ vi.mock('../ragRetrieval', () => ({
 }))
 
 // Mock entityLinking
-vi.mock('../entityLinking', () => ({
+vi.mock('@/lib/memory/entityLinking', () => ({
   getEntityManager: vi.fn().mockReturnValue({
     ensureLoaded: vi.fn().mockResolvedValue(undefined),
     getLinkedMemoryIds: vi.fn().mockReturnValue([]),
@@ -182,7 +182,7 @@ describe('S2: 行级 CRUD', () => {
   })
 
   it('insertMemoryRow 应写入完整字段并返回 rowid', async () => {
-    const { insertMemoryRow } = await import('../db')
+    const { insertMemoryRow } = await import('@/lib/data/db')
     const result = await insertMemoryRow({
       character_id: 'test-char',
       type: 'short_term',
@@ -201,25 +201,25 @@ describe('S2: 行级 CRUD', () => {
   })
 
   it('updateMemoryRow 应更新指定字段', async () => {
-    const { updateMemoryRow } = await import('../db')
+    const { updateMemoryRow } = await import('@/lib/data/db')
     await updateMemoryRow(1, { tier: 'episodic', importance: 80 })
     expect(updateMemoryRow).toHaveBeenCalledWith(1, { tier: 'episodic', importance: 80 })
   })
 
   it('getMemoriesByTier 应按 tier 查询', async () => {
-    const { getMemoriesByTier } = await import('../db')
+    const { getMemoriesByTier } = await import('@/lib/data/db')
     await getMemoriesByTier('test-char', ['working', 'episodic'])
     expect(getMemoriesByTier).toHaveBeenCalledWith('test-char', ['working', 'episodic'])
   })
 
   it('upsertMemorySummary 应 upsert 语义摘要', async () => {
-    const { upsertMemorySummary } = await import('../db')
+    const { upsertMemorySummary } = await import('@/lib/data/db')
     await upsertMemorySummary('test-char', '测试摘要')
     expect(upsertMemorySummary).toHaveBeenCalledWith('test-char', '测试摘要')
   })
 
   it('upsertMemoryState 应 upsert 触发状态', async () => {
-    const { upsertMemoryState } = await import('../db')
+    const { upsertMemoryState } = await import('@/lib/data/db')
     const state = {
       character_id: 'test-char',
       last_chat_date: '2026-08-15',
@@ -234,13 +234,13 @@ describe('S2: 行级 CRUD', () => {
   })
 
   it('clearAllMemoryData 应清空所有行级数据', async () => {
-    const { clearAllMemoryData } = await import('../db')
+    const { clearAllMemoryData } = await import('@/lib/data/db')
     await clearAllMemoryData('test-char')
     expect(clearAllMemoryData).toHaveBeenCalledWith('test-char')
   })
 
   it('insertMemoryRow 写入后 updateMemoryRow 更新 tier 应保留 memory_id', async () => {
-    const { insertMemoryRow, updateMemoryRow } = await import('../db')
+    const { insertMemoryRow, updateMemoryRow } = await import('@/lib/data/db')
     const rowid = await insertMemoryRow({
       character_id: 'test-char',
       type: 'short_term',
@@ -267,7 +267,7 @@ describe('S2: memory_id ↔ embedding 对账', () => {
   })
 
   it('insertMemoryRow 返回的 rowid 应与 saveEmbedding 关联', async () => {
-    const { insertMemoryRow, saveEmbedding } = await import('../db')
+    const { insertMemoryRow, saveEmbedding } = await import('@/lib/data/db')
     const rowid = await insertMemoryRow({
       character_id: 'char-recon',
       type: 'short_term',
@@ -287,8 +287,8 @@ describe('S2: memory_id ↔ embedding 对账', () => {
   })
 
   it('迁移时 memory_id 应保留原始 id（不重算 embedding）', async () => {
-    const { getSetting, isMemoryMigrated, isLegacyMode, insertMemoryRow } = await import('../db')
-    const { migrateCharacterMemory } = await import('../memoryMigrator')
+    const { getSetting, isMemoryMigrated, isLegacyMode, insertMemoryRow } = await import('@/lib/data/db')
+    const { migrateCharacterMemory } = await import('@/lib/memory/memoryMigrator')
 
     const legacyData = makeLegacyBlobData([
       { user: '保留 ID 测试', assistant: '回复', id: 'mem-original-id-001' },
@@ -314,8 +314,8 @@ describe('S2: 行级 load 路径', () => {
   })
 
   it('行级路径应从 getMemoriesByTier 加载三层记忆', async () => {
-    const { isMemoryMigrated, isLegacyMode, getMemoriesByTier, getMemorySummary, getMemoryState, getSetting } = await import('../db')
-    const { EnhancedMemoryManager } = await import('../enhancedMemory')
+    const { isMemoryMigrated, isLegacyMode, getMemoriesByTier, getMemorySummary, getMemoryState, getSetting } = await import('@/lib/data/db')
+    const { EnhancedMemoryManager } = await import('@/lib/memory/enhancedMemory')
 
     // 模拟已迁移 → 走行级路径
     vi.mocked(isMemoryMigrated).mockResolvedValue(true)
@@ -350,8 +350,8 @@ describe('S2: 行级 load 路径', () => {
   })
 
   it('行级加载失败应回退到 blob 路径', async () => {
-    const { isMemoryMigrated, isLegacyMode, getMemoriesByTier, getSetting } = await import('../db')
-    const { EnhancedMemoryManager } = await import('../enhancedMemory')
+    const { isMemoryMigrated, isLegacyMode, getMemoriesByTier, getSetting } = await import('@/lib/data/db')
+    const { EnhancedMemoryManager } = await import('@/lib/memory/enhancedMemory')
 
     vi.mocked(isMemoryMigrated).mockResolvedValue(true)
     vi.mocked(isLegacyMode).mockResolvedValue(false)
@@ -372,8 +372,8 @@ describe('S2: 行级 save 路径', () => {
   })
 
   it('行级路径 doSave 应仅写 memory_state + memory_summaries', async () => {
-    const { isMemoryMigrated, isLegacyMode, upsertMemoryState, getMemoriesByTier, getMemorySummary, getMemoryState, getSetting } = await import('../db')
-    const { EnhancedMemoryManager } = await import('../enhancedMemory')
+    const { isMemoryMigrated, isLegacyMode, upsertMemoryState, getMemoriesByTier, getMemorySummary, getMemoryState, getSetting } = await import('@/lib/data/db')
+    const { EnhancedMemoryManager } = await import('@/lib/memory/enhancedMemory')
 
     // 模拟已迁移 → 走行级路径
     vi.mocked(isMemoryMigrated).mockResolvedValue(true)

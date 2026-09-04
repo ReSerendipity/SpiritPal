@@ -1,13 +1,13 @@
 // characterConsistency 单元测试 — 性格类型推断、冲突关键词检测、修正 prompt 生成
 import { describe, it, expect } from 'vitest'
+import type { Personality } from '@/lib/data/types'
 import {
   inferArchetype,
   getCharacterArchetype,
   checkConsistency,
   generateCorrectionPrompt,
   ARCHETYPE_LABELS,
-} from '../characterConsistency'
-import type { Personality } from '../types'
+} from '@/lib/nurture/characterConsistency'
 
 function makePersonality(overrides: Partial<Personality> = {}): Personality {
   return {

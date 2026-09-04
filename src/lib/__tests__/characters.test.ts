@@ -7,8 +7,8 @@ import {
   loadCustomCharacters,
   saveCustomCharacter,
   getAllCharacters,
-} from '../characters'
-import type { CharacterProfile } from '../types'
+} from '@/lib/data/characters'
+import type { CharacterProfile } from '@/lib/data/types'
 
 const EXPECTED_IDS = ['doro', 'feibi', 'gugugaga']
 

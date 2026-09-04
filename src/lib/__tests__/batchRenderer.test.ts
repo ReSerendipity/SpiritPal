@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { BatchRenderer, type Renderable } from '../batchRenderer'
+import { BatchRenderer, type Renderable } from '@/lib/render/batchRenderer'
 
 function makeRenderable(overrides: Partial<Renderable> = {}): Renderable {
   return {

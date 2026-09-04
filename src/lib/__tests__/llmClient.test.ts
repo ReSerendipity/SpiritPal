@@ -1,11 +1,11 @@
 // llmClient 模块测试 — 多服务商 LLM 流式调用
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-vi.mock('../llmProviders', () => ({
+vi.mock('@/lib/ai/llmProviders', () => ({
   OLLAMA_TAGS_URL: 'http://localhost:11434/api/tags',
 }))
 
-import { LLMClient, DEFAULT_AI_CONFIG, getLLMClient, generateCharacterFromDescription, fetchWithTimeout, computeRetryDelay } from '../llmClient'
+import { LLMClient, DEFAULT_AI_CONFIG, getLLMClient, generateCharacterFromDescription, fetchWithTimeout, computeRetryDelay } from '@/lib/ai/llmClient'
 
 // 辅助：创建 mock ReadableStream
 function createReadableStream(chunks: string[]): ReadableStream<Uint8Array> {

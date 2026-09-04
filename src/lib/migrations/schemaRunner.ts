@@ -25,33 +25,8 @@
  * ```
  */
 
-import { getDb } from '../db'
-
-/** 迁移记录接口 */
-export interface MigrationRecord {
-  version: number
-  applied_at: number
-  description: string
-  sql_checksum: string
-}
-
-/** 迁移失败日志接口 */
-export interface MigrationFailureLog {
-  id: number
-  version: number
-  attempted_at: number
-  error_message: string
-  sql_statement: string
-}
-
-/** 迁移定义 */
-export interface Migration {
-  version: number
-  description: string
-  sql: string | string[]
-  /** 回滚 SQL（可选，用于手动回滚） */
-  rollbackSql?: string | string[]
-}
+import { getDb } from '@/lib/data/db'
+import type { Migration, MigrationRecord, MigrationFailureLog } from './types'
 
 /**
  * 确保 schema_versions 表存在

@@ -6,13 +6,13 @@
  * @module characterPack.test
  */
 import { describe, it, expect } from 'vitest'
+import { ATLAS } from '@/lib/data/types'
 import {
   parseCharacterPack,
   parseCharacterPackFromJSON,
   detectFormat,
   type RawPackConfig,
-} from '../characterPack'
-import { ATLAS } from '../types'
+} from '@/lib/nurture/characterPack'
 
 // ============ 测试数据工厂 ============
 

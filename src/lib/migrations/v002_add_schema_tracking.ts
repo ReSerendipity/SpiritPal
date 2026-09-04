@@ -9,7 +9,7 @@
  * @since v0.1.0 (数据治理改进)
  */
 
-import type { Migration } from './schemaRunner'
+import type { Migration } from './types'
 
 export const v002_addSchemaTracking: Migration = {
   version: 2,

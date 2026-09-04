@@ -15,21 +15,21 @@ vi.mock('@tauri-apps/api/core', () => ({
 
 // petStore 模拟：inventory 内容由各用例设置
 let currentInventory: Array<{ id: string; count: number; type: string }> = []
-vi.mock('../../stores/petStore', () => ({
+vi.mock('@/stores/petStore', () => ({
   usePetStore: {
     getState: () => ({ inventory: currentInventory, useItem: mockUseItem }),
   },
 }))
 
-vi.mock('../windowEventBus', () => ({
+vi.mock('@/lib/system/windowEventBus', () => ({
   windowEventBus: { emit: (...args: unknown[]) => mockEmit(...args) },
 }))
 
-vi.mock('../appWindows', () => ({
+vi.mock('@/lib/system/appWindows', () => ({
   ensureAppWindow: (...args: unknown[]) => mockEnsureAppWindow(...args),
 }))
 
-import { handleWidgetDeepLink, parseWidgetDeepLink } from '../widgetState'
+import { handleWidgetDeepLink, parseWidgetDeepLink } from '@/lib/system/widgetState'
 
 function setUA(ua: string): void {
   Object.defineProperty(window.navigator, 'userAgent', { value: ua, configurable: true })

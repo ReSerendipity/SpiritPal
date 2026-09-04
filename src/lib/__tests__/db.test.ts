@@ -53,7 +53,7 @@ import {
   getSchedules,
   sqliteStorage,
   migrateFromLocalStorage,
-} from '../db'
+} from '@/lib/data/db'
 
 describe('db', () => {
   beforeEach(async () => {
@@ -88,7 +88,7 @@ describe('db', () => {
     it('initDB 创建所有表', async () => {
       // initDB 是幂等的（dbInstance 缓存），需重置模块以重新执行建表语句
       vi.resetModules()
-      const { initDB: freshInitDB } = await import('../db')
+      const { initDB: freshInitDB } = await import('@/lib/data/db')
       await freshInitDB()
       // 通过检查 execute 被调用时包含 CREATE TABLE 来验证
       const calls = mockDb.execute.mock.calls.map((c) => String(c[0]))

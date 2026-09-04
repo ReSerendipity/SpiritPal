@@ -5,23 +5,23 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { EnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 import {
   MemoryEditor,
   createMemoryEditor,
   type MemorySearchOptions,
   type MemoryBatchOperation,
   type MemoryEditResult,
-} from '../memoryEditor'
-import { EnhancedMemoryManager } from '../enhancedMemory'
-import { type EnhancedMemory } from '../memoryTypes'
+} from '@/lib/memory/memoryEditor'
+import { type EnhancedMemory } from '@/lib/memory/memoryTypes'
 
 // Mock EnhancedMemoryManager
-vi.mock('../enhancedMemory', () => ({
+vi.mock('@/lib/memory/enhancedMemory', () => ({
   EnhancedMemoryManager: vi.fn(),
 }))
 
 // Mock db 行级持久化（updateMemory 带 dbId 时使用）
-vi.mock('../db', () => ({
+vi.mock('@/lib/data/db', () => ({
   updateMemoryRow: vi.fn().mockResolvedValue(undefined),
 }))
 
@@ -161,7 +161,7 @@ describe('MemoryEditor', () => {
     })
 
     it('C-4：sanitizeMemoryForDisplay 不修改原对象，且 tags 为副本', async () => {
-      const { sanitizeMemoryForDisplay } = await import('../memoryEditor')
+      const { sanitizeMemoryForDisplay } = await import('@/lib/memory/memoryEditor')
       const original = mockMemories[0]!
       const tagsBefore = original.tags
 

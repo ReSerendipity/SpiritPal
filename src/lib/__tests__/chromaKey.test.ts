@@ -13,7 +13,7 @@ import {
   CHROMA_KEY_THRESHOLD,
   CHROMA_KEY_ALPHA_THRESHOLD,
   CHROMA_KEY_MIN_EDGE_BLACK_RATIO,
-} from '../chromaKey'
+} from '@/lib/render/chromaKey'
 
 /** 构造测试用 ImageData（duck-typed） */
 function makeImageData(width: number, height: number, fill: (x: number, y: number) => [number, number, number, number]): ImageData {

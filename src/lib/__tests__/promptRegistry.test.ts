@@ -5,7 +5,7 @@ import {
   getAllPromptVersions,
   getPromptRegistrySummary,
   validatePromptRegistry,
-} from '../promptRegistry'
+} from '@/lib/ai/promptRegistry'
 
 describe('promptRegistry', () => {
   describe('getPrompt', () => {

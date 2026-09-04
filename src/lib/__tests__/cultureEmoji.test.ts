@@ -9,11 +9,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { cultureEmojiForEmotion, decorateWithCultureEmoji } from '../cultureEmoji'
-import { getEmotionStateManager } from '../emotionEngine'
-import { useSettingsStore } from '../../stores/settingsStore'
+import { getEmotionStateManager } from '@/lib/ai/emotionEngine'
+import { cultureEmojiForEmotion, decorateWithCultureEmoji } from '@/lib/system/cultureEmoji'
+import { useSettingsStore } from '@/stores/settingsStore'
 
-vi.mock('../emotionEngine', () => {
+vi.mock('@/lib/ai/emotionEngine', () => {
   const state = { current: 'happy', todayStats: {} }
   return {
     getEmotionStateManager: () => ({

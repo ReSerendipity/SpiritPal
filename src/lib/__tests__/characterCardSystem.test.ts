@@ -24,7 +24,7 @@ import {
   resetCharacterCardManager,
   type CharacterCard,
   type TemplateContext,
-} from '@/lib/characterCardSystem'
+} from '@/lib/nurture/characterCardSystem'
 
 // ============ 测试数据 ============
 

@@ -19,11 +19,11 @@ import {
   DEFAULT_DREAMING_CONFIG,
   type DreamingConfig,
   type DreamingTask,
-} from '../dreamingConsolidation'
-import { EnhancedMemoryManager } from '../enhancedMemory'
+} from '@/lib/memory/dreamingConsolidation'
+import { EnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 
 // Mock EnhancedMemoryManager
-vi.mock('../enhancedMemory', () => ({
+vi.mock('@/lib/memory/enhancedMemory', () => ({
   EnhancedMemoryManager: vi.fn(),
 }))
 

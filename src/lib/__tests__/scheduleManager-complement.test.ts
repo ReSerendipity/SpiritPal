@@ -11,7 +11,7 @@
  * 注意：parseTimePeriod 为模块私有函数，仅能通过 parseScheduleFromText 间接验证。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { parseScheduleFromText } from '@/lib/scheduleManager'
+import { parseScheduleFromText } from '@/lib/nurture/scheduleManager'
 
 describe('parseScheduleFromText 边界（补充）', () => {
   // 固定系统时间为周一，保证 "下周X" / "明天" 判定确定性

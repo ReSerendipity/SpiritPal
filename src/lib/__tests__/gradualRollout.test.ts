@@ -8,10 +8,10 @@ import {
   clearRolloutCache,
   type RolloutItem,
   type RolloutConfig,
-} from '../gradualRollout'
+} from '@/lib/system/gradualRollout'
 
 // Mock promptRegistry
-vi.mock('../promptRegistry', () => ({
+vi.mock('@/lib/ai/promptRegistry', () => ({
   getAllPromptVersions: () => ({
     'agent.intent': 1,
     'llm.emotion_select': 1,

@@ -1,6 +1,6 @@
 // themeManager 模块测试 — 主题检测、切换、持久化、订阅
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { themeManager } from '../themeManager'
+import { themeManager } from '@/lib/system/themeManager'
 
 // 辅助函数：设置 matchMedia mock
 function setMatchMedia(matches: boolean) {

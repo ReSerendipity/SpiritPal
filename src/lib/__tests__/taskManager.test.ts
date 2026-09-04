@@ -1,6 +1,6 @@
 // taskManager 单元测试 — 专注时间记录、奖励公式、连续天数
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { TaskManager, getTaskManager } from '../taskManager'
+import { TaskManager, getTaskManager } from '@/lib/nurture/taskManager'
 
 describe('TaskManager', () => {
   let mgr: TaskManager

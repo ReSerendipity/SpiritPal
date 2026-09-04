@@ -1,7 +1,7 @@
 // dataManager 模块测试 — 配置导入/导出 + 全量数据备份/恢复
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('../modManager', () => ({
+vi.mock('@/lib/data/modManager', () => ({
   getModManager: vi.fn(() => ({
     getMods: vi.fn(() => [
       { id: 'mod1', displayName: '模组1', enabled: true },
@@ -9,22 +9,22 @@ vi.mock('../modManager', () => ({
   })),
 }))
 
-vi.mock('../enhancedMemory', () => ({
+vi.mock('@/lib/memory/enhancedMemory', () => ({
   getEnhancedMemoryManager: vi.fn(() => ({})),
 }))
 
-vi.mock('../achievementSystem', () => ({
+vi.mock('@/lib/nurture/achievementSystem', () => ({
   getAchievementManager: vi.fn(() => ({})),
 }))
 
-vi.mock('../characters', () => ({
+vi.mock('@/lib/data/characters', () => ({
   CHARACTERS: [
     { id: 'doro', name: 'Doro' },
     { id: 'feibi', name: 'Feibi' },
   ],
 }))
 
-vi.mock('../secureStorage', () => ({
+vi.mock('@/lib/data/secureStorage', () => ({
   getApiKey: vi.fn(() => Promise.resolve('test-api-key')),
   setApiKey: vi.fn(() => Promise.resolve()),
 }))
@@ -32,13 +32,13 @@ vi.mock('../secureStorage', () => ({
 // [REFACTOR] R3 - 添加 db 模块 mock（dataManager 现在通过 getSetting/setSetting 读写 SQLite）
 // getSetting 返回 null → readStoreData fallback 到 localStorage（兼容测试）
 // setSetting 空实现 → writeStoreData 只写 localStorage（兼容测试验证）
-vi.mock('../db', () => ({
+vi.mock('@/lib/data/db', () => ({
   getSetting: vi.fn(() => Promise.resolve(null)),
   setSetting: vi.fn(() => Promise.resolve()),
 }))
 
-import { DataManager, getDataManager } from '../dataManager'
-import { setApiKey } from '../secureStorage'
+import { DataManager, getDataManager } from '@/lib/data/dataManager'
+import { setApiKey } from '@/lib/data/secureStorage'
 
 describe('DataManager', () => {
   let mgr: DataManager

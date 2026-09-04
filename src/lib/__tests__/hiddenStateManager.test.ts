@@ -32,7 +32,7 @@ import {
   getHiddenStateManager,
   resetHiddenStateManager,
   type HiddenState,
-} from '../hiddenStateManager'
+} from '@/lib/render/hiddenStateManager'
 
 function getState() {
   return getHiddenStateManager().getCurrentState()

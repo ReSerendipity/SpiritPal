@@ -7,11 +7,11 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
-import { renderPetTrayIcon } from '../trayIconRenderer'
-import { disposeFrameCaches } from '../frameCache'
+import { disposeFrameCaches } from '@/lib/render/frameCache'
+import { renderPetTrayIcon } from '@/lib/render/trayIconRenderer'
 
 // 固定角色数据：8 列 × 4 行的 128px 图集
-vi.mock('../characters', () => ({
+vi.mock('@/lib/data/characters', () => ({
   getCharacter: (id: string) => ({
     id,
     name: '测试宠物',

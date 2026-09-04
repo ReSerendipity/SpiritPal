@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { usePetStore } from '../../stores/petStore'
+import { usePetStore } from '@/stores/petStore'
 
 const ensureLoaded = vi.fn().mockResolvedValue(undefined)
 const getAllMemories = vi.fn(() => [{ id: 'm1' }, { id: 'm2' }])
@@ -8,20 +8,20 @@ const buildGraph = vi.fn().mockResolvedValue(undefined)
 const startScheduler = vi.fn()
 const stopScheduler = vi.fn()
 
-vi.mock('../entityGraph', () => ({
+vi.mock('@/lib/memory/entityGraph', () => ({
   initEntityGraphTables: (...a: unknown[]) => initTables(...a),
   buildEntityGraphFromMemories: (...a: unknown[]) => buildGraph(...a),
 }))
-vi.mock('../dreamingConsolidation', () => ({
+vi.mock('@/lib/memory/dreamingConsolidation', () => ({
   startDreamingScheduler: (...a: unknown[]) => startScheduler(...a),
   stopDreamingScheduler: () => stopScheduler(),
 }))
-vi.mock('../enhancedMemory', () => ({
+vi.mock('@/lib/memory/enhancedMemory', () => ({
   getEnhancedMemoryManager: () => ({ ensureLoaded, getAllMemories }),
 }))
 
 // 必须延迟引入被测模块（等 mock 注册）
-const { initMemoryBackground, refreshEntityGraph, stopMemoryBackground } = await import('../memoryBackground')
+const { initMemoryBackground, refreshEntityGraph, stopMemoryBackground } = await import('@/lib/memory/memoryBackground')
 
 beforeEach(() => {
   vi.clearAllMocks()

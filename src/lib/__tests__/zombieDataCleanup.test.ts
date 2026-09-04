@@ -14,20 +14,20 @@ import {
   cleanupZombieData,
   getZombieDataReport,
   autoCleanupIfDue,
-} from '../zombieDataCleanup'
+} from '@/lib/data/zombieDataCleanup'
 
 const mockGetDb = vi.fn()
 const mockGetSetting = vi.fn()
 const mockSetSetting = vi.fn()
 
-vi.mock('../db', () => ({
+vi.mock('@/lib/data/db', () => ({
   getDb: (...args: unknown[]) => mockGetDb(...args),
   getSetting: (...args: unknown[]) => mockGetSetting(...args),
   setSetting: (...args: unknown[]) => mockSetSetting(...args),
   removeSetting: vi.fn(),
 }))
 
-vi.mock('../auditLogger', () => ({
+vi.mock('@/lib/system/auditLogger', () => ({
   auditLog: vi.fn(() => Promise.resolve()),
   AuditEventType: { SECURITY_EVENT: 'security_event' },
 }))

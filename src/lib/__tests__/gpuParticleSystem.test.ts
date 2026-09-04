@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
-import { GPUParticleSystem } from '../gpuParticleSystem'
+import { GPUParticleSystem } from '@/lib/render/gpuParticleSystem'
 
 /**
  * 构造一个"什么方法都接受"的假 WebGL 上下文：

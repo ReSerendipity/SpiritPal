@@ -1,5 +1,6 @@
 // items 单元测试 — 道具配置与角色偏好倍率
 import { describe, it, expect } from 'vitest'
+import { ItemType } from '@/lib/data/types'
 import {
   FOODS_BY_CHARACTER,
   TOYS,
@@ -18,8 +19,7 @@ import {
   getCollectionItems,
   getDialogueItems,
   getSubpetItems,
-} from '../items'
-import { ItemType } from '../types'
+} from '@/lib/nurture/items'
 
 describe('FOODS_BY_CHARACTER', () => {
   it('包含 3 个角色', () => {

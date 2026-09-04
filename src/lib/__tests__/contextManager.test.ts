@@ -1,8 +1,8 @@
 // contextManager 模块测试 — token 预算 / 优先级 / 压缩
 // 第五轮评估补测：该文件此前无专属测试，且 F5/F5b 在 ChatWindow 中依赖其预算行为
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ContextManager, getContextManager, resetContextManager } from '../contextManager'
-import { estimateTokens } from '../stringSimilarity'
+import { ContextManager, getContextManager, resetContextManager } from '@/lib/memory/contextManager'
+import { estimateTokens } from '@/lib/system/stringSimilarity'
 
 describe('ContextManager', () => {
   let mgr: ContextManager

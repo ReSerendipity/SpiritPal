@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { LRUCache, FrameAnimationCache, disposeFrameCaches } from '../frameCache'
+import { LRUCache, FrameAnimationCache, disposeFrameCaches } from '@/lib/render/frameCache'
 
 describe('LRUCache', () => {
   beforeEach(() => {

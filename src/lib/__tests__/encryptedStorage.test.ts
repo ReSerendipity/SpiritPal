@@ -23,7 +23,7 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: mockTauri.invoke,
 }))
 
-import { encryptedStorage, _resetTauriCache, _setTauriAvailable } from '../encryptedStorage'
+import { encryptedStorage, _resetTauriCache, _setTauriAvailable } from '@/lib/data/encryptedStorage'
 
 describe('encryptedStorage', () => {
   beforeEach(() => {
