@@ -89,6 +89,64 @@ const COMPLEX_EMOTION_KEYWORDS = [
   'conflict', 'confused', 'lost', 'stress', 'anxiety', 'depressed',
 ]
 
+// ============ P2-2：复杂度评估参数（可调，支持 A/B 与日志回归调参）============
+
+/** 复杂度评估可调参数 */
+export interface ComplexityParams {
+  /** 复杂度阈值（score ≥ threshold 判 slow，默认 0.6） */
+  threshold: number
+  /** 长度维度饱和 token 数（默认 200） */
+  lengthHighTokens: number
+  /** 每个命中关键词的推理分数增量（默认 0.3） */
+  reasoningKwPerPoint: number
+  /** 每个命中关键词的工具需求分数增量（默认 0.4） */
+  toolKwPerPoint: number
+  /** 每个命中关键词的情感分数增量（默认 0.5） */
+  emotionKwPerPoint: number
+  /** 上下文维度饱和消息数（默认 20） */
+  contextHighRounds: number
+  /** 五维度权重（长度 / 推理 / 工具 / 情感 / 上下文） */
+  weights: {
+    length: number
+    reasoning: number
+    toolNeed: number
+    emotion: number
+    context: number
+  }
+}
+
+const DEFAULT_COMPLEXITY_PARAMS: ComplexityParams = {
+  threshold: 0.6,
+  lengthHighTokens: 200,
+  reasoningKwPerPoint: 0.3,
+  toolKwPerPoint: 0.4,
+  emotionKwPerPoint: 0.5,
+  contextHighRounds: 20,
+  weights: { length: 0.2, reasoning: 0.35, toolNeed: 0.25, emotion: 0.1, context: 0.1 },
+}
+
+let complexityParams: ComplexityParams = { ...DEFAULT_COMPLEXITY_PARAMS }
+
+/** 读取当前复杂度评估参数（只读快照） */
+export function getComplexityParams(): ComplexityParams {
+  return { ...complexityParams, weights: { ...complexityParams.weights } }
+}
+
+/** 调整复杂度评估参数（支持按需覆盖单字段） */
+export function setComplexityParams(patch: Partial<ComplexityParams>): void {
+  complexityParams = {
+    ...complexityParams,
+    ...patch,
+    weights:
+      patch.weights !== undefined ? { ...complexityParams.weights, ...patch.weights } : complexityParams.weights,
+  }
+}
+
+/** 重置复杂度评估参数为默认值 */
+export function resetComplexityParams(): void {
+  complexityParams = { ...DEFAULT_COMPLEXITY_PARAMS }
+}
+
 /**
  * 评估输入的复杂度
  * @param input 用户输入
@@ -101,32 +159,33 @@ export function assessComplexity(
 ): ComplexityAssessment {
   // 1. 长度复杂度：基于 token 数量
   const tokenCount = estimateTokens(input)
-  const length = Math.min(1, tokenCount / 200) // 200 token 为高复杂度
+  const length = Math.min(1, tokenCount / complexityParams.lengthHighTokens)
 
   // 2. 推理复杂度：基于推理关键词
   const reasoningKwCount = REASONING_KEYWORDS.filter((kw) => input.includes(kw)).length
-  const reasoning = Math.min(1, reasoningKwCount * 0.3)
+  const reasoning = Math.min(1, reasoningKwCount * complexityParams.reasoningKwPerPoint)
 
   // 3. 工具需求复杂度
   const toolKwCount = TOOL_KEYWORDS.filter((kw) => input.includes(kw)).length
-  const toolNeed = Math.min(1, toolKwCount * 0.4)
+  const toolNeed = Math.min(1, toolKwCount * complexityParams.toolKwPerPoint)
 
   // 4. 情感复杂度
   const emotionKwCount = COMPLEX_EMOTION_KEYWORDS.filter((kw) => input.includes(kw)).length
-  const emotion = Math.min(1, emotionKwCount * 0.5)
+  const emotion = Math.min(1, emotionKwCount * complexityParams.emotionKwPerPoint)
 
   // 5. 上下文复杂度
-  const context = Math.min(1, contextLength / 20) // 20 轮为高复杂度
+  const context = Math.min(1, contextLength / complexityParams.contextHighRounds)
 
   // 加权融合
+  const w = complexityParams.weights
+  const weightSum = w.length + w.reasoning + w.toolNeed + w.emotion + w.context
   const score =
-    length * 0.2 +
-    reasoning * 0.35 +
-    toolNeed * 0.25 +
-    emotion * 0.1 +
-    context * 0.1
+    weightSum > 0
+      ? (length * w.length + reasoning * w.reasoning + toolNeed * w.toolNeed +
+          emotion * w.emotion + context * w.context) / weightSum
+      : 0
 
-  const suggestedBrain = score >= 0.6 ? 'slow' : 'fast'
+  const suggestedBrain = score >= complexityParams.threshold ? 'slow' : 'fast'
 
   // 生成原因描述
   const reasons: string[] = []
@@ -190,6 +249,82 @@ export function assessConfidence(input: string, response: string): number {
   return Math.max(0, Math.min(1, confidence))
 }
 
+// ============ 双脑路由打点 ============
+
+/** 一次双脑路由事件（P1-2：用于双脑 ROI 度量——慢脑占比 / 升级率 / 平均复杂度） */
+export interface DualBrainRouteEvent {
+  /** 事件时间戳 */
+  timestamp: number
+  /** 最终选用的大脑 */
+  brain: 'fast' | 'slow'
+  /** 复杂度评分（0-1） */
+  complexityScore: number
+  /** Fast Brain 置信度（仅评估过时存在） */
+  confidence?: number
+  /** 是否发生了「Fast → Slow」升级 */
+  escalated: boolean
+}
+
+const ROUTE_EVENTS_KEY = 'spiritpal.dualBrainEvents'
+const ROUTE_EVENTS_MAX = 500
+
+/**
+ * 记录一次双脑路由事件（localStorage 滚动数组，上限 500 条）。
+ *
+ * 成本侧说明：Fast/Slow 的每一次 LLM 调用均已由 llmClient → costTracker 全量记录
+ * （P1-1），此处只负责「路由决策」维度的可观测（升级率 / 路由分布 / 复杂度分布）。
+ */
+export function recordDualBrainEvent(event: DualBrainRouteEvent): void {
+  try {
+    const raw = localStorage.getItem(ROUTE_EVENTS_KEY)
+    const list: DualBrainRouteEvent[] = raw ? (JSON.parse(raw) as DualBrainRouteEvent[]) : []
+    list.push(event)
+    localStorage.setItem(ROUTE_EVENTS_KEY, JSON.stringify(list.slice(-ROUTE_EVENTS_MAX)))
+  } catch {
+    // localStorage 不可用（SSR / 测试环境）时静默丢弃，不影响业务
+  }
+}
+
+/** 读取最近的双脑路由事件 */
+export function getDualBrainRouteEvents(): DualBrainRouteEvent[] {
+  try {
+    const raw = localStorage.getItem(ROUTE_EVENTS_KEY)
+    return raw ? (JSON.parse(raw) as DualBrainRouteEvent[]) : []
+  } catch {
+    return []
+  }
+}
+
+/** 双脑路由汇总（慢脑占比 / 升级率 / 平均复杂度 / 升级者平均复杂度） */
+export function getDualBrainRoutingSummary(): {
+  total: number
+  slowRatio: number
+  escalationRatio: number
+  avgComplexity: number
+  escalatedAvgComplexity: number
+} {
+  const events = getDualBrainRouteEvents()
+  const total = events.length
+  if (total === 0) {
+    return { total: 0, slowRatio: 0, escalationRatio: 0, avgComplexity: 0, escalatedAvgComplexity: 0 }
+  }
+  const slow = events.filter((e) => e.brain === 'slow').length
+  const escalatedEvents = events.filter((e) => e.escalated)
+  const escalated = escalatedEvents.length
+  const avgScore = events.reduce((s, e) => s + e.complexityScore, 0) / total
+  const escalatedAvgScore = escalatedEvents.length
+    ? escalatedEvents.reduce((s, e) => s + e.complexityScore, 0) / escalatedEvents.length
+    : 0
+  return {
+    total,
+    slowRatio: slow / total,
+    escalationRatio: escalated / total,
+    avgComplexity: avgScore,
+    // P2-2 回归信号：升级事件的复杂度若普遍偏低，说明评估器对这类输入低估（应调低阈值或加大推理权重）
+    escalatedAvgComplexity: escalatedAvgScore,
+  }
+}
+
 // ============ 双脑架构管理器 ============
 
 /**
@@ -229,6 +364,11 @@ export class DualBrainManager {
         messages[messages.length - 1]?.content ?? '',
         messages.length,
       )
+      this.emitRouteEvent({
+        brain: 'slow',
+        complexityScore: complexity.score,
+        escalated: false,
+      })
       return { response, brain: 'slow', complexity }
     }
 
@@ -239,6 +379,11 @@ export class DualBrainManager {
     // 高复杂度直接使用 Slow Brain
     if (complexity.score >= this.config.complexityThreshold) {
       const response = await this.slowBrainChat(messages, onChunk, abortSignal)
+      this.emitRouteEvent({
+        brain: 'slow',
+        complexityScore: complexity.score,
+        escalated: false,
+      })
       return { response, brain: 'slow', complexity }
     }
 
@@ -251,6 +396,12 @@ export class DualBrainManager {
     // 置信度过低，升级到 Slow Brain
     if (confidence < this.config.confidenceThreshold) {
       const slowResponse = await this.slowBrainChat(messages, onChunk, abortSignal)
+      this.emitRouteEvent({
+        brain: 'slow',
+        complexityScore: complexity.score,
+        confidence,
+        escalated: true,
+      })
       return {
         response: slowResponse,
         brain: 'slow',
@@ -265,12 +416,24 @@ export class DualBrainManager {
       onChunk(fastResponse)
     }
 
+    this.emitRouteEvent({
+      brain: 'fast',
+      complexityScore: complexity.score,
+      confidence,
+      escalated: false,
+    })
+
     return {
       response: fastResponse,
       brain: 'fast',
       complexity,
       confidence,
     }
+  }
+
+  /** P1-2：记录一次双脑路由事件 */
+  private emitRouteEvent(ev: Omit<DualBrainRouteEvent, 'timestamp'>): void {
+    recordDualBrainEvent({ ...ev, timestamp: Date.now() })
   }
 
   /** Fast Brain 聊天 */
