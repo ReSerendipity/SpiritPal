@@ -6,10 +6,10 @@
   "testRunner": "vitest",
   "coverageAnalysis": "perTest",
   "mutate": [
-    "src/lib/behaviorEngine.ts",
-    "src/lib/buffManager.ts",
-    "src/lib/taskManager.ts",
-    "src/lib/items.ts"
+    "src/lib/ai/behaviorEngine.ts",
+    "src/lib/nurture/buffManager.ts",
+    "src/lib/nurture/taskManager.ts",
+    "src/lib/nurture/items.ts"
   ],
   "thresholds": {
     "high": 80,

@@ -10,14 +10,26 @@ Tauri 的自动更新使用 **GitHub Releases 作为静态托管**：
 
 **成本**：GitHub 免费仓库即可，无服务器、无流量费（Releases 附件下载免费）。
 
-## 发布前必做（当前状态：未完成）
+## 发布前必做（更新于 2026-09-04）
 
 | # | 事项 | 状态 |
 |---|---|---|
-| 1 | 创建真实 GitHub 仓库（如 `spiritpal/spiritpal-app`），将 `tauri.conf.json` updater 端点从占位域名改为真实地址 | ☐ |
-| 2 | 生成 Tauri 更新签名密钥对：`npx tauri signer generate`；**私钥离线保管**（丢失=永远无法发更新），公钥填入 `tauri.conf.json`（已填占位公钥则替换） | ☐ |
-| 3 | 配置 GitHub Actions 发布流水线：打 tag → 构建三平台安装包 → 上传 Releases → 生成并上传 `updates.json` | ☐（release.yml 骨架已存在） |
-| 4 | 发布后验证：安装旧版 → 触发更新检查 → 确认提示与安装成功 | ☐ |
+| 1 | 自动更新决策：**2026-09-04 起已关闭**（`tauri.conf.json` `plugins.updater.active = false`）。端点 `spiritpal/spiritpal-app` 实测 404 不存在，产物关闭、端点死链与私有仓定位冲突 → 先停用，避免每次启动静默失败请求。 | ✅ 已关闭 |
+| 2 | 更新签名密钥：secrets `TAURI_SIGNING_PRIVATE_KEY` / `_PASSWORD` 已接入 release.yml；私钥离线保管；`pubkey` 与私钥**配对未验证**（重新开启自动更新前必须核对）。 | ◐ 接入未验证 |
+| 3 | 版本一致性门禁：`scripts/sync-version.mjs`（以 package.json 为单一事实来源）+ docs-consistency `version-consistency` job + `verify-release-version.yml`（tag 与三处版本一致校验）。 | ✅ 2026-09-04 已建 |
+| 4 | 发布后验证：安装旧版 → 触发更新检查 → 确认提示与安装成功（自动更新关闭期间不适用）。 | ☐ 待重启后执行 |
+
+## 平台分发可用性（2026-09-04 评估）
+
+| 平台 | 打包 | 代码签名 | 分发状态 |
+|---|---|---|---|
+| Linux（AppImage/deb） | ✅ | 无强制要求 | ✅ **当前唯一完整可用** |
+| Windows（NSIS） | ✅ | 未签名（`certificateThumbprint: null`） | ⚠️ 可用，SmartScreen 蓝屏门槛高 |
+| macOS（DMG） | ✅ | 未公证（`signingIdentity: null`）+ `macOSPrivateApi: true` | ❌ Gatekeeper 阻止；与 MAS 上架互斥，**实验性** |
+| Android / 移动端 | 配置存在（硬编码口令已移除，P1-3） | 需 keystore.properties | ❌ 不在 release 矩阵，**未投产/实验性** |
+
+- 建议聚焦 Linux + Windows 作正式分发渠道；macOS 需 Developer ID 证书 + notarytool 公证后方可启动绕过 Gatekeeper（非 MAS 路线）。
+- 发布时向用户如实说明：Windows 首次运行可能触发 SmartScreen，不教用户关闭系统安全设置。
 
 ## 签名密钥风险提示
 

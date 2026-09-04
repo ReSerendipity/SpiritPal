@@ -162,4 +162,5 @@ perf/results/package-size.json
 perf/results/perf-run-latest.json
 perf/results/perf-history.json
 perf/results/long-session-results/
+perf/results/penetration-test.json
 docs/agents/
