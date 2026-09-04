@@ -13,7 +13,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mock 依赖模块
-vi.mock('../enhancedMemory', () => ({
+vi.mock('@/lib/memory/enhancedMemory', () => ({
   getEnhancedMemoryManager: vi.fn(() => ({
     ensureLoaded: vi.fn().mockResolvedValue(undefined),
     checkTriggers: vi.fn().mockResolvedValue(null),
@@ -21,13 +21,13 @@ vi.mock('../enhancedMemory', () => ({
   })),
 }))
 
-vi.mock('../commitmentTracker', () => ({
+vi.mock('@/lib/nurture/commitmentTracker', () => ({
   getCommitmentTracker: vi.fn(() => ({
     generateFollowUpCandidates: vi.fn().mockResolvedValue([]),
   })),
 }))
 
-vi.mock('../bubbleManager', () => ({
+vi.mock('@/lib/render/bubbleManager', () => ({
   getBubbleManager: vi.fn(() => ({
     sendMessage: vi.fn(),
   })),
@@ -38,7 +38,7 @@ vi.mock('../bubbleManager', () => ({
   },
 }))
 
-vi.mock('../diarySystem', () => ({
+vi.mock('@/lib/nurture/diarySystem', () => ({
   getDiarySystemManager: vi.fn(() => ({
     checkAnniversaryReminder: vi.fn().mockReturnValue(null),
   })),
@@ -49,7 +49,7 @@ import {
   getRecallEngine,
   buildRecallRenderPrompt,
   type RecallCandidate,
-} from '../recallEngine'
+} from '@/lib/memory/recallEngine'
 
 describe('RecallEngine', () => {
   let engine: RecallEngine
@@ -229,7 +229,7 @@ describe('RecallEngine', () => {
     })
 
     it('checkRelevanceTrigger 透传的 score 应成为候选 relevance（替换硬编码 0.7）', async () => {
-      const { getEnhancedMemoryManager } = await import('../enhancedMemory')
+      const { getEnhancedMemoryManager } = await import('@/lib/memory/enhancedMemory')
       const mem = getEnhancedMemoryManager as unknown as { mockImplementation: (fn: () => unknown) => void; mockRestore: () => void }
       const memMgr = buildMockMemMgr({
         type: 'relevance',
@@ -249,7 +249,7 @@ describe('RecallEngine', () => {
     })
 
     it('触发器缺失 score 时应回退到默认 relevance 0.7', async () => {
-      const { getEnhancedMemoryManager } = await import('../enhancedMemory')
+      const { getEnhancedMemoryManager } = await import('@/lib/memory/enhancedMemory')
       const mem = getEnhancedMemoryManager as unknown as { mockImplementation: (fn: () => unknown) => void; mockRestore: () => void }
       const memMgr = buildMockMemMgr({
         type: 'relevance',

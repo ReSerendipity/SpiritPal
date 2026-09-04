@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { t, setLanguage, formatRelativeTime, getTextDirection, type SupportedLang } from '../i18n'
+import { t, setLanguage, formatRelativeTime, getTextDirection, type SupportedLang } from '@/lib/system/i18n'
 
 describe('i18n 插值（真实字典，非 mock）', () => {
   it('单花括号参数被真实替换（A-9 修复：此前原样输出 {amount}）', () => {

@@ -9,8 +9,8 @@ import {
   TTSEngineManager,
   getTTSEngineManager,
   type TTSEngineConfig,
-} from '../ttsEngine'
-import type { TTSAudioData } from '../ttsTaskManager'
+} from '@/lib/system/ttsEngine'
+import type { TTSAudioData } from '@/lib/system/ttsTaskManager'
 
 // ============ Mock SpeechSynthesis ============
 

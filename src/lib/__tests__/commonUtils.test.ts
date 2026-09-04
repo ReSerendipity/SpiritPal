@@ -20,7 +20,7 @@ import {
   clamp,
   fetchWithTimeout,
   LRUCache,
-} from '../commonUtils'
+} from '@/lib/data/commonUtils'
 
 describe('generateId', () => {
   it('生成唯一ID，无重复', () => {

@@ -1,7 +1,7 @@
 // bubbleManager 单元测试 — 9 种气泡类型、HP 分层、冷却管理
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { BubbleManager, getBubbleManager } from '../bubbleManager'
-import type { CharacterProfile, NurturingStats } from '../types'
+import type { CharacterProfile, NurturingStats } from '@/lib/data/types'
+import { BubbleManager, getBubbleManager } from '@/lib/render/bubbleManager'
 
 function makeStats(overrides: Partial<NurturingStats> = {}): NurturingStats {
   return {

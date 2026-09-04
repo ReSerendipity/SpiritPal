@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { evaluateMemoryQuality } from '../memoryQualityCheck'
-import { runtimeMonitor } from '../runtimeMonitor'
+import { evaluateMemoryQuality } from '@/lib/memory/memoryQualityCheck'
+import { runtimeMonitor } from '@/lib/system/runtimeMonitor'
 
 // Mock stringSimilarity
-vi.mock('../stringSimilarity', () => ({
+vi.mock('@/lib/system/stringSimilarity', () => ({
   tokenize: vi.fn((s: string) => {
     // 按字符分割中文，按空格分割英文
     if (/[\u4e00-\u9fff]/.test(s)) {
@@ -22,7 +22,7 @@ vi.mock('../stringSimilarity', () => ({
 }))
 
 // Mock runtimeMonitor
-vi.mock('../runtimeMonitor', () => ({
+vi.mock('@/lib/system/runtimeMonitor', () => ({
   runtimeMonitor: {
     emitAlertProxy: vi.fn(),
   },

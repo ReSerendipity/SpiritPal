@@ -13,8 +13,8 @@ import {
   savePersonalityConfigOverride,
   removePersonalityConfigOverride,
   getEffectivePersonalityConfig,
-} from '../personalityEngine'
-import type { Personality, CharacterProfile } from '../types'
+} from '@/lib/ai/personalityEngine'
+import type { Personality, CharacterProfile } from '@/lib/data/types'
 
 function makePersonality(overrides: Partial<Personality> = {}): Personality {
   return {

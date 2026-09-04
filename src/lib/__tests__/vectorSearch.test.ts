@@ -1,7 +1,7 @@
 // vectorSearch 单元测试 — 余弦相似度计算、searchSimilar 排序
 // embed/embedBatch 依赖 Web Worker，通过 setup.ts 的 mock 处理；这里重点测试纯逻辑函数
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { cosineSimilarity, searchSimilar } from '../vectorSearch'
+import { cosineSimilarity, searchSimilar } from '@/lib/system/vectorSearch'
 
 describe('cosineSimilarity', () => {
   it('相同向量相似度为 1', () => {
@@ -124,13 +124,13 @@ describe('embed (Worker 集成)', () => {
       onerror: null,
       terminate: vi.fn(),
     }
-    vi.doMock('../vectorWorker?worker', () => ({
+    vi.doMock('../system/vectorWorker?worker', () => ({
       default: vi.fn(function () { return mockWorker }),
     }))
   })
 
   it('空文本返回零向量（不调用 Worker）', async () => {
-    const { embed } = await import('../vectorSearch')
+    const { embed } = await import('@/lib/system/vectorSearch')
     const result = await embed('')
     expect(result).toBeInstanceOf(Float32Array)
     expect(result.length).toBe(512)
@@ -138,14 +138,14 @@ describe('embed (Worker 集成)', () => {
   })
 
   it('空白文本返回零向量', async () => {
-    const { embed } = await import('../vectorSearch')
+    const { embed } = await import('@/lib/system/vectorSearch')
     const result = await embed('   ')
     expect(result.length).toBe(512)
     expect(mockWorker.postMessage).not.toHaveBeenCalled()
   })
 
   it('正常文本发送到 Worker 并返回嵌入向量', async () => {
-    const { embed } = await import('../vectorSearch')
+    const { embed } = await import('@/lib/system/vectorSearch')
     const promise = embed('hello world')
 
     await vi.waitFor(() => expect(mockWorker.postMessage).toHaveBeenCalled())
@@ -162,7 +162,7 @@ describe('embed (Worker 集成)', () => {
   })
 
   it('相同文本使用缓存（不重复调用 Worker）', async () => {
-    const { embed } = await import('../vectorSearch')
+    const { embed } = await import('@/lib/system/vectorSearch')
     // 第一次调用
     const p1 = embed('cached text')
     await vi.waitFor(() => expect(mockWorker.postMessage).toHaveBeenCalledTimes(1))
@@ -177,7 +177,7 @@ describe('embed (Worker 集成)', () => {
   })
 
   it('Worker 返回 error 时 reject', async () => {
-    const { embed } = await import('../vectorSearch')
+    const { embed } = await import('@/lib/system/vectorSearch')
     const promise = embed('error text')
 
     await vi.waitFor(() => expect(mockWorker.postMessage).toHaveBeenCalled())
@@ -188,7 +188,7 @@ describe('embed (Worker 集成)', () => {
   })
 
   it('Worker onerror 时 reject 所有等待中的请求', async () => {
-    const { embed } = await import('../vectorSearch')
+    const { embed } = await import('@/lib/system/vectorSearch')
     const promise = embed('will error')
 
     await vi.waitFor(() => expect(mockWorker.postMessage).toHaveBeenCalled())
@@ -215,19 +215,19 @@ describe('embedBatch (Worker 集成)', () => {
       onerror: null,
       terminate: vi.fn(),
     }
-    vi.doMock('../vectorWorker?worker', () => ({
+    vi.doMock('../system/vectorWorker?worker', () => ({
       default: vi.fn(function () { return mockWorker }),
     }))
   })
 
   it('空文本数组返回空数组', async () => {
-    const { embedBatch } = await import('../vectorSearch')
+    const { embedBatch } = await import('@/lib/system/vectorSearch')
     const results = await embedBatch([])
     expect(results).toHaveLength(0)
   })
 
   it('包含空文本的批次返回零向量', async () => {
-    const { embedBatch } = await import('../vectorSearch')
+    const { embedBatch } = await import('@/lib/system/vectorSearch')
     const promise = embedBatch(['', 'real text'])
 
     await vi.waitFor(() => expect(mockWorker.postMessage).toHaveBeenCalled())
@@ -245,7 +245,7 @@ describe('embedBatch (Worker 集成)', () => {
   })
 
   it('批量嵌入多条文本', async () => {
-    const { embedBatch } = await import('../vectorSearch')
+    const { embedBatch } = await import('@/lib/system/vectorSearch')
     const promise = embedBatch(['text1', 'text2', 'text3'])
 
     await vi.waitFor(() => expect(mockWorker.postMessage).toHaveBeenCalled())
@@ -267,7 +267,7 @@ describe('embedBatch (Worker 集成)', () => {
   })
 
   it('已缓存的文本不发送到 Worker', async () => {
-    const { embed, embedBatch } = await import('../vectorSearch')
+    const { embed, embedBatch } = await import('@/lib/system/vectorSearch')
     // 先缓存一条
     const p1 = embed('cached')
     await vi.waitFor(() => expect(mockWorker.postMessage).toHaveBeenCalledTimes(1))
@@ -289,7 +289,7 @@ describe('embedBatch (Worker 集成)', () => {
   })
 
   it('全部为空文本时不调用 Worker', async () => {
-    const { embedBatch } = await import('../vectorSearch')
+    const { embedBatch } = await import('@/lib/system/vectorSearch')
     const results = await embedBatch(['', '  ', ''])
     expect(results).toHaveLength(3)
     expect(mockWorker.postMessage).not.toHaveBeenCalled()
@@ -312,13 +312,13 @@ describe('isVectorSearchAvailable', () => {
       onerror: null,
       terminate: vi.fn(),
     }
-    vi.doMock('../vectorWorker?worker', () => ({
+    vi.doMock('../system/vectorWorker?worker', () => ({
       default: vi.fn(function () { return mockWorker }),
     }))
   })
 
   it('Worker 正常响应时返回 true', async () => {
-    const { isVectorSearchAvailable } = await import('../vectorSearch')
+    const { isVectorSearchAvailable } = await import('@/lib/system/vectorSearch')
     const promise = isVectorSearchAvailable()
 
     await vi.waitFor(() => expect(mockWorker.postMessage).toHaveBeenCalled())
@@ -329,7 +329,7 @@ describe('isVectorSearchAvailable', () => {
   })
 
   it('Worker 返回错误时返回 false', async () => {
-    const { isVectorSearchAvailable } = await import('../vectorSearch')
+    const { isVectorSearchAvailable } = await import('@/lib/system/vectorSearch')
     const promise = isVectorSearchAvailable()
 
     await vi.waitFor(() => expect(mockWorker.postMessage).toHaveBeenCalled())
@@ -340,7 +340,7 @@ describe('isVectorSearchAvailable', () => {
   })
 
   it('Worker onerror 后返回 false 且标记 modelLoadFailed', async () => {
-    const { isVectorSearchAvailable } = await import('../vectorSearch')
+    const { isVectorSearchAvailable } = await import('@/lib/system/vectorSearch')
     const promise = isVectorSearchAvailable()
 
     await vi.waitFor(() => expect(mockWorker.postMessage).toHaveBeenCalled())
@@ -371,13 +371,13 @@ describe('preloadModel', () => {
       onerror: null,
       terminate: vi.fn(),
     }
-    vi.doMock('../vectorWorker?worker', () => ({
+    vi.doMock('../system/vectorWorker?worker', () => ({
       default: vi.fn(function () { return mockWorker }),
     }))
   })
 
   it('预加载成功（不抛错）', async () => {
-    const { preloadModel } = await import('../vectorSearch')
+    const { preloadModel } = await import('@/lib/system/vectorSearch')
     const promise = preloadModel()
 
     await vi.waitFor(() => expect(mockWorker.postMessage).toHaveBeenCalled())
@@ -389,7 +389,7 @@ describe('preloadModel', () => {
   })
 
   it('预加载失败时静默忽略（不抛错）', async () => {
-    const { preloadModel } = await import('../vectorSearch')
+    const { preloadModel } = await import('@/lib/system/vectorSearch')
     const promise = preloadModel()
 
     await vi.waitFor(() => expect(mockWorker.postMessage).toHaveBeenCalled())

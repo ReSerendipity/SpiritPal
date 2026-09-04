@@ -1,7 +1,7 @@
 // 活动系统单元测试 — 节日/联动事件驱动宠物特殊行为
 // P3-28: 运营驱动功能，节日限定动画+特殊物品
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { EventSystemManager, getEventSystemManager, type PetEvent } from '../eventSystem'
+import { EventSystemManager, getEventSystemManager, type PetEvent } from '@/lib/system/eventSystem'
 
 // ============ 辅助：固定当前日期 ============
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { maskPII, maskPIIInObject } from '../piiMasking'
+import { maskPII, maskPIIInObject } from '@/lib/data/piiMasking'
 
 describe('maskPII', () => {
   it('掩码邮箱', () => {

@@ -10,7 +10,7 @@ import {
   getAnimationStateMachine,
   type AnimationId,
   type AnimationContext,
-} from '../animationConfig'
+} from '@/lib/render/animationConfig'
 
 function makeCtx(overrides: Partial<AnimationContext> = {}): AnimationContext {
   return {

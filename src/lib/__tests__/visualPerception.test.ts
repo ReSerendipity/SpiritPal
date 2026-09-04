@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getVisualPerceptionManager, resetVisualPerceptionManager } from '../visualPerception'
 import { invoke } from '@tauri-apps/api/core'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { getVisualPerceptionManager, resetVisualPerceptionManager } from '@/lib/memory/visualPerception'
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),

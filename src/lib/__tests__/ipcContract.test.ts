@@ -11,9 +11,9 @@
  * 4. T-02: 关键命令的参数签名在前后端一致
  */
 
-import { describe, it, expect } from 'vitest'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import { describe, it, expect } from 'vitest'
 
 // ============================================================
 // 已知的前端 invoke 调用中不属于自定义 #[tauri::command] 的命令

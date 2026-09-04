@@ -24,7 +24,7 @@
 
 import { describe, it, expect, beforeAll, vi } from 'vitest'
 
-vi.mock('../db', () => ({
+vi.mock('@/lib/data/db', () => ({
   getSetting: vi.fn(() => Promise.resolve(null)),
   setSetting: vi.fn(() => Promise.resolve()),
   addMemory: vi.fn(() => Promise.resolve()),
@@ -49,14 +49,14 @@ vi.mock('../db', () => ({
   clearSemanticFacts: vi.fn(() => Promise.resolve()),
 }))
 
-vi.mock('../vectorSearch', () => ({
+vi.mock('@/lib/system/vectorSearch', () => ({
   embed: vi.fn(() => Promise.resolve(new Float32Array(8))),
   isVectorSearchAvailable: vi.fn(() => Promise.resolve(false)),
   searchSimilar: vi.fn(() => Promise.resolve([])),
   terminateVectorSearch: vi.fn(),
 }))
 
-vi.mock('../ragRetrieval', () => ({
+vi.mock('@/lib/memory/ragRetrieval', () => ({
   getRAGRetriever: vi.fn(() => ({
     retrieve: vi.fn(() => []),
     buildIndex: vi.fn(() => Promise.resolve()),
@@ -65,23 +65,23 @@ vi.mock('../ragRetrieval', () => ({
   DEFAULT_RAG_CONFIG: { topK: 20, minScore: 0.1 },
 }))
 
-vi.mock('../memoryMigrator', () => ({
+vi.mock('@/lib/memory/memoryMigrator', () => ({
   needsMigration: vi.fn(() => Promise.resolve(false)),
   migrateCharacterMemory: vi.fn(() => Promise.resolve({ migrated: 0 })),
 }))
 
-vi.mock('../entityLinking', () => ({
+vi.mock('@/lib/memory/entityLinking', () => ({
   getEntityManager: vi.fn(() => ({
     getLinkedMemories: vi.fn(() => Promise.resolve([])),
   })),
 }))
 
 // 抽取事实与情感重评会调 LLM —— 评测只考察本地检索，故 mock 掉
-vi.mock('../llmClient', () => ({
+vi.mock('@/lib/ai/llmClient', () => ({
   getLLMClient: vi.fn(() => ({ chatOnce: vi.fn(() => Promise.resolve('[]')) })),
 }))
 
-import { EnhancedMemoryManager } from '../enhancedMemory'
+import { EnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 

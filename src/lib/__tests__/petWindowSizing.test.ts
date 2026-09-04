@@ -15,7 +15,7 @@ import {
   WIN_MAX_H,
   ACTIONS_PANEL_H,
   STATUS_PANEL_H,
-} from '../petWindowSizing'
+} from '@/lib/system/petWindowSizing'
 
 describe('computeWindowSizeFor（基准适配：精灵 + 32 边距 + 64 气泡空间，钳位 160×200~720×900）', () => {
   it('0.5× 宠物（96×104）→ 钳位到最小 160×200', () => {

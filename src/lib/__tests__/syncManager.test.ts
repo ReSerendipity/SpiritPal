@@ -1,7 +1,7 @@
 // syncManager 模块测试 — LWW 冲突解决、配置管理、同步流程
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { syncManager } from '../syncManager'
-import type { SyncPayload } from '../syncManager'
+import { syncManager } from '@/lib/system/syncManager'
+import type { SyncPayload } from '@/lib/system/syncManager'
 
 describe('syncManager', () => {
   beforeEach(() => {

@@ -1,7 +1,7 @@
 // achievementSystem 模块测试 — 成就/徽章系统
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('../behaviorEngine', () => ({
+vi.mock('@/lib/ai/behaviorEngine', () => ({
   getAffectionLevel: vi.fn((affection: number) => {
     if (affection >= 500) return 5
     if (affection >= 300) return 4
@@ -19,7 +19,7 @@ import {
   getBadgeTier,
   BADGE_NAMES,
   BADGE_COLORS,
-} from '../achievementSystem'
+} from '@/lib/nurture/achievementSystem'
 
 describe('achievementSystem 纯函数', () => {
   describe('getBadgeTier', () => {

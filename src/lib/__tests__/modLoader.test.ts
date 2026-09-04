@@ -5,10 +5,10 @@
  * registerManifest 注册表、以及依赖 fs mock 的 loadManifest / validateMod / batchLoad。
  * startWatch / stopWatch 依赖 Tauri FS watch（setup.ts 未 mock），故跳过并在注释说明。
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ModLoader } from '@/lib/modLoader'
-import type { PetmodManifest, ModDependency } from '@/lib/modManager'
 import { exists, readTextFile } from '@tauri-apps/plugin-fs'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { ModLoader } from '@/lib/data/modLoader'
+import type { PetmodManifest, ModDependency } from '@/lib/data/modManager'
 
 // ============ 测试数据 ============
 

@@ -4,8 +4,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   MusicAwarenessManager,
   getMusicAwarenessManager,
-} from '../musicAwareness'
-import type { MusicStatus } from '../musicAwareness'
+} from '@/lib/system/musicAwareness'
+import type { MusicStatus } from '@/lib/system/musicAwareness'
 
 // ============ 辅助函数：mock navigator.mediaSession ============
 

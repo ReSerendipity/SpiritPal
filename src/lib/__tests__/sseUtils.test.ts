@@ -12,7 +12,7 @@
  * 不发起真实网络请求，使用 mock ReadableStream 喂入字节。
  */
 import { describe, it, expect } from 'vitest'
-import { readTextStream, type DeltaExtractor, type TerminationChecker } from '../sseUtils'
+import { readTextStream, type DeltaExtractor, type TerminationChecker } from '@/lib/ai/sseUtils'
 
 /** 将字符串数组编码为可读流，模拟 fetch response.body */
 function streamFromChunks(chunks: string[]): ReadableStream<Uint8Array> {

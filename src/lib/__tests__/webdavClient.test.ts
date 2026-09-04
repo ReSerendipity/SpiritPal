@@ -5,22 +5,22 @@ import {
   getWebDAVClient,
   resetWebDAVClient,
   type WebDAVConfig,
-} from '../webdavClient'
+} from '@/lib/system/webdavClient'
 
 // Mock secureStorage
-vi.mock('../secureStorage', () => ({
+vi.mock('@/lib/data/secureStorage', () => ({
   setSecret: vi.fn().mockResolvedValue(undefined),
   getSecret: vi.fn().mockResolvedValue('test-password'),
   deleteSecret: vi.fn().mockResolvedValue(undefined),
 }))
 
 // Mock ssrfProtection safeFetch
-vi.mock('../ssrfProtection', () => ({
+vi.mock('@/lib/system/ssrfProtection', () => ({
   safeFetch: vi.fn(),
 }))
 
-import { safeFetch } from '../ssrfProtection'
-import { setSecret, getSecret, deleteSecret } from '../secureStorage'
+import { safeFetch } from '@/lib/system/ssrfProtection'
+import { setSecret, getSecret, deleteSecret } from '@/lib/data/secureStorage'
 
 describe('WebDAVClient', () => {
   let client: WebDAVClient

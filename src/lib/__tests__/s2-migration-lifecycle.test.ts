@@ -27,7 +27,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 }))
 
 // Mock db 模块 — 使用内存 Map 模拟 settings 存储
-vi.mock('../db', () => {
+vi.mock('@/lib/data/db', () => {
   const mockDb = {
     execute: vi.fn(),
     select: vi.fn(),
@@ -75,7 +75,7 @@ vi.mock('../db', () => {
 })
 
 // Mock vectorSearch
-vi.mock('../vectorSearch', () => ({
+vi.mock('@/lib/system/vectorSearch', () => ({
   embed: vi.fn().mockResolvedValue(new Float32Array([1, 2, 3])),
   isVectorSearchAvailable: vi.fn().mockResolvedValue(true),
   searchSimilar: vi.fn().mockReturnValue([]),
@@ -83,7 +83,7 @@ vi.mock('../vectorSearch', () => ({
 }))
 
 // Mock ragRetrieval
-vi.mock('../ragRetrieval', () => ({
+vi.mock('@/lib/memory/ragRetrieval', () => ({
   getRAGRetriever: vi.fn().mockReturnValue({
     search: vi.fn().mockResolvedValue([]),
     addMemory: vi.fn(),
@@ -94,7 +94,7 @@ vi.mock('../ragRetrieval', () => ({
 }))
 
 // Mock entityLinking
-vi.mock('../entityLinking', () => ({
+vi.mock('@/lib/memory/entityLinking', () => ({
   getEntityManager: vi.fn().mockReturnValue({
     ensureLoaded: vi.fn().mockResolvedValue(undefined),
     getLinkedMemoryIds: vi.fn().mockReturnValue([]),
@@ -182,8 +182,8 @@ describe('S2: 遗忘/巩固/合并行级化验证', () => {
   })
 
   it('applyForgetting 删除记忆时应同步删除 SQLite 行', async () => {
-    const { isMemoryMigrated, isLegacyMode, deleteMemory, getMemoriesByTier, getMemorySummary, getMemoryState, getSetting } = await import('../db')
-    const { EnhancedMemoryManager } = await import('../enhancedMemory')
+    const { isMemoryMigrated, isLegacyMode, deleteMemory, getMemoriesByTier, getMemorySummary, getMemoryState, getSetting } = await import('@/lib/data/db')
+    const { EnhancedMemoryManager } = await import('@/lib/memory/enhancedMemory')
 
     vi.mocked(isMemoryMigrated).mockResolvedValue(true)
     vi.mocked(isLegacyMode).mockResolvedValue(false)
@@ -209,8 +209,8 @@ describe('S2: 遗忘/巩固/合并行级化验证', () => {
   })
 
   it('clear 在行级路径下应调用 clearAllMemoryData', async () => {
-    const { isMemoryMigrated, isLegacyMode, clearAllMemoryData, getMemoriesByTier, getMemorySummary, getMemoryState } = await import('../db')
-    const { EnhancedMemoryManager } = await import('../enhancedMemory')
+    const { isMemoryMigrated, isLegacyMode, clearAllMemoryData, getMemoriesByTier, getMemorySummary, getMemoryState } = await import('@/lib/data/db')
+    const { EnhancedMemoryManager } = await import('@/lib/memory/enhancedMemory')
 
     vi.mocked(isMemoryMigrated).mockResolvedValue(true)
     vi.mocked(isLegacyMode).mockResolvedValue(false)
@@ -226,8 +226,8 @@ describe('S2: 遗忘/巩固/合并行级化验证', () => {
   })
 
   it('applyPromotion 在行级路径下应更新 tier + is_autobiographical', async () => {
-    const { isMemoryMigrated, isLegacyMode, updateMemoryRow, getMemoriesByTier, getMemorySummary, getMemoryState } = await import('../db')
-    const { EnhancedMemoryManager } = await import('../enhancedMemory')
+    const { isMemoryMigrated, isLegacyMode, updateMemoryRow, getMemoriesByTier, getMemorySummary, getMemoryState } = await import('@/lib/data/db')
+    const { EnhancedMemoryManager } = await import('@/lib/memory/enhancedMemory')
 
     vi.mocked(isMemoryMigrated).mockResolvedValue(true)
     vi.mocked(isLegacyMode).mockResolvedValue(false)

@@ -5,7 +5,7 @@ import {
   STAGE_ANIMATION,
   STAGE_BUBBLE,
   getChatStageManager,
-} from '../chatStages'
+} from '@/lib/ai/chatStages'
 
 describe('STAGE_ANIMATION / STAGE_BUBBLE 常量', () => {
   it('每个阶段都有动画映射', () => {

@@ -12,34 +12,34 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // Mock 依赖模块
-vi.mock('../llmClient', () => ({
+vi.mock('@/lib/ai/llmClient', () => ({
   getLLMClient: vi.fn(() => ({
     chatOnce: vi.fn().mockResolvedValue('你好呀，主人！[emotion:happy]'),
   })),
 }))
 
-vi.mock('../emotionExtractor', () => ({
+vi.mock('@/lib/ai/emotionExtractor', () => ({
   EMOTION_PROMPT_FRAGMENT: '【情绪提示片段】',
 }))
 
-vi.mock('../thinkTagParser', () => ({
+vi.mock('@/lib/render/thinkTagParser', () => ({
   THINK_TAG_PROMPT_FRAGMENT: '【思考标签片段】',
 }))
 
-vi.mock('../enhancedMemory', () => ({
+vi.mock('@/lib/memory/enhancedMemory', () => ({
   getEnhancedMemoryManager: vi.fn(() => ({
     ensureLoaded: vi.fn().mockResolvedValue(undefined),
     getAutobiographicalMemories: vi.fn(() => []),
   })),
 }))
 
-vi.mock('../contextAwareness', () => ({
+vi.mock('@/lib/ai/contextAwareness', () => ({
   getContextAwarenessManager: vi.fn(() => ({
     getLastIdleMinutes: vi.fn(() => 15),
   })),
 }))
 
-vi.mock('../recallEngine', () => ({
+vi.mock('@/lib/memory/recallEngine', () => ({
   getRecallEngine: vi.fn(() => ({
     canSpeakNow: vi.fn(() => true),
     generateRecall: vi.fn().mockResolvedValue(null),
@@ -47,7 +47,7 @@ vi.mock('../recallEngine', () => ({
   buildRecallRenderPrompt: vi.fn(() => ''),
 }))
 
-vi.mock('../commitmentTracker', () => ({
+vi.mock('@/lib/nurture/commitmentTracker', () => ({
   getCommitmentTracker: vi.fn(() => ({
     generateFollowUpCandidates: vi.fn().mockResolvedValue([]),
   })),
@@ -56,12 +56,12 @@ vi.mock('../commitmentTracker', () => ({
 // A-5：静默模式短路（默认非静默，测试中可按需翻转）
 // 注意 vi.mock 会被提升到 import 之前，工厂内引用必须经 vi.hoisted 声明
 const { mockIsSilent } = vi.hoisted(() => ({ mockIsSilent: vi.fn(() => false) }))
-vi.mock('../silentModeManager', () => ({
+vi.mock('@/lib/system/silentModeManager', () => ({
   isSilentMode: mockIsSilent,
 }))
 
 // Mock petStore
-vi.mock('../../stores/petStore', () => ({
+vi.mock('@/stores/petStore', () => ({
   usePetStore: {
     getState: () => ({
       currentCharacterId: 'doro',
@@ -81,7 +81,7 @@ vi.mock('../../stores/petStore', () => ({
   },
 }))
 
-import { ProactiveSpeakManager, getProactiveSpeakManager } from '../proactiveSpeak'
+import { ProactiveSpeakManager, getProactiveSpeakManager } from '@/lib/ai/proactiveSpeak'
 
 describe('ProactiveSpeakManager', () => {
   let manager: ProactiveSpeakManager
@@ -145,7 +145,7 @@ describe('ProactiveSpeakManager', () => {
   })
 
   it('forceSpeak 返回 null 时不应触发监听器', async () => {
-    const { getLLMClient } = await import('../llmClient')
+    const { getLLMClient } = await import('@/lib/ai/llmClient')
     vi.mocked(getLLMClient).mockReturnValueOnce({
       chatOnce: vi.fn().mockRejectedValue(new Error('LLM unavailable')),
     } as any)

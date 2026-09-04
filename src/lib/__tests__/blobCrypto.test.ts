@@ -8,9 +8,9 @@
  *  3. 解密按前缀分派：ENC3 → chunked；ENC1/ENC2/其他 → 原路径
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { encryptBlob, decryptBlob, LARGE_BLOB_THRESHOLD } from '../blobCrypto'
 import { invoke } from '@tauri-apps/api/core'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { encryptBlob, decryptBlob, LARGE_BLOB_THRESHOLD } from '@/lib/data/blobCrypto'
 
 const mockInvoke = vi.mocked(invoke)
 

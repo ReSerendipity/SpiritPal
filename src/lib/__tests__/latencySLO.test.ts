@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { LatencySLOManager, DEFAULT_SLO_CONFIG, resetLatencySLOManager } from '../latencySLO'
+import { LatencySLOManager, DEFAULT_SLO_CONFIG, resetLatencySLOManager } from '@/lib/system/latencySLO'
 
 // Mock runtimeMonitor
-vi.mock('../runtimeMonitor', () => {
+vi.mock('@/lib/system/runtimeMonitor', () => {
   let mockLatencies: number[] = []
   let mockErrors = 0
   let mockTotalCalls = 0
@@ -33,7 +33,7 @@ vi.mock('../runtimeMonitor', () => {
   }
 })
 
-import { runtimeMonitor } from '../runtimeMonitor'
+import { runtimeMonitor } from '@/lib/system/runtimeMonitor'
 
 describe('LatencySLOManager', () => {
   let manager: LatencySLOManager

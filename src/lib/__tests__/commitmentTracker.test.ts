@@ -19,14 +19,14 @@ const { mockDbExecute, mockDbSelect } = vi.hoisted(() => ({
   mockDbSelect: vi.fn(),
 }))
 
-vi.mock('../db', () => ({
+vi.mock('@/lib/data/db', () => ({
   getDb: vi.fn().mockResolvedValue({
     execute: mockDbExecute,
     select: mockDbSelect,
   }),
 }))
 
-import { CommitmentTracker, getCommitmentTracker } from '../commitmentTracker'
+import { CommitmentTracker, getCommitmentTracker } from '@/lib/nurture/commitmentTracker'
 
 describe('CommitmentTracker', () => {
   let tracker: CommitmentTracker

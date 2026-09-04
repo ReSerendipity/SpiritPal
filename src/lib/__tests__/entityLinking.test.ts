@@ -13,7 +13,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mock db
-vi.mock('../db', () => ({
+vi.mock('@/lib/data/db', () => ({
   getSetting: vi.fn().mockResolvedValue(null),
   setSetting: vi.fn().mockResolvedValue(undefined),
   getEntityNodes: vi.fn().mockResolvedValue([]),
@@ -29,13 +29,13 @@ vi.mock('@tauri-apps/api/core', () => ({
 }))
 
 // Mock commonUtils
-vi.mock('../commonUtils', () => ({
+vi.mock('@/lib/data/commonUtils', () => ({
   generateId: vi.fn((prefix: string) => `${prefix}_${Math.random().toString(36).slice(2, 10)}`),
 }))
 
-import { EntityManager, getEntityManager, removeEntityManager } from '../entityLinking'
+import { getSetting, setSetting, upsertEntityNode, isEntityNodesMigrated, getEntityNodes, setEntityNodesMigrated } from '@/lib/data/db'
+import { EntityManager, getEntityManager, removeEntityManager } from '@/lib/memory/entityLinking'
 import { invoke } from '@tauri-apps/api/core'
-import { getSetting, setSetting, upsertEntityNode, isEntityNodesMigrated, getEntityNodes, setEntityNodesMigrated } from '../db'
 
 describe('EntityManager', () => {
   let manager: EntityManager

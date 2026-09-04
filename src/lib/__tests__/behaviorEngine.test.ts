@@ -8,8 +8,8 @@ import {
   pickBehaviorByProbability,
   pickPetReaction,
   DEFAULT_ANIMATIONS,
-} from '../behaviorEngine'
-import type { NurturingStats } from '../types'
+} from '@/lib/ai/behaviorEngine'
+import type { NurturingStats } from '@/lib/data/types'
 
 function makeStats(overrides: Partial<NurturingStats> = {}): NurturingStats {
   return {

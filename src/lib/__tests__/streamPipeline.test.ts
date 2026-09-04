@@ -25,7 +25,7 @@ const mockParser = {
   reset: vi.fn(),
 }
 
-vi.mock('../sentenceDivider', () => ({
+vi.mock('@/lib/system/sentenceDivider', () => ({
   SentenceDivider: vi.fn(function () {
     return mockDivider
   }),
@@ -34,7 +34,7 @@ vi.mock('../sentenceDivider', () => ({
   divideSentences: vi.fn(),
 }))
 
-vi.mock('../thinkTagParser', () => ({
+vi.mock('@/lib/render/thinkTagParser', () => ({
   ThinkTagParser: vi.fn(function () {
     return mockParser
   }),
@@ -49,7 +49,7 @@ import {
   StreamEventType,
   type StreamEvent,
   type PipelineOptions,
-} from '../streamPipeline'
+} from '@/lib/ai/streamPipeline'
 
 /** 把 chunk 数组做成 async iterable */
 async function* arraySource(chunks: string[]): AsyncIterable<string> {

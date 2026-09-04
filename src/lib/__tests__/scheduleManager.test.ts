@@ -11,7 +11,7 @@ import {
   parseScheduleFromText,
   ScheduleManager,
   getScheduleManager,
-} from '../scheduleManager'
+} from '@/lib/nurture/scheduleManager'
 import { sendNotification, isPermissionGranted } from '@tauri-apps/plugin-notification'
 
 describe('parseScheduleFromText', () => {

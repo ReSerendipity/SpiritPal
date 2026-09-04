@@ -1,6 +1,6 @@
 // interactionCounter 单元测试 — 渐进式情绪计数器
 import { describe, it, expect, beforeEach } from 'vitest'
-import { InteractionCounter } from '../interactionCounter'
+import { InteractionCounter } from '@/lib/nurture/interactionCounter'
 
 describe('InteractionCounter', () => {
   let counter: InteractionCounter
