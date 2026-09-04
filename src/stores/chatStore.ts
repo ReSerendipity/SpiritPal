@@ -3,7 +3,7 @@
  * @module stores/chatStore
  * @description
  * 每个角色独立的消息历史管理 + 流式生成控制。
- * 使用 zustand v5 + persist 中间件，localStorage 持久化。
+ * 使用 zustand v5 + persist 中间件，SQLite 持久化（tauri-plugin-sql，与 petStore/uiStore 同源）。
  *
  * 核心功能：
  * - 按角色隔离的消息列表存储
@@ -24,6 +24,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { ChatMessage } from '@/lib/data/types'
 import { usePetStore } from '@/stores/petStore'
+import { sqliteStorage } from '@/lib/data/db'
 
 // ============ 常量 ============
 
@@ -374,7 +375,7 @@ export const useChatStore = create<ChatStoreState>()(
     }),
     {
       name: 'spiritpal-chat-store',
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => sqliteStorage),
       // 不持久化 isLoading 和 abortController
       partialize: (state) => ({ messagesByCharacter: state.messagesByCharacter }),
     },

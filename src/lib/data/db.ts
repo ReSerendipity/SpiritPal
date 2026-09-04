@@ -1495,8 +1495,8 @@ const MIGRATION_FLAG = '__sqlite_migration_done'
  * - 幂等：通过 settings 表中的 MIGRATION_FLAG 防止重复执行
  * - 读取所有 spiritpal-* 键，写入 SQLite settings 表（供 zustand persist 读取）
  * - 同时填充专用表（characters / memories / mods）以便未来直接 SQL 查询
- * - 不清除 localStorage：其他 lib 文件（enhancedMemory / modManager 等）
- *   仍直接读取 localStorage，待后续迁移后再清除
+ * - 迁移完成后清除已迁移的 spiritpal-* localStorage 键（保留迁移标记键）
+ *   （2026-09-04 修正：文档与实现对齐——实际在函数尾部执行 keysToRemove 清理）
  */
 export async function migrateFromLocalStorage(): Promise<void> {
   // 检查是否已迁移（幂等保护）
