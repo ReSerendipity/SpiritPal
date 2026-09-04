@@ -36,10 +36,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
-import { OPENPETS_REACTION_MAP } from '@/lib/data/types'
 import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 import { createMemoryEditor } from '@/lib/memory/memoryEditor'
-import { ANIMATION_CATALOG } from '@/lib/render/animationConfig'
 import type { AnimationId } from '@/lib/render/animationConfig'
 import { usePetStore } from '@/stores/petStore'
 import { createBubbleMessageSchema, createValidatedIdSchema } from './mcpInputValidator'
@@ -51,6 +49,34 @@ let mcpServer: McpServer | null = null
 let mcpTransport: StdioServerTransport | null = null
 let mcpHttpServer: { close: () => void } | null = null
 let mcpLeaseManager: LeaseManager | null = null
+
+/**
+ * 反应名 → SpiritPal 动画 ID（ANIMATION_CATALOG）映射
+ *
+ * 修复（2026-09-04）：`OPENPETS_REACTION_MAP` 的值是 **ANIMATION_ROWS 图集行名**
+ * （waiting/running/review/jumping/failed/waving），不是动画 ID。此前 `spiritpal_react`
+ * 拿图集行名与 ANIMATION_CATALOG 动画 ID 比对 → 除 idle 外全部误判为 "Unknown reaction"。
+ * SpiritPal 的 coding 类动画（thinking/editing/testing/success/error/celebrating）与
+ * OpenPets 反应名恰好同名，故直接映射到同名动画；其余 OpenPets 状态类反应无专属动画，
+ * 回退到最接近的 idle。
+ */
+const REACTION_ANIMATION_MAP: Record<string, AnimationId> = {
+  idle: 'idle',
+  thinking: 'thinking',
+  editing: 'editing',
+  testing: 'testing',
+  success: 'success',
+  error: 'error',
+  celebrating: 'celebrating',
+  // OpenPets 状态类反应 → 回退 idle（不报错，避免可用反应被误拒）
+  working: 'idle',
+  waiting: 'idle',
+  running: 'idle',
+  review: 'idle',
+}
+
+/** spiritpal_react 支持的反应名列表（用于 schema 描述与错误提示） */
+const SUPPORTED_REACTIONS = Object.keys(REACTION_ANIMATION_MAP)
 
 /**
  * 创建 SpiritPal MCP Server
@@ -111,7 +137,7 @@ export function createMcpServer(): McpServer {
   // ---- 工具 2: spiritpal_react ----
   // 参考 OpenPets openpets_react — Chapter 7 增强：JSON Schema 输入校验
   const reactionSchema = createValidatedIdSchema('反应名').describe(
-    'The reaction name. Supported: ' + Object.keys(OPENPETS_REACTION_MAP).join(', '),
+    'The reaction name. Supported: ' + SUPPORTED_REACTIONS.join(', '),
   )
 
   server.tool(
@@ -122,16 +148,15 @@ export function createMcpServer(): McpServer {
     },
     async ({ reaction }) => {
       try {
-        // 映射 OpenPets 反应名到 SpiritPal 动画 ID
-        const spiritpalAnimName = OPENPETS_REACTION_MAP[reaction]
-        const validIds = new Set(ANIMATION_CATALOG.map((a) => a.id))
-
-        if (!spiritpalAnimName || !validIds.has(spiritpalAnimName as AnimationId)) {
+        // 反应名 → SpiritPal 动画 ID（ANIMATION_CATALOG）；OPENPETS_REACTION_MAP 是 →ANIMATION_ROWS
+        // 图集行的映射（语义不同），不能混用
+        const animId = REACTION_ANIMATION_MAP[reaction]
+        if (!animId) {
           return {
             content: [
               {
                 type: 'text' as const,
-                text: `Unknown reaction: ${reaction}. Supported: ${Object.keys(OPENPETS_REACTION_MAP).join(', ')}`,
+                text: `Unknown reaction: ${reaction}. Supported: ${SUPPORTED_REACTIONS.join(', ')}`,
               },
             ],
             isError: true,
@@ -141,7 +166,7 @@ export function createMcpServer(): McpServer {
         // 触发动画（通过事件通知前端）
         if (typeof window !== 'undefined') {
           window.dispatchEvent(
-            new CustomEvent('spiritpal-mcp-react', { detail: spiritpalAnimName }),
+            new CustomEvent('spiritpal-mcp-react', { detail: animId }),
           )
         }
 
@@ -149,7 +174,7 @@ export function createMcpServer(): McpServer {
           content: [
             {
               type: 'text' as const,
-              text: `Pet reacted with: ${spiritpalAnimName} (from reaction: ${reaction})`,
+              text: `Pet reacted with: ${animId} (from reaction: ${reaction})`,
             },
           ],
         }

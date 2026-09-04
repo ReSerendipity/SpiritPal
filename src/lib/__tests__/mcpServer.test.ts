@@ -12,8 +12,9 @@
  * - @modelcontextprotocol/sdk/server/stdio.js 的 StdioServerTransport mock（避免挂接 process.stdin）
  * - @modelcontextprotocol/sdk/server/mcp.js 的 McpServer 用真实实现，验证工具注册与 handler
  *
- * 发现：OPENPETS_REACTION_MAP 的映射值（waiting/running/review/jumping/failed/waving）
- * 均不在 ANIMATION_CATALOG 中，仅 'idle' 能命中合法动画。
+ * 发现并修复（2026-09-04）：OPENPETS_REACTION_MAP 的值（waiting/running/review/jumping/failed/waving）
+ * 是 ANIMATION_ROWS 图集行名而非动画 ID，原 spiritpal_react 拿它比对 ANIMATION_CATALOG 导致
+ * 除 idle 外全部误判 Unknown。已新增 REACTION_ANIMATION_MAP（反应名→动画 ID，状态类回退 idle）。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
@@ -196,11 +197,32 @@ describe('createMcpServer', () => {
     expect(result.content[0].text).toContain('Unknown reaction: bogus')
   })
 
-  it('spiritpal_react 映射值不在 ANIMATION_CATALOG 时返回错误', async () => {
-    // OPENPETS_REACTION_MAP['success'] = 'jumping'，不在目录中 → 走 !validIds.has 分支
+  it('spiritpal_react 编码反应（success）触发动画事件', async () => {
+    // 修复（2026-09-04）：success → success 动画 ID（ANIMATION_CATALOG coding 类），不再误判 Unknown
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+
     const result = await getRegisteredTools(server)['spiritpal_react'].handler({ reaction: 'success' })
-    expect(result.isError).toBe(true)
-    expect(result.content[0].text).toContain('Unknown reaction: success')
+
+    expect(result.isError).toBeFalsy()
+    expect(result.content[0].text).toContain('Pet reacted with: success')
+    expect(dispatchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'spiritpal-mcp-react', detail: 'success' }),
+    )
+    dispatchSpy.mockRestore()
+  })
+
+  it('spiritpal_react OpenPets 状态类反应回退 idle', async () => {
+    // working/waiting/running/review 无 SpiritPal 专属动画 → 回退 idle 不报错
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+
+    const result = await getRegisteredTools(server)['spiritpal_react'].handler({ reaction: 'working' })
+
+    expect(result.isError).toBeFalsy()
+    expect(result.content[0].text).toContain('Pet reacted with: idle')
+    expect(dispatchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'spiritpal-mcp-react', detail: 'idle' }),
+    )
+    dispatchSpy.mockRestore()
   })
 
   // ---- spiritpal_say ----
