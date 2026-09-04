@@ -23,11 +23,11 @@
  */
 import { useState, useRef, useEffect } from 'react'
 import { Download, Upload, AlertCircle, Check, Database, RotateCcw, Cloud, CloudOff, Link, Loader2, Trash2 } from 'lucide-react'
-import { getDataManager } from '../lib/dataManager'
-import { getWebDAVClient, type WebDAVTestResult } from '../lib/webdavClient'
-import { syncManager, type SyncStatus } from '../lib/syncManager'
+import { getDataManager } from '@/lib/data/dataManager'
+import { cleanupZombieData, getZombieDataReport, type ZombieDataReport } from '@/lib/data/zombieDataCleanup'
+import { syncManager, type SyncStatus } from '@/lib/system/syncManager'
+import { getWebDAVClient, type WebDAVTestResult } from '@/lib/system/webdavClient'
 // B-3: 数据治理 —— 迁移遗留（.legacy）数据清理
-import { cleanupZombieData, getZombieDataReport, type ZombieDataReport } from '../lib/zombieDataCleanup'
 
 /**
  * 数据管理面板

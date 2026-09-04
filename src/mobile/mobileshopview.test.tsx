@@ -1,10 +1,10 @@
 // MobileShopView smoke 测试 — 商店分类/商品/操作渲染
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
-import { MobileShopView } from './MobileShopView'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { MobileShopView } from '@/mobile/MobileShopView'
 
 // mock shopManager：固定目录避免真实商店依赖
-vi.mock('../lib/shopManager', () => ({
+vi.mock('@/lib/nurture/shopManager', () => ({
   ShopLockState: { NONE: 0, FVLOCK: 1, PETLIMIT: 2 },
   getShopManager: vi.fn(() => ({
     getCatalog: vi.fn(() => [

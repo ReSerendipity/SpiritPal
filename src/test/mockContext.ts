@@ -14,7 +14,7 @@
  */
 
 import { vi, expect } from 'vitest'
-import type { NurturingStats, PetState } from '../lib/types'
+import type { NurturingStats, PetState } from '@/lib/data/types'
 
 /**
  * 模拟的 LLM 响应结构

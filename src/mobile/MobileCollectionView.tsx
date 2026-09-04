@@ -9,8 +9,8 @@
  * @see {@link ./MobileInventoryView} 移动端背包视图（宿主）
  * @see {@link ../hooks/useCollections} 收藏系统 Hook
  */
-import { useCollections } from '../hooks/useCollections'
-import { ITEM_DATABASE } from '../lib/items'
+import { useCollections } from '@/hooks/useCollections'
+import { ITEM_DATABASE } from '@/lib/nurture/items'
 
 /**
  * 移动端收藏子视图

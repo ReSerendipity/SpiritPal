@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { renderHook, cleanup } from '@testing-library/react'
-import { useCollections } from './useCollections'
-import { getCollectionManager, resetCollectionManager } from '../lib/collectionManager'
-import { usePetStore } from '../stores/petStore'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { useCollections } from '@/hooks/useCollections'
+import { getCollectionManager, resetCollectionManager } from '@/lib/data/collectionManager'
+import { usePetStore } from '@/stores/petStore'
 
 beforeEach(() => {
   localStorage.clear()

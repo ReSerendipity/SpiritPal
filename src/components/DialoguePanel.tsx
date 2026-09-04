@@ -17,7 +17,7 @@
  * - dialogueManager: DyberPet风格对话系统管理器
  */
 import { useEffect, useState, useCallback } from 'react'
-import { getDialogueManager, type DialogueNode } from '../lib/dialogueManager'
+import { getDialogueManager, type DialogueNode } from '@/lib/ai/dialogueManager'
 
 /** 对话面板组件Props */
 interface DialoguePanelProps {

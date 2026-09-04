@@ -1,7 +1,7 @@
 // 最终放置位置: src/hooks/useSafeTimeout.test.tsx
 // 覆盖: useSafeTimeout / useTimeout —— 定时器调度、取消、卸载清理
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useSafeTimeout, useTimeout } from './useSafeTimeout'
 
 describe('useSafeTimeout', () => {

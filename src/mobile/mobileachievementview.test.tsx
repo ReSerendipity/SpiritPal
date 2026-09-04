@@ -1,10 +1,10 @@
 // MobileAchievementView smoke 测试 — 成就/排行榜子页渲染
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
-import { MobileAchievementView } from './MobileAchievementView'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { MobileAchievementView } from '@/mobile/MobileAchievementView'
 
 // mock achievementSystem：避免触发真实成就管理器持久化
-vi.mock('../lib/achievementSystem', () => ({
+vi.mock('@/lib/nurture/achievementSystem', () => ({
   getAchievementManager: vi.fn(() => ({
     onChange: vi.fn(() => () => {}),
     updateMaxAffectionLevel: vi.fn(),

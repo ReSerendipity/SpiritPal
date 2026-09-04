@@ -16,10 +16,10 @@
  */
 import { useEffect, useState } from 'react'
 import { BarChart3, List } from 'lucide-react'
-import { usePetStore } from '../stores/petStore'
-import { getEnhancedMemoryManager, type EnhancedMemory } from '../lib/enhancedMemory'
-import { MemoryPanel } from '../components/MemoryPanel'
-import { TagCloud, EmotionCurve, TimeDensityChart } from '../components/MemoryVisualization'
+import { MemoryPanel } from '@/components/MemoryPanel'
+import { TagCloud, EmotionCurve, TimeDensityChart } from '@/components/MemoryVisualization'
+import { getEnhancedMemoryManager, type EnhancedMemory } from '@/lib/memory/enhancedMemory'
+import { usePetStore } from '@/stores/petStore'
 
 /** 子页面类型 */
 type SubView = 'viz' | 'list'

@@ -8,38 +8,38 @@
  *  3. 切回「精简」→ 恢复精简内容
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { MemoryPanel } from '../MemoryPanel'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { MemoryPanel } from '@/components/MemoryPanel'
 
-vi.mock('../../stores/petStore', () => ({
+vi.mock('@/stores/petStore', () => ({
   usePetStore: (selector: (s: unknown) => unknown) =>
     selector({ currentCharacterId: 'doro' }),
 }))
 
-vi.mock('../../lib/ownerFacts', () => ({
+vi.mock('@/lib/memory/ownerFacts', () => ({
   getOwnerFactsManager: () => ({
     ensureLoaded: vi.fn().mockResolvedValue(undefined),
     getAllFacts: () => [],
   }),
 }))
 
-vi.mock('../../lib/petExperience', () => ({
+vi.mock('@/lib/nurture/petExperience', () => ({
   getPetExperienceManager: () => ({
     ensureLoaded: vi.fn().mockResolvedValue(undefined),
     getRecent: () => [],
   }),
 }))
 
-vi.mock('../../lib/diarySystem', () => ({
+vi.mock('@/lib/nurture/diarySystem', () => ({
   getDiarySystemManager: () => ({ getRecentDiaries: () => [] }),
 }))
 
-vi.mock('../../lib/memoryExporter', () => ({
+vi.mock('@/lib/memory/memoryExporter', () => ({
   exportMemories: vi.fn(),
 }))
 
-vi.mock('../../lib/batchOperationManager', () => ({
+vi.mock('@/lib/data/batchOperationManager', () => ({
   createBatchManager: () => ({
     updateItems: vi.fn(),
     isSelected: () => false,
@@ -49,7 +49,7 @@ vi.mock('../../lib/batchOperationManager', () => ({
   }),
 }))
 
-vi.mock('../MemoryVisualizer', () => ({
+vi.mock('@/components/MemoryVisualizer', () => ({
   default: () => <div data-testid="memory-visualizer">可视化视图</div>,
 }))
 

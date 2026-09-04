@@ -27,13 +27,13 @@ import {
   X, Save, Download, Upload, Plus, Trash2, Sparkles,
   Palette, Bot, ThumbsDown, ThumbsUp, Film, FileJson, Check,
 } from 'lucide-react'
-import { usePetStore } from '../stores/petStore'
-import { useSettingsStore } from '../stores/settingsStore'
-import { PERSONALITY_LABELS } from '../lib/personalityEngine'
-import { PERSONALITY_TEMPLATES } from '../lib/personalityTemplates'
-import { FOODS_BY_CHARACTER, TOYS, MEDICINES } from '../lib/items'
-import { ATLAS } from '../lib/types'
-import type { CharacterProfile, Personality } from '../lib/types'
+import { PERSONALITY_LABELS } from '@/lib/ai/personalityEngine'
+import { PERSONALITY_TEMPLATES } from '@/lib/ai/personalityTemplates'
+import { ATLAS } from '@/lib/data/types'
+import type { CharacterProfile, Personality } from '@/lib/data/types'
+import { FOODS_BY_CHARACTER, TOYS, MEDICINES } from '@/lib/nurture/items'
+import { usePetStore } from '@/stores/petStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 // ============ 五维雷达图（SVG）============
 const DIM_KEYS: (keyof Personality)[] = ['warmth', 'liveliness', 'dependence', 'directness', 'rationality']

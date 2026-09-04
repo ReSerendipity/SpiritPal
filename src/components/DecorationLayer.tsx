@@ -13,9 +13,9 @@
  * - usePetStore: 背包物品（获取装饰品图标）
  */
 import type { CSSProperties } from 'react'
-import { usePetStore } from '../stores/petStore'
-import { ACCESSORIES } from '../lib/items'
-import type { WornDecoration, AnchorPoint, DecorationRotations } from '../lib/types'
+import type { WornDecoration, AnchorPoint, DecorationRotations } from '@/lib/data/types'
+import { ACCESSORIES } from '@/lib/nurture/items'
+import { usePetStore } from '@/stores/petStore'
 
 /** 装饰品层组件Props */
 interface DecorationLayerProps {

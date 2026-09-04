@@ -32,46 +32,52 @@ import {
 X, Bot, Palette, Settings as SettingsIcon, Info,
 Heart, ShoppingBag, Backpack, Brain, SlidersHorizontal, Trophy, Calendar, Package, Camera, Database, Sliders, Grid3x3, Activity, Sparkles, Users, Upload, Plug, BookOpen,
 } from 'lucide-react'
-import { trackSettingChange, trackImageSwitch } from '../lib/analytics'
-import { getCharacter, getAllCharacters } from '../lib/characters'
-import { setLanguage as i18nSetLanguage } from '../lib/i18n'
-import { PRIVACY_POLICY, TERMS_OF_SERVICE } from '../lib/legalDocuments'
-import { DEFAULT_AI_CONFIG } from '../lib/llmClient'
-import { LLM_PROVIDERS, getProvider, detectOllama, listOllamaModels } from '../lib/llmProviders'
-import { switchPetForm } from '../lib/petForm'
-import { setApiKey, getApiKey, deleteApiKey } from '../lib/secureStorage'
-import { validateUploadMagic } from '../lib/uploadMagic'
-import { windowEventBus } from '../lib/windowEventBus'
-import { usePetStore } from '../stores/petStore'
-import { useSettingsStore } from '../stores/settingsStore'
-import { AchievementPanel } from './AchievementPanel'
-import { AlbumPanel } from './AlbumPanel'
-import { CharacterCreationWizard } from './CharacterCreationWizard'
-import { CharacterCreator } from './CharacterCreator'
-import { CharacterImportWizard } from './CharacterImportWizard'
-import { CommunityPanel } from './CommunityPanel'
-import { DataPanel } from './DataPanel'
-import { DecorationEditor } from './DecorationEditor'
-import { FramelessResizeHandles } from './FramelessChrome'
-import { GifToSpriteTool } from './GifToSpriteTool'
-import { InventoryPanel } from './InventoryPanel'
-import { JournalPanel } from './JournalPanel'
-import { LeaderboardPanel } from './LeaderboardPanel'
-import { LegalDocument } from './LegalDocument'
-import { McpSettingsPanel } from './McpSettingsPanel'
-import { MemoryPanel } from './MemoryPanel'
-import { MemoryVisualizer } from './MemoryVisualizer'
-import { ModPanel } from './ModPanel'
-import { NurturingPanel } from './NurturingPanel'
-import { PersonalityEditor } from './PersonalityEditor'
-import { PersonalityPanel } from './PersonalityPanel'
-import { QuickControlsPanel } from './QuickControlsPanel'
-import { SchedulePanel } from './SchedulePanel'
-import { ShopPanel } from './ShopPanel'
-import { SpriteSheetPanel } from './SpriteSheetPanel'
-import { BrandButton, BrandInput, BrandSelect, BrandSlider } from './ui'
-import { WindowControls } from './WindowControls'
-import type { AIConfig, AppSettings, BackgroundConfig, BackgroundType } from '../lib/types'
+import { windowEventBus } from '@/lib/system/windowEventBus'
+import { usePetStore } from '@/stores/petStore'
+import { useSettingsStore } from '@/stores/settingsStore'
+import { AchievementPanel } from '@/components/AchievementPanel'
+import { AlbumPanel } from '@/components/AlbumPanel'
+import { CharacterCreationWizard } from '@/components/CharacterCreationWizard'
+import { CharacterCreator } from '@/components/CharacterCreator'
+import { CharacterImportWizard } from '@/components/CharacterImportWizard'
+import { CommunityPanel } from '@/components/CommunityPanel'
+import { DataPanel } from '@/components/DataPanel'
+import { DecorationEditor } from '@/components/DecorationEditor'
+import { FramelessResizeHandles } from '@/components/FramelessChrome'
+import { GifToSpriteTool } from '@/components/GifToSpriteTool'
+import { InventoryPanel } from '@/components/InventoryPanel'
+import { JournalPanel } from '@/components/JournalPanel'
+import { LeaderboardPanel } from '@/components/LeaderboardPanel'
+import { LegalDocument } from '@/components/LegalDocument'
+import { McpSettingsPanel } from '@/components/McpSettingsPanel'
+import { MemoryPanel } from '@/components/MemoryPanel'
+import { MemoryVisualizer } from '@/components/MemoryVisualizer'
+import { ModPanel } from '@/components/ModPanel'
+import { NurturingPanel } from '@/components/NurturingPanel'
+import { PersonalityEditor } from '@/components/PersonalityEditor'
+import { PersonalityPanel } from '@/components/PersonalityPanel'
+import { QuickControlsPanel } from '@/components/QuickControlsPanel'
+import { SchedulePanel } from '@/components/SchedulePanel'
+import { ShopPanel } from '@/components/ShopPanel'
+import { SpriteSheetPanel } from '@/components/SpriteSheetPanel'
+import { BrandButton, BrandInput, BrandSelect, BrandSlider } from '@/components/ui'
+import { WindowControls } from '@/components/WindowControls'
+import { DEFAULT_AI_CONFIG } from '@/lib/ai/llmClient'
+import { LLM_PROVIDERS, getProvider, detectOllama, listOllamaModels } from '@/lib/ai/llmProviders'
+import { getCharacter, getAllCharacters } from '@/lib/data/characters'
+import { setApiKey, getApiKey, deleteApiKey } from '@/lib/data/secureStorage'
+import type { AIConfig, AppSettings, BackgroundConfig, BackgroundType } from '@/lib/data/types'
+import { switchPetForm } from '@/lib/nurture/petForm'
+import { trackSettingChange, trackImageSwitch } from '@/lib/system/analytics'
+import {
+  LOGGING_LEVELS,
+  getRuntimeLogLevel,
+  setRuntimeLogLevel,
+  exportDiagnostics,
+} from '@/lib/system/diagnostics'
+import { setLanguage as i18nSetLanguage } from '@/lib/system/i18n'
+import { PRIVACY_POLICY, TERMS_OF_SERVICE } from '@/lib/system/legalDocuments'
+import { validateUploadMagic } from '@/lib/system/uploadMagic'
 
 const selectUpdateSettings = (s: ReturnType<typeof useSettingsStore.getState>) => s.updateSettings
 const selectSwitchSettingsChar = (s: ReturnType<typeof useSettingsStore.getState>) => s.switchCharacter
@@ -192,6 +198,11 @@ const [showImporter, setShowImporter] = useState(false)
   const [coreDir, setCoreDir] = useState('')
   const [pendingOverseasProvider, setPendingOverseasProvider] = useState<string | null>(null)
   const [rememberOverseas, setRememberOverseas] = useState(false)
+  // 诊断与日志：当前运行时日志级别 / 切换成功提示 / 导出结果
+  const [logLevel, setLogLevel] = useState<string>('')
+  const [logLevelTip, setLogLevelTip] = useState<string | null>(null)
+  const [exportPath, setExportPath] = useState<string | null>(null)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   // 跨窗口「打开指定标签页」请求（如宠物右键菜单「换装」直达外观页）
   useEffect(() => {
@@ -304,6 +315,19 @@ const [showImporter, setShowImporter] = useState(false)
     i18nSetLanguage(settings.language)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 初始化「关于」页日志级别下拉
+  useEffect(() => {
+    let cancelled = false
+    getRuntimeLogLevel()
+      .then((level) => {
+        if (!cancelled) setLogLevel(level)
+      })
+      .catch(() => {
+        // 读取失败保持空，由用户手动触发
+      })
+    return () => { cancelled = true }
+  }, [])
+
   // Esc 键关闭窗口（无障碍键盘导航）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -394,6 +418,37 @@ const [showImporter, setShowImporter] = useState(false)
     trackSettingChange('language', settings.language, lang)
     i18nSetLanguage(lang)
     setLanguage(lang)
+  }
+
+  // 运行时日志级别切换
+  async function handleLogLevelChange(level: string) {
+    setLogLevel(level)
+    setLogLevelTip(null)
+    try {
+      const updated = await setRuntimeLogLevel(level)
+      setLogLevel(updated)
+      const label = LOGGING_LEVELS.find((l) => l.value === updated)?.label ?? updated
+      setLogLevelTip(`已更新为 ${label}`)
+    } catch (e) {
+      // 失败静默，仅控制台提示
+      console.warn('[Diagnostics] 更新日志级别失败:', e)
+    }
+  }
+
+  // 导出诊断包
+  async function handleExportDiagnostics() {
+    setExportPath(null)
+    setExportError(null)
+    try {
+      const result = await exportDiagnostics()
+      if (result && result.path) {
+        setExportPath(result.path)
+      } else {
+        setExportError('诊断功能当前不可用（非桌面环境）')
+      }
+    } catch (e) {
+      setExportError(String(e))
+    }
   }
 
   async function handleClose() {
@@ -1079,6 +1134,50 @@ const [showImporter, setShowImporter] = useState(false)
               <div className="text-sm text-ink-faint">版本：0.1.0</div>
               <div className="mt-2 text-sm text-ink-muted">
                 一款基于 Tauri v2 的桌面宠物应用，支持多角色养成、AI 对话、记忆系统与番茄钟。
+              </div>
+            </div>
+            {/* 诊断与日志 */}
+            <div className="rounded-xl bg-surface p-4">
+              <div className="mb-2 text-sm font-semibold text-tangerine-deep">诊断与日志</div>
+
+              <div className="mb-3">
+                <label className="mb-1 block text-xs text-ink-faint">日志级别</label>
+                <select
+                  value={logLevel}
+                  onChange={(e) => handleLogLevelChange(e.target.value)}
+                  aria-label="日志级别"
+                  className="w-full rounded-lg bg-cream-deep px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
+                >
+                  {LOGGING_LEVELS.map((lv) => (
+                    <option key={lv.value} value={lv.value}>
+                      {lv.label}
+                    </option>
+                  ))}
+                </select>
+                {logLevelTip && (
+                  <div className="mt-1 text-xs text-success-deep">{logLevelTip}</div>
+                )}
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs text-ink-faint">导出诊断包</label>
+                <button
+                  onClick={handleExportDiagnostics}
+                  className="rounded-lg bg-tangerine px-3 py-1.5 text-xs font-medium text-white hover:bg-tangerine-deep"
+                >
+                  导出诊断包
+                </button>
+                {exportPath && (
+                  <div className="mt-2 break-all text-xs text-success-deep">
+                    诊断包已导出：{exportPath}
+                    <div className="mt-0.5 text-ink-faint">
+                      诊断包仅保存在本机，可自行分享给开发者排查
+                    </div>
+                  </div>
+                )}
+                {exportError && (
+                  <div className="mt-2 text-xs text-red-400">导出失败：{exportError}</div>
+                )}
               </div>
             </div>
             <div className="rounded-xl bg-surface p-4">

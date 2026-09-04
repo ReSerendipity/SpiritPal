@@ -4,8 +4,8 @@
  */
 
 import { useMemo } from 'react'
-import { getKeyframeMemory, type Keyframe } from '../lib/keyframeMemory'
-import type { MemoryEntry } from '../lib/types'
+import type { MemoryEntry } from '@/lib/data/types'
+import { getKeyframeMemory, type Keyframe } from '@/lib/memory/keyframeMemory'
 import { cogneeSearch, cogneeAdd } from '../lib/memory/cogneeClient'
 
 export interface SearchResults {

@@ -1,8 +1,8 @@
 // 最终放置位置: src/hooks/pet/usePetDragging.test.tsx
 // 覆盖: usePetDragging —— 返回结构、点击（非拖拽）回调、拖拽触发 onDragStart/onDragEnd、interruptWalk/setInterruptWalk
 // Mock: @tauri-apps/api/window（含 PhysicalPosition + getCurrentWindow 返回丰富 mock 对象）；rAF stub 为 no-op
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { usePetDragging } from './usePetDragging'
 
 const dragging = vi.hoisted(() => {

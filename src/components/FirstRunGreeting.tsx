@@ -10,9 +10,9 @@
  * 对应高保真主流程 v1.0 · 首屏登场场景。
  */
 import { useState } from 'react'
-import { SpriteRenderer } from './SpriteRenderer'
-import { DRAG_SURFACE_CLASS } from './FramelessChrome'
 import { useTranslation } from 'react-i18next'
+import { DRAG_SURFACE_CLASS } from './FramelessChrome'
+import { SpriteRenderer } from './SpriteRenderer'
 
 interface FirstRunGreetingProps {
   /** 默认角色（可空，空时兜底展示占位名） */

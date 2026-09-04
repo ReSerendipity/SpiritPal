@@ -14,12 +14,12 @@
  */
 import { useState } from 'react'
 import { Heart, ShoppingBag, Backpack, Trophy, Coins, Sparkles } from 'lucide-react'
-import { usePetStore } from '../stores/petStore'
-import { getCharacter } from '../lib/characters'
-import type { BadgeTier } from '../lib/types'
-import { MobileShopView } from './MobileShopView'
-import { MobileInventoryView } from './MobileInventoryView'
-import { MobileAchievementView } from './MobileAchievementView'
+import { getCharacter } from '@/lib/data/characters'
+import type { BadgeTier } from '@/lib/data/types'
+import { MobileAchievementView } from '@/mobile/MobileAchievementView'
+import { MobileInventoryView } from '@/mobile/MobileInventoryView'
+import { MobileShopView } from '@/mobile/MobileShopView'
+import { usePetStore } from '@/stores/petStore'
 
 /** 子 Tab 类型 */
 type SubTab = 'stats' | 'shop' | 'inventory' | 'achievement'

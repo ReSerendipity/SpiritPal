@@ -23,10 +23,6 @@ import { useState, useCallback } from 'react'
 import {
   RotateCcw, Eye, Plus, Trash2, Sparkles, Clock,
 } from 'lucide-react'
-import type {
-  Personality, PersonalityConfig, SpeakingStyle, InteractionPreferences,
-  SchedulePeriod, Tone, WordPreference, InteractionFrequency,
-} from '../lib/types'
 import {
   PERSONALITY_LABELS,
   composePersonalityPrompt,
@@ -34,11 +30,15 @@ import {
   getEffectivePersonalityConfig,
   savePersonalityConfigOverride,
   removePersonalityConfigOverride,
-} from '../lib/personalityEngine'
-import { PERSONALITY_TEMPLATES } from '../lib/personalityTemplates'
-import { getCharacter } from '../lib/characters'
-import { CHARACTERS } from '../lib/characters'
-import { useSettingsStore } from '../stores/settingsStore'
+} from '@/lib/ai/personalityEngine'
+import { PERSONALITY_TEMPLATES } from '@/lib/ai/personalityTemplates'
+import { getCharacter } from '@/lib/data/characters'
+import { CHARACTERS } from '@/lib/data/characters'
+import type {
+  Personality, PersonalityConfig, SpeakingStyle, InteractionPreferences,
+  SchedulePeriod, Tone, WordPreference, InteractionFrequency,
+} from '@/lib/data/types'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 // ============ 五维雷达图（SVG）============
 const DIM_KEYS: (keyof Personality)[] = ['warmth', 'liveliness', 'dependence', 'directness', 'rationality']

@@ -20,12 +20,9 @@
  * - 角色切换
  * - JSX 渲染
  */
+import { invoke } from '@tauri-apps/api/core'
+import { getCurrentWindow, PhysicalPosition, PhysicalSize } from '@tauri-apps/api/window'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
-
-import { usePetStore } from '../stores/petStore'
-import { useSettingsStore } from '../stores/settingsStore'
-import { getCharacter, getDefaultCharacter, getAllCharacters } from '../lib/characters'
-import { getFoodsForCharacter } from '../lib/items'
 import {
   Hand,
   UtensilsCrossed,
@@ -50,27 +47,23 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react'
-import { getModManager } from '../lib/modManager'
-import { ActionButton, ActionRow, StatRow, tierColor } from './petPanelParts'
-import { PetBubble } from './PetBubble'
-import { PomodoroOverlay } from './PomodoroOverlay'
-import { SpriteRenderer } from './SpriteRenderer'
-import { Live2DRenderer } from './Live2DRenderer'
-import { CharacterSelector } from './CharacterSelector'
-import { FirstRunGreeting } from './FirstRunGreeting'
-import { DialoguePanel } from './DialoguePanel'
-import type { InventoryItem } from '../lib/types'
-import { getDialogueManager } from '../lib/dialogueManager'
-import { useInputReactions } from '../lib/useInputReactions'
-import { pickPetReaction } from '../lib/behaviorEngine'
-import { trackPetInteraction, trackTomatoComplete, trackImageSwitch } from '../lib/analytics'
-import { swallowedCatch } from '@/lib/swallowedCatch'
-import { LevelUpOverlay } from './LevelUpOverlay'
-import { getScreenshotManager } from '../lib/screenshotManager'
-import { getVisualPerceptionManager } from '../lib/visualPerception'
-import { DecorationLayer } from './DecorationLayer'
-import { getAchievementManager } from '../lib/achievementSystem'
-import { getEmotionManager } from '../lib/emotionManager'
+import { SpriteRenderer } from '@/components/SpriteRenderer'
+import { Live2DRenderer } from '@/components/Live2DRenderer'
+import { CharacterSelector } from '@/components/CharacterSelector'
+import { FirstRunGreeting } from '@/components/FirstRunGreeting'
+import { DialoguePanel } from '@/components/DialoguePanel'
+import type { InventoryItem } from '@/lib/data/types'
+import { getDialogueManager } from '@/lib/ai/dialogueManager'
+import { useInputReactions } from '@/lib/system/useInputReactions'
+import { pickPetReaction } from '@/lib/ai/behaviorEngine'
+import { trackPetInteraction, trackTomatoComplete, trackImageSwitch } from '@/lib/system/analytics'
+import { swallowedCatch } from '@/lib/system/swallowedCatch'
+import { LevelUpOverlay } from '@/components/LevelUpOverlay'
+import { getScreenshotManager } from '@/lib/system/screenshotManager'
+import { getVisualPerceptionManager } from '@/lib/memory/visualPerception'
+import { DecorationLayer } from '@/components/DecorationLayer'
+import { getAchievementManager } from '@/lib/nurture/achievementSystem'
+import { getEmotionManager } from '@/lib/ai/emotionManager'
 import {
   useSafeTimeout,
   usePetGaze,
@@ -83,21 +76,19 @@ import {
   usePetTimers,
   usePetMemoryTriggers,
   useRoamWalk,
-} from '../hooks'
-import { useDockVisualFeedback } from '../hooks/pet/useDockVisualFeedback'
+} from '@/hooks'
+import { useDockVisualFeedback } from '@/hooks/pet/useDockVisualFeedback'
 // A-7：抚摸时触发 GPU 粒子特效（WebGL 不可用时自动降级为 no-op）
-import { usePetParticles } from '../hooks/pet/usePetParticles'
+import { usePetParticles } from '@/hooks/pet/usePetParticles'
 // A-13：装饰部件伪物理（physics3.json → 装饰摆角）
-import { useDecorationPhysics } from '../hooks/pet/useDecorationPhysics'
+import { useDecorationPhysics } from '@/hooks/pet/useDecorationPhysics'
 // A-14：迷你模式（Tauri 官方 window API，无自定义 Rust 命令）
-import { useMiniMode } from '../hooks/pet/useMiniMode'
-import { getHiddenStateManager } from '../lib/hiddenStateManager'
-import { getSilentModeManager, temporarySilence } from '../lib/silentModeManager'
-import type { DockDir } from '../hooks/pet/usePetDragging'
-import { getCurrentWindow, PhysicalPosition, PhysicalSize } from '@tauri-apps/api/window'
-import { invoke } from '@tauri-apps/api/core'
-import { switchPetForm } from '../lib/petForm'
-import { windowEventBus, useWindowEvent } from '../lib/windowEventBus'
+import { useMiniMode } from '@/hooks/pet/useMiniMode'
+import { getHiddenStateManager } from '@/lib/render/hiddenStateManager'
+import { getSilentModeManager, temporarySilence } from '@/lib/system/silentModeManager'
+import type { DockDir } from '@/hooks/pet/usePetDragging'
+import { switchPetForm } from '@/lib/nurture/petForm'
+import { windowEventBus, useWindowEvent } from '@/lib/system/windowEventBus'
 import {
   SPRITE_W,
   SPRITE_H,
@@ -113,12 +104,20 @@ import {
   ACTIONS_PANEL_H,
   DIALOGUE_ZONE_PAD,
   type StatusCardMode,
-} from '../lib/petWindowSizing'
-import { renderPetTrayIcon } from '../lib/trayIconRenderer'
-import { FramelessResizeHandles, DRAG_SURFACE_CLASS } from './FramelessChrome'
-import { usePixelClickThrough } from '../lib/pixelClickThrough'
+} from '@/lib/system/petWindowSizing'
+import { renderPetTrayIcon } from '@/lib/render/trayIconRenderer'
+import { FramelessResizeHandles, DRAG_SURFACE_CLASS } from '@/components/FramelessChrome'
+import { PetBubble } from '@/components/PetBubble'
+import { ActionButton, ActionRow, StatRow, tierColor } from '@/components/petPanelParts'
+import { PomodoroOverlay } from '@/components/PomodoroOverlay'
+import { getCharacter, getDefaultCharacter, getAllCharacters } from '@/lib/data/characters'
+import { getModManager } from '@/lib/data/modManager'
+import { getFoodsForCharacter } from '@/lib/nurture/items'
 // P2-4：宠物共同经历记忆
-import { getPetExperienceManager } from '../lib/petExperience'
+import { getPetExperienceManager } from '@/lib/nurture/petExperience'
+import { usePixelClickThrough } from '@/lib/system/pixelClickThrough'
+import { usePetStore } from '@/stores/petStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 // 像素点击穿透的额外交互白名单（状态卡/对话区/动作列表等面板区域保持可点击）
 const PET_FRAMELESS_INTERACTIVE = [
@@ -325,7 +324,7 @@ export default function PetWindow() {
   const lastMouseRef = useRef<{ x: number; y: number; t: number } | null>(null)
   const downPosRef = useRef<{ x: number; y: number; t: number } | null>(null)
   const draggingRef = useRef(false)
-  const live2dRef = useRef<import('../components/Live2DRenderer').Live2DRendererHandle | null>(null)
+  const live2dRef = useRef<import('@/components/Live2DRenderer').Live2DRendererHandle | null>(null)
 
   // ========== 气泡驱动窗口自适应 refs ==========
   // 气泡 DOM 测量（挂在 PetBubble 外层 div 上，读取实际渲染尺寸）
@@ -362,7 +361,7 @@ export default function PetWindow() {
     posRef.current = pos
     clickScaleRef.current = clickScale
     panelOpenRef.current = panelOpen
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 刻意每次渲染同步 ref 镜像，加依赖会导致 ref 过期
+     
   })
 
   const showBubble = useCallback((msg: string) => {
@@ -381,7 +380,7 @@ export default function PetWindow() {
 
   // 占位 refs（用于解决 usePetBehavior 在 usePetSensors 之前初始化的循环依赖）
   // usePetSensors 创建真实 refs 后，通过 useEffect 保持同步
-  const workStatePlaceholderRef = useRef<import('../lib/contextAwareness').WorkState>('unknown')
+  const workStatePlaceholderRef = useRef<import('@/lib/ai/contextAwareness').WorkState>('unknown')
   const musicPlaceholderRef = useRef<boolean>(false)
 
   // 行走目标 x 范围：收起态按实际窗口宽计算（修复硬编码 300px 残留），展开态限定为面板内宠物区（列间缝隙）。
@@ -637,6 +636,8 @@ export default function PetWindow() {
     },
     onKeyPress: () => {
       const b = typingBurstRef.current
+      // react-hooks/purity: 事件回调非渲染路径，Date.now 仅用于 4s 节流窗口计时
+      // eslint-disable-next-line react-hooks/purity
       const now = Date.now()
       if (now - b.windowStart > 4000) {
         b.windowStart = now
@@ -651,7 +652,7 @@ export default function PetWindow() {
     },
     onClick: () => {
       const b = clickBurstRef.current
-      const now = Date.now()
+      const now = Date.now() // eslint-disable-line react-hooks/purity -- 事件回调非渲染路径，仅用于节流计时
       if (now - b.windowStart > 4000) {
         b.windowStart = now
         b.count = 0
@@ -987,7 +988,7 @@ export default function PetWindow() {
   function handleMouseLeave() {
     getEmotionManager().setHovered(false)
     setHovered(false)
-    // eslint-disable-next-line react-hooks/immutability -- hoveredRef 是漫游行走控制器的即时状态镜像（与 posRef/panelOpenRef 镜像同理），事件处理器中同步，非渲染期
+     
     hoveredRef.current = false
     miniMouseLeave() // A-14：迷你态下延迟收回预览窗口
     if (draggingRef.current) {
@@ -1001,7 +1002,7 @@ export default function PetWindow() {
   function handleMouseEnter() {
     getEmotionManager().setHovered(true)
     setHovered(true)
-    // eslint-disable-next-line react-hooks/immutability -- hoveredRef 是漫游行走控制器的即时状态镜像（与 posRef/panelOpenRef 镜像同理），事件处理器中同步，非渲染期
+     
     hoveredRef.current = true
     miniMouseEnter() // A-14：迷你态下延迟展开预览窗口
   }
@@ -1202,7 +1203,7 @@ export default function PetWindow() {
         setBubble(detail || '我没有看清屏幕上的内容呢～')
         // 复用现有视觉记忆链路，与 ChatWindow 行为一致，避免新建状态写入路径
         try {
-          const { getVisualMemoryManager } = await import('../lib/visualMemoryManager')
+          const { getVisualMemoryManager } = await import('@/lib/memory/visualMemoryManager')
           getVisualMemoryManager(currentCharacterId).record('scene', analysis.userActivity ?? 'screen', 'neutral')
         } catch {
           /* 视觉记忆记录失败不影响「看看」主流程 */

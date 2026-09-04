@@ -13,8 +13,8 @@
  * - 测试隔离（localStorage 清理、React 组件卸载）
  */
 import '@testing-library/jest-dom/vitest'
-import { vi, beforeEach, afterAll } from 'vitest'
 import { cleanup } from '@testing-library/react'
+import { vi, beforeEach, afterAll } from 'vitest'
 
 // ============ Mock @tauri-apps/api 核心模块 ============
 vi.mock('@tauri-apps/api/core', () => ({
@@ -147,18 +147,8 @@ vi.mock('@tauri-apps/plugin-updater', () => ({
 }))
 
 // ============ Mock Web Worker（vectorSearch 使用 ?worker 导入）============
-vi.mock('./vectorWorker?worker', () => ({
-  default: vi.fn(function () {
-    return {
-      postMessage: vi.fn(),
-      onmessage: vi.fn(),
-      onerror: vi.fn(),
-      terminate: vi.fn(),
-    }
-  }),
-}))
-
-vi.mock('../lib/vectorWorker?worker', () => ({
+// vectorWorker 位于 src/lib/system/vectorWorker.ts（重构后 2026-09-04）
+vi.mock('../lib/system/vectorWorker?worker', () => ({
   default: vi.fn(function () {
     return {
       postMessage: vi.fn(),

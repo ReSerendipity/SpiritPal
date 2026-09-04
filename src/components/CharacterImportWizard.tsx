@@ -12,10 +12,10 @@
 
 import { useState, useCallback, useRef } from 'react'
 import { Upload, FileJson, ImageIcon, FolderOpen, CheckCircle2, AlertCircle, AlertTriangle, X, Loader2 } from 'lucide-react'
-import { importCharacter, type UnifiedImportResult } from '../lib/characterImportService'
-import { usePetStore } from '../stores/petStore'
-import { useSettingsStore } from '../stores/settingsStore'
 import { useTranslation } from 'react-i18next'
+import { importCharacter, type UnifiedImportResult } from '@/lib/nurture/characterImportService'
+import { usePetStore } from '@/stores/petStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 // ============ 组件 Props ============
 

@@ -1,6 +1,6 @@
 // T-21: 快照测试 — 对稳定组件做回归保护
-import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
 import { PetBubble } from '../PetBubble'
 
 // 依赖的 mock 与现有测试一致

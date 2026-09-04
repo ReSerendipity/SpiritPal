@@ -1,8 +1,8 @@
 /**
  * 收藏面板 — 展示收藏套件进度，支持装备/卸下、领取完成奖励
  */
-import { useCollections } from '../hooks/useCollections'
-import { ITEM_DATABASE } from '../lib/items'
+import { useCollections } from '@/hooks/useCollections'
+import { ITEM_DATABASE } from '@/lib/nurture/items'
 
 export function CollectionTab() {
   const { sets, overallPercentage, equip, unequip, claimReward } = useCollections()

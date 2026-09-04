@@ -1,6 +1,6 @@
 // MobileInventoryView smoke 测试 — 空背包状态
-import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { MobileInventoryView } from './MobileInventoryView'
 
 describe('MobileInventoryView', () => {

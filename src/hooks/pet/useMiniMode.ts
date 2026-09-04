@@ -12,7 +12,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { MiniModeManager, type MiniModeState } from '../../lib/miniMode'
+import { MiniModeManager, type MiniModeState } from '@/lib/system/miniMode'
 
 export interface UseMiniModeResult {
   /** 当前模式：normal / mini / preview */

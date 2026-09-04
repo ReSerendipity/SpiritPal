@@ -14,8 +14,8 @@
  */
 import { useState } from 'react'
 import { Shirt, X } from 'lucide-react'
-import { usePetStore } from '../stores/petStore'
-import type { InventoryItem, AnchorPoint, WornDecoration } from '../lib/types'
+import type { InventoryItem, AnchorPoint, WornDecoration } from '@/lib/data/types'
+import { usePetStore } from '@/stores/petStore'
 
 const EMPTY_DECORATIONS: WornDecoration[] = []
 const selectInventory = (s: ReturnType<typeof usePetStore.getState>) => s.inventory

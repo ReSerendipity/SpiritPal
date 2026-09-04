@@ -12,7 +12,7 @@
  */
 import { useMemo, useState, useCallback } from 'react'
 import { Tag, TrendingUp, BarChart3, Calendar } from 'lucide-react'
-import type { EnhancedMemory } from '../lib/enhancedMemory'
+import type { EnhancedMemory } from '@/lib/memory/enhancedMemory'
 
 // ============ 标签云 ============
 

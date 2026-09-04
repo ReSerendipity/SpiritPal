@@ -15,23 +15,23 @@
  * - 闲置检测
  */
 
-import { useEffect, useRef, useState } from 'react'
-import { listen } from '@tauri-apps/api/event'
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
+import { useEffect, useRef, useState } from 'react'
 import {
   getContextAwarenessManager,
   getNotificationManager,
   SOFT_REMINDERS,
   type WorkState,
-} from '../../lib/contextAwareness'
-import { getMusicAwarenessManager } from '../../lib/musicAwareness'
-import { getWeatherAwarenessManager, type WeatherAction } from '../../lib/weatherAwareness'
-import { getScheduleManager } from '../../lib/scheduleManager'
-import { getBubbleManager, MessagePriority } from '../../lib/bubbleManager'
-import { getEventSystemManager } from '../../lib/eventSystem'
-import { getEmotionManager } from '../../lib/emotionManager'
-import { animationIdToPetState, type AnimationId } from '../../lib/animationConfig'
-import type { PetState } from '../../lib/types'
+} from '@/lib/ai/contextAwareness'
+import { getEmotionManager } from '@/lib/ai/emotionManager'
+import type { PetState } from '@/lib/data/types'
+import { getScheduleManager } from '@/lib/nurture/scheduleManager'
+import { animationIdToPetState, type AnimationId } from '@/lib/render/animationConfig'
+import { getBubbleManager, MessagePriority } from '@/lib/render/bubbleManager'
+import { getEventSystemManager } from '@/lib/system/eventSystem'
+import { getMusicAwarenessManager } from '@/lib/system/musicAwareness'
+import { getWeatherAwarenessManager, type WeatherAction } from '@/lib/system/weatherAwareness'
 
 export interface UsePetSensorsOptions {
   /** 显示气泡回调 */

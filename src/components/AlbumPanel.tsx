@@ -22,8 +22,8 @@
 // P3-27: 一键截图+滤镜+分享
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Camera, Download, Trash2, Copy, X, Check, Image as ImageIcon, Share2, Sparkles, Pencil } from 'lucide-react'
-import { getScreenshotManager, type Screenshot } from '../lib/screenshotManager'
-import { getCharacter } from '../lib/characters'
+import { getCharacter } from '@/lib/data/characters'
+import { getScreenshotManager, type Screenshot } from '@/lib/system/screenshotManager'
 
 // ============ 滤镜定义 ============
 
