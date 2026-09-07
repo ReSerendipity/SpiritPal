@@ -164,3 +164,13 @@ perf/results/perf-history.json
 perf/results/long-session-results/
 perf/results/penetration-test.json
 docs/agents/
+
+# --- 2026-09-06 目录整理补齐（方案 A：路径不动，仅排除）---
+docs/_devarchive/repo_research/
+.mypy_cache/
+pytest_tmp/
+.hypothesis/
+.workbuddy/
+.workbuddy-ai/
+.zcode/
+_tmp_excluded_tests/

@@ -1,0 +1,98 @@
+# Auto-generated structure-guard baseline.
+# root_allowlist freezes the approved root layout.
+# To deliberately permit a new root file, add it to root_allowlist.
+# forbid_root_patterns fail CI on future stray dumps
+# (audit / review / log / temp files at repo root).
+version: 1
+require_dirs:
+  - docs
+  - scripts
+  - .github
+forbid_root_patterns:
+  - '.*_AUDIT_.*\.md$'
+  - '.*_ASSESSMENT_.*\.md$'
+  - '.*_REVIEW_.*\.md$'
+  - '.*_REPORT.*\.md$'
+  - 'REMEDIATION_EXECUTION_LOG.*\.md$'
+  - 'REVISION_LOG.*\.md$'
+  - '.*_EXECUTION_SUMMARY.*\.md$'
+  - '.*_报告_.*\.md$'
+  - '.*评估.*\.md$'
+  - '.*审查.*\.md$'
+  - '.*_release_log.*\.txt$'
+
+# 产物类（会自行再生的构建/测试垃圾）：仅 WARN 不阻断，由 auto_tidy 归位
+artifact_root_patterns:
+  - '.*\.log$'
+  - '.*\.tmp$'
+  - '.*\.bak$'
+  - 'coverage\.xml$'
+  - 'tmp_.*'
+  - '.*~$'
+gitignored_expect:
+  - coverage.xml
+  - .coverage
+  - node_modules
+  - __pycache__
+  - .venv
+  - .venv_srv
+  - dist
+  - build
+  - .mypy_cache
+  - .pytest_cache
+  - .ruff_cache
+  - .hypothesis
+  - .torch_cache
+  - .trae
+  - .idea
+  - .qoder
+  - htmlcov
+  - .gradle
+  - .kotlin
+  - .vscode
+  - playwright-report
+  - test-results
+  - dogfood-output
+  - android-sdk
+  - artifacts
+  - coverage
+root_allowlist:
+  - .ci
+  - .env.example
+  - .github
+  - .gitignore
+  - .npmrc
+  - .pre-commit-config.yaml
+  - .prettierignore
+  - .prettierrc
+  - CHANGELOG.md
+  - COMPLIANCE_CHECKLIST.md
+  - LICENSE
+  - NOTICE
+  - PRIVACY_POLICY.md
+  - README.md
+  - THIRD_PARTY_NOTICES.md
+  - USER_AGREEMENT.md
+  - demo
+  - docs
+  - eslint.config.js
+  - index.html
+  - install.bat
+  - package.json
+  - perf
+  - playwright.config.ts
+  - playwright.tauri.config.ts
+  - pnpm-lock.yaml
+  - pnpm-workspace.yaml
+  - public
+  - rust-toolchain.toml
+  - scripts
+  - src
+  - src-tauri
+  - start.bat
+  - stryker.config.json
+  - tests
+  - tsconfig.json
+  - tsconfig.node.json
+  - vite.config.ts
+  - vitest.config.ts
