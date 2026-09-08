@@ -9,11 +9,19 @@
 //!   `get_active_window` / `start_topmost_keepalive`
 //! - macOS NSPanel 浮层：`show/hide_pet_window` / `set_pet_always_on_top`
 
-use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(desktop)]
+use std::sync::atomic::AtomicBool;
+#[cfg(windows)]
+use std::sync::atomic::Ordering;
+#[cfg(windows)]
 use std::sync::Arc;
 
+#[cfg(windows)]
+// Manager trait 仅被 windows 分支的 get_webview_window 使用；
+// Linux 下未使用会在 CI 的 deny(unused_imports) 下编译失败。
+use tauri::Manager;
 #[cfg(desktop)]
-use tauri::{Manager, WebviewWindow};
+use tauri::WebviewWindow;
 #[cfg(windows)]
 use windows::Win32::Foundation::HWND;
 
