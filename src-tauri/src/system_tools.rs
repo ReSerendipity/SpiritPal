@@ -1184,10 +1184,7 @@ fn resolve_path(path: &str) -> Result<std::path::PathBuf, String> {
     let real = std::fs::canonicalize(path)
         .map_err(|e| format!("路径无效（无法解析）: {}: {}", path, e))?;
     if is_sensitive_path(&real.to_string_lossy()) {
-        return Err(format!(
-            "路径位于敏感目录，已被拦截: {}",
-            real.display()
-        ));
+        return Err(format!("路径位于敏感目录，已被拦截: {}", real.display()));
     }
     Ok(real)
 }
@@ -1226,8 +1223,7 @@ pub async fn read_file(window: tauri::Window, path: String) -> Result<String, St
         if !real.is_file() {
             return Err(format!("不是文件: {}", real.display()));
         }
-        let meta = std::fs::metadata(&real)
-            .map_err(|e| format!("读取文件元信息失败: {}", e))?;
+        let meta = std::fs::metadata(&real).map_err(|e| format!("读取文件元信息失败: {}", e))?;
         if meta.len() > READ_FILE_MAX_BYTES as u64 {
             return Err(format!(
                 "文件过大（>{:.1}MB），拒绝读取: {}",
@@ -1342,7 +1338,8 @@ pub async fn write_file(
             .map_err(|e| format!("写入文件失败 {}: {}", target.display(), e))?;
         Ok::<String, String>(format!(
             "已写入 {}（{} 字节）",
-            display_in_closure, content.len()
+            display_in_closure,
+            content.len()
         ))
     })
     .await
