@@ -240,8 +240,8 @@ jobs:
         run: cargo install cargo-tarpaulin --locked
 
       - name: Run cargo test with coverage
-        # 阈值：lines 25→35，新增 branches 30 维度（2026-09-04 整改 P2）
-        run: cargo tarpaulin --workspace --out lcov --output-dir coverage/ --fail-under 35 --fail-under-branches 30 -- --test-threads=2
+        # 阈值：lines 25→35（2026-09-04 整改 P2）。tarpaulin 无 branch 阈值参数（--fail-under-branches 直接报错），branches 维度以覆盖率报告人工跟踪
+        run: cargo tarpaulin --workspace --out lcov --output-dir coverage/ --fail-under 35 -- --test-threads=2
 
       - name: Run cargo fmt check
         run: cargo fmt --check
