@@ -1,5 +1,5 @@
 {
-  "npm_critical": 2,
-  "npm_high": 10,
-  "cargo_vulns": 2
+  "npm_critical": 0,
+  "npm_high": 9,
+  "cargo_vulns": 1
 }
