@@ -296,7 +296,8 @@ jobs:
         # 真实门禁：发现漏洞即阻断合并（退出码门禁）；JSON 落盘仓库根供棘轮基线比对
         # 按 security_gate.py 设计：cargo audit 退出码不作为门禁（yanked/ignored 均会影响退出码），
         # JSON 落盘后由棘轮基线判定。
-        run: cargo audit --json --manifest-path src-tauri/Cargo.toml > cargo-audit.json || true
+        # cargo-audit 无 --manifest-path 参数（那是 cargo 的），用 -f 指定 Cargo.lock
+        run: cargo audit --json -f src-tauri/Cargo.lock > cargo-audit.json || true
 
       - name: Set up Python
         uses: actions/setup-python@v5
