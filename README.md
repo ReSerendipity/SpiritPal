@@ -80,38 +80,14 @@ cd src-tauri && cargo test
 SpiritPal is licensed under the **Apache License 2.0**. See [LICENSE](LICENSE) for details.
 Reference repositories in `references/` retain their respective licenses.
 
-## ⚠️ Git Branch Usage Instructions（分支策略：私有 main + 远程 public）
+## 仓库说明（开源模式，2026-09-08 起）
 
-> 本仓库采用 **「私有开发 + 远程发布」双分支策略**，请严格遵守，避免把本地私有代码泄漏到远程。
+本仓库为**公开仓库**，以 Apache License 2.0 发布（Copyright 2026 ReSerendipity）。原「main 私有开发 + origin 公开演示」双仓双分支体系已废止：私有仓已改名为本仓库并全量公开（含完整 main 历史），public 演示分支与演示仓已删除。
 
-- **`main`（私有开发分支）**：日常开发与私有工作在这条分支上，**只推送到 `private` 私有远程**（`git push private main`），**禁止 `git push origin main`**。
-- **`public`（远程发布分支）**：对外发布的公共内容专属分支。**仅此分支会被推送到远程**。
-
-### 📌 使用准则
-
-1. 开发时一律在 `main` 分支上提交。
-2. 需要对外发布时，先把内容合并到 `public`，再 `push origin public`。
-3. ⚠️ **绝对不要执行 `git push origin main`** —— 会把本地私有代码泄漏到 GitHub。
-
-### 🔒 工作流
-
-**日常开发（在 main 分支）：**
-```bash
-git checkout main          # 切到私有开发分支
-git add .                  # 暂存
-git commit -m "..."        # 提交
-git push private main      # 备份/同步到 private 私有远程（不要 push origin）
-```
-
-**发布公共内容（合并到 public 后推送）：**
-```bash
-git checkout public        # 切到发布分支（本地无则先 git checkout -b public origin/public）
-git merge main             # 合并本地开发内容（可按需 cherry-pick 指定提交）
-git push origin public     # 推送到公开仓库 public 分支
-```
-
-> 📌 公开仓库 `origin` 仅以 `public` 分支作为对外发布出口（`main` 不得出现在公开 origin）。
-
+- `main` 为唯一主分支，push 即发布；push 前需经所有者授权并核对 `git remote -v`，禁止 force push。
+- 敏感文件永不入库：`*.jks` / `local.properties` / `.env` 等（.gitignore 已覆盖，全历史已扫描核验）。
+- `backup` 为本地历史分支，不对外维护。
+- 安全漏洞请通过 [SECURITY.md](.github/SECURITY.md) 的私密披露渠道报告，勿直接提公开 issue。
 ## 🚧 已知阻塞 / 待办（B-4 记忆召回收尾）
 
 B-4 主线（隔离设计 + 检索候选池修复 + 评测套件 + 趋势看板）已闭环并提交，以下两项需环境/架构就位后方可推进，**当前无独立代码可解**：
