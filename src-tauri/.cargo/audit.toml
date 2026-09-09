@@ -1,0 +1,5 @@
+# This project builds SQLite only; sqlx-postgres is not enabled.
+# rsa has no fixed release for RUSTSEC-2023-0071, so keep the advisory
+# documented and ignored until the optional postgres feature is enabled.
+[advisories]
+ignore = ["RUSTSEC-2023-0071"]
