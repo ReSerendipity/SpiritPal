@@ -78,27 +78,31 @@ jobs:
           fi
           ls -la ../binaries/
 
-      # 诊断：验证 GITHUB_TOKEN 对 releases API 的实际权限（2026-09-10 连续 3 次创建 release 403）
-      - name: Diagnose GITHUB_TOKEN release permission
+      # tauri-action 在本仓库创建 release 持续 403（2026-09-10 实测 token 权限 OK：gh 创建 201），
+      # 故预创建 draft（gh CLI + GITHUB_TOKEN），tauri-action 仅负责上传资产。
+      - name: Ensure draft release exists
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          curl -sS -o /dev/null -w "GET /releases: %{http_code}\n" -H "Authorization: Bearer $GITHUB_TOKEN" \
-            https://api.github.com/repos/${{ github.repository }}/releases
-          RESP=$(curl -sS -w "\n%{http_code}" -X POST -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/${{ github.repository }}/releases \
-            -d '{"tag_name":"diag-token-test","name":"diag","draft":true,"prerelease":true}')
-          CODE=$(echo "$RESP" | tail -1)
-          BODY=$(echo "$RESP" | head -1 | python3 -c "import json,sys; print(json.load(sys.stdin).get('message','created'))" 2>/dev/null || echo parse-fail)
-          echo "POST /releases: $CODE - $BODY"
-          if [ "$CODE" = "201" ]; then
-            ID=$(echo "$RESP" | head -1 | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
-            curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $GITHUB_TOKEN" \
-              "https://api.github.com/repos/${{ github.repository }}/releases/$ID" || true
-            curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $GITHUB_TOKEN" \
-              "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/diag-token-test" || true
+          if gh release view "${{ github.ref_name }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "draft release exists, skip pre-create"
+            exit 0
           fi
+          VERSION=$(node -p "require('./package.json').version")
+          cat > /tmp/release-body.md <<'BODY'
+## SpiritPal v__VERSION__
+
+### Windows 用户：SmartScreen 提示说明（P1-2）
+安装包暂无 Authenticode 代码签名，Windows SmartScreen 的“已保护你的电脑”提示属于无签名软件的正常现象，并非病毒警告。请点击 **更多信息 → 仍然运行** 完成安装。本仓库绝不伪造或冒用任何证书，产物哈希可在 Release 资产中核对。
+
+### 增量更新
+本版本已启用 Tauri 增量更新，应用内「检查更新」（托盘菜单 / 设置-关于）可自动下载并安装新版本。
+BODY
+          sed -i "s/__VERSION__/$VERSION/g" /tmp/release-body.md
+          gh release create "${{ github.ref_name }}" --repo "${{ github.repository }}" \
+            --title "SpiritPal v$VERSION" --draft --notes-file /tmp/release-body.md
 
       - name: Build and release Tauri app
         uses: tauri-apps/tauri-action@v0
