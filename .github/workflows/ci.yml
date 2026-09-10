@@ -311,7 +311,7 @@ jobs:
       - name: Run osv-scanner
         # 扫描结果以报告形式落盘供人工审阅，退出码不作为门禁（security_gate.py 设计）
         continue-on-error: true
-        uses: google/osv-scanner-action/osv-scanner-action@v1.9.0
+        uses: google/osv-scanner-action/osv-scanner-action@v2.5.1
         with:
           scan-args: |-
             --recursive
