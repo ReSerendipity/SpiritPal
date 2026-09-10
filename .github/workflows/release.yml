@@ -341,5 +341,6 @@ jobs:
             echo "updates.json 无变化，跳过提交"
           else
             git commit -m "chore(ci): sync updates.json for ${{ github.ref_name }} [skip ci]"
-            git push origin main
+            # checkout 在 tag（detached HEAD），无本地 main ref；用 HEAD:main 推送
+            git push origin HEAD:main
           fi
