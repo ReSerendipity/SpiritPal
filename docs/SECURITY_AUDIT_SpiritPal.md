@@ -6,11 +6,14 @@
 ## 执行摘要（总体评级：中 / Medium）
 
 整体安全水位较高：Rust 侧 `asset_pipeline` 做了白名单+字符黑名单+非 shell 执行，密钥走系统 Keychain，CSP 严格（`script-src 'self'`），`Cargo.lock` 已 pin。主要风险是 **Tauri capability 过度授权**（`sql:allow-execute`）与 **Android 签名默认口令**。共 5 项发现（1 中高 / 1 中 / 1 低中 / 2 信息级良性）。
+>
+> **状态更新（2026-09-10）**：S1（sql:allow-execute）已于 2026-09-04 修复；S2（Android 签名默认口令）代码层面已于 2026-09-04 随 `00fbe8d` 修复为 fail-closed，本表下方同步更新。
 
 ## 按维度发现
 
 ### 1. 凭据 / 密钥
-- **[S2-Medium] Android 签名默认口令**：`src-tauri/gen/android/app/build.gradle.kts:38-40` 中 `keyPassword = keystoreProps.getProperty("keyPassword", "spiritpal123")`、`storePassword = ... "spiritpal123"`——若 `keystore.properties` 缺失则回退到硬编码弱口令 `spiritpal123`（且仓库未提交 keystore，已验证 `git ls-files` 无 `.jks`，故暂未泄露）。建议：删除默认口令，缺失即 fail-closed 报错。
+- **[S2-Medium] Android 签名默认口令** ~~（`src-tauri/gen/android/app/build.gradle.kts:38-40` 存在 `getProperty("keyPassword", "spiritpal123")` 弱口令回退）~~ **✅ 已修复（2026-09-04，commit `00fbe8d`）**：已改为 fail-closed——`keystore.properties` 缺失时明确提示不签名（不产出可分发产物）、存在但缺 keyAlias/keyPassword/storeFile/storePassword 任一字段时 `throw GradleException` 拒绝构建，无任何弱口令回退。
+  - **2026-09-10 复核**：全仓 grep 无 `spiritpal123` 残留（仅本审计文档历史描述）；删除/清空 `keystore.properties` 的 fail-closed 行为已核验（见《执行对照表》P0-2）。
 - **良性**：`src-tauri/src/keychain.rs:40-100` 的 `set_secret/get_secret` 走系统 Keychain（Win Credential Manager / macOS Keychain / Linux Secret Service），无硬编码密钥；`.env.example` 未提交真实 `.env`。✅
 
 ### 2. 依赖供应链
@@ -40,3 +43,4 @@ Python 版 `check_config_refs.py` **不适用**（Rust/TS 栈，无 pydantic/con
   2. 收集实际 `invoke('xxx')` 调用（`src/**`），校验每个被授予的 permission 标识符都对应一个真实命令/插件调用（类比 `check_security_keys_consumed` 的「未消费即失败」）；
   3. 对 `asset_pipeline` 类的高危 Rust 命令，CI 跑其注入单测（已有，建议设为必过）。
 - 该门禁可直接捕获 S1（`sql:allow-execute` 过度授权）与 S2（构建配置默认口令可用正则 `getProperty(..., ".*")` 扫描并失败）。
+- **落地状态（2026-09-10，任务书 P2-1）**：`scripts/lint-capabilities.mjs` 已实现并接入 `.github/workflows/structure-guard.yml` 与 `.pre-commit-config.yaml`；负向测试 `scripts/__tests__/lint-capabilities.test.mjs` 覆盖 `sql:allow-execute`/`shell:allow-execute`/`*://*`/未注册 invoke 命令（6/6 通过）。
