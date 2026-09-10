@@ -11,3 +11,11 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-commit, pre-push]
+      # P2-1: capability 最小授权 lint（报告2 §二）
+      - id: capability-lint
+        name: Capability Lint (minimal permissions)
+        entry: node scripts/lint-capabilities.mjs
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit, pre-push]

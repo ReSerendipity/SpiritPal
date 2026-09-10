@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
       - name: Check repository root layout
         run: python .github/scripts/check_layout.py
       - name: Check spec references (if present)
@@ -25,3 +25,9 @@ jobs:
           else
             echo "scripts/check_spec_refs.py not present; skipping"
           fi
+      # P2-1: capability 最小授权 lint（报告2 §二；负向测试见 scripts/__tests__/lint-capabilities.test.mjs）
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Capability minimal-permission lint
+        run: node scripts/lint-capabilities.mjs
