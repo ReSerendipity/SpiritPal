@@ -18,13 +18,19 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 // ============ Mock fs/promises ============
-vi.mock('node:fs/promises', () => {
-  const readFile = vi.fn(async () => Buffer.from('aGVsbG8='))
-  const stat = vi.fn(async () => ({ size: 1024 }))
-  return { readFile, stat, default: { readFile, stat } }
-})
+// vitest 4 下 builtin specifier 不再自动归一：源码用 'fs/promises'（静态+动态 import），
+// 测试同时 mock 'node:fs/promises' 与 'fs/promises' 两个 specifier（vi.mock 工厂经 vi.hoisted 提供）。
+const { mockFsPromises } = vi.hoisted(() => ({
+  mockFsPromises: () => {
+    const readFile = vi.fn(async () => Buffer.from('aGVsbG8='))
+    const stat = vi.fn(async () => ({ size: 1024 }))
+    return { readFile, stat, default: { readFile, stat } }
+  },
+}))
+vi.mock('node:fs/promises', mockFsPromises)
+vi.mock('fs/promises', mockFsPromises)
 
-import { readFile, stat } from 'node:fs/promises'
+import { readFile, stat } from 'fs/promises'
 import {
   ImageProcessor,
   VisionLLMClient,

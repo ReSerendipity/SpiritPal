@@ -67,8 +67,12 @@ function createSystem(maxParticles = 100): GPUParticleSystem {
 describe('GPUParticleSystem', () => {
   it('WebGL 不可用时构造抛错（调用方需自行降级）', () => {
     const canvas = document.createElement('canvas')
-    vi.spyOn(canvas, 'getContext').mockReturnValue(null)
+    // vitest 4 下 vi.spyOn 实例方法会破坏原型链上的全局 mock（测试间污染），
+    // 故改为实例 own property 覆盖（纯局部，不触碰 prototype）。
+    const original = canvas.getContext
+    canvas.getContext = (() => null) as typeof canvas.getContext
     expect(() => new GPUParticleSystem(canvas)).toThrow('WebGL not supported')
+    canvas.getContext = original
   })
 
   it('emit 后粒子计数递增', () => {
