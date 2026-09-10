@@ -175,6 +175,7 @@ pub fn set_tray_icon_png(app: tauri::AppHandle, png: String) -> Result<(), Strin
 /// - --- 分隔符 ---
 /// - 打开聊天（open-chat）
 /// - 设置（settings）
+/// - 检查更新（check-updates，P0-1.5）
 /// - --- 分隔符 ---
 /// - 退出（quit）
 ///
@@ -207,6 +208,8 @@ pub fn build_tray_menu(app: &tauri::App) -> Result<Menu<tauri::Wry>, tauri::Erro
     let separator2 = PredefinedMenuItem::separator(app)?;
     let chat = MenuItem::with_id(app, "open-chat", "打开聊天", true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "设置", true, None::<&str>)?;
+    // P0-1.5: 托盘「检查更新」入口（报告1 §四-7 更新链路目标形态：显示/隐藏 / 检查更新 / 退出）
+    let check_updates = MenuItem::with_id(app, "check-updates", "检查更新", true, None::<&str>)?;
     let separator3 = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
 
@@ -222,6 +225,7 @@ pub fn build_tray_menu(app: &tauri::App) -> Result<Menu<tauri::Wry>, tauri::Erro
             &separator2,
             &chat,
             &settings,
+            &check_updates,
             &separator3,
             &quit,
         ],
