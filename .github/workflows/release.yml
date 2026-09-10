@@ -65,7 +65,14 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'SpiritPal v__VERSION__'
-          releaseBody: 'See the assets below to download this version.'
+          releaseBody: |
+            ## SpiritPal v__VERSION__
+
+            ### Windows 用户：SmartScreen 提示说明（P1-2）
+            安装包暂无 Authenticode 代码签名，Windows SmartScreen 的"已保护你的电脑"提示属于无签名软件的正常现象，并非病毒警告。请点击 **更多信息 → 仍然运行** 完成安装。本仓库绝不伪造或冒用任何证书，产物哈希可在 Release 资产中核对。
+
+            ### 增量更新
+            本版本已启用 Tauri 增量更新，应用内「检查更新」（托盘菜单 / 设置-关于）可自动下载并安装新版本。
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
@@ -198,3 +205,74 @@ jobs:
           path: perf/results/
           if-no-files-found: ignore
           retention-days: 30
+
+  # P0-1.4 / P1-1: 发布后收尾 —— 回读验证资产完整性 + 生成并提交 updates.json
+  # 漏更新 updates.json = 用户永远检查不到新版本（任务书避坑指南 #2），故放发布链路上强制同步。
+  publish-updates:
+    name: Publish updates.json & Verify Assets
+    needs: [release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # P1-1 发布回读验证：资产数量齐全 + 签名文件存在（哈希比对见本地发布清单 docs/agents/RELEASE_VERIFICATION.md）
+      - name: Verify release assets (count + signature presence)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ github.ref_name }}"
+          gh release view "$TAG" --json assets -q '.assets[].name' > /tmp/assets.txt
+          echo "=== Release 资产清单 ($(wc -l < /tmp/assets.txt) 项) ==="
+          cat /tmp/assets.txt
+          # 硬性要求：Windows NSIS 安装包 + 更新器签名文件必须存在（增量更新入口）
+          grep -qi "setup.exe" /tmp/assets.txt || { echo "::error::缺少 Windows NSIS 安装包资产"; exit 1; }
+          grep -qi "\.sig" /tmp/assets.txt || { echo "::error::缺少更新器签名文件（createUpdaterArtifacts 未生效？）"; exit 1; }
+          # 签名文件内容校验：minisign 格式（base64，以 untrusted comment 开头）
+          SIG_NAME=$(grep -i "setup.exe.sig" /tmp/assets.txt | head -1)
+          gh release download "$TAG" --pattern "${SIG_NAME}" --dir /tmp/sigcheck
+          head -c 24 "/tmp/sigcheck/${SIG_NAME}" | base64 -d > /tmp/sighead 2>/dev/null || true
+          grep -q "untrusted comment" /tmp/sighead 2>/dev/null || { echo "::error::签名文件格式异常（非 minisign）"; exit 1; }
+          echo "✓ 签名文件校验通过"
+
+      - name: Generate updates.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node scripts/generate-updates-json.mjs --repo "${{ github.repository }}" --tag "${{ github.ref_name }}"
+
+      - name: Verify updates.json content
+        run: |
+          node -e "
+            const u = require('./updates.json');
+            if (!u.version || !u.platforms || Object.keys(u.platforms).length === 0) {
+              console.error('updates.json 无效：缺 version/platforms'); process.exit(1);
+            }
+            for (const [k, v] of Object.entries(u.platforms)) {
+              if (!v.url) { console.error(k + ' 缺 url'); process.exit(1); }
+              if (!v.signature) { console.error(k + ' 缺 signature（客户端校验必然失败）'); process.exit(1); }
+            }
+            console.log('✓ updates.json 有效:', u.version, Object.keys(u.platforms).join(','));
+          "
+
+      - name: Commit and push updates.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add updates.json
+          if git diff --cached --quiet; then
+            echo "updates.json 无变化，跳过提交"
+          else
+            git commit -m "chore(ci): sync updates.json for ${{ github.ref_name }} [skip ci]"
+            git push origin main
+          fi
