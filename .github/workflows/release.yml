@@ -20,7 +20,7 @@ jobs:
           - platform: windows-latest
             args: ''
           - platform: macos-latest
-            args: --create-updater-artifacts
+            args: ''
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 30
 
