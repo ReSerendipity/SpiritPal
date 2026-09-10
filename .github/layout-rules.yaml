@@ -59,6 +59,7 @@ gitignored_expect:
 root_allowlist:
   - .ci
   - .env.example
+  - .githooks
   - .github
   - .gitignore
   - .npmrc
