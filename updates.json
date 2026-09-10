@@ -1,0 +1,15 @@
+{
+  "version": "0.1.0",
+  "notes": "",
+  "pub_date": "2026-09-10T10:33:55.171Z",
+  "platforms": {
+    "linux-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSSmFjeHQxcUcwSkVOWlFURkZBcVArNkVhbmM1bHYyT1pqSDN6WXN5TXpTZkkwV3NjZ1ZUc1BnR2tlYUttZGtvQllkMFVKLzlvNlpGSXZPd1BnYVhvWitpMU1DR1d3cmdzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5MDM2MzkyCWZpbGU6U3Bpcml0UGFsXzAuMS4wX2FtZDY0LkFwcEltYWdlCktlbmQ2bld4MU1nSUhFTWlMVkhpYkcvT2ttamw5Mk9LNjhycUVGSEY2dXRiOFJHUmJMUHh1VVloN0NLVlAyblRkVDhta21xLzhHR1BsalJNZVJNdkFBPT0K",
+      "url": "https://github.com/ReSerendipity/SpiritPal/releases/download/v0.1.0/SpiritPal_0.1.0_amd64.AppImage"
+    },
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSSmFjeHQxcUcwSktCZkVmTWtkTHZYdWMzazdXazNaNnpmRVJHK0RueEFjeXhYMTNlRGNQSlN5RFkrSTF0aEJHYll4cjN4SkFycW5RYzFSUjdPUVdiWTlwN0lzcjM4U3dRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5MDM2Mzk3CWZpbGU6U3Bpcml0UGFsXzAuMS4wX3g2NC1zZXR1cC5leGUKMC9Da2tkK0wySHdGMkRHbjVkZlBkWHh4ek9iVk1ETUlzVEtYRUNnS0VsSjI1WWlYMjlETHNnSFkxRHJJWHJHWEVPeHIzbzZNendaYm9PS0JidnhkQ0E9PQo=",
+      "url": "https://github.com/ReSerendipity/SpiritPal/releases/download/v0.1.0/SpiritPal_0.1.0_x64-setup.exe"
+    }
+  }
+}
