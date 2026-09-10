@@ -14,3 +14,6 @@ overrides:
   ini: ">=1.3.6"
   nanoid: ">=3.3.18"
   semver: ">=6.3.1"
+  # 依赖漏洞修复（2026-09-10 人工#2）：hono/qs 生产链（MCP SDK→express→qs、MCP SDK→hono）
+  hono: ">=4.13.5"
+  qs: ">=6.16.0"
