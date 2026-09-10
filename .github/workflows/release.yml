@@ -78,6 +78,28 @@ jobs:
           fi
           ls -la ../binaries/
 
+      # 诊断：验证 GITHUB_TOKEN 对 releases API 的实际权限（2026-09-10 连续 3 次创建 release 403）
+      - name: Diagnose GITHUB_TOKEN release permission
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sS -o /dev/null -w "GET /releases: %{http_code}\n" -H "Authorization: Bearer $GITHUB_TOKEN" \
+            https://api.github.com/repos/${{ github.repository }}/releases
+          RESP=$(curl -sS -w "\n%{http_code}" -X POST -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/releases \
+            -d '{"tag_name":"diag-token-test","name":"diag","draft":true,"prerelease":true}')
+          CODE=$(echo "$RESP" | tail -1)
+          BODY=$(echo "$RESP" | head -1 | python3 -c "import json,sys; print(json.load(sys.stdin).get('message','created'))" 2>/dev/null || echo parse-fail)
+          echo "POST /releases: $CODE - $BODY"
+          if [ "$CODE" = "201" ]; then
+            ID=$(echo "$RESP" | head -1 | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
+            curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $GITHUB_TOKEN" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/$ID" || true
+            curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $GITHUB_TOKEN" \
+              "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/diag-token-test" || true
+          fi
+
       - name: Build and release Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
