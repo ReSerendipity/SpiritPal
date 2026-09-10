@@ -56,6 +56,28 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      # 报告外发现 #13：binaries/ 下 Windows .exe 被 .gitignore(*.exe) 排除，仓库仅有占位脚本，
+      # CI Windows 构建因 externalBin 缺失必失败。改为构建前编译 MCP server 并放置到 binaries/（三平台）。
+      - name: Build MCP server (externalBin)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd src-tauri/mcp-server
+          cargo build --release
+          mkdir -p ../binaries
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cp target/release/spiritpal-mcp.exe "../binaries/spiritpal-mcp-x86_64-pc-windows-msvc.exe"
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            if [ "$(uname -m)" = "arm64" ]; then
+              cp target/release/spiritpal-mcp "../binaries/spiritpal-mcp-aarch64-apple-darwin"
+            else
+              cp target/release/spiritpal-mcp "../binaries/spiritpal-mcp-x86_64-apple-darwin"
+            fi
+          else
+            cp target/release/spiritpal-mcp "../binaries/spiritpal-mcp-x86_64-unknown-linux-gnu"
+          fi
+          ls -la ../binaries/
+
       - name: Build and release Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
