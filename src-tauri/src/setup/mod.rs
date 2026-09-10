@@ -206,6 +206,10 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
                 let _ = window.set_focus();
                 let _ = app.emit("open-settings", ());
             }
+            // P0-1.5: 托盘「检查更新」→ 前端 UpdateNotification 弹窗执行完整状态机（每步可见）
+            "check-updates" => {
+                let _ = app.emit("check-updates-from-tray", ());
+            }
             "quit" => {
                 running.store(false, Ordering::Release);
                 app.exit(0);
