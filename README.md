@@ -44,6 +44,22 @@ pnpm tauri dev
 pnpm tauri build
 ```
 
+## Windows 安装与 SmartScreen 说明（P1-2）
+
+当前安装包**暂未进行 Authenticode 代码签名**（无商业证书）。因此 Windows 首次运行时 SmartScreen 可能提示"Windows 已保护你的电脑"，**这是无签名软件的常见正常现象，并非病毒警告**：
+
+1. 点击提示窗口中的 **"更多信息"**
+2. 再点击 **"仍然运行"** 即可正常安装/启动
+
+> 安全说明：本仓库绝不伪造或冒用任何证书；产物哈希与版本信息均可通过 GitHub Release 资产核对。如有疑虑，请比对安装包 SHA-256 与 Release 页发布的校验值。
+
+## 桌面端能力（阶段五佐证，2026-09-10 核验）
+
+- **系统托盘**：显示/隐藏宠物、专注模式、番茄钟、切换形态、打开聊天、设置、**检查更新**、退出（`src-tauri/src/tray.rs`）
+- **单实例**：二次启动唤出主窗口不抢焦点（`tauri-plugin-single-instance`，lib.rs）
+- **崩溃自启**：panic hook 落盘崩溃现场（`{log_dir}/crash_*.log`）后受限自动重启——60 秒冷却窗口内连续崩溃 ≤3 次自动重启，超限停止防循环（`src-tauri/src/diagnostics.rs`，可用 `SPIRITPAL_DISABLE_CRASH_RESTART=1` 关闭）
+- **增量更新**：Tauri updater 已启用（签名密钥、updates.json 发布链见 `docs/project/AI_DEV_SOPS.md` SOP-5）；入口：托盘「检查更新」/ 设置-关于「检查更新」
+
 ## Testing
 
 ```bash
