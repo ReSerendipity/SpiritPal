@@ -10,9 +10,9 @@
 ```bash
 gh release view v<版本> --repo ReSerendipity/SpiritPal --json assets -q '.assets[].name'
 ```
-期望至少包含（Windows 必含；macOS/Linux 按构建矩阵）：
+期望至少包含（Windows 必含；Linux 按构建矩阵；**macOS 不构建**——2026-09-10 用户指示：模型必须 N 卡，不支持苹果电脑）：
 - `SpiritPal_<版本>_x64-setup.exe` 及 `.sig` 签名文件（增量更新入口，**缺失即发布失败**）
-- `.dmg` / `.appimage` 等平台产物及对应 `.sig`
+- `.AppImage` / `.deb` 等 Linux 产物及对应 `.sig`
 
 ### 1.2 本地产物哈希比对（防上传损坏/篡改）
 ```powershell
@@ -26,7 +26,7 @@ Get-FileHash artifacts\*.exe -Algorithm SHA256   # 本地产物
 ### 1.3 updates.json 可达性
 ```bash
 curl -sI https://raw.githubusercontent.com/ReSerendipity/SpiritPal/main/updates.json
-# 期望 HTTP 200；内容 version 与 tag 一致、platforms 含 windows-x86_64 且有 signature
+# 期望 HTTP 200；内容 version 与 tag 一致、platforms 含 windows-x86_64 与 linux-x86_64 且均有 signature
 ```
 
 ## 二、干净机器验收（Windows 真机，每版本抽测）
@@ -65,3 +65,23 @@ curl -sI https://raw.githubusercontent.com/ReSerendipity/SpiritPal/main/updates.
 | v0.1.0 | 2026-09-10 | AI 本机（模拟干净环境） | 见《执行对照表》P1-1 记录 | | | | | | |
 
 > 说明：本仓库无专门测试机，真机验收由所有者或 CI 化 E2E 补充；AI 侧完成「卸载残留检查 + 版本动态读取 + 更新链路单测」等本机可执行部分，并在此表留痕。
+
+---
+
+## 四、性能验证（本地 N 卡机器执行，2026-09-10 起）
+
+> 2026-09-10 用户指示：模型必须 N 卡。冷启动/内存/FPS 性能门禁依赖 N 卡 GPU 与交互桌面，
+> GitHub CI runner 无 GPU（此前 Windows cold-start exit 1 / Ubuntu FPS exit 2 即此根因），
+> 故 CI 仅保留无需 GPU 的门禁（包大小 + 基线回归只读，release.yml `Package Size & Baseline Gate` job）；
+> 以下 GPU 相关项改为**发布者本地 N 卡机器**人工执行并记录。
+
+| 项 | 命令 | 阈值（PRD v0.2） | 记录位置 |
+|---|---|---|---|
+| 冷启动 | `pnpm perf:cold-start`（release 产物，设 `SPIRITPAL_EXE`） | < 2 s | 本表「性能验证」列 |
+| 内存占用 | `pnpm perf:memory` | 按 baseline | 本表「性能验证」列 |
+| Live2D FPS | `pnpm perf:fps`（需 `npx playwright install chromium`） | ≥ 30 fps | 本表「性能验证」列 |
+| 模型切换延迟 | `pnpm perf:model-switch` | 按 baseline | 本表「性能验证」列 |
+| 基线回归 | `pnpm perf:baseline`（CI 只读版：`node perf/baseline-trend.mjs --read-only`） | 劣化 >20% 即失败 | CI 自动 |
+
+发布前在 N 卡机器跑上述项并记录结果；任一项超阈值需修复后才可发版（T-08 门禁的本地等价物）。
+
