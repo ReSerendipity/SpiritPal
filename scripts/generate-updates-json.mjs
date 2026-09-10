@@ -26,7 +26,9 @@
  * }
  */
 import { execFileSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 
 // ============ 参数解析 ============
 
@@ -56,6 +58,19 @@ function ghJson(...cmd) {
   return JSON.parse(stdout)
 }
 
+/** 读取 release（draft 兼容）：gh release view --json tagName,name,assets */
+function ghReleaseView(tag) {
+  const stdout = execFileSync(
+    'gh',
+    ['release', 'view', tag, '--repo', repo, '--json', 'tagName,name,assets'],
+    {
+      encoding: 'utf-8',
+      env: { ...process.env, GH_TOKEN: process.env.GH_TOKEN || process.env.GITHUB_TOKEN || '' },
+    },
+  )
+  return JSON.parse(stdout)
+}
+
 // ============ 主流程 ============
 
 /** 将 Tauri 产物文件名映射为 updates.json platform key */
@@ -64,7 +79,7 @@ function platformKeyFor(fileName) {
   if (name.includes('setup.exe') || name.endsWith('.exe')) return 'windows-x86_64'
   if (name.includes('aarch64') && name.endsWith('.dmg')) return 'darwin-aarch64'
   if (name.includes('x64') && name.endsWith('.dmg')) return 'darwin-x86_64'
-  if (name.includes('x86_64') && name.endsWith('.appimage')) return 'linux-x86_64'
+  if ((name.includes('x86_64') || name.includes('amd64')) && name.endsWith('.appimage')) return 'linux-x86_64'
   return null
 }
 
@@ -78,7 +93,8 @@ function isUpdaterArtifact(fileName) {
 }
 
 function main() {
-  const release = ghJson('repos', repo, 'releases/tags', tag)
+  // 2026-09-10：releases/tags/{tag} 端点对 draft release 返回 404，改用 gh release view（可读 draft）
+  const release = ghReleaseView(tag)
   if (!release || !release.assets) {
     console.error(`release ${tag} 不存在或无法读取`)
     process.exit(1)
@@ -100,14 +116,25 @@ function main() {
     const sigAsset = assets.find((a) => a.name === `${asset.name}.sig`)
     let signature = ''
     if (sigAsset) {
-      const sig = execFileSync('curl', ['-sL', sigAsset.browser_download_url], {
-        encoding: 'utf-8',
-      })
-      signature = sig.trim()
+      const dir = mkdtempSync(join(tmpdir(), 'spiritpal-sig-'))
+      execFileSync(
+        'gh',
+        ['release', 'download', tag, '--repo', repo, '--pattern', `${asset.name}.sig`, '--dir', dir, '--clobber'],
+        {
+          encoding: 'utf-8',
+          env: { ...process.env, GH_TOKEN: process.env.GH_TOKEN || process.env.GITHUB_TOKEN || '' },
+        },
+      )
+      signature = readFileSync(join(dir, `${asset.name}.sig`), 'utf-8').trim()
+    }
+    if (!signature) {
+      // 2026-09-10：平台无 .sig（如当前 macOS dmg）→ 跳过该平台并告警，避免 updates.json 携带空签名导致客户端校验失败
+      console.warn(`  ⚠ 平台 ${key} 缺少签名，已从 updates.json 跳过（产物 ${asset.name}）`)
+      continue
     }
     platforms[key] = {
       signature,
-      url: asset.browser_download_url,
+      url: asset.url,
     }
   }
 

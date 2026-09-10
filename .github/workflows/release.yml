@@ -20,7 +20,7 @@ jobs:
           - platform: windows-latest
             args: ''
           - platform: macos-latest
-            args: ''
+            args: --create-updater-artifacts
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 30
 
@@ -128,6 +128,20 @@ jobs:
           prerelease: false
           args: ${{ matrix.args }}
 
+      # 2026-09-10：性能测试原设计下载 spiritpal-build-* artifact 但 release job 从未上传（报告外 #16）
+      # 补传构建产物（release exe + bundle），使性能门禁可用
+      - name: Upload build artifacts (for perf gates)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spiritpal-build-${{ matrix.platform }}
+          path: |
+            src-tauri/target/release/SpiritPal
+            src-tauri/target/release/SpiritPal.exe
+            src-tauri/target/release/bundle/
+          if-no-files-found: warn
+          retention-days: 7
+
   # S3: 性能测试跨平台修复 — 在 Windows 上运行冷启动和内存测试（依赖 PowerShell）
   # FPS 和包大小测试在 Ubuntu 上运行（跨平台兼容）
   performance-test-windows:
@@ -185,13 +199,6 @@ jobs:
       - name: Baseline regression gate
         run: pnpm perf:baseline
 
-      # P1-06: 性能门禁失败时清理本次 tag 对应的 draft release，避免草稿滞留
-      - name: Cleanup failed draft release
-        if: failure()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release delete "${{ github.ref_name }}" --yes --delete-tag 2>/dev/null || echo "::warning::草稿清理失败或不存在（${{ github.ref_name }}）"
 
       - name: Upload performance results
         if: always()
@@ -295,6 +302,15 @@ jobs:
           head -c 24 "/tmp/sigcheck/${SIG_NAME}" | base64 -d > /tmp/sighead 2>/dev/null || true
           grep -q "untrusted comment" /tmp/sighead 2>/dev/null || { echo "::error::签名文件格式异常（非 minisign）"; exit 1; }
           echo "✓ 签名文件校验通过"
+
+      # 2026-09-10 全自主：Verify 通过后发布正式化（用户可立即下载）；updates.json 随后生成（tagged URL）
+      - name: Publish draft release (draft=false)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release edit "${{ github.ref_name }}" --repo "${{ github.repository }}" --draft=false
+          echo "::notice::draft 已转正式 release：${{ github.ref_name }}"
 
       - name: Generate updates.json
         env:
