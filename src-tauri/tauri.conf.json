@@ -25,7 +25,7 @@
       "appimage",
       "deb"
     ],
-    "createUpdaterArtifacts": false,
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -72,11 +72,11 @@
   },
   "plugins": {
     "updater": {
-      "active": false,
+      "active": true,
       "endpoints": [
-        "https://raw.githubusercontent.com/spiritpal/spiritpal-app/main/updates.json"
+        "https://raw.githubusercontent.com/ReSerendipity/SpiritPal/main/updates.json"
       ],
-      "dialog": false,
+      "dialog": true,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDI0QjRBMUQ2NkRDQzY5NDkKUldSSmFjeHQxcUcwSk1WSk14WGVBRk5tMXVuK285YmtkRFJHY0pOazJYaVNjWjZRTDVEUGtUSjAK"
     },
     "push": {
