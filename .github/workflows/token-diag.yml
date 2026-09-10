@@ -1,0 +1,29 @@
+name: Token Diag
+on:
+  push:
+    tags:
+      - 'diag-*'
+permissions:
+  contents: write
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe POST /releases with GITHUB_TOKEN
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "=== GET /releases ==="
+          gh api -i repos/${{ github.repository }}/releases 2>&1 | head -20 || true
+          echo "=== POST /releases (create diag) ==="
+          gh api -i -X POST repos/${{ github.repository }}/releases \
+            -f tag_name=diag-token-probe \
+            -f name=diag-probe \
+            -F draft=true \
+            -F prerelease=true 2>&1 | head -40 || true
+          echo "=== cleanup ==="
+          ID=$(gh api repos/${{ github.repository }}/releases/tags/diag-token-probe -q .id 2>/dev/null || echo "")
+          if [ -n "$ID" ]; then gh api -X DELETE repos/${{ github.repository }}/releases/$ID || true; fi
+          gh api -X DELETE repos/${{ github.repository }}/git/refs/tags/diag-token-probe || true
