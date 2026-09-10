@@ -80,6 +80,10 @@ jobs:
 
       # tauri-action 在本仓库创建 release 持续 403（2026-09-10 实测 token 权限 OK：gh 创建 201），
       # 故预创建 draft（gh CLI + GITHUB_TOKEN），tauri-action 仅负责上传资产。
+      # tauri-action 在本仓库创建 release 持续 403（2026-09-10 实测 token 权限 OK：gh 创建 201），
+      # 故预创建 draft（gh CLI + GITHUB_TOKEN），tauri-action 仅负责上传资产。
+      # tauri-action 在本仓库创建 release 持续 403（2026-09-10 实测 token 权限 OK：gh 创建 201），
+      # 故预创建 draft（gh CLI + GITHUB_TOKEN），tauri-action 仅负责上传资产。
       - name: Ensure draft release exists
         shell: bash
         env:
@@ -91,20 +95,19 @@ jobs:
             exit 0
           fi
           VERSION=$(node -p "require('./package.json').version")
-          cat > /tmp/release-body.md <<'BODY'
-## SpiritPal v__VERSION__
-
-### Windows 用户：SmartScreen 提示说明（P1-2）
-安装包暂无 Authenticode 代码签名，Windows SmartScreen 的“已保护你的电脑”提示属于无签名软件的正常现象，并非病毒警告。请点击 **更多信息 → 仍然运行** 完成安装。本仓库绝不伪造或冒用任何证书，产物哈希可在 Release 资产中核对。
-
-### 增量更新
-本版本已启用 Tauri 增量更新，应用内「检查更新」（托盘菜单 / 设置-关于）可自动下载并安装新版本。
-BODY
-          sed -i "s/__VERSION__/$VERSION/g" /tmp/release-body.md
+          BODY="
+          ## SpiritPal v$VERSION
+          
+          ### Windows 用户：SmartScreen 提示说明（P1-2）
+          安装包暂无 Authenticode 代码签名，Windows SmartScreen 的“已保护你的电脑”提示属于无签名软件的正常现象，并非病毒警告。请点击 **更多信息 → 仍然运行** 完成安装。本仓库绝不伪造或冒用任何证书，产物哈希可在 Release 资产中核对。
+          
+          ### 增量更新
+          本版本已启用 Tauri 增量更新，应用内「检查更新」（托盘菜单 / 设置-关于）可自动下载并安装新版本。
+          "
           gh release create "${{ github.ref_name }}" --repo "${{ github.repository }}" \
-            --title "SpiritPal v$VERSION" --draft --notes-file /tmp/release-body.md
+            --title "SpiritPal v$VERSION" --draft --notes "$BODY"
 
-      - name: Build and release Tauri app
+      - name: Build and release Tauri app      - name: Build and release Tauri app      - name: Build and release Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
