@@ -200,6 +200,11 @@ pub fn run() {
     // M1: GPU 环境变量 + WebView2 清理（唯一配置点，见 setup::setup_environment）
     setup::setup_environment();
 
+    // 阶段五-1: 崩溃自动重启实例标记（diagnostics.rs panic hook 以 --relaunch-after-crash 重启自身）
+    if std::env::args().any(|a| a == "--relaunch-after-crash") {
+        log::warn!("[Crash] 本次启动为崩溃自动重启实例（诊断信息见日志目录 crash_*.log）");
+    }
+
     // P1-4: 日志插件构建拆分到 build_log_plugin() 函数
     let mut builder = tauri::Builder::default()
         .plugin(setup::build_log_plugin())
