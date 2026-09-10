@@ -24,6 +24,7 @@
  * - secureStorage: API Key加密存储
  * - Tauri API: 窗口管理、自启动插件
  */
+import { getVersion } from '@tauri-apps/api/app'
 import { appDataDir } from '@tauri-apps/api/path'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { enable, disable } from '@tauri-apps/plugin-autostart'
@@ -205,6 +206,8 @@ const [showImporter, setShowImporter] = useState(false)
   const [logLevelTip, setLogLevelTip] = useState<string | null>(null)
   const [exportPath, setExportPath] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
+  // 关于页版本号（单一来源：从应用运行时真实读取，禁止硬编码；任务书避坑指南 #1）
+  const [appVersion, setAppVersion] = useState<string>('')
 
   // 跨窗口「打开指定标签页」请求（如宠物右键菜单「换装」直达外观页）
   useEffect(() => {
@@ -329,6 +332,24 @@ const [showImporter, setShowImporter] = useState(false)
       })
     return () => { cancelled = true }
   }, [])
+
+  // 关于页版本号：运行时动态读取（与 package.json / Cargo.toml / tauri.conf.json 三处一致，见 verify-release-version.yml）
+  useEffect(() => {
+    let cancelled = false
+    getVersion()
+      .then((v) => {
+        if (!cancelled) setAppVersion(v)
+      })
+      .catch(() => {
+        if (!cancelled) setAppVersion('未知')
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  // 检查更新：通知全局 UpdateNotification 弹窗执行完整状态机（P0-1.5 / P2-2 每步可见）
+  const handleCheckUpdate = () => {
+    window.dispatchEvent(new CustomEvent('spiritpal:check-updates'))
+  }
 
   // Esc 键关闭窗口（无障碍键盘导航）
   useEffect(() => {
@@ -1180,9 +1201,18 @@ const [showImporter, setShowImporter] = useState(false)
             <h2 className="text-lg font-semibold">关于</h2>
             <div className="rounded-xl bg-surface p-4">
               <div className="mb-2 text-2xl">🐾 SpiritPal 桌宠</div>
-              <div className="text-sm text-ink-faint">版本：0.1.0</div>
+              <div className="text-sm text-ink-faint">版本：{appVersion || '读取中…'}</div>
               <div className="mt-2 text-sm text-ink-muted">
                 一款基于 Tauri v2 的桌面宠物应用，支持多角色养成、AI 对话、记忆系统与番茄钟。
+              </div>
+              <div className="mt-3">
+                <button
+                  onClick={handleCheckUpdate}
+                  className="rounded-lg bg-tangerine px-3 py-1.5 text-xs font-medium text-white hover:bg-tangerine-deep"
+                >
+                  检查更新
+                </button>
+                <span className="ml-2 text-xs text-ink-faint">检查结果将弹窗提示，每步可见</span>
               </div>
             </div>
             {/* 诊断与日志 */}

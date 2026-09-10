@@ -16,6 +16,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { Component, useEffect, useState, lazy, Suspense, type ReactNode } from 'react'
 import PetWindow from '@/components/PetWindow'
+import { UpdateNotification } from '@/components/UpdateNotification'
 import { loadShimejiCharacters } from '@/lib/render/shimejiLoader'
 import { setupExternalLinkInterceptor } from '@/lib/system/externalLinks'
 
@@ -132,29 +133,37 @@ export default function App() {
     )
   }
 
+  // 桌面端：更新通知弹窗统一挂载于所有路由之上（P0-1.5：自动检查 30s 延迟 + 托盘/设置页手动触发）
+  let content: ReactNode
   if (route.startsWith('/settings')) {
-    return (
+    content = (
       <Suspense fallback={<div className="flex h-screen w-screen items-center justify-center bg-gray-900 text-white">Loading…</div>}>
         <ErrorBoundary>
           <SettingsWindow />
         </ErrorBoundary>
       </Suspense>
     )
-  }
-  if (route.startsWith('/chat')) {
-    return (
+  } else if (route.startsWith('/chat')) {
+    content = (
       <Suspense fallback={<div className="flex h-screen w-screen items-center justify-center bg-gray-900 text-white">Loading…</div>}>
         <ErrorBoundary>
           <ChatWindow />
         </ErrorBoundary>
       </Suspense>
     )
+  } else {
+    content = (
+      <ErrorBoundary>
+        <PetWindow />
+      </ErrorBoundary>
+    )
   }
 
   return (
-    <ErrorBoundary>
-      <PetWindow />
-    </ErrorBoundary>
+    <>
+      <UpdateNotification autoCheck autoCheckDelay={30000} />
+      {content}
+    </>
   )
 }
 
