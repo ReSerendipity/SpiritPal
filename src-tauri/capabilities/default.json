@@ -26,6 +26,15 @@
     "core:app:allow-name",
     "core:app:allow-version",
     "core:event:default",
-    "deep-link:default"
+    "deep-link:default",
+    "updater:default",
+    "updater:allow-check",
+    "updater:allow-download-and-install",
+    "process:default",
+    "process:allow-restart",
+    "store:default",
+    "store:allow-load",
+    "store:allow-get",
+    "store:allow-set"
   ]
 }
