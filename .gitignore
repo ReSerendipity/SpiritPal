@@ -130,9 +130,8 @@ docs/FILEMAP.md
 docs/README.md
 docs/_devarchive/
 docs/plans/
+docs/execution/
 docs/project/*
-!docs/project/KNOWN_GOTCHAS.md
-!docs/project/AI_DEV_SOPS.md
 docs/reports/
 docs/analysis/
 docs/整理记录_20260823.md
