@@ -103,17 +103,25 @@ async function runModelSwitchTest() {
 
   console.log('\n  📊 测试结果:')
   console.log('─'.repeat(60))
-  console.log(formatResult('模型切换延迟', `${switchLatency}ms`, MODEL_SWITCH_THRESHOLD_MS, 'less'))
+  const result = formatResult({
+    name: '模型切换延迟',
+    value: switchLatency,
+    unit: 'ms',
+    threshold: MODEL_SWITCH_THRESHOLD_MS,
+    compare: 'less',
+    detail: '模拟延迟（TODO: 集成 Tauri 命令触发真实切换）',
+  })
+  console.log(result)
   console.log(`  阈值：< ${MODEL_SWITCH_THRESHOLD_MS}ms`)
   console.log('─'.repeat(60))
 
   const passed = switchLatency <= MODEL_SWITCH_THRESHOLD_MS
-  printResult(passed, switchLatency)
+  printResult(result)
 
   // 保存结果到 JSON
   try {
     import('./_helpers.mjs').then(({ saveResultJson }) => {
-      saveResultJson('model-switch', switchLatency, MODEL_SWITCH_THRESHOLD_MS, passed)
+      saveResultJson('model-switch', result)
     })
   } catch {}
 
