@@ -39,6 +39,12 @@
 
 ***
 
+### Fixed
+
+- **CI 前端门禁转红（vitest 4 覆盖率口径变化）**：`cc0885a` 将 vitest 3.2.7 → 4.1.11（安全修复，无 3.x 修复版）后，vitest 4 的 v8 provider 改为 AST 感知重映射，同一份代码实测覆盖率由 lines 50.6/funcs 66.8/branches 78.8 降到 46.68/43/38.66，跌破 48/60/50/48 阈值。判据：转红区间（`cb0c3498`→`969f786`）内 **src/ 生产代码零改动**、163 个测试文件全通过 → 属度量口径变化而非质量退化。按新口径重校准阈值（lines 46 / functions 42 / branches 38 / statements 45，留 ~0.5pp 余量）并同步 `docs/agents/QUALITY_CONTRACT.md`。
+
+- **CI 前端矩阵移除 Node 20**：仓库使用 pnpm 11（lockfile 与 `pnpm/action-setup` 均锁 11），pnpm 11 要求 Node >= 22.13，Node 20 上直接报 `This version of pnpm requires at least Node.js v22.13` 并退出 —— 该矩阵项结构性不可能通过（Node 20 亦已 EOL）；矩阵改为 `[22]`。
+
 ## \[0.1.0] - 2026-08-10
 
 ### Added — 项目初始发布

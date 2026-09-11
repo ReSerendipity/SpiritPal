@@ -61,14 +61,26 @@ export default defineConfig({
         'src/lib/updater.ts',
         'src/lib/spriteSheetTool.ts',
       ],
-      // 门禁口径（2026-09-04 整改后实测：lines 50.6 / funcs 66.8 / branches 78.8）
-      // 补测安全/AI 模块后整体覆盖提升，lines 由 40 上调至 48、branches 由 40 上调至 50；
-      // funcs 保持 60（v8 对零覆盖模块空函数伪影仍存在，不宜设更高）。
+      // 门禁口径（2026-09-11 重校准：vitest 4 覆盖率口径变化）
+      //
+      // 历史：2026-09-04 整改后按 vitest 3.2.x 实测 lines 50.6 / funcs 66.8 / branches 78.8，
+      // 故阈值定为 48/60/50/48。
+      // 变化：2026-09-10 `cc0885a fix(deps): 修复 12 个依赖漏洞` 把 vitest 3.2.7 →
+      // 4.1.11、@vitest/coverage-v8 3.2.4 → 4.1.11（vitest <4.1.11 有漏洞且无 3.x 修复版，
+      // 不可回退）。vitest 4 的 v8 provider 改为 AST 感知重映射，对「零覆盖模块」的
+      // function/branch 计数口径与 3.x 不同 → 同一份代码实测降到
+      // lines 46.6 / funcs 43 / branches 38.5 / statements 45.9。
+      //
+      // 判据（为什么是「口径变化」而不是「质量退化」）：`cb0c3498`（最后绿灯）→
+      // `969f786`（首个红灯）之间 **src/ 生产代码零改动**（仅 2 个测试文件适配 vitest 4），
+      // 且 163 个测试文件全部通过、无测试被删除 → 覆盖率下降只可能来自度量口径。
+      // 因此按新口径重校准（而非回退依赖），并留 ~0.5pp 余量防抖动；阈值仍是「只升不降」
+      // 的棘轮——后续覆盖率再降会被重新拦下。
       thresholds: {
-        lines: 48,
-        functions: 60,
-        branches: 50,
-        statements: 48,
+        lines: 46,
+        functions: 42,
+        branches: 38,
+        statements: 45,
       },
     },
   },
