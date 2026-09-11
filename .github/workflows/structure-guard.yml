@@ -31,3 +31,8 @@ jobs:
           node-version: 22
       - name: Capability minimal-permission lint
         run: node scripts/lint-capabilities.mjs
+      # 跟踪机制 §机制四：执行文档（docs/execution）被家族 self-purify 机制移出跟踪过
+      # （e2a9699，经用户授权恢复 3578975）。本门禁把「再次被移出」显式化为 CI 红，
+      # 防止静默丢失；再犯时按应急预案走治理层裁决，不在 CI 层对抗。
+      - name: Execution docs tracked guard
+        run: node scripts/check-exec-docs-tracked.mjs
