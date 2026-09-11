@@ -36,6 +36,9 @@
 ### Changed
 
 - `crypto.rs` 新增内联单元测试模块（加密解密往返、数据损坏检测、密钥派生一致性）
+- 依赖批量升级（2026-09-11，dependabot #30-38）：Playwright 1.62.1→1.63.0（#30/#32）、@testing-library/react 16.3.3（#31）、@tauri-apps/plugin-updater 2.10.1→2.11.0（#33，含 Rust crate 对齐）、GitHub Actions（#34 osv-scanner 2.5.1 / #35 codecov 7 / #36 download-artifact 8 / #37 action-gh-release 3 / #38 setup-python 7）
+- N 卡性能实测记录（2026-09-11，RTX 5070）：冷启动 1071ms / 内存 51.0MB / Live2D FPS 59.4 / 模型切换 301ms（模拟值）——均达 PRD v0.2 门槛；基线无回归
+- 干净机器验收（2026-09-11，命令行部分）：安装→启动（48.8MB/10s 稳定）→卸载无残留全通过；更新链路签名校验通过（minisign）
 
 ***
 
@@ -45,7 +48,7 @@
 
 - **CI 前端矩阵移除 Node 20**：仓库使用 pnpm 11（lockfile 与 `pnpm/action-setup` 均锁 11），pnpm 11 要求 Node >= 22.13，Node 20 上直接报 `This version of pnpm requires at least Node.js v22.13` 并退出 —— 该矩阵项结构性不可能通过（Node 20 亦已 EOL）；矩阵改为 `[22]`。
 
-## \[0.1.0] - 2026-08-10
+## \[0.1.0] - 2026-09-10
 
 ### Added — 项目初始发布
 
