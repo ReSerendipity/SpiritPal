@@ -171,7 +171,7 @@ jobs:
 
       # artifact 内含 bundle/（package-size.mjs 检查 src-tauri/target/release/bundle/）
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: spiritpal-build-ubuntu-22.04
           path: src-tauri/target/release
