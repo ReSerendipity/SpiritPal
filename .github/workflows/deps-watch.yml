@@ -1,0 +1,66 @@
+name: Deps Ecosystem Watch
+
+# 依赖生态定期跟踪（docs/execution/依赖与安全跟踪机制 §机制一）
+# 跟踪两条「受阻待上游」链路，替代人工周期性复核：
+#   1. pixi 8 生态支持（dependabot PR #29 挂起依据）—— 官方 pixi-live2d-display 任一
+#      tag 的 peerDependencies 允许 pixi 8 时提示重新评估
+#   2. glib 上游修复链（RUSTSEC-2024-0429 / alert #14）—— tauri 对 gtk 的 req 允许
+#      gtk-rs 0.20+ 且 crates.io 已发布 gtk >= 0.20 时提示评估升级
+#
+# 绿主页策略（仓库约定：Actions 默认全绿）：脚本 exit 1（发现可行动变化）不会让本
+# workflow 变红，而是自动开/不重复开跟踪 issue 通知维护者。
+# 安全漏洞扫描不在本 workflow —— ci.yml 的 dependency-vuln-scan（每周一 03:00 UTC
+# schedule + push/PR）已含 pnpm audit / cargo audit / 棘轮基线 / osv-scanner。
+on:
+  schedule:
+    # 每周一 04:23 UTC（错开 ci.yml 的 03:00 整点高峰）
+    - cron: '23 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  ecosystem-watch:
+    name: Track pixi8 / glib upstream
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Track dependency ecosystem
+        id: watch
+        # 脚本退出码语义：0=无可行动变化 / 1=发现可行动变化 / 2=上游查询失败
+        # pipefail 保证 tee 管道下 step 结果反映脚本真实退出码；
+        # continue-on-error 让「可行动变化」不把本 workflow 打红（绿主页策略），
+        # 由下一步把结果转为跟踪 issue。
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/track-deps-ecosystem.mjs --markdown | tee "$GITHUB_STEP_SUMMARY"
+
+      - name: Open tracking issue on actionable change
+        # 仅在「发现可行动变化」（outcome=failure 且非网络失败）时开 issue；
+        # 网络失败（exit 2）静默——下周会重试，避免抖动刷 issue。
+        if: steps.watch.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/track-deps-ecosystem.mjs --markdown > /tmp/watch-report.md || true
+          TITLE="[deps-watch] 依赖生态出现可行动变化（pixi8 / glib 上游链）"
+          EXISTING=$(gh issue list --state open --search "in:title \"[deps-watch]\"" --json number --jq 'length')
+          if [ "${EXISTING:-0}" -eq 0 ]; then
+            gh issue create --title "$TITLE" --body-file /tmp/watch-report.md
+          else
+            echo "已存在未处理的 [deps-watch] 跟踪 issue，跳过重复创建"
+          fi
