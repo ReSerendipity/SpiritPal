@@ -24,7 +24,7 @@ SpiritPal/
 ├── artifacts/           # Build outputs like APK files (gitignored)
 ├── .github/workflows/   # CI/CD pipelines
 ├── .trae/               # Local IDE tooling state (gitignored)
-├── AGENTS.md            # AI agent guidance and architecture docs（自进化协议）
+├── AGENTS.md            # AI 辅助开发指南（本地文档，未随仓库发布）
 └── .gitignore
 ```
 
@@ -58,7 +58,7 @@ pnpm tauri build
 - **系统托盘**：显示/隐藏宠物、专注模式、番茄钟、切换形态、打开聊天、设置、**检查更新**、退出（`src-tauri/src/tray.rs`）
 - **单实例**：二次启动唤出主窗口不抢焦点（`tauri-plugin-single-instance`，lib.rs）
 - **崩溃自启**：panic hook 落盘崩溃现场（`{log_dir}/crash_*.log`）后受限自动重启——60 秒冷却窗口内连续崩溃 ≤3 次自动重启，超限停止防循环（`src-tauri/src/diagnostics.rs`，可用 `SPIRITPAL_DISABLE_CRASH_RESTART=1` 关闭）
-- **增量更新**：Tauri updater 已启用（签名密钥、updates.json 发布链见 `docs/project/AI_DEV_SOPS.md` SOP-5）；入口：托盘「检查更新」/ 设置-关于「检查更新」
+- **增量更新**：Tauri updater 已启用（签名密钥、updates.json 发布链见 `docs/project/AI_DEV_SOPS.md` SOP-5，本地文档，未随仓库发布）；入口：托盘「检查更新」/ 设置-关于「检查更新」
 
 ## Testing
 
@@ -90,6 +90,10 @@ cd src-tauri && cargo test
 | AI/ML | @xenova/transformers (local embeddings) |
 | Backend | Rust 2021 edition |
 | Package manager | pnpm 9 (frontend), Cargo (Rust) |
+
+## Contributing
+
+参与贡献请遵循 [组织级贡献指南](https://github.com/ReSerendipity/.github/blob/main/CONTRIBUTING.md)（Conventional Commits + DCO 签名）。
 
 ## License
 
