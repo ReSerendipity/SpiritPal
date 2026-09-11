@@ -1,0 +1,235 @@
+<!doctype html>
+<!--
+  perf/model-switch.html — Live2D 模型热切换延迟测试页面（真实触发，替代旧 sleep(300) 模拟）
+
+  测试目标（PRD v0.2）：模型热切换延迟 < 500ms（从触发切换到新模型可交互）
+
+  与生产代码的一致性（src/components/Live2DRenderer.tsx）：
+    1. 同一组库：pixi.js@7.4.3 + pixi-live2d-display@0.4.0(cubism4) + live2dcubismcore
+    2. 同一切换路径：modelPath 变化时 cleanup 先 model.destroy() 再
+       app.destroy(true, { children: true })，随后 new PIXI.Application(...)
+       → Live2DModel.from(newPath) → 缩放定位 → stage.addChild(model)
+    3. 终点口径：新模型 addChild 后经过 2 个 rAF（Ticker 至少完成一次
+       update+render，画面已出现新模型首帧），与组件 onReady 时机等价
+
+  冷/热区分：
+    - cold：该模型在本页面会话中首次 Live2DModel.from（资源未进浏览器缓存）
+    - warm：再次切回（资源已缓存），即 PRD 所称「热切换」
+
+  由 perf/model-switch-latency.mjs 通过 Playwright 加载并读取 window.__perfModelSwitchResult。
+
+  URL 参数：
+    a=<url>       模型 A（.model3.json）
+    b=<url>       模型 B（.model3.json）
+    warm=<n>      热切换轮数（默认 3；每轮 B→A→B 产生 2 个 warm 样本，首轮另有 1 个 A-warm）
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SpiritPal Model Switch Latency Test</title>
+    <style>
+      body { margin: 0; background: #1a1a2e; color: #eee; font-family: monospace; }
+      #canvas-container { width: 300px; height: 400px; margin: 0 auto; }
+      #status { text-align: center; padding: 10px; font-size: 14px; }
+      #result { white-space: pre-wrap; padding: 0 16px 16px; font-size: 12px; color: #9fe; }
+    </style>
+    <!-- Live2D Cubism Core SDK — pixi-live2d-display 运行依赖（与 fps-test.html 相同来源） -->
+    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+    <!-- Pixi.js v7.4.3（与 package.json pixi.js 版本一致） -->
+    <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.3/dist/pixi.min.js"></script>
+    <!-- pixi-live2d-display 0.4.0 Cubism 4（与 package.json pixi-live2d-display 版本一致） -->
+    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"></script>
+  </head>
+  <body>
+    <div id="status">正在初始化...</div>
+    <div id="canvas-container"></div>
+    <pre id="result"></pre>
+
+    <script>
+      window.__perfModelSwitchResult = null
+
+      const params = new URLSearchParams(window.location.search)
+      // 默认使用仓库内归档研究目录中的两个完整 Cubism4 真实模型（moc3 + 4096 纹理 + 动作）
+      const MODEL_A =
+        params.get('a') ||
+        '../docs/_devarchive/repo_research/8_MyFlowingFireflyWife/data/live2d/static/live2d-model/chun/%E6%A4%BF.model3.json'
+      const MODEL_B =
+        params.get('b') ||
+        '../docs/_devarchive/repo_research/8_MyFlowingFireflyWife/data/live2d/static/live2d-model/Firefly/Firefly.model3.json'
+      const WARM_ROUNDS = parseInt(params.get('warm') || '3', 10)
+
+      const statusEl = document.getElementById('status')
+      const resultEl = document.getElementById('result')
+      const containerEl = document.getElementById('canvas-container')
+      const WIDTH = 300
+      const HEIGHT = 400
+
+      const nextFrame = () =>
+        new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+
+      function median(xs) {
+        const a = [...xs].sort((x, y) => x - y)
+        const m = Math.floor(a.length / 2)
+        return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2
+      }
+      function mean(xs) {
+        return xs.reduce((s, x) => s + x, 0) / xs.length
+      }
+      function p95(xs) {
+        const a = [...xs].sort((x, y) => x - y)
+        return a[Math.min(a.length - 1, Math.ceil(0.95 * a.length) - 1)]
+      }
+      const round1 = (x) => Math.round(x * 10) / 10
+
+      // 与 Live2DRenderer.tsx 相同的 Application 参数
+      function createApp() {
+        return new PIXI.Application({
+          width: WIDTH,
+          height: HEIGHT,
+          backgroundAlpha: 0,
+          antialias: true,
+          resolution: window.devicePixelRatio || 1,
+          autoDensity: true,
+          powerPreference: 'high-performance',
+        })
+      }
+
+      // 挂载 canvas（与组件一致）
+      function mountCanvas(app) {
+        const canvas = app.view
+        canvas.style.display = 'block'
+        canvas.style.width = `${WIDTH}px`
+        canvas.style.height = `${HEIGHT}px`
+        canvas.style.background = 'transparent'
+        containerEl.innerHTML = ''
+        containerEl.appendChild(canvas)
+      }
+
+      async function main() {
+        if (!window.PIXI || !PIXI.live2d || !PIXI.live2d.Live2DModel) {
+          throw new Error('pixi-live2d-display 库未加载')
+        }
+
+        const samples = [] // { label: 'cold'|'warm', from, to, ms }
+        let app = null
+        let model = null
+        const loaded = new Set()
+
+        // 复刻组件的「销毁旧模型 + 销毁 Application」cleanup
+        function destroyCurrent() {
+          if (model) {
+            try { model.destroy() } catch (e) { console.warn('model.destroy failed', e) }
+            model = null
+          }
+          if (app) {
+            try { app.destroy(true, { children: true }) } catch (e) { console.warn('app.destroy failed', e) }
+            app = null
+          }
+        }
+
+        // 一次真实切换：destroy → new Application → Live2DModel.from → addChild → 新模型首帧
+        async function switchTo(url, label) {
+          const from = model ? (model.url || '?') : 'none'
+          const t0 = performance.now()
+
+          destroyCurrent()
+          app = createApp()
+          app.ticker.maxFPS = 60
+          mountCanvas(app)
+
+          const m = await PIXI.live2d.Live2DModel.from(url)
+          m.url = url
+          // 与组件一致的适配缩放/定位
+          const modelW = m.width || 1
+          const modelH = m.height || 1
+          const fit = Math.min(WIDTH / modelW, HEIGHT / modelH)
+          m.scale.set(fit)
+          m.x = (WIDTH - modelW * fit) / 2
+          m.y = (HEIGHT - modelH * fit) / 2
+          app.stage.addChild(m)
+          // 终点口径：addChild 后 2 个 rAF（新模型至少渲染一帧 ≈ onReady 可交互）
+          await nextFrame()
+
+          const ms = performance.now() - t0
+          model = m
+          samples.push({ label, from, to: url.split('/').pop(), ms: round1(ms) })
+          statusEl.textContent = `${label === 'cold' ? '冷' : '热'}切换 → ${m.url
+            .split('/')
+            .pop()}：${round1(ms)} ms`
+        }
+
+        statusEl.textContent = '初始加载模型 A（预热，不计时）...'
+        // 初始加载：建 app + 加载 A（对应应用正常启动，不计入切换延迟）
+        const bootT0 = performance.now()
+        app = createApp()
+        app.ticker.maxFPS = 60
+        mountCanvas(app)
+        model = await PIXI.live2d.Live2DModel.from(MODEL_A)
+        model.url = MODEL_A
+        app.stage.addChild(model)
+        await nextFrame()
+        loaded.add(MODEL_A)
+        const initialLoadMs = round1(performance.now() - bootT0)
+
+        // 1 次 B 冷切换（B 首次加载）
+        await switchTo(MODEL_B, 'cold')
+        loaded.add(MODEL_B)
+
+        // 热切换轮：每轮 B→A→B（首轮的 A 已是热）
+        for (let i = 0; i < WARM_ROUNDS; i++) {
+          await switchTo(MODEL_A, 'warm')
+          await switchTo(MODEL_B, 'warm')
+        }
+
+        destroyCurrent()
+
+        const warm = samples.filter((s) => s.label === 'warm').map((s) => s.ms)
+        const cold = samples.filter((s) => s.label === 'cold').map((s) => s.ms)
+        // 分目标方向统计（两个模型纹理数量/尺寸不同，切换成本可能不对称）
+        const perDirection = {}
+        for (const s of samples) {
+          if (s.label !== 'warm') continue
+          ;(perDirection[s.to] || (perDirection[s.to] = [])).push(s.ms)
+        }
+        const directionStats = {}
+        for (const [to, xs] of Object.entries(perDirection)) {
+          directionStats[to] = {
+            n: xs.length,
+            median: round1(median(xs)),
+            mean: round1(mean(xs)),
+            min: round1(Math.min(...xs)),
+            max: round1(Math.max(...xs)),
+          }
+        }
+        const result = {
+          libs: { pixi: '7.4.3', 'pixi-live2d-display': '0.4.0', core: 'live2dcubismcore' },
+          models: { a: MODEL_A.split('/').pop(), b: MODEL_B.split('/').pop() },
+          endpoint: 'trigger(destroy model+app, new Application, Live2DModel.from, addChild) → 2 rAF',
+          initialLoadMs,
+          coldMs: cold,
+          warmSamples: warm,
+          directionStats,
+          warm: {
+            median: round1(median(warm)),
+            mean: round1(mean(warm)),
+            min: round1(Math.min(...warm)),
+            max: round1(Math.max(...warm)),
+            p95: round1(p95(warm)),
+          },
+          samples,
+          timestamp: Date.now(),
+        }
+        window.__perfModelSwitchResult = result
+        statusEl.textContent = '测量完成'
+        resultEl.textContent = JSON.stringify(result, null, 2)
+      }
+
+      main().catch((err) => {
+        console.error(err)
+        window.__perfModelSwitchResult = { error: err.message, stack: String(err.stack), timestamp: Date.now() }
+        statusEl.textContent = '初始化失败: ' + err.message
+      })
+    </script>
+  </body>
+</html>
