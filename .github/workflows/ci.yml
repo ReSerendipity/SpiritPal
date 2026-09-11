@@ -21,7 +21,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20, 22]
+        # Node 20 已移除：仓库使用 pnpm 11（lockfile 与 pnpm/action-setup 均锁 11），
+        # 而 pnpm 11 要求 Node >= 22.13 —— Node 20 上 `Install Node.js` 后 pnpm 直接
+        # 报 `This version of pnpm requires at least Node.js v22.13` 并退出，
+        # 该矩阵项结构性不可能通过（且 Node 20 已 EOL）。
+        node-version: [22]
     runs-on: ubuntu-latest
 
     steps:
