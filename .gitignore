@@ -157,6 +157,7 @@ perf/results/recall-history.json
 perf/results/cold-start.json
 perf/results/memory-usage.json
 perf/results/fps-test.json
+perf/results/model-switch.json
 perf/results/drag-fps.json
 perf/results/memory-leak.json
 perf/results/package-size.json
