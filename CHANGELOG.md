@@ -44,6 +44,7 @@
 
 ### Fixed
 
+- **检查更新在宠物/聊天窗口报 not allowed by ACL（2026-09-11 第五轮修复）**：UpdateNotification 挂在全部桌面窗口，但 updater/process 权限只授给 settings-window，主窗口 30s 自动检查必弹「更新失败：Command plugin:updater|check not allowed by ACL」（v0.1.0 受影响）；default.json(pet/main)/chat-window.json 补 updater:default、allow-check、allow-download-and-install、process:allow-restart；default.json 另补 store:allow-load/get/set（消除 windowPositionMemory 降级告警）。修复后真机 GUI 实测设置→关于→检查更新「正在检查更新」→「已是最新版本」正常。
 - **CI 前端门禁转红（vitest 4 覆盖率口径变化）**：`cc0885a` 将 vitest 3.2.7 → 4.1.11（安全修复，无 3.x 修复版）后，vitest 4 的 v8 provider 改为 AST 感知重映射，同一份代码实测覆盖率由 lines 50.6/funcs 66.8/branches 78.8 降到 46.68/43/38.66，跌破 48/60/50/48 阈值。判据：转红区间（`cb0c3498`→`969f786`）内 **src/ 生产代码零改动**、163 个测试文件全通过 → 属度量口径变化而非质量退化。按新口径重校准阈值（lines 46 / functions 42 / branches 38 / statements 45，留 ~0.5pp 余量）并同步 `docs/agents/QUALITY_CONTRACT.md`。
 
 - **CI 前端矩阵移除 Node 20**：仓库使用 pnpm 11（lockfile 与 `pnpm/action-setup` 均锁 11），pnpm 11 要求 Node >= 22.13，Node 20 上直接报 `This version of pnpm requires at least Node.js v22.13` 并退出 —— 该矩阵项结构性不可能通过（Node 20 亦已 EOL）；矩阵改为 `[22]`。
