@@ -65,6 +65,7 @@ curl -sI https://raw.githubusercontent.com/ReSerendipity/SpiritPal/main/updates.
 |---|---|---|---|---|---|---|---|---|---|
 | v0.1.0 | 2026-09-10 | AI 本机（模拟干净环境） | 见《执行对照表》P1-1 记录 | | | | | | |
 | v0.1.0 | 2026-09-11 | AI 本机命令行（RTX 5070 机） | ✅ 静默安装至 `C:\Program Files\SpiritPal`（注册表 0.1.0） | ✅ 启动窗口正常、48.8 MB、10 s 稳定 | ⚠️ 需人工（GUI 自动化无管理员权限；签名链已独立验证） | 未测（无新版） | ✅ 目录+注册表清理，无残留 | ⚠️ 哈希不一致（构建环境差异，非篡改）；✅ minisign 验签通过 | 通过（2.1/2.2/2.4；2.3 无新版，GUI 项待人工） |
+| v0.1.0 | 2026-09-11（交接任务第二轮：GUI 驱动） | AI 本机 GUI + DevTools（RTX 5070 机） | — | ✅ 启动/窗口正常 | ✅ **GUI 实测通过**：设置→关于页动态版本=0.1.0；「检查更新」弹窗状态机「正在检查更新」→「已是最新版本」（截图留存）；失败原因弹窗可见不静默（本轮实测到 2 类失败提示） | 未测（无新版） | — | — | 通过（详细证据/环境说明/ACL 修复见执行对照表 8.9；托盘原生菜单未逐一点击，其事件与设置页共用同一处理器） |
 
 > 说明：本仓库无专门测试机，真机验收由所有者或 CI 化 E2E 补充；AI 侧完成「卸载残留检查 + 版本动态读取 + 更新链路单测」等本机可执行部分，并在此表留痕。
 
@@ -83,7 +84,8 @@ curl -sI https://raw.githubusercontent.com/ReSerendipity/SpiritPal/main/updates.
 | 冷启动 | `pnpm perf:cold-start`（release 产物，设 `SPIRITPAL_EXE`） | < 2 s | **1071 ms ✅** | 本表 |
 | 内存占用 | `pnpm perf:memory` | < 80 MB | **51.0 MB ✅**（3 次采样稳定） | 本表 |
 | Live2D FPS | `pnpm perf:fps`（需 `npx playwright install chromium`） | ≥ 30 fps | **59.4 fps ✅**（Ticker 60.2，WebGL 走 N 卡） | 本表 |
-| 模型切换延迟 | `pnpm perf:model-switch` | < 500 ms | **301 ms ✅**（脚本当前为模拟延迟，TODO 集成 Tauri 命令；真实切换待集成后复核） | 本表 |
+| 模型切换延迟（渲染层） | `pnpm perf:model-switch`（SPIRITPAL_PERF_GPU=1） | < 500 ms | **热切换中位数 42.3 ms ✅（2026-09-11 真实测量，替代旧模拟值 301 ms）**：与 Live2DRenderer 相同的 destroy→Application 重建→Live2DModel.from→addChild→首帧（2 rAF），pixi 7.4.3 + pixi-live2d-display 0.4.0/cubism4 + 真实 Cubism4 模型（椿/Firefly），N 卡 GPU，n=10（冷 164.6 ms，最大 339.8 ms）；swiftshader 同口径 489.5 ms 仅参考 | perf/results/model-switch.json（不入库） |
+| 角色切换延迟（应用内 GUI 端到端） | DevTools 控制台经真实 DOM React 事件链（右键面板→切换角色→角色行） | < 500 ms | **热切换中位数 351.2 ms ✅（n=8，343.5–387.5 ms；冷 341 ms，2026-09-11）**：含应用设计的 300ms 淡出/淡入 + store 切换 + 精灵图交换/decode | perf/results/model-switch-gui.json（不入库） |
 | 基线回归 | `pnpm perf:baseline`（CI 只读版：`node perf/baseline-trend.mjs --read-only`） | 劣化 >20% 即失败 | ✅ 无性能回归（基线 2026-09-04） | CI 自动 + 本地 |
 
 发布前在 N 卡机器跑上述项并记录结果；任一项超阈值需修复后才可发版（T-08 门禁的本地等价物）。
