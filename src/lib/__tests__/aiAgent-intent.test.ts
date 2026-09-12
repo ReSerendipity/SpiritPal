@@ -72,7 +72,7 @@ vi.mock('@/lib/data/secureStorage', () => ({
 }))
 
 import { toolOpenApplication } from '@/lib/ai/agentTools'
-import { AGENT_TOOLS, detectAgentIntent, processAgentRequest, matchIntent } from '@/lib/ai/aiAgent'
+import { AGENT_TOOLS, detectAgentIntent, detectMultiStepIntent, processAgentRequest, matchIntent } from '@/lib/ai/aiAgent'
 
 const EXPECTED_TOOL_NAMES = [
   'open_application',
@@ -111,6 +111,28 @@ describe('matchIntent', () => {
 
   it('日程意图「查看日程」匹配 manage_schedule', () => {
     expect(matchIntent('查看日程')).toBe('manage_schedule')
+  })
+})
+
+describe('detectMultiStepIntent（多步任务检测）', () => {
+  it('检测「先...再...」多步模式', () => {
+    expect(detectMultiStepIntent('先查一下天气再设置提醒')).toBe(true)
+  })
+
+  it('检测「先...然后...」多步模式', () => {
+    expect(detectMultiStepIntent('先打开计算器然后帮我算一下')).toBe(true)
+  })
+
+  it('检测「搜索...然后...」多步模式', () => {
+    expect(detectMultiStepIntent('搜索猫咪图片然后设置为壁纸')).toBe(true)
+  })
+
+  it('单步请求返回 false', () => {
+    expect(detectMultiStepIntent('打开计算器')).toBe(false)
+  })
+
+  it('普通聊天返回 false', () => {
+    expect(detectMultiStepIntent('你好呀')).toBe(false)
   })
 })
 

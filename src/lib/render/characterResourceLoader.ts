@@ -76,8 +76,8 @@ export interface CharacterPackConfig {
 
 /** MIT 许可证验证元数据 */
 export interface LicenseMeta {
-  /** 许可证类型 */
-  type: 'MIT' | 'CC0' | 'CC-BY' | 'CC-BY-SA' | 'CC-BY-NC' | 'proprietary'
+  /** 许可证类型（含 GPL/Apache 等非白名单，配合 audited 放行） */
+  type: 'MIT' | 'CC0' | 'CC-BY' | 'CC-BY-SA' | 'CC-BY-NC' | 'GPL-3.0' | 'GPL-2.0' | 'Apache-2.0' | 'proprietary' | string
   /** 许可证文本 URL 或内联文本 */
   licenseText?: string
   /** 版权声明 */
@@ -119,54 +119,153 @@ export class CharacterResourceLoader {
 
   /**
    * 从 pets/ 目录发现所有角色包
-   * 优先从 Vite import.meta.glob 读取打包模块，回退到 fetch
+   * 优先使用 Tauri 自定义命令（生产环境），回退到 fetch（开发环境）
    */
   async discoverPacks(): Promise<CharacterPackConfig[]> {
     const packs: CharacterPackConfig[] = []
 
-    // 1. 尝试从打包模块读取（Vite import.meta.glob）
+    // 尝试从 Tauri resources 或 public/pets/ 目录加载
     try {
-      const modules = import.meta.glob('../../pets/*/pet.json', {
-        eager: true,
-        import: 'default',
-      }) as Record<string, CharacterPackConfig>
+      let discovered = false
 
-      for (const [, config] of Object.entries(modules)) {
-        if (config?.id) {
-          this.discoveredPacks.set(config.id, config)
-          packs.push(config)
-        }
-      }
-    } catch {
-      // 非构建环境或 pets/ 目录不存在
-    }
-
-    // 2. 尝试从 public/pets/ 目录 fetch（回退方案）
-    try {
-      const manifest = await fetch('/pets/manifest.json')
-        .then((r) => (r.ok ? (r.json() as Promise<{ packs: string[] }>) : null))
-        .catch(() => null)
-
-      if (manifest?.packs) {
-        const fetchResults = await Promise.allSettled(
-          manifest.packs.map(async (packId) => {
-            if (this.discoveredPacks.has(packId)) return null
-            const res = await fetch(`/pets/${packId}/pet.json`)
-            if (!res.ok) return null
-            return (await res.json()) as CharacterPackConfig
-          }),
-        )
-
-        for (const result of fetchResults) {
-          if (result.status === 'fulfilled' && result.value?.id) {
-            const config = result.value
-            this.discoveredPacks.set(config.id, config)
-            packs.push(config)
+      // 1. 优先使用 Tauri 自定义命令读取（生产环境可靠，绕过 fs scope）
+      try {
+        const { resourceDir } = await import('@tauri-apps/api/path')
+        const { invoke } = await import('@tauri-apps/api/core')
+        const resDir = await resourceDir()
+        console.log('[discoverPacks] resDir:', resDir)
+        // 尝试多个路径：发布模式 resDir/pets，开发模式 resDir/../public/pets
+        const candidatePaths = [
+          resDir + '/pets',
+          resDir + '/../public/pets',
+        ]
+        let petDirs: string[] = []
+        for (const p of candidatePaths) {
+          try {
+            const result = await invoke<string[]>('scan_character_directory', { path: p })
+            if (result && result.length > 0) {
+              petDirs = result
+              break
+            }
+          } catch {
+            // 尝试下一个路径
           }
         }
+        console.log('[discoverPacks] scan_character_directory result:', petDirs?.length, petDirs)
+
+        if (petDirs && petDirs.length > 0) {
+          const results = await Promise.allSettled(
+            petDirs.map(async (dir) => {
+              try {
+                const text = await invoke<string>('read_text_file', { path: dir + '/pet.json' })
+                return JSON.parse(text) as CharacterPackConfig
+              } catch (e) {
+                console.error('[discoverPacks] read_text_file failed for', dir, e)
+                return null
+              }
+            }),
+          )
+          let successCount = 0
+          for (const result of results) {
+            if (result.status === 'fulfilled' && result.value?.id) {
+              const config = result.value
+              if (!this.discoveredPacks.has(config.id)) {
+                this.discoveredPacks.set(config.id, config)
+                packs.push(config)
+                successCount++
+              }
+            }
+          }
+          discovered = true
+        }
+      } catch (e) {
+        console.error('[discoverPacks] scan_character_directory failed:', e)
+        // Tauri 命令不可用，回退到 fs 插件或 fetch
+      }
+
+      // 2. fs 插件回退
+      if (!discovered) {
+        try {
+          const { readTextFile, BaseDirectory } = await import('@tauri-apps/plugin-fs')
+          const manifestText = await readTextFile('pets/manifest.json', { baseDir: BaseDirectory.Resource })
+          const manifest = JSON.parse(manifestText) as { packs: string[] }
+
+          if (manifest?.packs) {
+            const results = await Promise.allSettled(
+              manifest.packs.map(async (packId) => {
+                if (this.discoveredPacks.has(packId)) return null
+                try {
+                  const text = await readTextFile(`pets/${packId}/pet.json`, { baseDir: BaseDirectory.Resource })
+                  return JSON.parse(text) as CharacterPackConfig
+                } catch {
+                  return null
+                }
+              }),
+            )
+            for (const result of results) {
+              if (result.status === 'fulfilled' && result.value?.id) {
+                const config = result.value
+                if (!this.discoveredPacks.has(config.id)) {
+                  this.discoveredPacks.set(config.id, config)
+                  packs.push(config)
+                }
+              }
+            }
+            discovered = true
+          }
+        } catch (e) {
+          console.error('[discoverPacks] fs plugin failed:', e)
+          // fs 插件不可用，回退到 fetch
+        }
+      }
+
+      // 3. fetch 回退（开发环境 / 非 Tauri 环境）
+      if (!discovered) {
+        console.log('[discoverPacks] trying fetch fallback')
+        // 相对路径优先（dev 的 Vite public + 生产 dist 均可服务），
+        // Tauri resourceDir 的 asset 路径仅作回退（dev 模式 resDir=src-tauri 无 pets，
+        // 若像旧实现那样无条件优先 asset 路径会导致 fetch 全失败——见 KNOWN_GOTCHAS #77）
+        const fetchBases = ['/pets']
+        try {
+          const { resourceDir } = await import('@tauri-apps/api/path')
+          const { convertFileSrc } = await import('@tauri-apps/api/core')
+          const resDir = await resourceDir()
+          fetchBases.push(convertFileSrc(resDir + '/pets'))
+        } catch {
+          // 非 Tauri 环境：仅使用相对路径候选
+        }
+
+        for (const basePath of fetchBases) {
+          const fetchManifest = await fetch(`${basePath}/manifest.json`)
+            .then((r) => (r.ok ? (r.json() as Promise<{ packs: string[] }>) : null))
+            .catch(() => null)
+
+          if (!fetchManifest?.packs) continue
+
+          const fetchResults = await Promise.allSettled(
+            fetchManifest.packs.map(async (packId) => {
+              if (this.discoveredPacks.has(packId)) return null
+              const res = await fetch(`${basePath}/${packId}/pet.json`)
+              if (!res.ok) return null
+              return (await res.json()) as CharacterPackConfig
+            }),
+          )
+
+          for (const result of fetchResults) {
+            if (result.status === 'fulfilled' && result.value?.id) {
+              const config = result.value
+              if (!this.discoveredPacks.has(config.id)) {
+                this.discoveredPacks.set(config.id, config)
+                packs.push(config)
+              }
+            }
+          }
+          discovered = true
+          break
+        }
       }
     } catch {
-      // public 目录不可用
+      // pets 目录不可用
     }
 
     // 3. 从 .petmod 模组中提取角色包
@@ -220,6 +319,9 @@ export class CharacterResourceLoader {
     }
 
     // 规范化为 CharacterProfile
+    // 使用相对路径，与内置角色一致（public/pets/ 在 dev 和 release 均可用）
+    const spriteAsset = `/pets/${config.id}/${config.spritePath}`
+
     const profile: CharacterProfile = {
       id: config.id,
       name: config.id,
@@ -232,7 +334,7 @@ export class CharacterResourceLoader {
       classicQuotes: [],
       systemPrompt: `你是${config.name}，一个桌面宠物角色。`,
       fewShotExamples: [],
-      spriteAsset: config.spritePath,
+      spriteAsset,
       spriteType: config.spriteType,
       physicsPath: config.physicsPath,
       themeColor: config.themeColor ?? { primary: '#4ECDC4', secondary: '#FF6B6B' },

@@ -19,6 +19,7 @@
 
 import { updateMemoryRow } from '@/lib/data/db'
 import { EnhancedMemoryManager } from './enhancedMemory'
+import { memoryMatchesDimensions, type TagDimension } from './tagCategories'
 import type { EnhancedMemory } from './memoryTypes'
 
 // ============ 类型定义 ============
@@ -86,8 +87,10 @@ export interface MemorySearchOptions {
   }
   /** 分类过滤 */
   categories?: string[]
-  /** 标签过滤 */
+  /** 标签过滤（命中任一指定标签即保留，组内 OR） */
   tags?: string[]
+  /** 标签维度过滤（命中任一指定维度的标签即保留，组内 OR；与分类/时间筛选跨组 AND） */
+  tagDimensions?: TagDimension[]
   /** 排序方式 */
   sortBy?: 'importance' | 'emotional_intensity' | 'access_count'
   /** 排序顺序 */
@@ -258,6 +261,8 @@ export class MemoryEditor {
     memoryId: string,
     updates: {
       content?: string
+      /** 新的创建时间（ISO 字符串），用于记忆时间编辑 */
+      createdAt?: string
       category?: string
       tags?: string[]
       importance?: number
@@ -280,6 +285,7 @@ export class MemoryEditor {
       if (updates.category !== undefined) memory.category = updates.category
       if (updates.tags !== undefined) memory.tags = updates.tags
       if (updates.importance !== undefined) memory.importance = updates.importance
+      if (updates.createdAt !== undefined) memory.created_at = updates.createdAt
       if (updates.emotionalIntensity !== undefined) {
         memory.emotionalIntensity = updates.emotionalIntensity
       }
@@ -291,6 +297,9 @@ export class MemoryEditor {
           ...(updates.category !== undefined ? { category: updates.category } : {}),
           ...(updates.tags !== undefined ? { tags: JSON.stringify(updates.tags) } : {}),
           ...(updates.importance !== undefined ? { importance: updates.importance } : {}),
+          ...(updates.createdAt !== undefined
+            ? { created_at: new Date(updates.createdAt).getTime() }
+            : {}),
           ...(updates.emotionalIntensity !== undefined
             ? { emotional_intensity: updates.emotionalIntensity }
             : {}),
@@ -395,6 +404,10 @@ export class MemoryEditor {
         memories = memories.filter(m => 
           options.tags!.some(tag => m.tags.includes(tag))
         )
+      }
+
+      if (options.tagDimensions && options.tagDimensions.length > 0) {
+        memories = memories.filter(m => memoryMatchesDimensions(m.tags, options.tagDimensions!))
       }
 
       // 应用排序

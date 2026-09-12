@@ -48,26 +48,20 @@ describe('checkForUpdates', () => {
     vi.clearAllMocks()
   })
 
-  it('should report available with info when update exists', async () => {
+  // 2026-09-12: updater 插件 invoke 未定义导致弹窗阻碍使用，checkForUpdates 临时禁用，
+  // 直接返回 available:false，不再调用 @tauri-apps/plugin-updater 的 check()
+  it('should always report not available (updater temporarily disabled)', async () => {
+    const result = await checkForUpdates()
+    expect(result.available).toBe(false)
+    expect(result.error).toBeUndefined()
+    expect(mocks.check).not.toHaveBeenCalled()
+  })
+
+  it('should not invoke tauri updater check even when mock returns update', async () => {
     mocks.check.mockResolvedValue(makeUpdate())
     const result = await checkForUpdates()
-    expect(result.available).toBe(true)
-    expect(result.info?.version).toBe('0.2.0')
-    expect(result.error).toBeUndefined()
-  })
-
-  it('should report not available when no update', async () => {
-    mocks.check.mockResolvedValue(null)
-    const result = await checkForUpdates()
     expect(result.available).toBe(false)
-    expect(result.error).toBeUndefined()
-  })
-
-  it('should surface check error instead of swallowing it (报告1 §四-7 不吞错误)', async () => {
-    mocks.check.mockRejectedValue(new Error('TLS handshake failed'))
-    const result = await checkForUpdates()
-    expect(result.available).toBe(false)
-    expect(result.error).toContain('TLS handshake failed')
+    expect(mocks.check).not.toHaveBeenCalled()
   })
 })
 

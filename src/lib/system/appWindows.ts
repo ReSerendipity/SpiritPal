@@ -8,9 +8,26 @@
  * 消除「前端与 Rust 两处各自维护窗口参数」的双源漂移
  * （曾导致前端创建的窗口无法最大化/边缘缩放的历史 bug）。
  */
-import { getAllWindows, type Window } from '@tauri-apps/api/window'
+import { getAllWindows, getCurrentWindow, type Window } from '@tauri-apps/api/window'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { invoke } from '@tauri-apps/api/core'
+
+/**
+ * 安全获取当前窗口实例。
+ *
+ * Tauri 内部 API（__TAURI_INTERNALS__）未注入时（如普通浏览器预览、
+ * 测试环境）返回 null，避免 getCurrentWindow() 抛出
+ * "Cannot read properties of undefined (reading 'metadata')"。
+ */
+export function safeGetWindow(): Window | null {
+  const internals = (window as unknown as { __TAURI_INTERNALS__?: { metadata?: unknown } }).__TAURI_INTERNALS__
+  if (!internals?.metadata) return null
+  try {
+    return getCurrentWindow()
+  } catch {
+    return null
+  }
+}
 
 export interface WindowConfig {
   title: string

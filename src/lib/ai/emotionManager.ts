@@ -83,6 +83,16 @@ export interface EmotionCallbacks {
   ) => Promise<ExpressionOption | null>
 }
 
+/** 默认可用表情集（手动切换 UI / 自动选择共用）。
+ * 抽成导出常量，供 ExpressionSelector 枚举全部表情，避免与内部私有列表漂移。 */
+export const DEFAULT_EXPRESSIONS: ExpressionOption[] = [
+  { id: 'happy', name: '开心', animationId: 'happy', weight: 3 },
+  { id: 'sad', name: '伤心', animationId: 'sad', weight: 1 },
+  { id: 'excited', name: '兴奋', animationId: 'excited', weight: 2 },
+  { id: 'surprised', name: '惊讶', animationId: 'surprised', weight: 1 },
+  { id: 'shy', name: '害羞', animationId: 'shy', weight: 1 },
+  { id: 'idle', name: '平静', animationId: 'idle', weight: 5 },
+]
 // ============ 情绪管理器 ============
 
 export class EmotionManager {
@@ -97,6 +107,9 @@ export class EmotionManager {
   // TTS 对齐状态
   private ttsAligned = false
   private ttsEndTime = 0
+
+  // 手动表情覆盖状态（优先级高于自动表情）
+  private manualExpression: ExpressionOption | null = null
 
   // 最近的触发事件（用于反重复）
   private recentEvents: EmotionEvent[] = []
@@ -158,6 +171,7 @@ export class EmotionManager {
     this.lastTriggeredAt = 0
     this.ttsAligned = false
     this.ttsEndTime = 0
+    this.manualExpression = null
     this.callbacks = {}
     this.recentEvents = []
   }
@@ -218,6 +232,8 @@ export class EmotionManager {
     audioDurationMs?: number,
   ): Promise<void> {
     const now = Date.now()
+    // 手动表情覆盖期间，自动表情不抢戏
+    if (this.manualExpression) return
 
     // 冷却检查
     if (now - this.lastTriggeredAt < EXPRESSION_COOLDOWN_MS) return
@@ -295,16 +311,42 @@ export class EmotionManager {
 
   /** 获取可用表情列表（可由外部覆盖） */
   private getAvailableExpressions(): ExpressionOption[] {
-    // 默认表情集（可扩展）
-    return [
-      { id: 'happy', name: '开心', animationId: 'happy', weight: 3 },
-      { id: 'sad', name: '伤心', animationId: 'sad', weight: 1 },
-      { id: 'excited', name: '兴奋', animationId: 'excited', weight: 2 },
-      { id: 'surprised', name: '惊讶', animationId: 'surprised', weight: 1 },
-      { id: 'shy', name: '害羞', animationId: 'shy', weight: 1 },
-      { id: 'idle', name: '平静', animationId: 'idle', weight: 5 },
-    ]
+    return DEFAULT_EXPRESSIONS
   }
+
+  /** 对外暴露可用表情列表（供手动切换 UI 枚举） */
+  listAvailableExpressions(): ExpressionOption[] {
+    return [...DEFAULT_EXPRESSIONS]
+  }
+
+  // ============ 手动表情覆盖 ============
+
+  /** 获取当前手动覆盖的表情（null = 自动模式） */
+  getManualExpression(): ExpressionOption | null {
+    return this.manualExpression
+  }
+
+  /**
+   * 手动设置表情覆盖。
+   * 设置后自动表情触发将被抑制，直到调用 clearManualExpression()。
+   * @param option 要强制显示的表情；传 null 等价于清除覆盖
+   */
+  setManualExpression(option: ExpressionOption | null): void {
+    this.manualExpression = option
+    if (option) {
+      this.callbacks.onExpressionApply?.(option, DEFAULT_EXPRESSION_DURATION_MS)
+    } else {
+      this.callbacks.onExpressionClear?.()
+    }
+  }
+
+  /** 清除手动覆盖，恢复自动表情，并回退到 idle */
+  clearManualExpression(): void {
+    if (!this.manualExpression) return
+    this.manualExpression = null
+    this.callbacks.onExpressionClear?.()
+  }
+
 
   /** 获取最近的情绪事件 */
   getRecentEvents(): EmotionEvent[] {
