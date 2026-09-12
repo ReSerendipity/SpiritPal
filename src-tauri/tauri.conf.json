@@ -12,8 +12,12 @@
   "app": {
     "windows": [],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob: https: asset: http://asset.localhost; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://api.openai.com https://api.anthropic.com https://api.deepseek.com https://generativelanguage.googleapis.com ipc: http://ipc.localhost; font-src 'self' data:; worker-src 'self' blob:",
-      "devCsp": "default-src 'self'; img-src 'self' data: blob: https: asset: http://asset.localhost; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost ws://localhost:5223 http://localhost:5223; font-src 'self' data:; worker-src 'self' blob:"
+      "csp": "default-src 'self'; img-src 'self' data: blob: https: asset: http://asset.localhost https://asset.localhost; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://api.openai.com https://api.anthropic.com https://api.deepseek.com https://generativelanguage.googleapis.com ipc: http://ipc.localhost asset: http://asset.localhost https://asset.localhost; font-src 'self' data:; worker-src 'self' blob:",
+      "devCsp": "default-src 'self'; img-src 'self' data: blob: https: asset: http://asset.localhost https://asset.localhost; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost ws://localhost:5223 http://localhost:5223 asset: http://asset.localhost https://asset.localhost; font-src 'self' data:; worker-src 'self' blob:",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$RESOURCE/**"]
+      }
     },
     "macOSPrivateApi": true
   },

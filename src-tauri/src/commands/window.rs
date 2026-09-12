@@ -545,6 +545,21 @@ pub fn get_active_window() -> ActiveWindowInfo {
     }
 }
 
+/// 检测当前前台应用是否处于全屏状态（Windows：覆盖主屏且未最小化；macOS/Linux：v1 恒 false）。
+///
+/// 参考 CodeWalkers：宠物前台应用全屏时自动隐藏/避让，避免遮挡游戏/视频。
+///
+/// 前端调用方式：`invoke('is_fullscreen_detected')`
+///
+/// # Returns
+/// - `Ok(true)` — 前台窗口覆盖整个主屏（全屏）
+/// - `Ok(false)` — 非全屏 / 平台不支持 / 检测失败
+#[cfg(desktop)]
+#[tauri::command]
+pub fn is_fullscreen_detected() -> bool {
+    win32::is_foreground_fullscreen()
+}
+
 /// 启动窗口置顶轮询保活（Windows only）
 ///
 /// 参考 BongoCat：使用 `SetWindowPos(HWND_TOPMOST)` 16ms 轮询，
