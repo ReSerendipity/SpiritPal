@@ -35,7 +35,7 @@ Live2D Cubism Core 为专有软件、**不随包分发**（见 [COMPLIANCE_CHECK
 | 资源 | 许可 | 说明 |
 |---|---|---|
 | Live2D Cubism Core | 专有（不随包分发） | 用户自装，见 COMPLIANCE_CHECKLIST §2 |
-| 宠物动画素材（webm/svg/png） | 项目自有或按来源仓库 | `public/pets/`、`public/characters/` |
+| 宠物动画素材（webm/svg/png） | 项目自有或按来源仓库 | `public/pets/` |
 | 中文字体/图标 | 以文件头与来源为准 | `public/`、`src/` 内资源 |
 
 ---

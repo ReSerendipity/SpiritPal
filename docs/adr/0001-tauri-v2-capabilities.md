@@ -26,7 +26,7 @@ AGENTS.md 提及 Tauri 120 次（Electron 仅 2 次，为对照说明）。本 A
 
 # 实施影响
 
-- 数据库：`src-tauri/src/encrypted_db.rs`（SQLx + SQLite）；窗口管理：`src/lib/windowManager.ts`（Rust 侧 `src-tauri/src/system.rs`）。
+- 数据库：`src-tauri/src/encrypted_db.rs`（SQLx + SQLite）；窗口管理：`src/lib/system/windowManager.ts`（Rust 侧 `src-tauri/src/system.rs`）。
 
 # 可回滚路径与待验证项
 
