@@ -35,6 +35,10 @@ export function CharacterSelector({ onSelect }: CharacterSelectorProps) {
   const switchSettingsChar = useSettingsStore((s) => s.switchCharacter)
   const switchPetChar = usePetStore((s) => s.switchCharacter)
   const initCharacter = usePetStore((s) => s.initCharacter)
+  // 订阅角色列表版本号：社区/shimeji 角色异步加载完成后触发重渲染
+  const charListVersion = useSettingsStore((s) => s.characterListVersion)
+
+  const allChars = getAllCharacters()
 
   function handleSelect(id: string) {
     initCharacter(id)

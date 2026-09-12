@@ -126,7 +126,14 @@ const POMODORO_EXP_GAIN = 25
 const POMODORO_COIN_GAIN = 10
 /** 升级金币奖励倍率（level × 此值） */
 const LEVEL_UP_COIN_MULTIPLIER = 100
-
+/** 随机金币掉落均值（正态分布 μ） */
+const COIN_DROP_MU = 15
+/** 随机金币掉落标准差（正态分布 σ） */
+const COIN_DROP_SIGMA = 8
+/** 随机金币掉落下限（防止负值或过小） */
+const COIN_DROP_MIN = 1
+/** 随机金币掉落上限（防止异常大值） */
+const COIN_DROP_MAX = 50
 // ============ 离线衰减 ============
 
 /** 离线每小时饥饿衰减 */
@@ -149,6 +156,36 @@ const HP_OFFLINE_FLOOR = 10
  */
 function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v))
+}
+
+/**
+ * Box-Muller 变换生成标准正态分布随机数（均值 0，标准差 1）
+ * @returns 标准正态分布随机数
+ */
+function boxMullerNormal(): number {
+  let u = 0
+  let v = 0
+  while (u === 0) u = Math.random()
+  while (v === 0) v = Math.random()
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v)
+}
+
+/**
+ * 生成正态分布的随机金币数量
+ * @param mu 均值（默认 COIN_DROP_MU）
+ * @param sigma 标准差（默认 COIN_DROP_SIGMA）
+ * @param min 下限（默认 COIN_DROP_MIN）
+ * @param max 上限（默认 COIN_DROP_MAX）
+ * @returns 四舍五入后的整数金币数量
+ */
+function sampleCoinDrop(
+  mu: number = COIN_DROP_MU,
+  sigma: number = COIN_DROP_SIGMA,
+  min: number = COIN_DROP_MIN,
+  max: number = COIN_DROP_MAX,
+): number {
+  const raw = mu + sigma * boxMullerNormal()
+  return Math.round(clamp(raw, min, max))
 }
 
 /**
@@ -327,6 +364,8 @@ interface PetStoreState {
   wornDecorations: Record<string, WornDecoration[]>
   /** 背景自定义配置 */
   background: BackgroundConfig
+  /** 当前已召唤（活跃）的副宠物品 ID 列表 */
+  activeSubpets: string[]
 
   /**
    * 初始化角色养成数据（若已存在则跳过）
@@ -397,6 +436,11 @@ interface PetStoreState {
   addCoins: (amount: number) => void
 
   /**
+   * 随机掉落金币（正态分布），返回实际掉落数量
+   */
+  dropRandomCoins: () => number
+
+  /**
    * 消费金币
    * @param amount 消费数量
    * @returns 是否成功（金币不足返回 false）
@@ -454,6 +498,26 @@ interface PetStoreState {
   removeDecoration: (itemId: string) => void
 
   /**
+   * 召唤副宠（加入活跃列表），已召唤过则忽略
+   * @param itemId 副宠物品 ID
+   * @returns 是否新召唤成功
+   */
+  summonSubpet: (itemId: string) => boolean
+
+  /**
+   * 收回副宠（从活跃列表移除）
+   * @param itemId 副宠物品 ID
+   * @returns 是否成功收回
+   */
+  recallSubpet: (itemId: string) => boolean
+
+  /**
+   * 判断副宠是否已召唤
+   * @param itemId 副宠物品 ID
+   */
+  isSubpetActive: (itemId: string) => boolean
+
+  /**
    * 获取当前角色已穿戴的装饰品列表
    * @returns 已穿戴装饰品数组
    */
@@ -490,6 +554,7 @@ export const usePetStore = create<PetStoreState>()(
       position: null,
       wornDecorations: {},
       background: { type: 'none' },
+      activeSubpets: [],
 
       initCharacter: (id) => {
         const existing = get().stats[id]
@@ -751,6 +816,12 @@ export const usePetStore = create<PetStoreState>()(
         set((state) => ({ sharedCoins: Math.max(0, state.sharedCoins + amount) }))
       },
 
+      dropRandomCoins: () => {
+        const amount = sampleCoinDrop()
+        set((state) => ({ sharedCoins: Math.max(0, state.sharedCoins + amount) }))
+        return amount
+      },
+
       spendCoins: (amount) => {
         const { sharedCoins } = get()
         if (sharedCoins < amount) return false
@@ -783,6 +854,24 @@ export const usePetStore = create<PetStoreState>()(
 
         const multiplier = getCharacterMultiplier(currentCharacterId, item.id)
         const updateCurrentStats = makeUpdateCurrentStats(currentCharacterId, set)
+
+        // 副宠类型：召唤/收回 切换，不消耗物品数量
+        if (item.type === 'subpet' || item.subpetConfig) {
+          if (get().activeSubpets.includes(itemId)) {
+            get().recallSubpet(itemId)
+          } else {
+            get().summonSubpet(itemId)
+            const reward = item.fvReward
+            if (reward) {
+              updateCurrentStats((cur2) => ({
+                ...cur2,
+                affection: clamp(cur2.affection + Math.round(reward * multiplier), 0, MAX_AFFECTION),
+              }))
+            }
+            get().addExp(FEED_EXP_GAIN)
+          }
+          return
+        }
 
         // 基础属性恢复（食物/玩具/药品/装饰品）
         updateCurrentStats((c) => ({
@@ -890,6 +979,20 @@ export const usePetStore = create<PetStoreState>()(
         const { currentCharacterId, wornDecorations } = get()
         return wornDecorations[currentCharacterId] ?? []
       },
+
+      summonSubpet: (itemId) => {
+        if (get().activeSubpets.includes(itemId)) return false
+        set((state) => ({ activeSubpets: [...state.activeSubpets, itemId] }))
+        return true
+      },
+
+      recallSubpet: (itemId) => {
+        if (!get().activeSubpets.includes(itemId)) return false
+        set((state) => ({ activeSubpets: state.activeSubpets.filter((id) => id !== itemId) }))
+        return true
+      },
+
+      isSubpetActive: (itemId) => get().activeSubpets.includes(itemId),
 
       setBackground: (bg) => {
         set({ background: bg })

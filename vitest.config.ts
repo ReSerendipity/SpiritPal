@@ -12,8 +12,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     globals: true,
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
-    exclude: ['node_modules', 'dist', 'e2e/**'],
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'scripts/__tests__/*.test.mjs'],
+    exclude: ['node_modules', 'dist', 'e2e/**', 'scripts/__tests__/lint-capabilities.test.mjs'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],

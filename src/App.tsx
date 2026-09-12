@@ -18,7 +18,9 @@ import { Component, useEffect, useState, lazy, Suspense, type ReactNode } from '
 import PetWindow from '@/components/PetWindow'
 import { UpdateNotification } from '@/components/UpdateNotification'
 import { loadShimejiCharacters } from '@/lib/render/shimejiLoader'
+import { loadCommunityCharacters } from '@/lib/render/communityLoader'
 import { setupExternalLinkInterceptor } from '@/lib/system/externalLinks'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 const MobileApp = lazy(() => import('@/mobile/MobileApp'))
 const SettingsWindow = lazy(() => import('@/components/SettingsWindow'))
@@ -107,7 +109,15 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    loadShimejiCharacters().catch(() => {})
+    loadShimejiCharacters()
+      .then(() => useSettingsStore.getState().bumpCharacterList())
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    loadCommunityCharacters()
+      .then(() => useSettingsStore.getState().bumpCharacterList())
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -161,7 +171,7 @@ export default function App() {
 
   return (
     <>
-      <UpdateNotification autoCheck autoCheckDelay={30000} />
+      <UpdateNotification autoCheck={false} />
       {content}
     </>
   )

@@ -66,6 +66,7 @@ vi.mock('@/stores/settingsStore', () => ({
 
 vi.mock('@/lib/data/characters', () => ({
   getCharacter: vi.fn(() => mockChar),
+  getAllCharacters: vi.fn(() => [mockChar]),
   CHARACTERS: [mockChar],
 }))
 
