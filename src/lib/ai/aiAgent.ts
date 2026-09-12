@@ -243,6 +243,31 @@ export function detectAgentIntent(message: string): boolean {
   return matchIntent(message) !== null
 }
 
+/**
+ * 检测用户消息是否包含多步任务意图
+ * 多步任务需要 ReAct 循环（推理->行动->观察->再推理），而非单轮工具调用。
+ * @param userMessage 用户原始消息
+ * @returns 是否为多步任务
+ */
+export function detectMultiStepIntent(userMessage: string): boolean {
+  const text = userMessage.toLowerCase()
+  const multiStepPatterns = [
+    /先.*再/,
+    /先.*然后/,
+    /先.*接着/,
+    /然后.*再/,
+    /接着.*再/,
+    /之后.*再/,
+    /查.*然后.*设/,
+    /查.*再.*设/,
+    /搜索.*然后/,
+    /搜索.*再/,
+    /打开.*然后/,
+    /帮我.*再.*帮我/,
+  ]
+  return multiStepPatterns.some((p) => p.test(text))
+}
+
 // ============ LLM 意图解析 ============
 
 // Prompt 从 promptRegistry 加载（版本化管理）
@@ -314,6 +339,17 @@ export async function processAgentRequest(
   characterId?: string,
   memoryContext?: string,
 ): Promise<string> {
+  // ===== P2 增强：多步任务检测 -> ReAct Loop =====
+  // 当用户消息包含多步操作意图时，路由到 processReActRequest 进行多步推理-行动循环。
+  if (detectMultiStepIntent(userMessage)) {
+    try {
+      const reactResult = await processReActRequest(userMessage, config, characterId, { maxRounds: 5, toolMode: 'agent' })
+      return reactResult.answer
+    } catch (reactErr) {
+      console.warn('[SpiritPal] ReAct 执行失败，回退到单轮 Agent:', reactErr)
+    }
+  }
+
   // 1. 尝试用 LLM 解析意图
   let plan: { tool: string; params: Record<string, unknown> } | null = null
 

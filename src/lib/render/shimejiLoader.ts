@@ -67,29 +67,6 @@ const KNOWN_SHIMEJI_IDS = [
   'zhongli-ys', 'zuo-ci',
 ]
 
-// ============ Tauri 资源路径前缀 ============
-// shimeji 资源已移至 Tauri resources 目录，需要 convertFileSrc 转换
-/** Tauri 资源基础路径缓存 */
-let _tauriResourceBase: string | null | undefined = undefined
-
-/**
- * 获取 Tauri 资源基础路径
- * @returns Tauri 资源基础路径（经 convertFileSrc 转换），非 Tauri 环境返回 null
- */
-async function getTauriResourceBase(): Promise<string | null> {
-  if (_tauriResourceBase !== undefined) return _tauriResourceBase ?? null
-  try {
-    const { resourceDir } = await import('@tauri-apps/api/path')
-    const { convertFileSrc } = await import('@tauri-apps/api/core')
-    const resDir = await resourceDir()
-    _tauriResourceBase = convertFileSrc(resDir)
-    return _tauriResourceBase
-  } catch {
-    _tauriResourceBase = null
-    return null
-  }
-}
-
 // ============ 缓存 ============
 /** 已加载角色缓存 */
 let shimejiCache: CharacterProfile[] | null = null
@@ -120,23 +97,50 @@ export async function loadShimejiCharacters(): Promise<CharacterProfile[]> {
 }
 
 /**
- * 从 Tauri resources 或 public 目录 fetch 加载（回退方案）
+ * 从 public 目录或 Tauri resources fetch 加载 shimeji 角色 profile
+ *
+ * 候选基准路径按优先级排列：
+ * 1. 相对路径 `/pets/shimeji/profiles` —— dev（Vite 服务 public/）与生产
+ *    （Vite 把 public/ 复制进 dist/，Tauri 经 tauri:// 协议服务）均可访问，
+ *    是两种环境的公共正确路径，故置于首位。
+ * 2. `convertFileSrc(resourceDir + '/pets/shimeji/profiles')` —— 仅作为回退，
+ *    覆盖「public 未随构建产出、但 bundle resources 含 pets」的打包场景。
+ *
+ * ⚠️ 历史坑（2026-09-12）：旧实现只要检测到 Tauri 就**无条件**用第 2 个 asset 路径，
+ *    而 dev 模式 `resourceDir()` 返回 `src-tauri/`（其下并无 pets），导致 manifest
+ *    与每个 `<id>.json` 全部 fetch 失败 → 过滤后得到空数组 → shimeji 角色完全不加载
+ *    → 切换后 SpriteRenderer 拿到 undefined → 宠物不显示。故必须相对路径优先。
+ *
  * 尝试加载 manifest.json 获取 ID 列表，或使用 KNOWN_SHIMEJI_IDS 回退
  * @returns Promise，解析为角色配置数组
  */
 async function loadFromPublicDir(): Promise<CharacterProfile[]> {
+  const candidates = ['/pets/shimeji/profiles']
   try {
-    // 尝试从 Tauri resourceDir 加载（shimeji 资源已移至 Tauri resources）
-    let basePath = '/pets/shimeji/profiles'
-    try {
-      const { resourceDir } = await import('@tauri-apps/api/path')
-      const { convertFileSrc } = await import('@tauri-apps/api/core')
-      const resDir = await resourceDir()
-      basePath = convertFileSrc(resDir + 'pets/shimeji/profiles')
-    } catch {
-      // 非 Tauri 环境回退到 public 目录
-    }
+    const { resourceDir } = await import('@tauri-apps/api/path')
+    const { convertFileSrc } = await import('@tauri-apps/api/core')
+    const resDir = await resourceDir()
+    candidates.push(convertFileSrc(resDir + '/pets/shimeji/profiles'))
+  } catch {
+    // 非 Tauri 环境：仅使用相对路径候选
+  }
 
+  for (const basePath of candidates) {
+    const profiles = await tryLoadShimejiFromBase(basePath)
+    // 任一候选路径能加载到角色即采用（相对路径优先命中即返回）
+    if (profiles.length > 0) return profiles
+  }
+  return []
+}
+
+/**
+ * 从给定基准路径加载全部 shimeji profile
+ * manifest 缺失时回退到 KNOWN_SHIMEJI_IDS；单个 profile 失败仅跳过该角色
+ * @param basePath profile 目录的 fetch 基准 URL
+ * @returns 成功加载并规范化后的角色数组（全部失败时为空数组）
+ */
+async function tryLoadShimejiFromBase(basePath: string): Promise<CharacterProfile[]> {
+  try {
     const manifest = await fetch(`${basePath}/manifest.json`)
       .then((r) => (r.ok ? (r.json() as Promise<{ ids: string[] }>) : null))
       .catch(() => null)
@@ -161,19 +165,15 @@ async function loadFromPublicDir(): Promise<CharacterProfile[]> {
 /**
  * 规范化 shimeji profile：补全 SpiritPal 必需字段
  * data 中的字段优先，缺失时回退到默认值
- * 同时将 spriteAsset 路径转换为 Tauri 资源路径（如已移至 resources 目录）
+ * spriteAsset 保持相对路径（/pets/shimeji/xxx），与内置角色和社区角色一致，
+ * 避免 asset:// 协议在 Tauri 中加载不稳定导致间歇性闪烁
  * @param data 原始 profile 数据
  * @returns Promise，解析为规范化后的 CharacterProfile
  */
 async function normalizeShimejiProfile(data: CharacterProfile): Promise<CharacterProfile> {
-  // 转换 spriteAsset 路径：/pets/shimeji/xxx → Tauri 资源路径
-  let spriteAsset = data.spriteAsset ?? ''
-  if (spriteAsset.startsWith('/pets/')) {
-    const resourceBase = await getTauriResourceBase()
-    if (resourceBase) {
-      spriteAsset = resourceBase + 'pets/' + spriteAsset.slice('/pets/'.length)
-    }
-  }
+  // spriteAsset 保持原始相对路径（如 /pets/shimeji/Ayaka.png）
+  // 不转换为 asset:// 路径，与内置角色 / 社区角色统一
+  const spriteAsset = data.spriteAsset ?? ''
 
   return {
     ...data,

@@ -26,6 +26,8 @@
  * @requires ./modManager - 模组管理器（支持模组角色）
  */
 
+import { getLoadedCommunityCharacters } from '@/lib/render/communityLoader'
+import { getLoadedShimejiCharacters } from '@/lib/render/shimejiLoader'
 import { getModManager } from './modManager'
 import type { CharacterProfile } from './types'
 
@@ -238,9 +240,6 @@ const gugugaga: CharacterProfile = {
 // 角色列表导出
 export const CHARACTERS: CharacterProfile[] = [doro, feibi, gugugaga]
 
-// Phase 1.6: 接入 shimeji 角色加载器
-import { getLoadedShimejiCharacters } from '@/lib/render/shimejiLoader'
-
 // ============ 自定义角色持久化 ============
 const CUSTOM_CHARACTERS_KEY = 'spiritpal-custom-characters'
 
@@ -292,6 +291,20 @@ export function getCharacter(id: string): CharacterProfile | undefined {
   } catch {
     // modManager 可能在某些环境下不可用
   }
+  // 再查找社区宠物包角色（manifest 自动发现）
+  try {
+    const community = getLoadedCommunityCharacters().find((c) => c.id === id)
+    if (community) return community
+  } catch {
+    // 忽略
+  }
+  // 最后查找 shimeji 角色（WindowPet 移植）
+  try {
+    const shimeji = getLoadedShimejiCharacters().find((c) => c.id === id)
+    if (shimeji) return shimeji
+  } catch {
+    // 忽略
+  }
   return undefined
 }
 
@@ -318,6 +331,16 @@ export function getAllCharacters(): CharacterProfile[] {
   // 添加 shimeji 角色（WindowPet 移植，debug 阶段全量加载）
   try {
     getLoadedShimejiCharacters().forEach((c) => {
+      if (!result.find((r) => r.id === c.id)) {
+        result.push(c)
+      }
+    })
+  } catch {
+    // 忽略
+  }
+  // 添加社区宠物包角色（manifest 自动发现，public/pets/<id>/pet.json）
+  try {
+    getLoadedCommunityCharacters().forEach((c) => {
       if (!result.find((r) => r.id === c.id)) {
         result.push(c)
       }
