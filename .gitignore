@@ -178,3 +178,24 @@ pytest_tmp/
 .workbuddy-ai/
 .zcode/
 _tmp_excluded_tests/
+
+# --- 社区宠物接入（2026-09-11）---
+# 第三方仓库本地克隆（WindowPet 素材源，含版权二创素材，不入库）
+scripts/vendor/
+# 本地工具链（ffmpeg 便携版）
+scripts/tools/
+# 转换中间产物
+.tmp-*/
+
+# ── 2026-09-12 本地噪音排除（按仓库主人裁定）──
+# 本地 git 目录备份（不入库）
+backups/
+# 运行时日志（app_log.txt 等 .txt 日志；*.log 已覆盖 .log 后缀）
+app_log.txt
+*.log.txt
+# 误落入仓库根的 Windows AppData 副本（外部 agent 工作区，非项目内容，仅忽略不删）
+AppData/
+# 本地便携启动脚本（仅本机）
+start-portable.bat
+# 宠物资源（宠物文件，先不入库，待定）
+public/pets/
