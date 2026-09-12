@@ -32,7 +32,7 @@
 
 ### 6. 前端 / 客户端（XSS / WebView / 深链接）
 - **[S3-Low/Medium] DOM-XSS 经由 innerHTML** ~~（`src/main.tsx:96-101` 拼接 `title`/`detail` 进 innerHTML）~~ **✅ 已修复（2026-09-04）**：`renderFatalErrorToRoot` 改为 DOM 构造 + `textContent`，不可信错误串不再进入 HTML。
-- **[S4-Low/Info] 深链接处理**：`tauri.conf.json:88-95` 注册 `spiritpal://` scheme；`src/lib/widgetState.ts:216-244` `handleWidgetDeepLink` 仅把 `item_id` 作为背包查找 key，不拼接 URL、不进 innerHTML、不导航 WebView——低风险。建议：保持 `item_id` 仅作标识符，勿进任何 HTML/命令路径。
+- **[S4-Low/Info] 深链接处理**：`tauri.conf.json:88-95` 注册 `spiritpal://` scheme；`src/lib/system/widgetState.ts:216-244` `handleWidgetDeepLink` 仅把 `item_id` 作为背包查找 key，不拼接 URL、不进 innerHTML、不导航 WebView——低风险。建议：保持 `item_id` 仅作标识符，勿进任何 HTML/命令路径。
 
 ## 门禁适用性说明
 

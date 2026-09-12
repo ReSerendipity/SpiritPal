@@ -20,7 +20,7 @@
 # 决策
 
 - Rust 命令：`validate_upload_magic(contents, file_ext)`（注册于 `src-tauri/src/lib.rs` 的 `generate_handler!`）。
-- 前端接线：`src/lib/uploadMagic.ts`，已接入 CommunityPanel / GifToSpriteTool / SettingsWindow / SpriteSheetPanel 共 4 处。
+- 前端接线：`src/lib/system/uploadMagic.ts`，已接入 CommunityPanel / GifToSpriteTool / SettingsWindow / SpriteSheetPanel 共 4 处。
 - petmod 导入链路：zip 魔数 → SHA-256 → `validate_target_dir` 三层路径校验 → 解压（`enclosed_name` 防 zip slip）→ 结构验证。
 
 # 实施影响
