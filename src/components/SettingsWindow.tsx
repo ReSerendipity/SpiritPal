@@ -774,7 +774,7 @@ const [showImporter, setShowImporter] = useState(false)
 
             <div>
               <label className="mb-2 block text-xs text-ink-faint">当前角色</label>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 flex-wrap max-h-40 overflow-y-auto">
                 {getAllCharacters().map((c) => {
                   const active = c.id === settings.currentCharacterId
                   return (

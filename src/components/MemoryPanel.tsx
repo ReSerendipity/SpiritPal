@@ -10,7 +10,9 @@
  */
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { Trash2, Plus, Heart, BookOpen, User, Calendar, CheckSquare, XSquare } from 'lucide-react'
+import { Trash2, Plus, Heart, BookOpen, User, Calendar, CheckSquare, XSquare, Database } from 'lucide-react'
+import { EnhancedMemoryList } from '@/components/memory/EnhancedMemoryList'
+import EntityGraphView from '@/components/memory/EntityGraphView'
 import MemoryVisualizer from '@/components/MemoryVisualizer'
 import { createBatchManager } from '@/lib/data/batchOperationManager'
 import { exportMemories } from '@/lib/memory/memoryExporter'
@@ -19,12 +21,12 @@ import { getDiarySystemManager, type DiaryEntry } from '@/lib/nurture/diarySyste
 import { getPetExperienceManager, type PetExperience } from '@/lib/nurture/petExperience'
 import { usePetStore } from '@/stores/petStore'
 
-type Tab = 'facts' | 'experiences' | 'diary'
+type Tab = 'facts' | 'experiences' | 'diary' | 'all'
 
 export function MemoryPanel() {
   const currentCharacterId = usePetStore((s) => s.currentCharacterId)
   // A-4：视图切换 —— 精简（默认，保持旧行为零回归）/ 可视化
-  const [viewMode, setViewMode] = useState<'compact' | 'visual'>('compact')
+  const [viewMode, setViewMode] = useState<'compact' | 'visual' | 'graph'>('compact')
   const [tab, setTab] = useState<Tab>('facts')
   const [facts, setFacts] = useState<OwnerFact[]>([])
   const [experiences, setExperiences] = useState<PetExperience[]>([])
@@ -32,6 +34,8 @@ export function MemoryPanel() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [newFactKey, setNewFactKey] = useState('')
   const [newFactValue, setNewFactValue] = useState('')
+  // 「全部记忆」Tab 的结果数量角标
+  const [allCount, setAllCount] = useState(0)
 
   // A-12：批量操作管理器（多选 + 批量删除 + 撤销快照）
   const batch = useMemo(() => createBatchManager<OwnerFact>([]), [])
@@ -187,11 +191,25 @@ export function MemoryPanel() {
         >
           可视化
         </button>
+        <button
+          onClick={() => setViewMode('graph')}
+          className={`rounded border px-2.5 py-1 text-xs transition-colors ${
+            viewMode === 'graph'
+              ? 'border-pet-primary bg-pet-primary/10 text-pet-primary'
+              : 'border-ink/15 text-ink-muted hover:bg-ink/5 hover:text-ink'
+          }`}
+        >
+          图谱
+        </button>
       </div>
 
       {viewMode === 'visual' ? (
         <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-ink/10">
           <MemoryVisualizer />
+        </div>
+      ) : viewMode === 'graph' ? (
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <EntityGraphView />
         </div>
       ) : (
         <>
@@ -255,6 +273,7 @@ export function MemoryPanel() {
         {tabButton('facts', '主人画像', <User size={16} />, facts.length)}
         {tabButton('experiences', '我们的故事', <Heart size={16} />, experiences.length)}
         {tabButton('diary', '日记', <BookOpen size={16} />, diaries.length)}
+        {tabButton('all', '全部记忆', <Database size={16} />, allCount)}
       </div>
 
       {/* 内容区域 */}
@@ -405,6 +424,9 @@ export function MemoryPanel() {
               ))
             )}
           </div>
+        )}
+        {tab === 'all' && (
+          <EnhancedMemoryList onCountChange={setAllCount} />
         )}
         </div>
         </>

@@ -39,6 +39,10 @@ vi.mock('@tauri-apps/api/window', () => ({
   WebviewWindow: vi.fn(),
 }))
 
+vi.mock('@/lib/system/appWindows', () => ({
+  safeGetWindow: () => dragging.winMock,
+}))
+
 describe('usePetDragging', () => {
   beforeEach(() => {
     vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1))

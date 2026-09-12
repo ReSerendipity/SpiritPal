@@ -143,7 +143,10 @@ export function SpriteRenderer({
   const chromaRafRef = useRef<number>(0)
 
   const animKey = stateToAnimKey(state)
-  const animRow = ANIMATION_ROWS[animKey] ?? ANIMATION_ROWS.idle
+  // 优先角色专属动画行（shimeji 帧数普遍小于内置角色，如 jumping 仅 1 帧）；
+  // 缺省再回退全局 ANIMATION_ROWS（内置/社区角色）。否则套全局大帧数会把单帧
+  // 动画推到图集越界列，表现为闪烁 / 动作乱跳。
+  const animRow = character?.animationRows?.[animKey] ?? ANIMATION_ROWS[animKey] ?? ANIMATION_ROWS.idle
 
   // 状态变化时重置帧计数（渲染期调整，保证动画从第一帧开始）
   const [prevAnimKey, setPrevAnimKey] = useState(animKey)

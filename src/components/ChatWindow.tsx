@@ -34,7 +34,7 @@ import { emit } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
-import { Send, Square, Trash2, Bot, User, Search, X, ChevronUp, ChevronDown, Flag, AlertTriangle, RefreshCw } from 'lucide-react'
+import { Send, Square, Trash2, Bot, User, Search, X, ChevronUp, ChevronDown, Flag, AlertTriangle, RefreshCw, Mic, Volume2 } from 'lucide-react'
 import Markdown from 'react-markdown'
 // SECURITY R-02: 为 react-markdown 配置 rehype-sanitize，阻断 AI 输出型 XSS
 import rehypeSanitize from 'rehype-sanitize'
@@ -54,6 +54,11 @@ import { getChatStageManager } from '@/lib/ai/chatStages'
 import { getAchievementManager } from '@/lib/nurture/achievementSystem'
 import { getScheduleManager } from '@/lib/nurture/scheduleManager'
 import { detectAgentIntent, processAgentRequest } from '@/lib/ai/aiAgent'
+// STT：语音输入转文字（Web Speech API 主，零依赖）
+import { STTEngine, isSpeechRecognitionSupported } from '@/lib/ai/stt'
+// VOICEVOX 本地 TTS：助手回复「朗读」按钮（HTTP API → wav Blob → HTMLAudioElement）
+import { voicevoxTTS } from '@/lib/ai/tts'
+import { TTSPlayer } from '@/lib/ai/ttsPlayer'
 // P0-1：注入真实工具确认处理器（高风险工具默认需确认；无处理器时 fail-closed 一律拒绝）
 import { setToolConfirmationHandler } from '@/lib/ai/agentSandbox'
 // P1-1：接线日记系统
@@ -98,6 +103,20 @@ function mkMsg(role: 'user' | 'assistant' | 'system', content: string): ChatMess
 }
 
 /**
+/**
+ * 朗读前清洗 AI 回复文本（与 usePetTTS 同一套规则）：
+ * 去掉代码块、方括号/中括号标签（情绪、think、系统备注）、markdown 符号、多余空白
+ */
+function cleanVoicevoxText(text: string): string {
+  return (text ?? '')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/\[[^\]]*\]|【[^】]*】/g, ' ')
+    .replace(/[*#>`_~]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
  * AI聊天窗口主组件
  *
  * 提供完整的AI对话界面，支持流式输出、Markdown渲染、记忆集成、
@@ -130,6 +149,17 @@ export default function ChatWindow() {
   const [searchIndex, setSearchIndex] = useState(0)
   // 当前正在重新生成的消息 id（用于禁用按钮、显示加载态）
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
+  // STT 语音输入：是否正在识别中
+  const [sttActive, setSttActive] = useState(false)
+  const sttEngineRef = useRef<STTEngine | null>(null)
+  // VOICEVOX 朗读：ttsAvailable null=探测中/false=引擎不可用；speakingId=正在朗读的消息 id
+  const [ttsAvailable, setTtsAvailable] = useState<boolean | null>(null)
+  const [speakingId, setSpeakingId] = useState<string | null>(null)
+  const voicevoxPlayerRef = useRef<TTSPlayer | null>(null)
+  function getVoicevoxPlayer(): TTSPlayer {
+    if (!voicevoxPlayerRef.current) voicevoxPlayerRef.current = new TTSPlayer()
+    return voicevoxPlayerRef.current
+  }
   // 语音朗读（TTS）：仅朗读"刚结束流式"的助手回复，避免朗读历史/重复朗读
   const { speak } = usePetTTS()
   const prevStreamingIds = useRef<ReadonlySet<string>>(new Set())
@@ -215,8 +245,23 @@ export default function ChatWindow() {
       chatStageMgr.restore()
       // 注销确认处理器（恢复 fail-closed）
       setToolConfirmationHandler(null)
+      // 中止进行中的语音识别会话
+      sttEngineRef.current?.abort()
+      sttEngineRef.current = null
     }
   }, [chatStageMgr])
+
+  // 挂载时探测 VOICEVOX 引擎是否在线（非阻塞）；卸载时停止朗读并释放音频资源
+  useEffect(() => {
+    let cancelled = false
+    void voicevoxTTS.isEngineAvailable().then((avail) => {
+      if (!cancelled) setTtsAvailable(avail)
+    })
+    return () => {
+      cancelled = true
+      getVoicevoxPlayer().stop()
+    }
+  }, [])
 
   // Esc 键关闭聊天窗口（无障碍键盘导航）
   useEffect(() => {
@@ -676,6 +721,63 @@ export default function ChatWindow() {
     }
   }
 
+  // STT：点击麦克风开始/停止语音识别，结果实时回填输入框
+  function handleMicToggle() {
+    if (sttActive) {
+      sttEngineRef.current?.stop()
+      // stop() 后由 onEnd 回调复位 sttActive；这里同步复位避免延迟
+      setSttActive(false)
+      return
+    }
+    if (!isSpeechRecognitionSupported()) {
+      setError('当前环境不支持语音识别（需 Chrome/Edge 内核 WebView）')
+      return
+    }
+    setError(null)
+    try {
+      const engine = new STTEngine()
+      sttEngineRef.current = engine
+      engine.start(
+        {
+          onPartial: (text) => setInput(text),
+          onFinal: (text) => setInput(text),
+          onError: (msg) => {
+            setError(`语音识别失败：${msg}`)
+            setSttActive(false)
+          },
+          onEnd: () => setSttActive(false),
+        },
+        { lang: 'zh-CN', continuous: true, interimResults: true },
+      )
+      setSttActive(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '语音识别启动失败')
+      sttEngineRef.current = null
+    }
+  }
+
+  // VOICEVOX 朗读：点击合成并播放；再次点击停止。引擎不可用由按钮 disabled 拦截。
+  async function handleSpeak(message: ChatMessage) {
+    if (speakingId === message.id) {
+      getVoicevoxPlayer().stop()
+      setSpeakingId(null)
+      return
+    }
+    const clean = cleanVoicevoxText(message.content)
+    if (!clean) return
+    setSpeakingId(message.id)
+    try {
+      const blob = await voicevoxTTS.synthesize(clean.slice(0, 500))
+      await getVoicevoxPlayer().play(blob)
+    } catch (err) {
+      // 合成/播放失败：标记引擎不可用并提示（下次按钮禁用）
+      setTtsAvailable(false)
+      setError(`语音朗读失败：${err instanceof Error ? err.message : 'VOICEVOX 引擎未启动'}`)
+    } finally {
+      setSpeakingId((cur) => (cur === message.id ? null : cur))
+    }
+  }
+
   function handleKeyDown(e: ReactKeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -964,6 +1066,31 @@ export default function ChatWindow() {
                     不符性格
                   </button>
                 )}
+                {/* VOICEVOX 朗读按钮：仅助手已完成回复显示；引擎未启动时禁用 */}
+                {!isUser && !m.isStreaming && m.content && (
+                  <button
+                    onClick={() => void handleSpeak(m)}
+                    disabled={ttsAvailable === false || isRegenerating}
+                    className={`mt-1 flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-40 ${
+                      speakingId === m.id ? 'text-tangerine-deep' : 'text-ink-faint hover:text-tangerine-deep'
+                    }`}
+                    title={
+                      ttsAvailable === false
+                        ? 'VOICEVOX 引擎未启动（默认 http://127.0.0.1:50021）'
+                        : speakingId === m.id
+                          ? '点击停止朗读'
+                          : '用 VOICEVOX 朗读此回复'
+                    }
+                    aria-label={speakingId === m.id ? '停止朗读' : '朗读此回复'}
+                  >
+                    {speakingId === m.id ? (
+                      <Square size={11} className="animate-pulse" />
+                    ) : (
+                      <Volume2 size={11} />
+                    )}
+                    {speakingId === m.id ? '停止朗读' : '朗读'}
+                  </button>
+                )}
                 {isFlagged && (
                   <span className="mt-1 flex items-center gap-1 px-2 py-0.5 text-[11px] text-red-500/70">
                     <Flag size={11} /> 已标记
@@ -990,6 +1117,19 @@ export default function ChatWindow() {
             aria-label="聊天输入框"
             className="flex-1 resize-none rounded-panel border border-ink/10 bg-surface px-3 py-2 text-sm text-ink placeholder-ink-faint focus:outline-none focus:ring-1 focus:ring-tangerine"
           />
+          <button
+            onClick={handleMicToggle}
+            aria-label={sttActive ? '停止语音输入' : '语音输入'}
+            aria-pressed={sttActive}
+            title={sttActive ? '点击停止语音输入' : '点击开始语音输入'}
+            className={`spiritpal-focusable flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
+              sttActive
+                ? 'bg-red-500 text-white hover:bg-red-400 animate-pulse'
+                : 'bg-surface text-ink-faint border border-ink/10 hover:bg-ink/8'
+            }`}
+          >
+            <Mic size={16} aria-hidden="true" />
+          </button>
           {isLoading ? (
             <button
               onClick={stopGeneration}

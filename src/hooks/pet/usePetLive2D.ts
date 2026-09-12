@@ -51,20 +51,34 @@ export function usePetLive2D(options: UsePetLive2DOptions): UsePetLive2DReturn {
   const live2dRef = externalRef ?? internalLive2dRef
   const live2dPathCacheRef = useRef<Map<string, string | null>>(new Map())
   const lastMotionGroupRef = useRef<string>('')
+  // 记录上一次渲染时的角色 ID，用于在渲染期检测角色切换
+  // （useEffect 在渲染后才执行，期间 live2dModelPath 仍是旧值会导致闪烁）
+  const prevCharacterIdRef = useRef<string>(currentCharacterId)
 
-  const useLive2D = live2dModelPath !== null && !live2dFailed
+  // 角色切换时：渲染期立即将 useLive2D 置为 false，避免短暂渲染旧角色的 Live2D 模型
+  // （旧角色可能有 Live2D，新角色可能没有——不立即切断会在探测期间残留旧模型造成闪烁）
+  const charSwitched = prevCharacterIdRef.current !== currentCharacterId
+  if (charSwitched) {
+    prevCharacterIdRef.current = currentCharacterId
+  }
+
+  const useLive2D = !charSwitched && live2dModelPath !== null && !live2dFailed
 
   // Live2D 模型检测：角色切换时检查 .model3.json 是否存在
   useEffect(() => {
     let cancelled = false
     const cache = live2dPathCacheRef.current
 
+    // 角色切换时立即清空旧模型路径，避免短暂渲染旧角色的 Live2D 导致闪烁
+    // （旧角色可能有 Live2D，新角色可能没有——不清空会在探测期间残留旧模型）
+    setLive2dModelPath(null)
+    setLive2dFailed(false)
+
     if (cache.has(currentCharacterId)) {
       const cached = cache.get(currentCharacterId) ?? null
       cache.delete(currentCharacterId)
       cache.set(currentCharacterId, cached)
-      setLive2dModelPath(cached)
-      setLive2dFailed(false)
+      if (!cancelled) setLive2dModelPath(cached)
       return
     }
 

@@ -31,6 +31,7 @@ import {
   getModManager, createModTemplate,
   type ModInfo, type CharacterMod, type ScannedModInfo,
 } from '@/lib/data/modManager'
+import { resolveModThumbnail } from '@/lib/data/modThumbnail'
 import type { CharacterProfile } from '@/lib/data/types'
 import { trackModInstall } from '@/lib/system/analytics'
 
@@ -40,6 +41,23 @@ import { trackModInstall } from '@/lib/system/analytics'
  * 提供角色模组的完整生命周期管理：安装、启用/禁用、导出、卸载、创建。
  * 支持JSON和.petmod两种格式，提供SHA-256签名校验功能。
  */
+/** 模组卡片缩略图：有图渲染缩略图，无图渲染 Package 占位图 */
+function ModCardThumbnail({ url }: { url: string | null | undefined }) {
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt=""
+        className="h-12 w-12 shrink-0 rounded-lg border border-ink/10 object-cover"
+      />
+    )
+  }
+  return (
+    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-ink/10 bg-surface/50">
+      <Package size={20} className="text-ink-muted opacity-50" />
+    </div>
+  )
+}
 export function ModPanel() {
   const modMgr = getModManager()
   // 初始值来自管理器快照（惰性初始化），避免在 effect 中同步 setState
@@ -56,6 +74,8 @@ export function ModPanel() {
   const [importing, setImporting] = useState(false)
   const [sha256Display, setSha256Display] = useState<string | null>(null)
   const [scannedMods, setScannedMods] = useState<ScannedModInfo[]>([])
+  // 各模组卡片缩略图 URL（resolveModThumbnail 异步解析后填充；null=已确认无缩略图）
+  const [thumbnailUrls, setThumbnailUrls] = useState<Record<string, string | null>>({})
 
   const refreshMods = useCallback(() => {
     setMods(modMgr.getMods())
@@ -65,6 +85,23 @@ export function ModPanel() {
     // 仅订阅变更，回调由管理器在变更时触发（非同步 setState）
     return modMgr.onChange(() => setMods(modMgr.getMods()))
   }, [modMgr])
+  // 模组列表变化时异步解析每个卡片的缩略图（preview.png / manifest.thumbnail）
+  useEffect(() => {
+    let cancelled = false
+    void Promise.all(
+      mods.map(async (m) => ({ id: m.id, url: await resolveModThumbnail(m) })),
+    ).then((results) => {
+      if (cancelled) return
+      setThumbnailUrls((prev) => {
+        const next = { ...prev }
+        for (const r of results) next[r.id] = r.url
+        return next
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [mods])
 
   function flashSuccess(msg: string) {
     setSuccess(msg)
@@ -367,6 +404,7 @@ export function ModPanel() {
               } ${mod.enabled ? '' : 'opacity-50'}`}
             >
               <div className="flex items-start justify-between gap-2">
+                <ModCardThumbnail url={thumbnailUrls[mod.id]} />
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <Package size={14} className="text-amber-300" />

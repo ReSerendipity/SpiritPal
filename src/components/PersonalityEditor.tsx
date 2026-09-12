@@ -32,8 +32,7 @@ import {
   removePersonalityConfigOverride,
 } from '@/lib/ai/personalityEngine'
 import { PERSONALITY_TEMPLATES } from '@/lib/ai/personalityTemplates'
-import { getCharacter } from '@/lib/data/characters'
-import { CHARACTERS } from '@/lib/data/characters'
+import { getCharacter, getAllCharacters } from '@/lib/data/characters'
 import type {
   Personality, PersonalityConfig, SpeakingStyle, InteractionPreferences,
   SchedulePeriod, Tone, WordPreference, InteractionFrequency,
@@ -520,6 +519,8 @@ function TemplateButtons({ onApply }: { onApply: (templateId: string) => void })
 export function PersonalityEditor() {
   const currentCharacterId = useSettingsStore((s) => s.currentCharacterId)
   const character = getCharacter(currentCharacterId)
+  // 订阅角色列表版本号，确保社区角色加载后选择器更新
+  useSettingsStore((s) => s.characterListVersion)
 
   const [config, setConfig] = useState<PersonalityConfig>(() => {
     if (!character) {
@@ -601,7 +602,7 @@ export function PersonalityEditor() {
     <div className="space-y-5">
       {/* 角色选择器 */}
       <div className="flex gap-2">
-        {CHARACTERS.map((c) => {
+        {getAllCharacters().map((c) => {
           const active = c.id === currentCharacterId
           return (
             <button

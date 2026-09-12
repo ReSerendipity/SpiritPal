@@ -256,6 +256,35 @@ describe('petStore', () => {
     })
   })
 
+
+  describe('dropRandomCoins（正态分布金币掉落）', () => {
+    it('返回值在 [1, 50] 范围内且为整数', () => {
+      for (let i = 0; i < 100; i++) {
+        const amount = usePetStore.getState().dropRandomCoins()
+        expect(amount).toBeGreaterThanOrEqual(1)
+        expect(amount).toBeLessThanOrEqual(50)
+        expect(Number.isInteger(amount)).toBe(true)
+      }
+    })
+
+    it('实际增加 sharedCoins', () => {
+      const before = usePetStore.getState().sharedCoins
+      const amount = usePetStore.getState().dropRandomCoins()
+      expect(usePetStore.getState().sharedCoins).toBe(before + amount)
+    })
+
+    it('1000 次采样均值在 [10, 20] 范围内（μ=15, σ=8）', () => {
+      usePetStore.setState({ sharedCoins: 0 })
+      let sum = 0
+      for (let i = 0; i < 1000; i++) {
+        sum += usePetStore.getState().dropRandomCoins()
+      }
+      const mean = sum / 1000
+      expect(mean).toBeGreaterThan(10)
+      expect(mean).toBeLessThan(20)
+    })
+  })
+
   describe('buyItem', () => {
     it('有足够金币时购买成功', () => {
       const item = makeItem({ id: 'buy-test', price: 30 })
