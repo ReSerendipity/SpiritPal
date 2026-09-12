@@ -341,7 +341,7 @@ const en = {
     'badge.sun': 'Sun',
     'badge.crown': 'Crown',
     'char.doro': 'Doro',
-    'char.feibi': '参考实现',
+    'char.feibi': 'Feibi',
     'char.gugugaga': 'Gugugaga',
     'mods.title': 'Mod Manager',
     'mods.import': 'Import Mod',

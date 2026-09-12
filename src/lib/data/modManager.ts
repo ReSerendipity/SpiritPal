@@ -37,6 +37,7 @@ import { open as openDialog, ask as askDialog } from '@tauri-apps/plugin-dialog'
 import { readTextFile, exists } from '@tauri-apps/plugin-fs'
 import { DEFAULT_ANIMATIONS, type AnimationDef } from '@/lib/ai/behaviorEngine'
 import { saveMod, getMods, deleteMod, updateModEnabled } from './db'
+import { detectModConflicts, type ModConflict } from './modConflictResolver'
 import type { CharacterProfile, Personality, InventoryItem } from './types'
 
 // ============ SemVer 版本号工具 ============
@@ -873,6 +874,16 @@ export function createModTemplate(): CharacterMod {
   }
 }
 
+// ============ 字段级冲突检测（委托 modConflictResolver，不改动既有依赖校验） ============
+
+/**
+ * 字段级 Mod 冲突检测入口（供管理界面调用）。
+ * 检测：同角色 pet_conf 字段 / 动画名 / 物品 ID / 对话类别冲突。
+ * 与既有依赖校验解耦，避免与其它进行中的 Mod 工作冲突。
+ */
+export function checkModFieldConflicts(mods: ModInfo[]): ModConflict[] {
+  return detectModConflicts(mods.map((m) => ({ id: m.id, modData: m.modData })))
+}
 // ============ 单例 ============
 
 let sharedMgr: ModManager | null = null

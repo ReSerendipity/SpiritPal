@@ -235,6 +235,12 @@ export interface CharacterProfile {
   // Phase 1.6: 自定义精灵图集布局（shimeji 角色为 128×128，内置角色用全局 ATLAS）
   /** 自定义精灵图集布局 */
   atlasLayout?: { cellW: number; cellH: number; cols: number; rows: number }
+  /**
+   * 角色专属动画行定义（行号 + 帧数）。shimeji 角色的帧数普遍小于内置角色
+   * （如 jumping 仅 1 帧），渲染时必须优先用本字段，否则套用全局 ANIMATION_ROWS
+   * 的大帧数会把单帧动画推到图集越界列，表现为闪烁 / 动作乱跳。缺省时回退全局。
+   */
+  animationRows?: Record<string, AnimationRow>
   // 色度键兜底（Windows WebView2 丢 VP9 alpha）：true 强制 / false 禁用 / auto 自动检测（默认）
   /** 色度键（Chroma Key）兜底配置 */
   chromaKey?: boolean | 'auto'

@@ -13,6 +13,8 @@ import {
   upsertEntityGraphEdge,
   findEntityNodesByName,
   getEntityGraphNeighbors,
+  getEntityNodes,
+  getMemories,
 } from '@/lib/data/db'
 import type { EnhancedMemory } from './memoryTypes'
 
@@ -287,4 +289,144 @@ export async function buildEntityGraphFromMemories(
       }
     }
   }
+}
+
+// ============ 图谱视图查询（EntityGraphView 数据层） ============
+
+/**
+ * 图谱视图实体类型（与 entity_nodes 表 / entityLinking EntityType 对齐）。
+ * 注意：这是 entity_nodes 存储的类型，与上面 MemoryEntity['type']（P1-4 memory_entities 表）
+ * 是两套独立存储，不要混用。
+ */
+export type GraphEntityType = 'person' | 'place' | 'thing' | 'time' | 'concept' | 'event'
+
+/** 图谱视图节点（力导向图渲染单元） */
+export interface GraphEntity {
+  id: string
+  name: string
+  type: GraphEntityType
+  /** 关联记忆数量（节点大小映射） */
+  memoryCount: number
+  /** 关联的记忆 ID 列表 */
+  memoryIds: string[]
+  /** 提及次数 */
+  mentionCount: number
+  createdAt: number
+}
+
+/** 图谱视图边 */
+export interface GraphEdge {
+  source: string
+  target: string
+  /** 权重（共享记忆数） */
+  weight: number
+  /** 共现次数（= weight，冗余便于调试） */
+  cooccurCount: number
+}
+
+/** entity_nodes.type → GraphEntityType 归一化（未知类型归入 concept） */
+function normalizeGraphType(t: string): GraphEntityType {
+  switch (t) {
+    case 'person':
+    case 'place':
+    case 'thing':
+    case 'time':
+    case 'concept':
+    case 'event':
+      return t
+    default:
+      return 'concept'
+  }
+}
+
+/**
+ * 查询角色的全部实体（真实数据：entity_nodes 表 via sp_entity_list）。
+ *
+ * 背景：P1-4 的 memory_entities 表当前没有「列出全部」的 Rust 命令（本任务不改 Rust），
+ * 而 entity_nodes 表（entityLinking 写入）已有 sp_entity_list 且是活跃填充的实体存储，
+ * 故图谱视图直接以它为数据源。
+ */
+export async function getAllEntities(characterId: string): Promise<GraphEntity[]> {
+  const rows = await getEntityNodes(characterId)
+  return rows.map((r) => {
+    let memoryIds: string[] = []
+    try {
+      const parsed = JSON.parse(r.linked_memory_ids) as unknown
+      if (Array.isArray(parsed)) memoryIds = parsed.filter((x): x is string => typeof x === 'string')
+    } catch {
+      memoryIds = []
+    }
+    return {
+      id: r.id,
+      name: r.name,
+      type: normalizeGraphType(r.type),
+      memoryCount: memoryIds.length,
+      memoryIds,
+      mentionCount: r.mention_count,
+      createdAt: r.first_seen,
+    }
+  })
+}
+
+/**
+ * 从实体的共享记忆共现派生关系边（纯函数，便于单测）。
+ * 两个实体出现在同一条记忆中 → 一条边，权重 = 共享记忆数。
+ */
+export function buildCooccurrenceEdges(entities: GraphEntity[]): GraphEdge[] {
+  // memoryId -> 实体 id 列表
+  const memoryToEntities = new Map<string, string[]>()
+  for (const e of entities) {
+    for (const mid of e.memoryIds) {
+      const arr = memoryToEntities.get(mid)
+      if (arr) arr.push(e.id)
+      else memoryToEntities.set(mid, [e.id])
+    }
+  }
+
+  const pairKey = (a: string, b: string) => (a < b ? `${a}||${b}` : `${b}||${a}`)
+  const weights = new Map<string, number>()
+  for (const ids of memoryToEntities.values()) {
+    if (ids.length < 2) continue
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        const a = ids[i]
+        const b = ids[j]
+        if (a === undefined || b === undefined) continue
+        const k = pairKey(a, b)
+        weights.set(k, (weights.get(k) ?? 0) + 1)
+      }
+    }
+  }
+
+  const edges: GraphEdge[] = []
+  for (const [k, weight] of weights) {
+    const [source, target] = k.split('||')
+    if (source && target) edges.push({ source, target, weight, cooccurCount: weight })
+  }
+  return edges
+}
+
+/** 查询角色实体关系边（= getAllEntities + 共现派生） */
+export async function getAllEdges(characterId: string): Promise<GraphEdge[]> {
+  const entities = await getAllEntities(characterId)
+  return buildCooccurrenceEdges(entities)
+}
+
+/**
+ * 查询某实体关联的记忆行（真实数据：memories 表 via sp_mem_list）。
+ * 按实体的 linked_memory_ids 过滤。
+ */
+export async function getEntityMemories(
+  characterId: string,
+  entityId: string,
+): Promise<Array<Record<string, unknown>>> {
+  const entities = await getAllEntities(characterId)
+  const entity = entities.find((e) => e.id === entityId)
+  if (!entity || entity.memoryIds.length === 0) return []
+  const rows = await getMemories(characterId)
+  const idSet = new Set(entity.memoryIds)
+  return rows.filter((r) => {
+    const mid = (r as { memory_id?: string | null }).memory_id
+    return mid != null && idSet.has(mid)
+  })
 }

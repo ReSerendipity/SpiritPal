@@ -67,28 +67,14 @@ export interface UpdateInstallResult {
 /**
  * 检查是否有新版本可用
  *
+ * 2026-09-12 临时禁用：Tauri updater 插件在当前环境报 `Cannot read properties of undefined (reading 'invoke')`，
+ * 反复弹出"更新失败"弹窗阻碍正常使用。直接返回无更新，待 updater 插件修复后恢复。
+ *
  * @returns Promise，解析为更新检查结果（失败时 error 携带原因）
  */
 export async function checkForUpdates(): Promise<UpdateCheckResult> {
-  try {
-    const update = await check()
-    if (update) {
-      return {
-        available: true,
-        info: {
-          version: update.version,
-          date: update.date,
-          body: update.body,
-        },
-      }
-    }
-    return { available: false }
-  } catch (e) {
-    return {
-      available: false,
-      error: e instanceof Error ? e.message : String(e),
-    }
-  }
+  // 临时禁用自动更新检测（updater 插件 invoke 未定义）
+  return { available: false }
 }
 
 /**
