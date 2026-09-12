@@ -114,6 +114,32 @@ mod platform_impl {
         Ok(())
     }
 
+    /// 检测当前前台窗口是否为「全屏窗口」（Windows）
+    ///
+    /// 判定规则（参考 CodeWalkers 全屏自动隐藏）：
+    /// 1. `GetForegroundWindow()` 取前台窗口，句柄空或已最小化（`IsIconic`）→ 非全屏
+    /// 2. `GetWindowRect()` 取其包围矩形
+    /// 3. 与主屏尺寸（`GetSystemMetrics(SM_CXSCREEN/CYSCREEN)`）比较：
+    ///    矩形覆盖整个主屏（左/上 <= 1px，右/底 >= 屏幕尺寸 - 1px，容差 1px）→ 判定为全屏
+    ///
+    /// 说明：基于主屏尺寸，多显示器副屏全屏暂不覆盖（v1 范围；多数游戏/视频全屏落在主屏）。
+    /// 宠物自身窗口为透明点击穿透小窗，不会满足"覆盖整屏"，故无需排除自身 hwnd。
+    pub fn is_foreground_fullscreen() -> bool {
+        unsafe {
+            let hwnd = GetForegroundWindow();
+            if hwnd.0.is_null() || IsIconic(hwnd) {
+                return false;
+            }
+            let mut rect = RECT::default();
+            if GetWindowRect(hwnd, &mut rect).is_err() {
+                return false;
+            }
+            let screen_w = GetSystemMetrics(SM_CXSCREEN);
+            let screen_h = GetSystemMetrics(SM_CYSCREEN);
+            rect.left <= 1 && rect.top <= 1 && rect.right >= screen_w - 1 && rect.bottom >= screen_h - 1
+        }
+    }
+
     /// 获取系统空闲时间（毫秒）（Windows）
     ///
     /// 使用 `GetLastInputInfo` 获取上次输入（键盘/鼠标）时间，
@@ -395,6 +421,14 @@ mod platform_impl {
         (title, process_name)
     }
 
+    /// 检测前台窗口是否全屏（macOS，v1 未实现，返回 false）。
+    ///
+    /// macOS 原生全屏（NSWindowStyleMaskFullScreen）需遍历 NSApp.windows 判定，
+    /// 当前范围与 Windows 对齐先返回 false，由前端降级为不自动隐藏。
+    pub fn is_foreground_fullscreen() -> bool {
+        false
+    }
+
     /// 获取前台应用进程名（macOS）
     ///
     /// 使用 osascript 执行 AppleScript：
@@ -542,6 +576,13 @@ mod platform_impl {
 
         (title, process_name)
     }
+
+    /// 检测前台窗口是否全屏（Linux，v1 未实现，返回 false）。
+    ///
+    /// Wayland 下无可靠全屏探测；X11 可经 xdotool 判定，当前降级返回 false。
+    pub fn is_foreground_fullscreen() -> bool {
+        false
+    }
 }
 
 // ============ 其他平台降级实现 ============
@@ -558,11 +599,16 @@ mod platform_impl {
     pub fn get_active_window_info() -> (String, String) {
         (String::new(), String::new())
     }
+
+    /// 其他平台：全屏检测不可用，返回 false
+    pub fn is_foreground_fullscreen() -> bool {
+        false
+    }
 }
 
 // ============ 公共 re-export（跨平台统一接口）============
 
-pub use platform_impl::{get_active_window_info, get_idle_ms};
+pub use platform_impl::{get_active_window_info, get_idle_ms, is_foreground_fullscreen};
 
 /// Windows 专属：设置窗口点击穿透
 ///
