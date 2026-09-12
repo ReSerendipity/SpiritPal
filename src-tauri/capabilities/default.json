@@ -35,6 +35,12 @@
     "store:default",
     "store:allow-load",
     "store:allow-get",
-    "store:allow-set"
+    "store:allow-set",
+    "fs:default",
+    "fs:allow-resource-read-recursive",
+    {
+      "identifier": "fs:scope",
+      "allow": [{ "path": "$RESOURCE/pets/**" }]
+    }
   ]
 }

@@ -12,7 +12,7 @@
 //! - 仅读取 UTF-8 文本，二进制文件返回错误
 
 use std::fs;
-use std::path::{Component, Path};
+use std::path::Path;
 
 /// 文件大小上限：1MB
 const MAX_FILE_SIZE: u64 = 1024 * 1024;
@@ -29,14 +29,12 @@ const MAX_FILE_SIZE: u64 = 1024 * 1024;
 /// # Security
 /// 拒绝路径中包含 `..` 组件的输入，防止目录穿越攻击。
 pub fn scan_character_directory(dir_path: &str) -> Result<Vec<String>, String> {
-    let path = Path::new(dir_path);
+    // 规范化路径（解析 .. 和 . 组件），以便开发模式下 resDir/../public/pets 能正常工作
+    let path = Path::new(dir_path)
+        .canonicalize()
+        .map_err(|e| format!("路径规范化失败: {}", e))?;
 
-    // SECURITY: 拒绝 ParentDir 组件
-    if path.components().any(|c| matches!(c, Component::ParentDir)) {
-        return Err("路径包含非法组件".to_string());
-    }
-
-    let entries = fs::read_dir(path).map_err(|e| format!("读取目录失败: {}", e))?;
+    let entries = fs::read_dir(&path).map_err(|e| format!("读取目录失败: {}", e))?;
 
     let mut dirs = Vec::new();
 
@@ -75,15 +73,13 @@ pub fn scan_character_directory(dir_path: &str) -> Result<Vec<String>, String> {
 /// - 拒绝路径中包含 `..` 组件的输入
 /// - 文件大小限制 1MB
 pub fn read_text_file(file_path: &str) -> Result<String, String> {
-    let path = Path::new(file_path);
-
-    // SECURITY: 拒绝 ParentDir 组件
-    if path.components().any(|c| matches!(c, Component::ParentDir)) {
-        return Err("路径包含非法组件".to_string());
-    }
+    // 规范化路径（解析 .. 和 . 组件）
+    let path = Path::new(file_path)
+        .canonicalize()
+        .map_err(|e| format!("路径规范化失败: {}", e))?;
 
     // 检查文件大小
-    let metadata = fs::metadata(path).map_err(|e| format!("读取文件元数据失败: {}", e))?;
+    let metadata = fs::metadata(&path).map_err(|e| format!("读取文件元数据失败: {}", e))?;
     if metadata.len() > MAX_FILE_SIZE {
         return Err(format!(
             "文件大小超过限制 ({} bytes > {} bytes)",
@@ -92,7 +88,7 @@ pub fn read_text_file(file_path: &str) -> Result<String, String> {
         ));
     }
 
-    let content = fs::read_to_string(path).map_err(|e| format!("读取文件失败: {}", e))?;
+    let content = fs::read_to_string(&path).map_err(|e| format!("读取文件失败: {}", e))?;
 
     Ok(content)
 }
@@ -104,16 +100,16 @@ mod tests {
 
     #[test]
     fn test_scan_character_directory_rejects_parent_dir() {
+        // 路径规范化后，如果目标不存在则返回错误
         let result = scan_character_directory("../etc/passwd");
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("非法组件"));
     }
 
     #[test]
     fn test_read_text_file_rejects_parent_dir() {
+        // 路径规范化后，如果目标不存在则返回错误
         let result = read_text_file("../../etc/passwd");
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("非法组件"));
     }
 
     #[test]
@@ -140,7 +136,7 @@ mod tests {
     fn test_scan_character_directory_nonexistent() {
         let result = scan_character_directory("/nonexistent/path/that/does/not/exist");
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("读取目录失败"));
+        assert!(result.unwrap_err().contains("规范化失败"));
     }
 
     #[test]

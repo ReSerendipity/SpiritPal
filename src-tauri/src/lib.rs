@@ -168,7 +168,7 @@ use commands::window::{
 };
 #[cfg(desktop)]
 use commands::window::{
-    get_active_window, get_idle_time, get_mouse_pos, hide_pet_window, open_path,
+    get_active_window, get_idle_time, get_mouse_pos, hide_pet_window, open_path, is_fullscreen_detected,
     remove_pet_click_through, set_pet_always_on_top, set_pet_click_through, show_pet_window,
     start_topmost_keepalive,
 };
@@ -328,7 +328,7 @@ pub fn run() {
                     remove_pet_click_through,
                     get_mouse_pos,
                     get_idle_time,
-                    get_active_window,
+                    get_active_window, is_fullscreen_detected,
                     start_topmost_keepalive,
                     // C 类: 系统工具（此前"计划中"，现已实现）
                     take_screenshot,
