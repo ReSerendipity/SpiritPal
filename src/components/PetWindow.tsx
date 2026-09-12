@@ -21,8 +21,9 @@
  * - JSX 渲染
  */
 import { invoke } from '@tauri-apps/api/core'
-import { getCurrentWindow, PhysicalPosition, PhysicalSize } from '@tauri-apps/api/window'
+import { PhysicalPosition, PhysicalSize } from '@tauri-apps/api/window'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { safeGetWindow } from '@/lib/system/appWindows'
 import {
   Hand,
   UtensilsCrossed,
@@ -46,6 +47,7 @@ import {
   Magnet,
   Volume2,
   VolumeX,
+  Smile,
 } from 'lucide-react'
 import { SpriteRenderer } from '@/components/SpriteRenderer'
 import { Live2DRenderer } from '@/components/Live2DRenderer'
@@ -108,6 +110,7 @@ import {
 import { renderPetTrayIcon } from '@/lib/render/trayIconRenderer'
 import { FramelessResizeHandles, DRAG_SURFACE_CLASS } from '@/components/FramelessChrome'
 import { PetBubble } from '@/components/PetBubble'
+import { ExpressionSelector } from '@/components/pet/ExpressionSelector'
 import { ActionButton, ActionRow, StatRow, tierColor } from '@/components/petPanelParts'
 import { PomodoroOverlay } from '@/components/PomodoroOverlay'
 import { getCharacter, getDefaultCharacter, getAllCharacters } from '@/lib/data/characters'
@@ -216,6 +219,8 @@ export default function PetWindow() {
   // 漫游形态（主窗口全屏化）：窗口锁全屏不 resize，拖拽移动宠物本身，禁用边缘吸附/背景拖拽/缩放手柄
   const petForm = useSettingsStore(selectPetForm)
   const isRoam = petForm === 'roam'
+  // 订阅角色列表版本号：社区/shimeji 角色异步加载完成后，「切换角色」菜单需重渲染
+  useSettingsStore((s) => s.characterListVersion)
   // 状态卡实测高度（right 模式：动作列表定位在状态卡下方；测量 effect 更新）
   const [statusHMeasured, setStatusHMeasured] = useState<number>(STATUS_PANEL_H)
   // 顶部对话区当前高度（气泡显示时为 16+气泡高，否则 16；动作列表定位随之下移）
@@ -246,10 +251,11 @@ export default function PetWindow() {
   const [winW, setWinW] = useState<number>(WIN_W)
   const [winH, setWinH] = useState<number>(WIN_H)
   useEffect(() => {
-    const win = getCurrentWindow()
+    const win = safeGetWindow()
     let disposed = false
     // outerSize 返回物理像素，÷scaleFactor 得到逻辑像素（与 pos/sprite 的 CSS px 一致）
     const sync = () => {
+      if (!win) return
       Promise.all([win.outerSize(), win.scaleFactor()])
         .then(([s, sf]) => {
           if (disposed) return
@@ -263,9 +269,11 @@ export default function PetWindow() {
     }
     sync()
     let unlistenFn: (() => void) | null = null
-    win.onResized(() => { sync() })
-      .then((fn) => { unlistenFn = fn; if (disposed) fn() })
-      .catch(swallowedCatch('PetWindow.onResized'))
+    if (win) {
+      win.onResized(() => { sync() })
+        .then((fn) => { unlistenFn = fn; if (disposed) fn() })
+        .catch(swallowedCatch('PetWindow.onResized'))
+    }
     // 兜底：resize 事件可能因权限/时序丢失，周期轮询同步窗口尺寸
     const timer = window.setInterval(sync, 2000)
     return () => { disposed = true; unlistenFn?.(); window.clearInterval(timer) }
@@ -280,7 +288,7 @@ export default function PetWindow() {
   // 展开态面板（对话顶中 + 状态卡按模式 + 动作右侧）：右键宠物/胶囊展开，移出防抖收起
   const [panelOpen, setPanelOpen] = useState(false)
   // 右侧动作列表的展开子菜单（喂食/番茄钟/切换角色/状态卡）
-  const [actionSub, setActionSub] = useState<'feed' | 'pomodoro' | 'switch' | 'status' | null>(null)
+  const [actionSub, setActionSub] = useState<'feed' | 'pomodoro' | 'switch' | 'status' | 'expression' | null>(null)
   const [dialogueGraphId, setDialogueGraphId] = useState<string | null>(null)
   // 跨窗口：settings 窗口使用对话物品后，在此打开对应对话图
   useWindowEvent('open-dialogue', (payload) => {
@@ -689,7 +697,8 @@ export default function PetWindow() {
   // 避免气泡放大窗口时把贴边的窗口推离边缘，与 usePetDragging.snapToEdge 抢位置。
   // 供启动尺寸校正、滚轮缩放、气泡自适应三处复用。
   const applyWindowSize = useCallback((targetW: number, targetH: number): void => {
-    const win = getCurrentWindow()
+    const win = safeGetWindow()
+    if (!win) return
     const dir = dockDirRef.current
     void Promise.all([win.outerPosition(), win.outerSize(), win.scaleFactor()])
       .then(async ([pos, size, sf]) => {
@@ -779,7 +788,8 @@ export default function PetWindow() {
   // 用户手动缩放/拖动的窗口在启动时保持原状。
   useEffect(() => {
     let disposed = false
-    const win = getCurrentWindow()
+    const win = safeGetWindow()
+    if (!win) return
     void Promise.all([win.outerSize(), win.scaleFactor()])
       .then(async ([size, sf]) => {
         if (disposed) return
@@ -1021,7 +1031,8 @@ export default function PetWindow() {
   function handleBgMouseDown(e: React.MouseEvent) {
     if (e.button !== 0) return
     if (downPosRef.current || draggingRef.current) return
-    const win = getCurrentWindow()
+    const win = safeGetWindow()
+    if (!win) return
     Promise.all([win.outerPosition(), win.scaleFactor()]).then(([p, sf]) => {
       bgDragRef.current = { winX: p.x, winY: p.y, mouseX: e.screenX * sf, mouseY: e.screenY * sf, sf }
     }).catch(swallowedCatch('PetWindow.bgDragSetup'))
@@ -1032,7 +1043,7 @@ export default function PetWindow() {
     if (!origin) return
     const newX = Math.round(origin.winX + (e.screenX * origin.sf - origin.mouseX))
     const newY = Math.round(origin.winY + (e.screenY * origin.sf - origin.mouseY))
-    getCurrentWindow().setPosition(new PhysicalPosition(newX, newY)).catch(swallowedCatch('PetWindow.roamMove'))
+    safeGetWindow()?.setPosition(new PhysicalPosition(newX, newY)).catch(swallowedCatch('PetWindow.roamMove'))
   }
 
   function handleBgMouseUp() {
@@ -1547,6 +1558,14 @@ export default function PetWindow() {
             <ActionButton icon={<Bath size={13} />} label="洗澡" onClick={() => handleBathe()} />
             <ActionButton icon={<MessageSquare size={13} />} label="对话" onClick={() => handleDialogue()} />
             <ActionButton
+              icon={<Smile size={13} />}
+              label="表情"
+              onClick={() => setActionSub(actionSub === 'expression' ? null : 'expression')}
+              expanded={actionSub === 'expression'}
+            >
+              <ExpressionSelector />
+            </ActionButton>
+            <ActionButton
               icon={<Timer size={13} />}
               label="番茄钟"
               onClick={() => setActionSub(actionSub === 'pomodoro' ? null : 'pomodoro')}
@@ -1643,16 +1662,18 @@ export default function PetWindow() {
               onClick={() => setActionSub(actionSub === 'switch' ? null : 'switch')}
               expanded={actionSub === 'switch'}
             >
-              {getAllCharacters().map((c) => {
-                const isCurrent = c.id === currentCharacterId
-                return (
-                  <ActionRow key={c.id} onClick={() => handleSwitchCharacter(c.id)} highlight={isCurrent}>
-                    <span className="h-2 w-2 rounded-full" style={{ background: c.themeColor.primary }} />
-                    <span className="text-[10px]">{c.displayName}</span>
-                    {isCurrent && <Check size={11} className="ml-auto" />}
-                  </ActionRow>
-                )
-              })}
+              <div className="max-h-56 overflow-y-auto">
+                {getAllCharacters().map((c) => {
+                  const isCurrent = c.id === currentCharacterId
+                  return (
+                    <ActionRow key={c.id} onClick={() => handleSwitchCharacter(c.id)} highlight={isCurrent}>
+                      <span className="h-2 w-2 rounded-full" style={{ background: c.themeColor.primary }} />
+                      <span className="text-[10px]">{c.displayName}</span>
+                      {isCurrent && <Check size={11} className="ml-auto" />}
+                    </ActionRow>
+                  )
+                })}
+              </div>
             </ActionButton>
             <ActionButton icon={<X size={13} />} label="退出" onClick={() => void handleExit()} />
           </div>

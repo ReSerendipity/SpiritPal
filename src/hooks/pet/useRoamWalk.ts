@@ -12,6 +12,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow, primaryMonitor, PhysicalPosition } from '@tauri-apps/api/window'
 import { useEffect, type Dispatch, type SetStateAction, type RefObject } from 'react'
+import { safeGetWindow } from '@/lib/system/appWindows'
 import type { PetState } from '@/lib/data/types'
 
 // ========== 漫游行走控制器常量 ==========
@@ -68,7 +69,8 @@ export function useRoamWalk({
   useEffect(() => {
     if (!isRoam) return
     let disposed = false
-    const win = getCurrentWindow()
+    const win = safeGetWindow()
+    if (!win) return
     const EDGE = ROAM_EDGE_MARGIN
     let screen = { x: 0, y: 0, w: 1920, h: 1080 }
     let target = { x: 0, y: 0 }

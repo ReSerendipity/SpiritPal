@@ -27,6 +27,9 @@ const selectUseItem = (s: ReturnType<typeof usePetStore.getState>) => s.useItem
 const selectWornDecorations = (s: ReturnType<typeof usePetStore.getState>) => s.wornDecorations[s.currentCharacterId] ?? EMPTY_DECORATIONS
 const selectWearDecoration = (s: ReturnType<typeof usePetStore.getState>) => s.wearDecoration
 const selectRemoveDecoration = (s: ReturnType<typeof usePetStore.getState>) => s.removeDecoration
+const selectActiveSubpets = (s: ReturnType<typeof usePetStore.getState>) => s.activeSubpets
+const selectSummonSubpet = (s: ReturnType<typeof usePetStore.getState>) => s.summonSubpet
+const selectRecallSubpet = (s: ReturnType<typeof usePetStore.getState>) => s.recallSubpet
 
 const ANCHOR_OPTIONS: { value: AnchorPoint; label: string }[] = [
   { value: 'head', label: '头部' },
@@ -47,6 +50,9 @@ export function InventoryPanel() {
   const wornDecorations = usePetStore(selectWornDecorations)
   const wearDecoration = usePetStore(selectWearDecoration)
   const removeDecoration = usePetStore(selectRemoveDecoration)
+  const activeSubpets = usePetStore(selectActiveSubpets)
+  const summonSubpet = usePetStore(selectSummonSubpet)
+  const recallSubpet = usePetStore(selectRecallSubpet)
   const [toast, setToast] = useState<string | null>(null)
   const [tab, setTab] = useState<'inventory' | 'collection'>('inventory')
 
@@ -69,6 +75,17 @@ export function InventoryPanel() {
   function handleRemove(itemId: string, name: string) {
     removeDecoration(itemId)
     showToast(`已取下 ${name}`)
+  }
+
+  function handleToggleSubpet(itemId: string, name: string) {
+    if (activeSubpets.includes(itemId)) {
+      recallSubpet(itemId)
+      showToast(`已收回 ${name}`)
+    } else {
+      summonSubpet(itemId)
+      trackItemUse(itemId, 'subpet')
+      showToast(`已召唤 ${name}`)
+    }
   }
 
   function getWornAnchor(itemId: string): AnchorPoint | undefined {
@@ -166,6 +183,13 @@ export function InventoryPanel() {
                         </button>
                       )}
                     </div>
+                  ) : item.type === 'subpet' ? (
+                    <button
+                      onClick={() => handleToggleSubpet(item.id, item.name)}
+                      className={`rounded px-2 py-0.5 text-[11px] hover:opacity-80 ${activeSubpets.includes(item.id) ? 'bg-orange-600' : 'bg-emerald-600'}`}
+                    >
+                      {activeSubpets.includes(item.id) ? '收回' : '召唤'}
+                    </button>
                   ) : (
                     <button
                       onClick={() => handleUse(item.id, item.name)}

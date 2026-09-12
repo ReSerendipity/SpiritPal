@@ -1,5 +1,5 @@
 // ChatWindow 组件测试 — 消息渲染、输入发送、搜索、清空
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // ============ Mock 所有依赖 ============
@@ -129,6 +129,39 @@ vi.mock('react-markdown', () => ({
   default: ({ children }: { children: React.ReactNode }) => children,
 }))
 
+// STT 语音输入 mock：hoisted 保证在模块导入前可用
+const sttMocks = vi.hoisted(() => ({
+  start: vi.fn(),
+  stop: vi.fn(),
+  abort: vi.fn(),
+  isActive: vi.fn(() => false),
+  supported: true,
+}))
+
+vi.mock('@/lib/ai/stt', () => ({
+  isSpeechRecognitionSupported: vi.fn(() => sttMocks.supported),
+  STTEngine: vi.fn(function (this: unknown) { return sttMocks }),
+}))
+
+// VOICEVOX TTS mock：避免组件挂载时真实探测本地引擎 / 产生网络请求
+vi.mock('@/lib/ai/tts', () => ({
+  voicevoxTTS: {
+    isEngineAvailable: vi.fn(() => Promise.resolve(true)),
+    synthesize: vi.fn(() => Promise.resolve(new Blob())),
+    setEngineUrl: vi.fn(),
+  },
+}))
+
+vi.mock('@/lib/ai/ttsPlayer', () => ({
+  TTSPlayer: vi.fn(function (this: unknown) {
+    return {
+      play: vi.fn(() => Promise.resolve()),
+      stop: vi.fn(),
+      isPlaying: vi.fn(() => false),
+    }
+  }),
+}))
+
 // ============ 测试 ============
 
 import ChatWindow from '@/components/ChatWindow'
@@ -138,6 +171,7 @@ describe('ChatWindow', () => {
     vi.clearAllMocks()
     mockChatStore.messagesByCharacter = { doro: [] }
     mockChatStore.isLoading = false
+    sttMocks.supported = true
   })
 
   afterEach(() => {
@@ -301,5 +335,40 @@ describe('ChatWindow', () => {
     const searchInput = screen.getByPlaceholderText('搜索对话内容…')
     fireEvent.change(searchInput, { target: { value: '不存在的词' } })
     expect(screen.getByText('未找到匹配的消息')).toBeInTheDocument()
+  })
+
+  it('渲染麦克风按钮', () => {
+    render(<ChatWindow />)
+    expect(screen.getByLabelText('语音输入')).toBeInTheDocument()
+  })
+
+  it('点击麦克风开始语音识别，再次点击停止', () => {
+    render(<ChatWindow />)
+    const micBtn = screen.getByLabelText('语音输入')
+    fireEvent.click(micBtn)
+    expect(sttMocks.start).toHaveBeenCalledTimes(1)
+    // 激活态：aria-pressed 且 label 变为"停止语音输入"
+    expect(screen.getByLabelText('停止语音输入')).toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('停止语音输入'))
+    expect(sttMocks.stop).toHaveBeenCalledTimes(1)
+    expect(screen.getByLabelText('语音输入')).toBeInTheDocument()
+  })
+
+  it('识别中间结果实时填入输入框', async () => {
+    render(<ChatWindow />)
+    fireEvent.click(screen.getByLabelText('语音输入'))
+    const callbacks = sttMocks.start.mock.calls[0]?.[0] as { onPartial?: (t: string) => void }
+    await act(async () => {
+      callbacks.onPartial?.('语音识别的文本')
+    })
+    expect((screen.getByPlaceholderText('输入消息与宠物聊天…') as HTMLTextAreaElement).value).toBe('语音识别的文本')
+  })
+
+  it('环境不支持语音识别时点击麦克风显示错误提示', () => {
+    sttMocks.supported = false
+    render(<ChatWindow />)
+    fireEvent.click(screen.getByLabelText('语音输入'))
+    expect(screen.getByText(/当前环境不支持语音识别/)).toBeInTheDocument()
+    expect(sttMocks.start).not.toHaveBeenCalled()
   })
 })

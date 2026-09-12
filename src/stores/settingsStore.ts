@@ -44,6 +44,17 @@ const DEFAULT_SETTINGS: AppSettings = {
  */
 interface SettingsStoreState extends AppSettings {
   /**
+   * 角色列表版本号（运行时，不持久化）。
+   * 社区/shimeji 角色异步加载完成后 +1，订阅此值的组件会重渲染并重新调用 getAllCharacters()。
+   */
+  characterListVersion: number
+
+  /**
+   * 递增角色列表版本号，触发依赖角色列表的组件重渲染
+   */
+  bumpCharacterList: () => void
+
+  /**
    * 部分更新设置
    * @param partial 要更新的设置字段
    */
@@ -77,6 +88,11 @@ export const useSettingsStore = create<SettingsStoreState>()(
   persist(
     (set) => ({
       ...DEFAULT_SETTINGS,
+      characterListVersion: 0,
+
+      bumpCharacterList: () => {
+        set((state) => ({ characterListVersion: state.characterListVersion + 1 }))
+      },
 
       updateSettings: (partial) => {
         set((state) => ({ ...state, ...partial }))
@@ -103,6 +119,11 @@ export const useSettingsStore = create<SettingsStoreState>()(
       // H-1 修复：版本迁移 — 旧版明文 localStorage 数据自动兼容
       // encryptedStorage.getItem 检测到无 ENC2: 前缀时直接返回明文（旧数据）
       version: 1,
+      // 运行时状态不持久化
+      partialize: (state) => {
+        const { characterListVersion, bumpCharacterList, ...persisted } = state
+        return persisted
+      },
       migrate: (persistedState: unknown, _version: number) => {
         // version 0 = 旧版明文 localStorage，直接兼容
         // version 1 = 加密 localStorage

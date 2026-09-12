@@ -18,6 +18,7 @@
 import { getCurrentWindow, currentMonitor, PhysicalPosition } from '@tauri-apps/api/window'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { safeGetWindow } from '@/lib/system/appWindows'
 
 const MOTION_MAX_SPEED = 2.0
 const DRAG_DECELERATION = 0.15
@@ -192,7 +193,8 @@ export function usePetDragging(options: UsePetDraggingOptions): UsePetDraggingRe
         setDockDir(null)
         return
       }
-      const win = getCurrentWindow()
+      const win = safeGetWindow()
+      if (!win) return
       const pos = await win.outerPosition()
       // 窗口尺寸动态获取：窗口会随宠物缩放（滚轮）而改变，不能用固定 300×400
       const size = await win.outerSize()
@@ -257,7 +259,9 @@ export function usePetDragging(options: UsePetDraggingOptions): UsePetDraggingRe
           stableCount = 0
           return
         }
-        const p = await getCurrentWindow().outerPosition()
+        const win = safeGetWindow()
+        if (!win) return
+        const p = await win.outerPosition()
         const last = lastWinPosRef.current
         if (last && Math.abs(p.x - last.x) < 2 && Math.abs(p.y - last.y) < 2) {
           stableCount++
@@ -294,7 +298,8 @@ export function usePetDragging(options: UsePetDraggingOptions): UsePetDraggingRe
   // 不走 usePetDragging 实时磁吸的路径 —— 任何原因导致窗口移动停止（400ms 静止）
   // 且靠近屏幕边缘时，自动吸附并更新 dockDir（拖宠物本体的实时磁吸已由 handleMouseMove 处理）
   useEffect(() => {
-    const win = getCurrentWindow()
+    const win = safeGetWindow()
+    if (!win) return
     let movedAt = 0
     let unlistenFn: (() => void) | null = null
     let disposed = false
@@ -366,7 +371,7 @@ export function usePetDragging(options: UsePetDraggingOptions): UsePetDraggingRe
       } else {
         setDockDir(null)
       }
-      getCurrentWindow().setPosition(new PhysicalPosition(newX, newY)).catch(() => {})
+      safeGetWindow()?.setPosition(new PhysicalPosition(newX, newY)).catch(() => {})
       return
     }
 
@@ -380,7 +385,8 @@ export function usePetDragging(options: UsePetDraggingOptions): UsePetDraggingRe
         interruptWalkRef.current()
         onDragStart?.()
         try {
-          const win = getCurrentWindow()
+          const win = safeGetWindow()
+          if (!win) return
           const p = await win.outerPosition()
           const sf = await win.scaleFactor()
           lastWinPosRef.current = { x: p.x, y: p.y }
