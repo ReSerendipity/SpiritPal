@@ -127,7 +127,7 @@ mod platform_impl {
     pub fn is_foreground_fullscreen() -> bool {
         unsafe {
             let hwnd = GetForegroundWindow();
-            if hwnd.0.is_null() || IsIconic(hwnd) {
+            if hwnd.0.is_null() || IsIconic(hwnd).into() {
                 return false;
             }
             let mut rect = RECT::default();
