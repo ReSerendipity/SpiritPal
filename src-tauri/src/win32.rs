@@ -136,7 +136,10 @@ mod platform_impl {
             }
             let screen_w = GetSystemMetrics(SM_CXSCREEN);
             let screen_h = GetSystemMetrics(SM_CYSCREEN);
-            rect.left <= 1 && rect.top <= 1 && rect.right >= screen_w - 1 && rect.bottom >= screen_h - 1
+            rect.left <= 1
+                && rect.top <= 1
+                && rect.right >= screen_w - 1
+                && rect.bottom >= screen_h - 1
         }
     }
 
