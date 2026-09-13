@@ -1,0 +1,15 @@
+# SpiritPal gitleaks 配置
+# 基于官方默认规则扩展（useDefault = true 保留全部内置检测规则），
+# 仅追加经人工核验的误报 allowlist，保证本地/CI 扫描口径与其他仓库一致且不误伤。
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "经人工核验的统一误报清单（GitHub 研报抓取存档、错误脱敏测试夹具、技术分析报告截断示例）"
+paths = [
+  '''gh-research''',
+  '''生成桌面宠物项目技术分析报告''',
+  '''redactErrorText\.test\.ts''',
+  '''enhancedMemory.*\.test\.ts''',
+]
