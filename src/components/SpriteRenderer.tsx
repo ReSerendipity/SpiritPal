@@ -27,6 +27,7 @@ import type { CSSProperties } from 'react'
 import { getCharacter } from '@/lib/data/characters'
 import { ATLAS, ANIMATION_ROWS, type PetState } from '@/lib/data/types'
 import { detectVideoChromaKeyNeed, drawChromaKeyFrame } from '@/lib/render/chromaKey'
+import { cssUrl } from '@/lib/render/cssUrl'
 import { swallowedCatch } from '@/lib/system/swallowedCatch'
 
 /** 精灵渲染器Props */
@@ -345,7 +346,7 @@ export function SpriteRenderer({
         style={{
           width: ATLAS.cellW * size,
           height: ATLAS.cellH * size,
-          backgroundImage: `url(${character.spriteAsset.replace(/\/[^/]*$/, '/atlas.png')})`,
+          backgroundImage: cssUrl(character.spriteAsset.replace(/\/[^/]*$/, '/atlas.png')),
           backgroundPosition: `${bgX}px ${bgY}px`,
           backgroundSize: `${ATLAS.cols * ATLAS.cellW * size}px ${ATLAS.rows * ATLAS.cellH * size}px`,
           backgroundRepeat: 'no-repeat',
@@ -488,7 +489,7 @@ export function SpriteRenderer({
       style={{
         width: displayW,
         height: displayH,
-        backgroundImage: `url(${character.spriteAsset})`,
+        backgroundImage: cssUrl(character.spriteAsset),
         backgroundPosition: `${bgX}px ${bgY}px`,
         backgroundSize: `${atlas.cols * atlas.cellW * size}px ${atlas.rows * atlas.cellH * size}px`,
         backgroundRepeat: 'no-repeat',

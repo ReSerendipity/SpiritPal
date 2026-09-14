@@ -28,8 +28,22 @@
 
 import { getLoadedCommunityCharacters } from '@/lib/render/communityLoader'
 import { getLoadedShimejiCharacters } from '@/lib/render/shimejiLoader'
+import { t } from '@/lib/system/i18n'
 import { getModManager } from './modManager'
 import type { CharacterProfile } from './types'
+
+/**
+ * 用 i18n 字典覆盖角色显示名（char.<id>）。字典缺失（如 en/ja/ko/zh-TW 未收录
+ * 或未知角色）时回退 profile 自带的 displayName，保证任何环境不损坏原名。
+ */
+function withLocalizedName(profile: CharacterProfile): CharacterProfile {
+  try {
+    const localized = t(`char.${profile.id}`, { defaultValue: profile.displayName })
+    return localized === profile.displayName ? profile : { ...profile, displayName: localized }
+  } catch {
+    return profile
+  }
+}
 
 // 不同角色可以有不同的货币名称和图标
 export interface CoinConfig {
@@ -277,16 +291,16 @@ export function saveCustomCharacter(profile: CharacterProfile): void {
 export function getCharacter(id: string): CharacterProfile | undefined {
   // 先查找内置角色
   const builtin = CHARACTERS.find((c) => c.id === id)
-  if (builtin) return builtin
+  if (builtin) return withLocalizedName(builtin)
   // 再查找自定义角色
   const custom = loadCustomCharacters().find((c) => c.id === id)
-  if (custom) return custom
+  if (custom) return withLocalizedName(custom)
   // 最后查找已启用的模组角色
   try {
     const modMgr = getModManager()
     const mod = modMgr.getMod(id)
     if (mod && mod.enabled) {
-      return modMgr.toCharacterProfile(mod)
+      return withLocalizedName(modMgr.toCharacterProfile(mod))
     }
   } catch {
     // modManager 可能在某些环境下不可用
@@ -294,14 +308,14 @@ export function getCharacter(id: string): CharacterProfile | undefined {
   // 再查找社区宠物包角色（manifest 自动发现）
   try {
     const community = getLoadedCommunityCharacters().find((c) => c.id === id)
-    if (community) return community
+    if (community) return withLocalizedName(community)
   } catch {
     // 忽略
   }
   // 最后查找 shimeji 角色（WindowPet 移植）
   try {
     const shimeji = getLoadedShimejiCharacters().find((c) => c.id === id)
-    if (shimeji) return shimeji
+    if (shimeji) return withLocalizedName(shimeji)
   } catch {
     // 忽略
   }
@@ -348,7 +362,7 @@ export function getAllCharacters(): CharacterProfile[] {
   } catch {
     // 忽略
   }
-  return result
+  return result.map(withLocalizedName)
 }
 
 // 获取默认角色（第一个）
