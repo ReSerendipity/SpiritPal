@@ -1,6 +1,6 @@
 # 安全审计 — SpiritPal
 
-> 只读审计 · 适配版（Tauri v2 Rust + React 19 桌面宠物，私有仓库）
+> 只读审计 · 适配版（Tauri v2 Rust + React 19 桌面宠物，公开仓库）
 > 审计日期：2026-09-01 · 审计对象：`src-tauri/`（Rust）+ `src/`（React/TS）
 
 ## 执行摘要（总体评级：中 / Medium）
