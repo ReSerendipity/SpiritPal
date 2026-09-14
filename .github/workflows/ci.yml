@@ -537,7 +537,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run Stryker mutation testing
-        run: npx stryker run
+        # pnpm 的符号链接布局下 npx 解析 Stryker 插件会失败（runner pnpm 版本漂移加剧），
+        # 改用 pnpm 自身调用以保证插件发现。
+        run: pnpm stryker run
 
       - name: Upload mutation report
         if: always()
