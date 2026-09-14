@@ -34,8 +34,8 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 11
+        # 版本由 package.json 的 packageManager 字段统一驱动（pnpm@11.26.0），
+        # 避免 action version 输入与 packageManager 双源冲突（ERR_PNPM_BAD_PM_VERSION）。
 
       - name: Install Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
@@ -81,8 +81,8 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 11
+        # 版本由 package.json 的 packageManager 字段统一驱动（pnpm@11.26.0），
+        # 避免 action version 输入与 packageManager 双源冲突（ERR_PNPM_BAD_PM_VERSION）。
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -269,8 +269,8 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 11
+        # 版本由 package.json 的 packageManager 字段统一驱动（pnpm@11.26.0），
+        # 避免 action version 输入与 packageManager 双源冲突（ERR_PNPM_BAD_PM_VERSION）。
 
       - name: Install Node.js
         uses: actions/setup-node@v4
@@ -364,8 +364,8 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 11
+        # 版本由 package.json 的 packageManager 字段统一驱动（pnpm@11.26.0），
+        # 避免 action version 输入与 packageManager 双源冲突（ERR_PNPM_BAD_PM_VERSION）。
 
       - name: Install Node.js
         uses: actions/setup-node@v4
@@ -427,8 +427,8 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 11
+        # 版本由 package.json 的 packageManager 字段统一驱动（pnpm@11.26.0），
+        # 避免 action version 输入与 packageManager 双源冲突（ERR_PNPM_BAD_PM_VERSION）。
 
       - name: Install Node.js
         uses: actions/setup-node@v4
@@ -524,8 +524,8 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 11
+        # 版本由 package.json 的 packageManager 字段统一驱动（pnpm@11.26.0），
+        # 避免 action version 输入与 packageManager 双源冲突（ERR_PNPM_BAD_PM_VERSION）。
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -563,8 +563,8 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 11
+        # 版本由 package.json 的 packageManager 字段统一驱动（pnpm@11.26.0），
+        # 避免 action version 输入与 packageManager 双源冲突（ERR_PNPM_BAD_PM_VERSION）。
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -600,8 +600,8 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 11
+        # 版本由 package.json 的 packageManager 字段统一驱动（pnpm@11.26.0），
+        # 避免 action version 输入与 packageManager 双源冲突（ERR_PNPM_BAD_PM_VERSION）。
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
