@@ -14,7 +14,7 @@ Tauri 的自动更新使用 **GitHub Releases 作为静态托管**：
 
 | # | 事项 | 状态 |
 |---|---|---|
-| 1 | 自动更新决策：**2026-09-04 起已关闭**（`tauri.conf.json` `plugins.updater.active = false`）。端点 `spiritpal/spiritpal-app` 实测 404 不存在，产物关闭、端点死链与私有仓定位冲突 → 先停用，避免每次启动静默失败请求。 | ✅ 已关闭 |
+| 1 | 自动更新决策：**2026-09-04 起已关闭**（`tauri.conf.json` `plugins.updater.active = false`）。端点 `spiritpal/spiritpal-app` 实测 404 不存在，产物关闭、端点死链（2026-09 起仓库已全量公开，原私有仓定位已不适用）→ 先停用，避免每次启动静默失败请求。 | ✅ 已关闭 |
 | 2 | 更新签名密钥：secrets `TAURI_SIGNING_PRIVATE_KEY` / `_PASSWORD` 已接入 release.yml；私钥离线保管；`pubkey` 与私钥**配对未验证**（重新开启自动更新前必须核对）。 | ◐ 接入未验证 |
 | 3 | 版本一致性门禁：`scripts/sync-version.mjs`（以 package.json 为单一事实来源）+ docs-consistency `version-consistency` job + `verify-release-version.yml`（tag 与三处版本一致校验）。 | ✅ 2026-09-04 已建 |
 | 4 | 发布后验证：安装旧版 → 触发更新检查 → 确认提示与安装成功（自动更新关闭期间不适用）。 | ☐ 待重启后执行 |
