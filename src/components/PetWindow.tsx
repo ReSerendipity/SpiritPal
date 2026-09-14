@@ -118,6 +118,7 @@ import { getModManager } from '@/lib/data/modManager'
 import { getFoodsForCharacter } from '@/lib/nurture/items'
 // P2-4：宠物共同经历记忆
 import { getPetExperienceManager } from '@/lib/nurture/petExperience'
+import { cssUrl } from '@/lib/render/cssUrl'
 import { usePixelClickThrough } from '@/lib/system/pixelClickThrough'
 import { usePetStore } from '@/stores/petStore'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -1387,7 +1388,7 @@ export default function PetWindow() {
         background: `linear-gradient(${background.direction ?? 'to bottom'}, ${background.color ?? '#ffffff'}, ${background.color2 ?? '#ffffff'})`,
       }
       case 'image': return background.imagePath ? {
-        backgroundImage: `url(${background.imagePath})`,
+        backgroundImage: cssUrl(background.imagePath),
         backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat',
       } : {}
       default: return {}
