@@ -39,6 +39,20 @@ const FORBIDDEN_PERMISSIONS = new Set(['sql:allow-execute', 'sql:default', 'shel
 
 const FORBIDDEN_SCOPE_PATTERNS = [/^\*:\/\/\*$/, /^\*\*$/, /^\*$/]
 
+/** 递归检查 scope 树中的宽泛通配（顶层 scope 与对象形式权限内联 allow/deny 共用） */
+function checkScopePatterns(arr, pathStr, file, errors) {
+  if (typeof arr === 'string') {
+    if (FORBIDDEN_SCOPE_PATTERNS.some((re) => re.test(arr))) {
+      errors.push(`[${file}] scope 宽泛通配：${pathStr} = "${arr}"（应收缩到具体域名/路径）`)
+    }
+    return
+  }
+  if (!Array.isArray(arr) && typeof arr !== 'object') return
+  for (const [k, v] of Object.entries(arr)) {
+    checkScopePatterns(v, `${pathStr}.${k}`, file, errors)
+  }
+}
+
 // ============ 插件注册表（从真实配置文件构建） ============
 
 function readText(path) {
@@ -173,10 +187,25 @@ function main() {
       errors.push(`[${file}] permissions 非数组`)
       continue
     }
-    for (const perm of perms) {
+    for (const rawPerm of perms) {
+      // Tauri v2 capabilities 允许两种权限形式：字符串（"fs:allow-read-file"）与
+      // 对象（{ "identifier": "fs:scope", "allow": [{ "path": "$RESOURCE/..." }] }）。
+      // 归一化成 identifier 字符串后再做黑名单/前缀校验，修复对象形式条目触发
+      // "perm.startsWith is not a function" 导致 structure-guard 全线红灯的问题。
+      const permObj = typeof rawPerm === 'object' && rawPerm !== null ? rawPerm : null
+      const perm = permObj ? String(permObj.identifier ?? '') : String(rawPerm)
+      if (!perm) {
+        warnings.push(`[${file}] permissions 含缺少 identifier 的对象条目——跳过字符串级校验`)
+        continue
+      }
       if (FORBIDDEN_PERMISSIONS.has(perm)) {
         errors.push(`[${file}] 硬拒绝权限：${perm}（报告2 §二：最小授权）`)
         continue
+      }
+      // 对象形式权限内联的 allow/deny scope 同样接受宽泛通配检查
+      if (permObj) {
+        checkScopePatterns(permObj.allow ?? [], `${perm}.allow`, file, errors)
+        checkScopePatterns(permObj.deny ?? [], `${perm}.deny`, file, errors)
       }
       // 非 core:* 前缀 → 插件注册校验
       if (!perm.startsWith('core:')) {
@@ -195,21 +224,8 @@ function main() {
         }
       }
     }
-    // scope 宽泛通配
-    const scope = cap.scope ?? []
-    const walk = (arr, pathStr) => {
-      if (typeof arr === 'string') {
-        if (FORBIDDEN_SCOPE_PATTERNS.some((re) => re.test(arr))) {
-          errors.push(`[${file}] scope 宽泛通配：${pathStr} = "${arr}"（应收缩到具体域名/路径）`)
-        }
-        return
-      }
-      if (!Array.isArray(arr) && typeof arr !== 'object') return
-      for (const [k, v] of Object.entries(arr)) {
-        walk(v, `${pathStr}.${k}`)
-      }
-    }
-    walk(scope, 'scope')
+    // scope 宽泛通配（顶层 scope；对象形式权限的内联 scope 已在上方逐条检查）
+    checkScopePatterns(cap.scope ?? [], 'scope', file, errors)
   }
 
   // ---- 规则 3：invoke 命令必须已注册 ----
