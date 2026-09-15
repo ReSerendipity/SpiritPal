@@ -17,8 +17,10 @@ SpiritPal/
 │   ├── src/             # Rust source (commands, encryption, db, tray)
 │   └── capabilities/    # Tauri v2 capability permission whitelists
 ├── docs/                # Documentation
-│   ├── analysis/        # Repository analysis reports & optimization plans
-│   └── project/         # PRD, technical specs, and roadmap
+│   ├── adr/             # Architecture Decision Records（0001-0004 + 写作规范）
+│   ├── agents/          # AI 自进化子文档（本地保留，未随仓库发布）
+│   ├── execution/       # 桌面分发与安全加固执行记录
+│   └── project/         # PRD、技术规格与 AI 开发 SOP
 ├── demo/                # Demo HTML pages and preview assets
 ├── references/          # Vendored reference repos for learning (gitignored)
 ├── artifacts/           # Build outputs like APK files (gitignored)
