@@ -4,8 +4,8 @@
 
 | 角色 | 显示名 | 来源（仓库/作者） | 引入方式 | 权属与授权状态 | 待办 |
 |---|---|---|---|---|---|
-| doro | Doro | github.com/MelanTech/Dororo | 内置 + 演示热链（demo/spiritpal_preview.html:502,684） | 权属归原作者（见协议）；**分发用书面授权未取得** | ⚠️ 取得权利人书面许可，或改为"首次启动下载/用户自备" |
-| feibi | 菲比（飞币） | github.com/llors-chen/Feibi_desktop | 内置 + 演示热链（demo/spiritpal_preview.html:685） | 同上 | 同上 |
+| doro | Doro | github.com/MelanTech/Dororo | 内置 + 演示热链（demo/spiritpal_preview.html:502,684） | 权属归原作者；**授权请求已发送：MelanTech/Dororo#10（2026-09-16）** | ⏳ 等待权利人回复；未获授权前不改口径 |
+| feibi | 菲比（飞币） | github.com/llors-chen/Feibi_desktop | 内置 + 演示热链（demo/spiritpal_preview.html:685） | 权属归原作者；**授权请求已发送：llors-chen/Feibi_desktop#2（2026-09-16）** | ⏳ 等待权利人回复 |
 | 咕咕嘎嘎 | 咕咕嘎嘎 | 来源待确认 | 内置 | 待确认 | ⚠️ 补来源与授权记录 |
 
 ## 已知口径矛盾（待统一）
