@@ -80,6 +80,15 @@ android {
     buildFeatures {
         buildConfig = true
     }
+
+    // vendored MNN 引擎 .so（libmnnllmapp.so / libMNN.so）放在被 git 跟踪的 mnnLibs/。
+    // 不能放 src/main/jniLibs/：那是 Tauri rust 插件的构建产物目录，已被 .gitignore 忽略。
+    // 本项与默认 jniLibs 目录**叠加**（不清空），见 .gitignore 的 mnnLibs 例外规则。
+    sourceSets {
+        getByName("main") {
+            jniLibs.srcDirs("mnnLibs")
+        }
+    }
 }
 
 rust {

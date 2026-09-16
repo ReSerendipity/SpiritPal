@@ -88,6 +88,8 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
     {
         use tauri::{WebviewUrl, WebviewWindowBuilder};
         WebviewWindowBuilder::new(app, "pet-window", WebviewUrl::App("index.html#/pet".into()))
+            // [TEMP-CDP-DEBUG] 临时插桩：远程调试端口，诊断完删除本行恢复原状
+            .additional_browser_args("--remote-debugging-port=9333 --noerrdialogs --autoplay-policy=no-user-gesture-required --disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection")
             .title("SpiritPal")
             // 默认 224×304 = 1.0× 宠物的基准适配尺寸（精灵 192×208 + 32 边距 + 64 气泡空间），
             // 减少首帧与前端按持久化 petSize 校正后的落差闪烁；前端挂载后会立即按实际 petSize 校正

@@ -8,6 +8,9 @@
  * 由上层 useEnhancedMemory 决定是否回退到本地时序索引。
  */
 
+// cognee 记忆 sidecar 仅桌面端可用（Rust 侧全 #[cfg(desktop)] 门控），
+// 移动端调用必失败 —— 移动端直接短路，避免每轮发必败请求（ADR-0005 #3）。
+import { isDesktopRuntime } from '@/lib/system/platform'
 // P0: 统一网络出口 — sidecar 地址为本地回环，生产 CSP 会拦截原生 fetch；
 // 经 safeFetch（回环直通 + Tauri 下 Rust 代理）保证可用。
 import { safeFetch } from '@/lib/system/ssrfProtection'
@@ -54,8 +57,9 @@ function authHeaders(token: string | null, extra: Record<string, string> = {}): 
   return headers
 }
 
-/** 探测 sidecar 与 cognee 是否可用（超时 1.5s）。 */
+/** 探测 sidecar 与 cognee 是否可用（超时 1.5s）。移动端恒返回 false（无 sidecar）。 */
 export async function cogneeHealth(): Promise<boolean> {
+  if (!isDesktopRuntime()) return false
   try {
     const ctrl = new AbortController()
     const t = setTimeout(() => ctrl.abort(), 1500)
@@ -72,12 +76,13 @@ export async function cogneeHealth(): Promise<boolean> {
   }
 }
 
-/** 写入一条记忆（抽取实体-关系并加入图谱）。失败静默，不阻断主流程。 */
+/** 写入一条记忆（抽取实体-关系并加入图谱）。失败静默，不阻断主流程。移动端直接跳过（无 sidecar）。 */
 export async function cogneeAdd(
   characterId: string,
   text: string,
   metadata: Record<string, unknown> = {},
 ): Promise<void> {
+  if (!isDesktopRuntime()) return
   try {
     const ctrl = new AbortController()
     const t = setTimeout(() => ctrl.abort(), 5000)
@@ -93,12 +98,13 @@ export async function cogneeAdd(
   }
 }
 
-/** 混合检索（关系型记忆）。失败/不可用返回空数组，由上层回退。 */
+/** 混合检索（关系型记忆）。失败/不可用返回空数组，由上层回退。移动端返回空（无 sidecar）。 */
 export async function cogneeSearch(
   characterId: string,
   query: string,
   topK = 5,
 ): Promise<CogneeSearchResult[]> {
+  if (!isDesktopRuntime()) return []
   try {
     const ctrl = new AbortController()
     const t = setTimeout(() => ctrl.abort(), 5000)

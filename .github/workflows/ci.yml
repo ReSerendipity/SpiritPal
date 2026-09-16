@@ -312,6 +312,12 @@ jobs:
         run: |
           python scripts/security_gate.py
 
+      # 防回归门禁（GOTCHAS #98）：每次 PR 校验 `tauri` 已启用 custom-protocol 特性，
+      # 否则 release 不内嵌前端、双击 exe 会连 localhost:5223 失败。
+      - name: Verify Tauri custom-protocol feature (embed gate)
+        shell: bash
+        run: python3 scripts/verify_tauri_embed.py --config-only || python scripts/verify_tauri_embed.py --config-only
+
       - name: Run osv-scanner
         # 扫描结果以报告形式落盘供人工审阅，退出码不作为门禁（security_gate.py 设计）
         continue-on-error: true
@@ -459,6 +465,12 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         with:
           args: ${{ matrix.args }}
+
+      # 防回归门禁（GOTCHAS #98）：release 构建后校验 exe 真正内嵌前端
+      # （gzip 流数 + tauri://localhost + 体积），未内嵌即阻断。
+      - name: Verify release binary embeds frontend
+        shell: bash
+        run: python3 scripts/verify_tauri_embed.py || python scripts/verify_tauri_embed.py
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
