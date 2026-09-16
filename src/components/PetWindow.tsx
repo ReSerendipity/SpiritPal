@@ -53,6 +53,7 @@ import { SpriteRenderer } from '@/components/SpriteRenderer'
 import { Live2DRenderer } from '@/components/Live2DRenderer'
 import { CharacterSelector } from '@/components/CharacterSelector'
 import { FirstRunGreeting } from '@/components/FirstRunGreeting'
+import { AgreementGate, agreementAccepted } from '@/components/AgreementGate'
 import { DialoguePanel } from '@/components/DialoguePanel'
 import type { InventoryItem } from '@/lib/data/types'
 import { getDialogueManager } from '@/lib/ai/dialogueManager'
@@ -247,6 +248,8 @@ export default function PetWindow() {
     }
   })
   const [firstRunStep, setFirstRunStep] = useState<'greet' | 'select'>('greet')
+  // P1-1 协议门：未同意当前版本协议前，首启流程停在确认页
+  const [agreed, setAgreed] = useState<boolean>(() => agreementAccepted())
 
   // 窗口尺寸（逻辑像素，S/M/L 自适应档位 + 停靠视觉对齐用）
   const [winW, setWinW] = useState<number>(WIN_W)
@@ -1348,6 +1351,14 @@ export default function PetWindow() {
   // ========== Render ==========
 
   if (firstRun) {
+    if (!agreed) {
+      return (
+        <div className="relative h-full w-full">
+          <AgreementGate onAccept={() => setAgreed(true)} />
+          <FramelessResizeHandles />
+        </div>
+      )
+    }
     return firstRunStep === 'greet' ? (
       <div className="relative h-full w-full">
         <FirstRunGreeting
