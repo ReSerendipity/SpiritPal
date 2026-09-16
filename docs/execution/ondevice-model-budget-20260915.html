@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpiritPal 端侧模型内存预算计算器</title>
+<style>
+:root{
+  --bg:#F7F7F5; --panel:#FFFFFF; --line:#E3E1DA; --line2:#D3D1C7;
+  --tx:#2C2C2A; --tx2:#5F5E5A; --tx3:#888780;
+  --blue:#185FA5; --blue-bg:#E6F1FB; --blue-tx:#0C447C;
+  --teal:#0F6E56; --teal-bg:#E1F5EE; --teal-tx:#085041;
+  --amber:#854F0B; --amber-bg:#FAEEDA; --amber-tx:#633806;
+  --red:#A32D2D; --red-bg:#FCEBEB; --red-tx:#791F1F;
+  --green:#3B6D11; --green-bg:#EAF3DE; --green-tx:#27500A;
+  --purple:#534AB7; --purple-bg:#EEEDFE; --purple-tx:#3C3489;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);
+  font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:14px;line-height:1.6}
+.wrap{max-width:1180px;margin:0 auto;padding:32px 24px 64px}
+h1{font-size:20px;font-weight:500;margin:0 0 6px}
+.sub{color:var(--tx2);font-size:13px;margin-bottom:28px}
+.grid{display:grid;grid-template-columns:340px 1fr;gap:20px;align-items:start}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px}
+.card h2{font-size:14px;font-weight:500;margin:0 0 16px;color:var(--tx)}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:12px;color:var(--tx2);margin-bottom:6px}
+select,input[type=range]{width:100%}
+select{appearance:none;background:var(--panel);border:1px solid var(--line2);border-radius:8px;
+  padding:8px 10px;font-size:13px;color:var(--tx);font-family:inherit}
+input[type=range]{-webkit-appearance:none;height:4px;background:var(--line2);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+  background:var(--blue);cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 1px var(--line2)}
+.chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tx2);cursor:pointer}
+.chk input{width:15px;height:15px;accent-color:var(--blue)}
+.val{float:right;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--blue-tx)}
+.hint{font-size:11.5px;color:var(--tx3);margin-top:5px;line-height:1.5}
+.verdict{border-radius:12px;padding:16px 18px;margin-bottom:18px;border:1px solid}
+.verdict .vt{font-size:15px;font-weight:500;margin-bottom:4px}
+.verdict .vd{font-size:12.5px;line-height:1.6}
+.v-ok{background:var(--green-bg);border-color:#C0DD97;color:var(--green-tx)}
+.v-warn{background:var(--amber-bg);border-color:#FAC775;color:var(--amber-tx)}
+.v-bad{background:var(--red-bg);border-color:#F7C1C1;color:var(--red-tx)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:12px;margin-bottom:20px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 14px}
+.stat .k{font-size:11.5px;color:var(--tx3);margin-bottom:3px}
+.stat .v{font-size:19px;font-weight:500;font-family:ui-monospace,Menlo,Consolas,monospace}
+.stat .u{font-size:11.5px;color:var(--tx3);font-weight:400;margin-left:2px}
+.stat.hi{background:var(--blue-bg);border-color:#B5D4F4}
+.stat.hi .v{color:var(--blue-tx)}
+.stat.hi .k{color:var(--blue)}
+.bar{height:22px;border-radius:6px;overflow:hidden;display:flex;border:1px solid var(--line);margin-bottom:6px}
+.bar div{display:flex;align-items:center;justify-content:center;font-size:10.5px;color:#fff;white-space:nowrap;overflow:hidden}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:11.5px;color:var(--tx2);margin-bottom:22px}
+.legend span{display:flex;align-items:center;gap:5px}
+.dot{width:9px;height:9px;border-radius:2px;display:inline-block}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{text-align:right;padding:8px 10px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th{font-size:11.5px;color:var(--tx3);font-weight:400;border-bottom:1px solid var(--line2)}
+td{font-family:ui-monospace,Menlo,Consolas,monospace}
+td:first-child{font-family:inherit}
+tr:hover td{background:#FAFAF8}
+.tag{display:inline-block;padding:1px 7px;border-radius:5px;font-size:11px;font-family:inherit}
+.t-ok{background:var(--green-bg);color:var(--green-tx)}
+.t-warn{background:var(--amber-bg);color:var(--amber-tx)}
+.t-bad{background:var(--red-bg);color:var(--red-tx)}
+.note{background:var(--purple-bg);border:1px solid #CECBF6;border-radius:10px;padding:14px 16px;
+  font-size:12.5px;color:var(--purple-tx);line-height:1.65}
+.note b{font-weight:500}
+h3{font-size:13px;font-weight:500;margin:26px 0 10px;color:var(--tx)}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;background:#F1EFE8;
+  padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>SpiritPal 端侧模型内存预算计算器</h1>
+  <div class="sub">Qwen3.5 小尺寸系列 · 混合注意力架构（每 4 层仅 1 层 full attention）· GGUF 体积为官方实测值</div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>参数</h2>
+
+      <div class="field">
+        <label>模型</label>
+        <select id="model"></select>
+      </div>
+
+      <div class="field">
+        <label>量化档位</label>
+        <select id="quant"></select>
+      </div>
+
+      <div class="field">
+        <label>KV cache 精度</label>
+        <select id="kvtype">
+          <option value="2">F16（默认，精度最好）</option>
+          <option value="1.0625" selected>Q8_0（推荐，省一半）</option>
+          <option value="0.5625">Q4_0（极限省内存）</option>
+        </select>
+        <div class="hint">KV 量化对长上下文的收益极大，Q8_0 几乎无损。</div>
+      </div>
+
+      <div class="field">
+        <label>设备内存档位</label>
+        <select id="ram">
+          <option value="6">6 GB（入门）</option>
+          <option value="8">8 GB（中端）</option>
+          <option value="12" selected>12 GB（骁龙8至尊版）</option>
+          <option value="16">16 GB（旗舰）</option>
+          <option value="24">24 GB（顶配）</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>分配给本 App 的内存预算 <span class="val" id="budgetVal"></span></label>
+        <input type="range" id="budget" min="0.8" max="12" step="0.1" value="4">
+        <div class="hint">已按档位自动预填，可手动拖动。常驻后台的宠物类应用建议保守。</div>
+      </div>
+
+      <div class="field">
+        <label>应用自身基线占用 <span class="val" id="appVal"></span></label>
+        <input type="range" id="appbase" min="0.2" max="1.2" step="0.05" value="0.45">
+        <div class="hint">Tauri WebView + Live2D/pixi + SQLite + JS 堆的估算值。</div>
+      </div>
+
+      <div class="field">
+        <label>内存带宽档位</label>
+        <select id="bw">
+          <option value="34">LPDDR4X（入门，约 34 GB/s）</option>
+          <option value="51">LPDDR5（中端，约 51 GB/s）</option>
+          <option value="77" selected>LPDDR5X 4800（骁龙8至尊版，约 77 GB/s）</option>
+          <option value="95">LPDDR5X 9600（2026 旗舰，约 95 GB/s）</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="chk"><input type="checkbox" id="mmproj"> 加载视觉编码器（mmproj）</label>
+        <div class="hint">纯文字聊天不需要；勾选后可用「看看屏幕」类多模态能力，但固定多占 0.2–0.92 GB。</div>
+      </div>
+    </div>
+
+    <div>
+      <div id="verdict"></div>
+      <div class="stats" id="stats"></div>
+
+      <div class="card" style="margin-bottom:20px">
+        <h2>内存分布</h2>
+        <div class="bar" id="bar"></div>
+        <div class="legend" id="legend"></div>
+        <div class="note" id="note"></div>
+      </div>
+
+      <div class="card">
+        <h2>设备档位 × 模型 全景（当前量化档位）</h2>
+        <table id="matrix">
+          <thead><tr>
+            <th>设备内存</th><th>可用预算</th><th>权重</th><th>可用 KV</th><th>最大上下文</th><th>估算解码</th><th>判定</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="hint" style="margin-top:12px">
+          固定开销已含应用基线 <span id="mxBase"></span> GB。解码速度为内存带宽受限估算（效率系数 0.55），实际受调度、散热、线程数影响。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px">
+    <h2>反查模式：固定 128K 上下文 + 视觉编码器</h2>
+    <div class="hint" style="margin:0 0 14px">
+      与上面的「算上限」相反 —— 这里把上下文钉死 128K、视觉常驻，反推各组合的总内存与可行性。
+      128K 的 KV 需求是硬性的：F16 需 1.61 GB，Q8_0 需 0.86 GB，Q4_0 需 0.45 GB（以 2B 计）。
+    </div>
+    <table id="invTable">
+      <thead><tr>
+        <th>模型 / 量化</th><th>权重</th><th>+视觉固定</th><th>KV 精度</th><th>128K KV</th><th>总计</th><th>判定</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="hint" style="margin-top:12px">
+      固定开销 = 权重 + 视觉编码器 + 线性层状态 + 运行时 + 应用基线 <span id="invBase"></span> GB。
+      判定基于当前「分配给本 App 的内存预算」<span id="invBudget"></span> GB。
+    </div>
+  </div>
+
+  <h3>口径说明</h3>
+  <div class="card">
+    <table>
+      <thead><tr><th>模型</th><th>层数</th><th>full attention 层</th><th>KV heads</th><th>head_dim</th><th>KV / token (F16)</th><th>线性层固定状态</th></tr></thead>
+      <tbody id="archTable"></tbody>
+    </table>
+    <div class="hint" style="margin-top:12px">
+      KV cache = 2（K 与 V）× full attention 层数 × KV heads × head_dim × 每元素字节数。
+      Qwen3.5 采用 Gated DeltaNet + Gated Attention 混合架构，仅 1/4 的层持有 KV cache，
+      因此同等参数下上下文容量约为标准 Transformer 的 4 倍。线性层使用固定大小的循环状态，与上下文长度无关。
+    </div>
+  </div>
+</div>
+
+<script>
+const GB = 1e9;
+
+const MODELS = {
+  '0.8B': {
+    label: 'Qwen3.5-0.8B',
+    layers: 24, fullAttn: 6, kvHeads: 2, headDim: 256,
+    linearLayers: 18, linearStateMB: 18.9,
+    runtimeGB: 0.10,
+    mmprojGB: 0.205,
+    quant: { 'Q4_K_M': 0.532517120, 'Q8_0': 0.811843840, 'Q4_0': 0.507154688,
+             'Q5_K_M': 0.590057728, 'Q6_K': 0.639029504, 'IQ4_XS': 0.492605696 }
+  },
+  '2B': {
+    label: 'Qwen3.5-2B',
+    layers: 24, fullAttn: 6, kvHeads: 2, headDim: 256,
+    linearLayers: 18, linearStateMB: 18.9,
+    runtimeGB: 0.14,
+    mmprojGB: 0.668,
+    quant: { 'Q4_K_M': 1.280835840, 'Q8_0': 2.012012800, 'Q4_0': 1.214873856,
+             'Q5_K_M': 1.435238656, 'Q6_K': 1.574961408, 'IQ4_XS': 1.172996352 }
+  },
+  '4B': {
+    label: 'Qwen3.5-4B',
+    layers: 32, fullAttn: 8, kvHeads: 4, headDim: 256,
+    linearLayers: 24, linearStateMB: 50.3,
+    runtimeGB: 0.22,
+    mmprojGB: 0.672,
+    quant: { 'Q4_K_M': 2.740937888, 'Q8_0': 4.482403488, 'Q4_0': 2.583221408,
+             'Q5_K_M': 3.143656608, 'Q6_K': 3.525956768, 'IQ4_XS': 2.477053088 }
+  },
+  '9B': {
+    label: 'Qwen3.5-9B',
+    layers: 32, fullAttn: 8, kvHeads: 4, headDim: 256,
+    linearLayers: 24, linearStateMB: 50.3,
+    runtimeGB: 0.35,
+    mmprojGB: 0.918,
+    quant: { 'Q4_K_M': 5.680522464, 'Q8_0': 9.527502048, 'Q4_0': 5.379417312,
+             'Q5_K_M': 6.577841376, 'Q6_K': 7.458301152, 'IQ4_XS': 5.168653536 }
+  }
+};
+
+const MAX_CTX = 262144;
+const RAM_BUDGET = { 6: 1.8, 8: 2.8, 12: 4.0, 16: 6.0, 24: 10.0 };
+
+const $ = (id) => document.getElementById(id);
+
+function fmtGB(v){
+  if (v >= 1) return v.toFixed(2);
+  return (v * 1000).toFixed(0) + ' MB';
+}
+function fmtCtx(n){
+  if (n <= 0) return '装不下';
+  if (n >= MAX_CTX) return '262144 (上限)';
+  if (n >= 1024) return Math.floor(n / 1024) + 'K';
+  return n.toString();
+}
+function ctxTag(n){
+  if (n <= 0) return ['t-bad', '不可行'];
+  if (n >= MAX_CTX) return ['t-ok', '满配'];
+  if (n >= 32768) return ['t-ok', '充裕'];
+  if (n >= 8192) return ['t-warn', '勉强够用'];
+  if (n >= 2048) return ['t-warn', '极紧'];
+  return ['t-bad', '不可行'];
+}
+
+function compute(modelKey, quantKey, kvBytesPerElem, budgetGB, appBaseGB, bwGBs, withMmproj){
+  const m = MODELS[modelKey];
+  const weights = m.quant[quantKey];
+  const mmproj = withMmproj ? m.mmprojGB : 0;
+  const recurrent = m.linearStateMB / 1000;
+  const runtime = m.runtimeGB;
+  const fixed = weights + mmproj + recurrent + runtime + appBaseGB;
+  const kvBudget = budgetGB - fixed;
+  const kvPerToken = 2 * m.fullAttn * m.kvHeads * m.headDim * kvBytesPerElem;
+  const maxCtx = kvBudget > 0 ? Math.min(Math.floor(kvBudget * GB / kvPerToken), MAX_CTX) : 0;
+  const decode = bwGBs * 0.55 / weights;
+  return { weights, mmproj, recurrent, runtime, appBase: appBaseGB, fixed, kvBudget, kvPerToken, maxCtx, decode };
+}
+
+function initSelects(){
+  const ms = $('model');
+  ms.innerHTML = Object.entries(MODELS).map(([k, v]) =>
+    `<option value="${k}"${k === '4B' ? ' selected' : ''}>${v.label}</option>`).join('');
+  const qs = $('quant');
+  qs.innerHTML = Object.keys(MODELS['4B'].quant).map(q =>
+    `<option value="${q}"${q === 'Q4_K_M' ? ' selected' : ''}>${q}</option>`).join('');
+}
+
+function render(){
+  const modelKey = $('model').value;
+  const quantKey = $('quant').value;
+  const kvBytes = parseFloat($('kvtype').value);
+  const budgetGB = parseFloat($('budget').value);
+  const appBaseGB = parseFloat($('appbase').value);
+  const bwGBs = parseFloat($('bw').value);
+  const withMmproj = $('mmproj').checked;
+
+  $('budgetVal').textContent = budgetGB.toFixed(1) + ' GB';
+  $('appVal').textContent = appBaseGB.toFixed(2) + ' GB';
+
+  const m = MODELS[modelKey];
+  const r = compute(modelKey, quantKey, kvBytes, budgetGB, appBaseGB, bwGBs, withMmproj);
+
+  let cls, title, desc;
+  if (r.maxCtx <= 0) {
+    cls = 'v-bad'; title = '不可行：固定开销已超出预算';
+    desc = `权重 ${fmtGB(r.weights)} + 运行开销 ${fmtGB(r.recurrent + r.runtime)} + 应用基线 ${fmtGB(appBaseGB)}`
+         + (withMmproj ? ` + 视觉编码器 ${fmtGB(r.mmproj)}` : '')
+         + ` = ${fmtGB(r.fixed)} GB，已超过 ${budgetGB.toFixed(1)} GB 预算，没有空间留给 KV cache。`
+         + ` 建议降低量化档位、换更小模型，或提高内存预算。`;
+  } else if (r.maxCtx < 2048) {
+    cls = 'v-warn'; title = '极限：可用上下文不足 2K';
+    desc = `仅剩 ${fmtGB(r.kvBudget)} GB 给 KV cache。宠物对话建议至少 8K 上下文，当前配置会频繁触发截断。`;
+  } else if (r.maxCtx < 8192) {
+    cls = 'v-warn'; title = '紧张：上下文 ' + fmtCtx(r.maxCtx) + ' 以下';
+    desc = `可用 KV 预算 ${fmtGB(r.kvBudget)} GB。需要把历史轮次与记忆注入压到很低，体验会受影响。`;
+  } else {
+    cls = 'v-ok'; title = '可行：最大上下文 ' + fmtCtx(r.maxCtx) + ' tokens';
+    desc = `固定开销 ${fmtGB(r.fixed)} GB，可用 KV 预算 ${fmtGB(r.kvBudget)} GB，估算解码约 ${r.decode.toFixed(1)} tokens/s。`
+         + (r.maxCtx >= 32768 ? ' 上下文余量充足，无需为端侧做激进裁剪。' : ' 建议把提示词预算控制在 4K 以内以留出安全边际。');
+  }
+  $('verdict').innerHTML = `<div class="verdict ${cls}"><div class="vt">${title}</div><div class="vd">${desc}</div></div>`;
+
+  $('stats').innerHTML = `
+    <div class="stat"><div class="k">模型权重</div><div class="v">${fmtGB(r.weights)}<span class="u">GB</span></div></div>
+    <div class="stat"><div class="k">固定总开销</div><div class="v">${fmtGB(r.fixed)}<span class="u">GB</span></div></div>
+    <div class="stat hi"><div class="k">可用 KV 预算</div><div class="v">${r.kvBudget > 0 ? fmtGB(r.kvBudget) : '0'}<span class="u">GB</span></div></div>
+    <div class="stat hi"><div class="k">最大上下文</div><div class="v">${fmtCtx(r.maxCtx)}<span class="u">tokens</span></div></div>
+    <div class="stat"><div class="k">KV / token</div><div class="v">${(r.kvPerToken / 1024).toFixed(1)}<span class="u">KB</span></div></div>
+    <div class="stat"><div class="k">估算解码速度</div><div class="v">${r.maxCtx > 0 ? r.decode.toFixed(1) : '—'}<span class="u">tok/s</span></div></div>`;
+
+  const segs = [
+    { k: '应用基线', v: appBaseGB, c: '#888780' },
+    { k: '模型权重', v: r.weights, c: '#185FA5' },
+    { k: '运行开销', v: r.recurrent + r.runtime, c: '#5DCAA5' },
+    { k: '视觉编码器', v: r.mmproj, c: '#EF9F27' },
+    { k: 'KV cache', v: Math.max(r.kvBudget, 0), c: '#534AB7' }
+  ].filter(s => s.v > 0);
+
+  const total = Math.max(segs.reduce((a, s) => a + s.v, 0), budgetGB);
+  $('bar').innerHTML = segs.map(s =>
+    `<div style="width:${(s.v / total * 100).toFixed(2)}%;background:${s.c}" title="${s.k} ${fmtGB(s.v)} GB">${
+      s.v / total > 0.08 ? fmtGB(s.v) : ''}</div>`).join('')
+    + (total > segs.reduce((a, s) => a + s.v, 0)
+        ? `<div style="flex:1;background:#F1EFE8"></div>` : '');
+
+  $('legend').innerHTML = segs.map(s =>
+    `<span><i class="dot" style="background:${s.c}"></i>${s.k} ${fmtGB(s.v)} GB</span>`).join('');
+
+  const headroom = budgetGB - r.fixed;
+  $('note').innerHTML = r.maxCtx > 0
+    ? `预算 <b>${budgetGB.toFixed(1)} GB</b>，固定开销占 <b>${(r.fixed / budgetGB * 100).toFixed(0)}%</b>，`
+      + `剩余 <b>${fmtGB(headroom)} GB</b> 全部可用于 KV cache。`
+      + ` 该模型每 token 消耗 <b>${(r.kvPerToken / 1024).toFixed(1)} KB</b> KV，`
+      + `因此每 GB 可容纳约 <b>${Math.round(GB / r.kvPerToken / 1024)}K tokens</b> 上下文。`
+    : `固定开销 <b>${fmtGB(r.fixed)} GB</b> 已超出 <b>${budgetGB.toFixed(1)} GB</b> 预算，需下调模型或量化档位。`;
+
+  $('mxBase').textContent = appBaseGB.toFixed(2);
+
+  const tb = $('matrix').querySelector('tbody');
+  tb.innerHTML = Object.keys(RAM_BUDGET).map(ram => {
+    const b = RAM_BUDGET[ram];
+    const rr = compute(modelKey, quantKey, kvBytes, b, appBaseGB, bwGBs, withMmproj);
+    const [tagCls, tagTx] = ctxTag(rr.maxCtx);
+    return `<tr>
+      <td>${ram} GB</td>
+      <td>${b.toFixed(1)} GB</td>
+      <td>${fmtGB(rr.weights)} GB</td>
+      <td>${rr.kvBudget > 0 ? fmtGB(rr.kvBudget) : '—'}</td>
+      <td>${fmtCtx(rr.maxCtx)}</td>
+      <td>${rr.decode.toFixed(1)}</td>
+      <td><span class="tag ${tagCls}">${tagTx}</span></td>
+    </tr>`;
+  }).join('');
+
+  $('archTable').innerHTML = Object.entries(MODELS).map(([k, mm]) => {
+    const kv16 = 2 * mm.fullAttn * mm.kvHeads * mm.headDim * 2;
+    return `<tr>
+      <td>${mm.label}</td>
+      <td>${mm.layers}</td>
+      <td>${mm.fullAttn}</td>
+      <td>${mm.kvHeads}</td>
+      <td>${mm.headDim}</td>
+      <td>${(kv16 / 1024).toFixed(0)} KB</td>
+      <td>${mm.linearStateMB.toFixed(1)} MB</td>
+    </tr>`;
+  }).join('');
+
+  renderInverse(budgetGB, appBaseGB);
+}
+
+const FIXED_CTX = 131072;
+
+function renderInverse(budgetGB, appBaseGB){
+  const kvTypes = [['F16', 2], ['Q8_0', 1.0625], ['Q4_0', 0.5625]];
+  const quantOrder = ['Q8_0', 'Q6_K', 'Q5_K_M', 'Q4_K_M', 'IQ4_XS'];
+  const rows = [];
+  for (const mk of ['2B', '4B']) {
+    const m = MODELS[mk];
+    const fixedNoW = m.mmprojGB + m.linearStateMB / 1000 + m.runtimeGB + appBaseGB;
+    for (const qk of quantOrder) {
+      if (!(qk in m.quant)) continue;
+      for (const [kvn, kb] of kvTypes) {
+        const w = m.quant[qk];
+        const kv = FIXED_CTX * 2 * m.fullAttn * m.kvHeads * m.headDim * kb / GB;
+        const total = w + fixedNoW + kv;
+        const ok = total <= budgetGB;
+        rows.push({ mk, m, qk, kvn, w, fixedNoW, kv, total, ok, gap: total - budgetGB });
+      }
+    }
+  }
+  const tb = $('invTable').querySelector('tbody');
+  tb.innerHTML = rows.map((r, i) => {
+    const first = i === 0 || rows[i - 1].mk !== r.mk || rows[i - 1].qk !== r.qk;
+    const cls = r.ok ? 't-ok' : 't-bad';
+    const tx = r.ok ? '可行' : '差 ' + r.gap.toFixed(2) + ' GB';
+    const best = r.mk === '2B' && r.qk === 'Q4_K_M' && r.kvn === 'Q8_0';
+    const style = best ? ' style="background:#E6F1FB"' : '';
+    return `<tr${style}>
+      <td>${first ? r.m.label + ' · ' + r.qk : ''}</td>
+      <td>${first ? r.w.toFixed(2) + ' GB' : ''}</td>
+      <td>${first ? r.fixedNoW.toFixed(2) + ' GB' : ''}</td>
+      <td>${r.kvn}</td>
+      <td>${r.kv.toFixed(2)} GB</td>
+      <td>${r.total.toFixed(2)} GB</td>
+      <td><span class="tag ${cls}">${tx}</span>${best ? ' <span class="tag t-ok">推荐</span>' : ''}</td>
+    </tr>`;
+  }).join('');
+
+  $('invBase').textContent = appBaseGB.toFixed(2);
+  $('invBudget').textContent = budgetGB.toFixed(1);
+}
+
+function syncBudgetFromRam(){
+  const ram = parseInt($('ram').value, 10);
+  $('budget').value = RAM_BUDGET[ram];
+  render();
+}
+
+['model', 'quant', 'kvtype', 'ram', 'budget', 'appbase', 'bw', 'mmproj'].forEach(id => {
+  $(id).addEventListener('input', id === 'ram' ? syncBudgetFromRam : render);
+});
+
+initSelects();
+syncBudgetFromRam();
+</script>
+</body>
+</html>

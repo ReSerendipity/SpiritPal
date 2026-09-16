@@ -29,7 +29,7 @@ tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 # 安卓桌面小组件 deep link（spiritpal://）→ 前端事件转发
 tauri-plugin-deep-link = "2"
-tauri = { version = "2", features = ["protocol-asset", "macos-private-api", "tray-icon", "image-png"] }
+tauri = { version = "2", features = ["protocol-asset", "macos-private-api", "tray-icon", "image-png", "custom-protocol"] }
 # 任务 A：API Key 加密存储 — 系统 Keychain（跨平台：Windows Credential Manager / macOS Keychain / Linux Secret Service）
 keyring = "3"
 # 任务 B：记忆数据 AES-256-GCM 加密
@@ -37,6 +37,14 @@ aes-gcm = "0.10"
 sha2 = "0.10"
 base64 = "0.22"
 getrandom = "0.2"
+# 端侧推理子系统（on-device LLM）：设备分档/串行调度原语
+# tokio/tokio-util 由 tauri 间接引入，此处显式声明以直接引用 sync/rt/time/macros
+tokio = "1"
+tokio-util = { version = "0.7", features = ["rt"] }
+# models.rs 的 SHA-256 十六进制校验
+hex = "0.4"
+# 仅移动端 #[cfg(mobile)] 引擎桥（engine.rs）使用；桌面不编 engine.rs，此依赖桌面仅编译不引用
+jni = "0.21"
 # R-06: PBKDF2 密钥派生（替代单次 SHA-256）
 pbkdf2 = "0.12"
 hmac = "0.12"
@@ -62,7 +70,14 @@ spiritpal-mcp = { path = "mcp-server" }
 # H-4: 审计日志 ISO8601 时间戳
 chrono = "0.4"
 # P0: Rust 侧 HTTP 网络出口（http_proxy.rs）——绕过生产 CSP 对境内/本地服务商的阻断
-reqwest = "0.12"
+# ⚠️ TLS 后端按平台分（见下方 target 段）：reqwest 默认 features 会启用 native-tls，
+#    而 Android 上 native-tls → openssl-sys，需交叉编译 OpenSSL 才能构建 —— 本仓无此依赖，
+#    表现为 `cargo build --target aarch64-linux-android` 报
+#    "Could not find directory of OpenSSL installation"。
+#    故此处关闭默认 TLS，改由 target 段指定：非 Android 用 native-tls（沿用系统证书库），
+#    Android 用 rustls-tls（纯 Rust，无需 OpenSSL）。
+#    本命令只用到 Client::builder().timeout().send().status().headers().bytes()，不需要 json/stream。
+reqwest = { version = "0.12", default-features = false, features = ["http2", "charset"] }
 # D-1: Rust 语义 SQL 命令层（sqlite.rs）——bundled SQLite，typed 访问 + 内存单测
 rusqlite = { version = "0.32", features = ["bundled"] }
 
@@ -72,6 +87,15 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 [target.'cfg(target_os = "macos")'.dependencies]
 # M4 加固：pin 上游 rev（a3122e8…）防 branch 内容漂移；v2.1 分支匹配 tauri 2.x。
 tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", rev = "a3122e894383aa068ec5365a42994e3ac94ba1b6" }
+
+# reqwest 的 TLS 后端按平台分（配合上方 [dependencies] 里关闭默认 TLS 的 reqwest）。
+# Android：rustls（纯 Rust，不依赖系统 OpenSSL）——这是 Android 构建能通过的前提。
+[target.'cfg(target_os = "android")'.dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["http2", "charset", "rustls-tls"] }
+
+# 非 Android（Windows / macOS / iOS / Linux）：沿用系统 TLS 后端，行为与改动前完全一致。
+[target.'cfg(not(target_os = "android"))'.dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["http2", "charset", "native-tls"] }
 
 # Windows 平台专用依赖：仅在 Windows 编译时引入。
 # 提供 Win32 API 访问：鼠标穿透、系统空闲检测、前台窗口信息。

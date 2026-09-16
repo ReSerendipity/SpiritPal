@@ -337,6 +337,8 @@ export default function PetWindow() {
   const downPosRef = useRef<{ x: number; y: number; t: number } | null>(null)
   const draggingRef = useRef(false)
   const live2dRef = useRef<import('@/components/Live2DRenderer').Live2DRendererHandle | null>(null)
+  // [FIX] Live2D 启动竞态重试计数：IPC 未就绪时 Core 读取瞬时失败不应永久回退精灵图
+  const live2dRetryRef = useRef(0)
 
   // ========== 气泡驱动窗口自适应 refs ==========
   // 气泡 DOM 测量（挂在 PetBubble 外层 div 上，读取实际渲染尺寸）
@@ -1791,7 +1793,15 @@ export default function PetWindow() {
               <Live2DRenderer
                 ref={live2dRef} modelPath={live2dModelPath} scale={1} opacity={petOpacity}
                 width={spriteW} height={spriteH} motionMap={live2dMotionMap}
-                onError={() => setLive2dFailed(true)}
+                onError={() => {
+                    // [FIX] 启动竞态（IPC custom protocol 未就绪）时 Core 读取瞬时失败，
+                    // 不再永久回退精灵图：延迟重试最多 3 次，全部失败才保持回退
+                    live2dRetryRef.current += 1
+                    setLive2dFailed(true)
+                    if (live2dRetryRef.current <= 3) {
+                      window.setTimeout(() => setLive2dFailed(false), 4000 * live2dRetryRef.current)
+                    }
+                  }}
               />
             ) : (
               <SpriteRenderer

@@ -31,6 +31,13 @@ src-tauri/gen/android/app/.externalNativeBuild/
 src-tauri/gen/android/app/src/main/jniLibs/
 src-tauri/gen/android/app/src/main/assets/
 
+# 内嵌 MNN 引擎 .so（vendored，随 APK 分发；见 docs/agents/ondevice-embed-plan.md）
+# jniLibs/ 是构建产物目录（上面已忽略），故 vendored 的 .so 另置于 mnnLibs/，
+# 并在 build.gradle.kts 用 sourceSets.jniLibs.srcDirs("mnnLibs") 指过去；
+# 下面两行解除 *.so（第 14 行）对该目录的全局忽略。
+!src-tauri/gen/android/app/mnnLibs/
+!src-tauri/gen/android/app/mnnLibs/**/*.so
+
 # Mobile / package artifacts
 *.apk
 *.aab

@@ -1,0 +1,16 @@
+{
+  "id": "feibi",
+  "name": "菲比",
+  "source": "《鸣潮》教会修女",
+  "personality": {
+    "warmth": 0.6,
+    "liveliness": 0.8,
+    "dependence": 0.3,
+    "directness": 0.3,
+    "rationality": -0.2
+  },
+  "themeColor": {
+    "primary": "#FFD700",
+    "secondary": "#9370DB"
+  }
+}

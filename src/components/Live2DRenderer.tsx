@@ -24,6 +24,7 @@
  */
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import { Application, Ticker } from 'pixi.js'
+import Logger from '@/lib/system/logger'
 import type { PetState } from '@/lib/data/types'
 import { getParamAutoMapper } from '@/lib/system/paramAutoMapper'
 
@@ -46,7 +47,9 @@ async function ensureCubismCoreLoaded(): Promise<boolean> {
       import('@tauri-apps/api/path'),
     ])
     const dir = await appDataDir()
-    const bytes = await readFile(`${dir}live2dcubismcore.js`)
+    // [FIX] appDataDir() 不带尾分隔符，模板串直接拼接会得到不存在的路径（Core 永远加载失败）
+    const corePath = `${dir.replace(/[\\/]+$/, '')}/live2dcubismcore.js`
+    const bytes = await readFile(corePath)
     const blobUrl = URL.createObjectURL(new Blob([bytes], { type: 'text/javascript' }))
     await new Promise<void>((resolve, reject) => {
       const script = document.createElement('script')
@@ -68,6 +71,8 @@ async function ensureCubismCoreLoaded(): Promise<boolean> {
 async function loadLive2D() {
   if (_Live2DModel) return _Live2DModel
   const coreReady = await ensureCubismCoreLoaded()
+  // [L2DBG-TEMP]
+  Logger.info('[L2DBG] coreReady=' + coreReady)
   if (!coreReady) {
     // 社区方案：应用不随包分发 Cubism Core（Live2D 专有许可）。
     // 用户需自行从 Live2D 官网下载 Cubism SDK，将 live2dcubismcore.js 放入应用数据目录。
@@ -77,7 +82,9 @@ async function loadLive2D() {
       + '（设置 → 关于 → Live2D 查看详细指引）当前已自动切换为精灵图模式。'
     )
   }
-  const { Live2DModel } = await import(/* @vite-ignore */ 'pixi-live2d-display/cubism4')
+  const { Live2DModel } = await import('pixi-live2d-display/cubism4')
+  // [L2DBG-TEMP]
+  Logger.info('[L2DBG] pixi import ok')
   _Live2DModel = Live2DModel
   if (!_tickerRegistered) {
     _Live2DModel.registerTicker(Ticker as unknown as Parameters<typeof _Live2DModel.registerTicker>[0])
@@ -216,6 +223,8 @@ export const Live2DRenderer = forwardRef<Live2DRendererHandle, Live2DRendererPro
           }
 
           // 4. 异步加载 Live2D 模型
+          // [L2DBG-TEMP]
+          Logger.info('[L2DBG] Live2DModel.from ' + modelPath)
           return Live2DModel.from(modelPath).then((model: any) => {
             if (destroyed) {
               model.destroy()
@@ -247,14 +256,17 @@ export const Live2DRenderer = forwardRef<Live2DRendererHandle, Live2DRendererPro
             }
 
             // 计算适配缩放
-            const modelW = model.width || 1
-            const modelH = model.height || 1
-            const fit = Math.min(width / modelW, height / modelH)
+            // [FIX] 首帧前 model.width/height 可能为 0（|| 1 兜底会让 scale 放大数倍，模型画到画布外不可见），
+            // 优先用 internalModel.originalWidth/Height（moc3 声明的原始画布尺寸）
+            const natW = model.internalModel?.originalWidth || model.width || 1
+            const natH = model.internalModel?.originalHeight || model.height || 1
+            const fit = Math.min(width / natW, height / natH)
             const finalScale = fit * scale
             model.scale.set(finalScale)
-            model.x = (width - modelW * finalScale) / 2
-            model.y = (height - modelH * finalScale) / 2
+            model.x = (width - natW * finalScale) / 2
+            model.y = (height - natH * finalScale) / 2
             model.alpha = opacity
+            Logger.info('[L2DBG] fit nat=' + natW + 'x' + natH + ' scale=' + finalScale.toFixed(4))
 
             app!.stage.addChild(model as unknown as import('pixi.js').DisplayObject)
 
@@ -267,12 +279,27 @@ export const Live2DRenderer = forwardRef<Live2DRendererHandle, Live2DRendererPro
             }
 
             readyRef.current = true
+            // [L2DBG-TEMP]
+            Logger.info('[L2DBG] model READY')
             onReady?.()
+            // [L2DBG-TEMP] 决定性实验：离屏提取模型渲染像素
+            window.setTimeout(() => {
+              try {
+                const px = appRef.current!.renderer.extract.pixels(model as unknown as import("pixi.js").DisplayObject)
+                let opaque = 0
+                for (let i = 3; i < px.length; i += 4) if (px[i] > 10) opaque++
+                Logger.info('[L2DBG] extract opaque=' + opaque + '/' + (px.length / 4) + ' renderer=' + appRef.current!.renderer.width + 'x' + appRef.current!.renderer.height)
+              } catch (e) {
+                Logger.error('[L2DBG] extract failed: ' + (e instanceof Error ? e.message : String(e)))
+              }
+            }, 2000)
           })
         })
         .catch((err: unknown) => {
           if (destroyed) return
           const msg = err instanceof Error ? err.message : String(err)
+          // [L2DBG-TEMP]
+          Logger.error('[L2DBG] model FAILED: ' + msg)
           onError?.(new Error(msg.includes('Live2DCubismCore')
             ? 'Live2DCubismCore not loaded — place live2dcubismcore.js in public/'
             : `Live2D init failed: ${msg}`))

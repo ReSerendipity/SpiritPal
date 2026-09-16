@@ -42,3 +42,11 @@
 - Open-LLM-VTuber（MIT）移植标注依法保留。
 
 *本说明为初稿参考，不构成正式法律意见。*
+
+---
+
+## 7. 状态补记（2026-09-15）
+
+- **仓库模式**：2026-09-08 起为单仓公开模式（origin = ReSerendipity/SpiritPal，Apache-2.0 全量开源，含完整 main 历史）；§3 社区功能结论不变（GitHub Releases 静态分发，无 UGC 义务）。
+- **更新机制**：§4 所述「updater 关闭」已于 2026-09-10 解除（commit `f9e0f43`：`plugins.updater.active=true` + `createUpdaterArtifacts=true`，endpoints 修正为 ReSerendipity/SpiritPal）；当前状态以 `docs/RELEASE_NOTES.md` 为准，`updates.json` 随 v0.1.0 发布链维护。
+- **发布前 TODO**：Live2D 发行许可申请仍为发布前必办项（见 `docs/LIVE2D_LICENSE_REMINDER.md`）；更新签名密钥配对验证仍为「接入未验证」状态。

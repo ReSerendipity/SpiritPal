@@ -1,0 +1,16 @@
+{
+  "id": "gugugaga",
+  "name": "咕咕嘎嘎",
+  "source": "《明日方舟：终末地》管理员企鹅化",
+  "personality": {
+    "warmth": 0.3,
+    "liveliness": -0.6,
+    "dependence": -0.2,
+    "directness": -0.4,
+    "rationality": 0.3
+  },
+  "themeColor": {
+    "primary": "#1a1a1a",
+    "secondary": "#ffffff"
+  }
+}

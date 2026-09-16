@@ -21,7 +21,7 @@
  * 退出码：0 = 全部通过；1 = 有失败项（打 tag 前必须修复）
  */
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, statSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -112,6 +112,78 @@ function readdirSafe(p) {
     return readdirSync(p)
   } catch {
     return []
+  }
+}
+
+function tryExe(p) {
+  try {
+    return existsSync(p) && statSync(p).isFile() ? p : null
+  } catch {
+    return null
+  }
+}
+
+// 递归查找 release 构建产物里的 spiritpal-app 二进制（macOS .app 包内）。
+function rglobExe(dir) {
+  if (!existsSync(dir)) return null
+  let entries = []
+  try {
+    entries = readdirSync(dir, { withFileTypes: true })
+  } catch {
+    return null
+  }
+  for (const e of entries) {
+    const full = join(dir, e.name)
+    if (e.isDirectory()) {
+      const hit = rglobExe(full)
+      if (hit) return hit
+    } else if (e.name === 'spiritpal-app') {
+      return full
+    }
+  }
+  return null
+}
+
+// ---- 6. release 二进制已内嵌前端（防 localhost 拒绝连接回归，GOTCHAS #98）----
+{
+  const cargoPath = join(ROOT, 'src-tauri', 'Cargo.toml')
+  const cargoTxt = existsSync(cargoPath) ? readFileSync(cargoPath, 'utf-8') : ''
+  const fm = cargoTxt.match(/tauri\s*=\s*\{[^}]*features\s*=\s*\[([^\]]*)\]/s)
+  const feats = fm ? fm[1].split(',').map((s) => s.replace(/["'\s]/g, '')).filter(Boolean) : []
+  const hasFeature = feats.includes('custom-protocol')
+  if (!hasFeature) {
+    record(
+      '前端内嵌(custom-protocol)',
+      false,
+      'src-tauri/Cargo.toml 的 tauri features 缺 "custom-protocol" -> release 不内嵌前端，双击 exe 会连 localhost:5223 失败',
+    )
+  } else {
+    const exe =
+      tryExe(join(ROOT, 'src-tauri', 'target', 'release', 'spiritpal-app.exe')) ||
+      tryExe(join(ROOT, 'src-tauri', 'target', 'release', 'spiritpal-app')) ||
+      rglobExe(join(ROOT, 'src-tauri', 'target', 'release'))
+    if (!exe) {
+      record('前端内嵌(二进制)', false, '本地无 release 构建产物（先跑 pnpm tauri build）')
+    } else {
+      const buf = readFileSync(exe)
+      const sizeMB = buf.length / (1024 * 1024)
+      const needle = Buffer.from([0x1f, 0x8b])
+      let gzip = 0
+      let i = 0
+      while ((i = buf.indexOf(needle, i)) !== -1) {
+        gzip++
+        i += 2
+      }
+      const hasProto = buf.includes(Buffer.from('tauri://localhost'))
+      const ok = gzip >= 100 && hasProto && sizeMB >= 50
+      record(
+        '前端内嵌(二进制)',
+        ok,
+        ok
+          ? `${exe} ${sizeMB.toFixed(1)}MB, gzip流=${gzip}`
+          : `未内嵌: gzip流=${gzip}(需>=100) tauri协议=${hasProto} 体积=${sizeMB.toFixed(1)}MB(需>=50)`,
+      )
+    }
   }
 }
 
