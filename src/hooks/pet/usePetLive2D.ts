@@ -90,7 +90,9 @@ export function usePetLive2D(options: UsePetLive2DOptions): UsePetLive2DReturn {
     void (async () => {
       for (const path of candidates) {
         try {
-          const resp = await fetchWithTimeout(path, { method: 'HEAD', timeout: 5000 })
+          // 注意：probe 用 GET 而非 HEAD —— release 下走 tauri://localhost asset 协议，
+          // asset 通道对 HEAD 的支持无保障（dev 的 http devServer 才稳定返回 HEAD 200）。
+          const resp = await fetchWithTimeout(path, { method: 'GET', timeout: 5000 })
           if (resp.ok) {
             if (cancelled) return
             if (cache.size >= LIVE2D_PATH_CACHE_MAX) {

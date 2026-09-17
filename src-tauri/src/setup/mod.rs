@@ -87,7 +87,7 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
 
     {
         use tauri::{WebviewUrl, WebviewWindowBuilder};
-        WebviewWindowBuilder::new(app, "pet-window", WebviewUrl::App("index.html#/pet".into()))
+        let pet_builder = WebviewWindowBuilder::new(app, "pet-window", WebviewUrl::App("index.html#/pet".into()))
             .title("SpiritPal")
             // 默认 224×304 = 1.0× 宠物的基准适配尺寸（精灵 192×208 + 32 边距 + 64 气泡空间），
             // 减少首帧与前端按持久化 petSize 校正后的落差闪烁；前端挂载后会立即按实际 petSize 校正
@@ -97,13 +97,16 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
             .min_inner_size(160.0, 200.0)
             .max_inner_size(720.0, 900.0)
             .resizable(true)
-            .fullscreen(false)
+            .fullscreen(false);
+        // 以下为桌面端专属属性：移动端 WebviewWindowBuilder 无这些方法，必须按平台条件编译
+        #[cfg(desktop)]
+        let pet_builder = pet_builder
             .decorations(false)
             .transparent(true)
             .shadow(false)
             .always_on_top(true)
-            .skip_taskbar(true)
-            .build()?;
+            .skip_taskbar(true);
+        pet_builder.build()?;
     }
 
     let menu = crate::tray::build_tray_menu(app)?;
@@ -129,7 +132,9 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
                         let _ = window.hide();
                     } else {
                         let _ = window.show();
-                        let _ = window.set_focus();
+                        // 聚焦为桌面端专属（移动端无窗口焦点概念）
+#[cfg(desktop)]
+let _ = window.set_focus();
                     }
                 }
             }
@@ -138,7 +143,9 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
             "show" => {
                 if let Some(window) = app.get_webview_window("pet-window") {
                     let _ = window.show();
-                    let _ = window.set_focus();
+                    // 聚焦为桌面端专属（移动端无窗口焦点概念）
+#[cfg(desktop)]
+let _ = window.set_focus();
                 }
             }
             "hide" => {
@@ -166,7 +173,7 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
                     w
                 } else {
                     // 动态创建聊天窗口（无边框，自定义标题栏）
-                    match tauri::WebviewWindowBuilder::new(
+                    let chat_builder = tauri::WebviewWindowBuilder::new(
                         app,
                         "chat-window",
                         tauri::WebviewUrl::App("index.html#/chat".into()),
@@ -174,10 +181,11 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
                     .title("SpiritPal Chat")
                     .inner_size(420.0, 600.0)
                     .min_inner_size(320.0, 400.0)
-                    .resizable(true)
-                    .decorations(false)
-                    .build()
-                    {
+                    .resizable(true);
+                    // 桌面专属：无边框（移动端 WebviewWindowBuilder 无 decorations 方法）
+                    #[cfg(desktop)]
+                    let chat_builder = chat_builder.decorations(false);
+                    match chat_builder.build() {
                         Ok(w) => w,
                         Err(e) => {
                             log::error!("[SpiritPal] Failed to create chat window: {}", e);
@@ -186,7 +194,9 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
                     }
                 };
                 let _ = window.show();
-                let _ = window.set_focus();
+                // 聚焦为桌面端专属（移动端无窗口焦点概念）
+#[cfg(desktop)]
+let _ = window.set_focus();
             }
             "settings" => {
                 let window = if let Some(w) = app.get_webview_window("settings-window") {
@@ -203,7 +213,9 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
                     }
                 };
                 let _ = window.show();
-                let _ = window.set_focus();
+                // 聚焦为桌面端专属（移动端无窗口焦点概念）
+#[cfg(desktop)]
+let _ = window.set_focus();
                 let _ = app.emit("open-settings", ());
             }
             // P0-1.5: 托盘「检查更新」→ 前端 UpdateNotification 弹窗执行完整状态机（每步可见）
