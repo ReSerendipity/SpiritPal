@@ -37,7 +37,7 @@ use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 
 use jni::objects::{GlobalRef, JClass, JString, JValue};
-use jni::{JavaVM, JNIEnv};
+use jni::{JNIEnv, JavaVM};
 
 use crate::ondevice::models::ModelManager;
 use crate::ondevice::scheduler::{SchedError, Scheduler};
@@ -128,8 +128,7 @@ fn model_dir(app: &AppHandle) -> std::path::PathBuf {
                             std::fs::Permissions::from_mode(0o771),
                         );
                     }
-                    let _ =
-                        std::fs::set_permissions(&ext, std::fs::Permissions::from_mode(0o777));
+                    let _ = std::fs::set_permissions(&ext, std::fs::Permissions::from_mode(0o777));
                 }
                 return ext;
             }
@@ -220,7 +219,11 @@ fn call_kotlin_static(method: &str, sig: &str, args: Vec<String>) -> Result<(), 
     })
 }
 
-fn kotlin_load_model(model_id: &str, config_path: &str, enable_thinking: &str) -> Result<(), String> {
+fn kotlin_load_model(
+    model_id: &str,
+    config_path: &str,
+    enable_thinking: &str,
+) -> Result<(), String> {
     call_kotlin_static(
         "loadModel",
         "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",
@@ -384,7 +387,11 @@ pub async fn ondevice_load_model(
     // 故改为 async（脱离主线程）+ spawn_blocking（不长期占用 tokio worker）。
     // 因类引用已由 `JNI_OnLoad` 缓存，本调用**不再依赖 Android 主线程**，可安全在后台线程执行。
     // enable_thinking 经 Kotlin 覆写 config.json 后 load（MNN 仅在 load 时读取该字段）。
-    let et = if enable_thinking.unwrap_or(false) { "1" } else { "0" };
+    let et = if enable_thinking.unwrap_or(false) {
+        "1"
+    } else {
+        "0"
+    };
     let (mid, cfg, e) = (model_id.clone(), config_path.clone(), et.to_string());
     tauri::async_runtime::spawn_blocking(move || kotlin_load_model(&mid, &cfg, &e))
         .await

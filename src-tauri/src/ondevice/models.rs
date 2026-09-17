@@ -66,7 +66,10 @@ impl ModelManager {
 
     /// 该模型是否已加载。
     pub fn is_loaded(&self, id: &str) -> bool {
-        self.loaded.lock().map(|l| l.contains_key(id)).unwrap_or(false)
+        self.loaded
+            .lock()
+            .map(|l| l.contains_key(id))
+            .unwrap_or(false)
     }
 
     pub fn local_path(&self, id: &str) -> PathBuf {
