@@ -8,7 +8,7 @@ import org.gradle.kotlin.dsl.get
 const val TASK_GROUP = "rust"
 
 open class Config {
-    lateinit var rootDirRel: String
+    var rootDirRel: String = "../../../"
 }
 
 open class RustPlugin : Plugin<Project> {
@@ -57,7 +57,7 @@ open class RustPlugin : Plugin<Project> {
                     description = "Build dynamic library in $profile mode for all targets"
                 }
 
-                tasks["mergeUniversal${profileCapitalized}JniLibFolders"].dependsOn(buildTask)
+                tasks.findByName("mergeUniversal${profileCapitalized}JniLibFolders")?.dependsOn(buildTask)
 
                 for (targetPair in targetsList.withIndex()) {
                     val targetName = targetPair.value
@@ -75,7 +75,7 @@ open class RustPlugin : Plugin<Project> {
                     }
 
                     buildTask.dependsOn(targetBuildTask)
-                    tasks["merge$targetArchCapitalized${profileCapitalized}JniLibFolders"].dependsOn(
+                    tasks.findByName("merge$targetArchCapitalized${profileCapitalized}JniLibFolders")?.dependsOn(
                         targetBuildTask
                     )
                 }
