@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpiritPal · 桌边友 — 演示页</title>
+<style>
+  :root{
+    --bg:#f6f3ee; --card:#fffdf9; --ink:#2f2b26; --ink2:#8a8378;
+    --accent:#c98a5b; --accent-soft:#f3e2d2; --line:#e8e1d6;
+    --green:#7fa878; --green-soft:#e4efe0; --radius:18px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:"Segoe UI","Microsoft YaHei","PingFang SC",Arial,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 26px 40px}
+  /* 顶部 */
+  .top{display:flex;align-items:center;gap:14px;padding-bottom:18px;border-bottom:1px solid var(--line)}
+  .logo{width:46px;height:46px;border-radius:14px;background:linear-gradient(145deg,#c98a5b,#a86a41);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(168,106,65,.28)}
+  .logo svg{width:26px;height:26px}
+  .brand h1{font-size:19px;font-weight:700;letter-spacing:.5px}
+  .brand p{font-size:12.5px;color:var(--ink2);margin-top:2px}
+  .tag{display:flex;gap:10px;margin-left:auto;align-items:center}
+  .pill{font-size:12px;padding:6px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+  .pill b{color:var(--accent);font-weight:700}
+  /* 主体 */
+  .stage{display:grid;grid-template-columns:1fr 360px;gap:22px;margin-top:22px}
+  @media(max-width:920px){.stage{grid-template-columns:1fr}}
+  .pane{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+  /* 桌宠区 */
+  .pet-zone{display:flex;flex-direction:column;align-items:center;position:relative}
+  .status-row{width:100%;display:flex;justify-content:space-between;margin-bottom:6px}
+  .stat{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink2)}
+  .stat .bar{width:90px;height:7px;border-radius:99px;background:#eee6db;overflow:hidden}
+  .stat .bar i{display:block;height:100%;border-radius:99px;background:var(--accent);transition:width .5s ease}
+  .stat .bar.g i{background:var(--green)}
+  .pet-stage{position:relative;width:100%;max-width:420px;height:300px;display:flex;align-items:center;justify-content:center;margin-top:6px}
+  .bubble{position:absolute;top:18px;left:50%;transform:translateX(-50%);background:#fff;border:1px solid var(--line);border-radius:14px 14px 14px 4px;padding:9px 14px;font-size:13.5px;box-shadow:0 6px 18px rgba(47,43,38,.08);max-width:280px;text-align:center;transition:opacity .25s}
+  .pet{width:190px;height:190px;filter:drop-shadow(0 14px 22px rgba(168,106,65,.25))}
+  .glow{position:absolute;width:210px;height:210px;border-radius:50%;background:radial-gradient(circle,rgba(201,138,91,.18),transparent 65%);pointer-events:none}
+  .actions{display:flex;gap:12px;margin-top:14px;flex-wrap:wrap;justify-content:center}
+  .act{display:flex;flex-direction:column;align-items:center;gap:7px;width:86px;padding:12px 6px;border:1px solid var(--line);border-radius:15px;background:#fff;cursor:pointer;transition:transform .15s,box-shadow .15s}
+  .act:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(47,43,38,.10)}
+  .act:active{transform:scale(.96)}
+  .act svg{width:24px;height:24px}
+  .act span{font-size:12px;color:var(--ink2)}
+  .hint{margin-top:16px;font-size:12px;color:var(--ink2);text-align:center}
+  /* 侧栏 */
+  .tabs{display:flex;gap:4px;background:#f1ece3;border-radius:11px;padding:4px;margin-bottom:16px}
+  .tab{flex:1;text-align:center;font-size:13px;padding:8px 0;border-radius:8px;cursor:pointer;color:var(--ink2);transition:all .15s}
+  .tab.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 2px 8px rgba(47,43,38,.08)}
+  .panel{display:none}
+  .panel.on{display:block}
+  .mem-item{display:flex;gap:11px;padding:11px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .mem-item:last-child{border-bottom:none}
+  .mem-ic{width:32px;height:32px;flex:0 0 32px;border-radius:10px;display:flex;align-items:center;justify-content:center}
+  .mem-ic svg{width:16px;height:16px}
+  .mem-item b{display:block;font-size:13px;margin-bottom:2px}
+  .mem-item p{color:var(--ink2);font-size:12px;line-height:1.5}
+  .ach-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .ach{display:flex;flex-direction:column;align-items:center;gap:7px;padding:14px 6px;border:1px solid var(--line);border-radius:14px;background:#fff;font-size:11.5px;color:var(--ink2)}
+  .ach svg{width:24px;height:24px}
+  .ach.lock{opacity:.42}
+  .alb-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px dashed var(--line);align-items:center;font-size:12.5px;color:var(--ink2)}
+  .alb-item:last-child{border-bottom:none}
+  .alb-thumb{width:52px;height:52px;flex:0 0 52px;border-radius:11px;background:linear-gradient(135deg,var(--accent-soft),#f8efe6);display:flex;align-items:center;justify-content:center}
+  .alb-thumb svg{width:22px;height:22px}
+  .foot{margin-top:26px;text-align:center;font-size:12px;color:var(--ink2)}
+  .foot code{background:#eee7dc;padding:2px 7px;border-radius:6px;font-size:11.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9.5h.01M15 9.5h.01M9 14c1.2 1 4.8 1 6 0"/></svg>
+    </div>
+    <div class="brand"><h1>SpiritPal · 桌边友</h1><p>跨平台 AI 桌面宠物 — 简单、温暖，陪在桌边</p></div>
+    <div class="tag">
+      <span class="pill">Tauri v2</span><span class="pill">React 19</span><span class="pill">Pixi.js 8 Live2D</span><span class="pill">心情 <b id="moodVal">84</b></span>
+    </div>
+  </header>
+
+  <div class="stage">
+    <section class="pane pet-zone">
+      <div class="status-row">
+        <span class="stat">心情 <span class="bar"><i id="moodBar" style="width:84%"></i></span></span>
+        <span class="stat">能量 <span class="bar g"><i id="energyBar" style="width:72%"></i></span></span>
+        <span class="stat">金币 <b id="coins" style="color:var(--accent)">128</b></span>
+      </div>
+      <div class="pet-stage">
+        <div class="glow"></div>
+        <div class="bubble" id="bubble">今天也一起专注工作吧</div>
+        <svg class="pet" id="pet" viewBox="0 0 200 200">
+          <g id="earL"><path d="M62 78 Q38 44 58 30 Q74 44 72 68 Z" fill="#b98a63"/><path d="M60 72 Q48 50 60 42 Q66 52 67 66 Z" fill="#e8bfa0"/></g>
+          <g id="earR"><path d="M138 78 Q162 44 142 30 Q126 44 128 68 Z" fill="#b98a63"/><path d="M140 72 Q152 50 140 42 Q134 52 133 66 Z" fill="#e8bfa0"/></g>
+          <circle cx="100" cy="108" r="58" fill="#d9a97c"/>
+          <ellipse cx="100" cy="128" rx="42" ry="26" fill="#c89465"/>
+          <ellipse cx="78" cy="116" rx="14" ry="11" fill="#fdf6ee"/><ellipse cx="122" cy="116" rx="14" ry="11" fill="#fdf6ee"/>
+          <circle id="eyeL" cx="78" cy="114" r="4.5" fill="#2f2b26"/><circle id="eyeR" cx="122" cy="114" r="4.5" fill="#2f2b26"/>
+          <path id="mouth" d="M88 134 Q100 146 112 134" stroke="#8a5a3a" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <ellipse cx="74" cy="128" rx="6" ry="4.5" fill="#e88d7d" opacity=".55"/>
+          <ellipse cx="126" cy="128" rx="6" ry="4.5" fill="#e88d7d" opacity=".55"/>
+          <path id="tail" d="M156 120 Q178 108 172 88 Q164 102 154 106 Z" fill="#c89465"/>
+        </svg>
+      </div>
+      <div class="actions">
+        <button class="act" onclick="pet('stroke')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#c98a5b" stroke-width="1.8" stroke-linecap="round"><path d="M12 20c4.5 0 7-2.6 7-6 0-2.8-2-4.4-3.6-4.4-1.3 0-2.4.8-3.4 1.9-.9-1.1-2-1.9-3.4-1.9C7 9.6 5 11.2 5 14c0 3.4 2.5 6 7 6z"/></svg>
+          <span>抚摸</span>
+        </button>
+        <button class="act" onclick="pet('feed')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#7fa878" stroke-width="1.8" stroke-linecap="round"><path d="M8 10c-2 0-4 1.2-4 3.5C4 15.6 5.6 17 8 17c1.6 0 2.8-.7 4-1.8 1.2 1.1 2.4 1.8 4 1.8 2.4 0 4-1.4 4-3.5C20 11.2 18 10 16 10c-1.6 0-2.8.9-4 2-1.2-1.1-2.4-2-4-2z"/></svg>
+          <span>喂食</span>
+        </button>
+        <button class="act" onclick="pet('chat')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#5f7da3" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16v10H9l-5 4V6z"/></svg>
+          <span>聊天</span>
+        </button>
+        <button class="act" onclick="pet('focus')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#b58a5f" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+          <span>专注提醒</span>
+        </button>
+      </div>
+      <p class="hint">演示页模拟桌宠交互 · 真实版本为 Tauri v2 桌面应用，支持 Live2D 模型、本地记忆召回与首启协议门</p>
+    </section>
+
+    <aside class="pane">
+      <div class="tabs" id="tabs">
+        <div class="tab on" data-p="mem" onclick="switchTab('mem')">记忆</div>
+        <div class="tab" data-p="ach" onclick="switchTab('ach')">成就</div>
+        <div class="tab" data-p="alb" onclick="switchTab('alb')">相册</div>
+      </div>
+      <div class="panel on" id="p-mem">
+        <div class="mem-item"><div class="mem-ic" style="background:#f3e2d2"><svg viewBox="0 0 24 24" fill="none" stroke="#c98a5b" stroke-width="1.8"><path d="M4 4h16v16H4z" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></div><div><b>项目节奏</b><p>今天上午连续专注 2 小时 40 分，比平时多 18%</p></div></div>
+        <div class="mem-item"><div class="mem-ic" style="background:#e4efe0"><svg viewBox="0 0 24 24" fill="none" stroke="#7fa878" stroke-width="1.8"><path d="M12 21s-7-4.6-9.5-9A5.4 5.4 0 0 1 12 6.6 5.4 5.4 0 0 1 21.5 12C19 16.4 12 21 12 21z"/></svg></div><div><b>喜欢的音乐</b><p>工作时常听 Lo-fi 歌单，提到《Warm Rain》时心情明显变好</p></div></div>
+        <div class="mem-item"><div class="mem-ic" style="background:#e7e2f5"><svg viewBox="0 0 24 24" fill="none" stroke="#8b7ab5" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 14c1.5 2 6.5 2 8 0M9 10h.01M15 10h.01"/></svg></div><div><b>偏好</b><p>提醒语气偏好温和；周四下午通常有长会，需要提前提醒休息</p></div></div>
+      </div>
+      <div class="panel" id="p-ach">
+        <div class="ach-grid">
+          <div class="ach"><svg viewBox="0 0 24 24" fill="none" stroke="#c98a5b" stroke-width="1.8"><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.8 6.8 19l1-5.8L3.5 9.2l5.9-.9z"/></svg>初次见面<br>已解锁</div>
+          <div class="ach"><svg viewBox="0 0 24 24" fill="none" stroke="#c98a5b" stroke-width="1.8"><path d="M4 12l5 5L20 7"/></svg>专注 100 小时<br>已解锁</div>
+          <div class="ach"><svg viewBox="0 0 24 24" fill="none" stroke="#c98a5b" stroke-width="1.8"><path d="M12 21s-7-4.6-9.5-9A5.4 5.4 0 0 1 12 6.6 5.4 5.4 0 0 1 21.5 12C19 16.4 12 21 12 21z"/></svg>友谊纪念日<br>已解锁</div>
+          <div class="ach lock"><svg viewBox="0 0 24 24" fill="none" stroke="#b9b2a6" stroke-width="1.8"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>连续 30 天陪伴<br>进行中</div>
+          <div class="ach lock"><svg viewBox="0 0 24 24" fill="none" stroke="#b9b2a6" stroke-width="1.8"><path d="M4 4h16v16H4z" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>自定义模组<br>未解锁</div>
+        </div>
+      </div>
+      <div class="panel" id="p-alb">
+        <div class="alb-item"><div class="alb-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="#c98a5b" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M5 17l5-4 3 2 6-5"/></svg></div><div>2026-09-15 · 第一次一起熬夜赶工<br>那天你完成了文档整改，我陪你到凌晨</div></div>
+        <div class="alb-item"><div class="alb-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="#7fa878" stroke-width="1.6"><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.8 6.8 19l1-5.8L3.5 9.2l5.9-.9z"/></svg></div><div>2026-09-10 · 获得第一个成就<br>「专注 100 小时」徽章到手</div></div>
+        <div class="alb-item"><div class="alb-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="#5f7da3" stroke-width="1.6"><path d="M4 6h16v10H9l-5 4V6z"/></svg></div><div>2026-09-08 · 一次长聊<br>你分享了新项目的规划，我记住了</div></div>
+      </div>
+    </aside>
+  </div>
+
+  <p class="foot">SpiritPal 演示页（前端模拟）· 仓库：<code>github.com/ReSerendipity/SpiritPal</code> · 技术栈 Tauri v2 + React 19 + Pixi.js 8 Live2D</p>
+</div>
+
+<script>
+  const mood = {v:84}, energy = {v:72}, coins = {v:128};
+  const lines = {
+    stroke:["呼噜呼噜，好舒服","再摸摸耳朵嘛","今天的你也很温柔"],
+    feed:["好吃！谢谢你","能量补充完毕！","最喜欢你投喂了"],
+    chat:["我在听，慢慢说","记得休息一下眼睛","这个故事很有意思！"],
+    focus:["该专注啦，我陪你","倒计时 25 分钟开始","先喝口水再继续吧"]
+  };
+  const mExp = {stroke:[3,1,1],feed:[2,4,0],chat:[4,0,2],focus:[0,-2,3]};
+  function setMood(d){mood.v=Math.max(10,Math.min(100,mood.v+d));moodBar.style.width=mood.v+"%";moodVal.textContent=mood.v}
+  function setEnergy(d){energy.v=Math.max(5,Math.min(100,energy.v+d));energyBar.style.width=energy.v+"%"}
+  function pet(action){
+    const list = lines[action], i = Math.floor(Math.random()*list.length);
+    bubble.textContent = list[i]; bubble.style.opacity = 0;
+    setTimeout(()=>{bubble.style.opacity = 1}, 120);
+    setMood(mExp[action][0]); setEnergy(mExp[action][1]); coins.v += mExp[action][2]; coins.textContent = coins.v;
+    const moodC = mood.v;
+    document.getElementById("eyeL").setAttribute("ry", mood.v>60?4.5:6.5);
+    document.getElementById("eyeR").setAttribute("ry", mood.v>60?4.5:6.5);
+    if(mood.v>75){ mouth.setAttribute("d","M88 134 Q100 146 112 134"); }
+    else if(mood.v>40){ mouth.setAttribute("d","M88 138 Q100 144 112 138"); }
+    else { mouth.setAttribute("d","M90 141 Q100 136 110 141"); }
+  }
+  function switchTab(k){
+    document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t.dataset.p===k));
+    ["mem","ach","alb"].forEach(p=>document.getElementById("p-"+p).classList.toggle("on",p===k));
+  }
+</script>
+</body>
+</html>
