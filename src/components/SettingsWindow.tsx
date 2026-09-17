@@ -1376,7 +1376,8 @@ const [showImporter, setShowImporter] = useState(false)
               </a>
               <div className="mt-2 text-[11px] leading-relaxed text-ink-muted">
                 Live2D Cubism 为 Live2D Inc. 专有软件（本应用不分发 Core；许可状态见 docs/LIVE2D_LICENSE_REMINDER.md）。
-                内置角色素材（Doro、菲比等）归属各自创作者，来源与授权状态见
+                内置角色仅 Doro（作者已提供免费获取渠道并允许二创）；其余角色以社区包/用户自备形式提供，
+                归属与授权状态见
                 <a className="text-tangerine-deep underline decoration-dotted underline-offset-4" href="https://github.com/ReSerendipity/SpiritPal/blob/main/docs/CHARACTER_ATTRIBUTIONS.md" target="_blank" rel="noopener noreferrer">docs/CHARACTER_ATTRIBUTIONS.md</a>。
               </div>
               <ol className="list-decimal space-y-1 pl-4 pt-1 text-xs text-ink-muted" start={2}>

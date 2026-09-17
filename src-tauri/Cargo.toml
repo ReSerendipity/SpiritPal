@@ -62,7 +62,14 @@ spiritpal-mcp = { path = "mcp-server" }
 # H-4: 审计日志 ISO8601 时间戳
 chrono = "0.4"
 # P0: Rust 侧 HTTP 网络出口（http_proxy.rs）——绕过生产 CSP 对境内/本地服务商的阻断
-reqwest = "0.12"
+# 注意：Android 交叉编译（aarch64-linux-android）下 native-tls 会拉 openssl-sys，
+# 本机无 Android 版 OpenSSL 致 cargo 失败；改用纯 Rust 的 rustls-tls（ring + webpki-roots），
+# 保留其余默认特性以确保 .body()/.bytes()/.headers() 等 API 可用。
+reqwest = { version = "0.12", default-features = false, features = [
+  "charset", "cookies", "gzip", "brotli", "deflate",
+  "json", "multipart", "stream", "rustls-tls", "http2",
+  "macos-system-configuration", "system-proxy", "trust-dns",
+] }
 # D-1: Rust 语义 SQL 命令层（sqlite.rs）——bundled SQLite，typed 访问 + 内存单测
 rusqlite = { version = "0.32", features = ["bundled"] }
 

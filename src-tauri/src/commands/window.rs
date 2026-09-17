@@ -206,7 +206,10 @@ pub fn build_configured_window(
         .title(cfg.title)
         .inner_size(cfg.width, cfg.height)
         .min_inner_size(cfg.min_width, cfg.min_height)
-        .resizable(cfg.resizable)
+        .resizable(cfg.resizable);
+    // 以下为桌面端专属窗口属性：移动端 WebviewWindowBuilder 无这些方法，必须按平台条件编译
+    #[cfg(desktop)]
+    let mut builder = builder
         .decorations(cfg.decorations)
         .transparent(cfg.transparent)
         .always_on_top(cfg.always_on_top)
@@ -641,6 +644,8 @@ pub async fn show_pet_window(app: tauri::AppHandle, window: WebviewWindow) -> Re
     }
     let _ = app;
     let _ = window.show();
+    // 聚焦为桌面端专属（移动端无窗口焦点概念）
+    #[cfg(desktop)]
     let _ = window.set_focus();
     Ok(())
 }
@@ -695,6 +700,8 @@ pub async fn set_pet_always_on_top(
         }
     }
     let _ = app;
+    // 置顶为桌面端专属
+    #[cfg(desktop)]
     let _ = window.set_always_on_top(always_on_top);
     Ok(())
 }
