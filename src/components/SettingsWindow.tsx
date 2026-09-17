@@ -31,7 +31,7 @@ import { enable, disable } from '@tauri-apps/plugin-autostart'
 import { useEffect, useRef, useState } from 'react'
 import {
 X, Bot, Palette, Settings as SettingsIcon, Info,
-Heart, ShoppingBag, Backpack, Brain, SlidersHorizontal, Trophy, Calendar, Package, Camera, Database, Sliders, Grid3x3, Activity, Sparkles, Users, Upload, Plug, BookOpen,
+Heart, ShoppingBag, Backpack, Brain, SlidersHorizontal, Trophy, Calendar, Package, Camera, Database, Sliders, Grid3x3, Activity, Sparkles, Users, Upload, Plug, BookOpen, Cpu,
 } from 'lucide-react'
 import { windowEventBus } from '@/lib/system/windowEventBus'
 import { usePetStore } from '@/stores/petStore'
@@ -55,6 +55,7 @@ import { MemoryPanel } from '@/components/MemoryPanel'
 import { MemoryVisualizer } from '@/components/MemoryVisualizer'
 import { ModPanel } from '@/components/ModPanel'
 import { NurturingPanel } from '@/components/NurturingPanel'
+import { OnDeviceModelPanel } from '@/components/OnDeviceModelPanel'
 import { PersonalityEditor } from '@/components/PersonalityEditor'
 import { PersonalityPanel } from '@/components/PersonalityPanel'
 import { QuickControlsPanel } from '@/components/QuickControlsPanel'
@@ -90,7 +91,7 @@ const selectInitCharacter = (s: ReturnType<typeof usePetStore.getState>) => s.in
 const selectBackground = (s: ReturnType<typeof usePetStore.getState>) => s.background
 const selectSetBackground = (s: ReturnType<typeof usePetStore.getState>) => s.setBackground
 
-type Tab = 'ai' | 'appearance' | 'personality' | 'personalityEditor' | 'nurturing' | 'shop' | 'inventory' | 'memory' | 'achievements' | 'leaderboard' | 'schedule' | 'journal' | 'mods' | 'album' | 'data' | 'quick' | 'sprite' | 'mcp' | 'community' | 'general' | 'about'
+type Tab = 'ai' | 'appearance' | 'personality' | 'personalityEditor' | 'nurturing' | 'shop' | 'inventory' | 'memory' | 'achievements' | 'leaderboard' | 'schedule' | 'journal' | 'mods' | 'album' | 'data' | 'quick' | 'sprite' | 'mcp' | 'ondevice' | 'community' | 'general' | 'about'
 type ToggleKey = 'autoStart' | 'startMinimized' | 'notifications' | 'showWindowBorder'
 
 /** H-3: Tab 分组定义（3 大类：基础 / 高级 / 关于） */
@@ -135,6 +136,7 @@ const TAB_GROUPS: TabGroup[] = [
       { key: 'quick', label: '快捷', icon: Sliders },
       { key: 'sprite', label: '精灵图', icon: Grid3x3 },
       { key: 'mcp', label: 'MCP', icon: Plug },
+      { key: 'ondevice', label: '端侧模型', icon: Cpu },
     ],
   },
   {
@@ -1097,6 +1099,13 @@ const [showImporter, setShowImporter] = useState(false)
           <div className="max-w-2xl">
             <h2 className="mb-4 text-lg font-semibold">MCP 管理</h2>
             <McpSettingsPanel />
+          </div>
+        )}
+
+        {tab === 'ondevice' && (
+          <div className="max-w-2xl">
+            <h2 className="mb-4 text-lg font-semibold">端侧模型</h2>
+            <OnDeviceModelPanel />
           </div>
         )}
 

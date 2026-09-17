@@ -22,11 +22,12 @@ const EXPECTED_PROVIDER_IDS = [
   'claude',
   'gemini',
   'custom',
+  'ondevice',
 ]
 
 describe('LLM_PROVIDERS', () => {
-  it('包含 10 个服务商', () => {
-    expect(LLM_PROVIDERS).toHaveLength(10)
+  it('包含 11 个服务商', () => {
+    expect(LLM_PROVIDERS).toHaveLength(11)
   })
 
   it('每个 provider 配置完整（id/name/baseUrl/apiKeyRequired）', () => {

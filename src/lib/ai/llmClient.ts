@@ -24,6 +24,7 @@
  * - Ollama: 本地模型（/api/chat 逐行 JSON）
  * - Claude: Anthropic Claude（/v1/messages SSE）
  * - Gemini: Google Gemini（:streamGenerateContent SSE）
+ * - ondevice: MNN Chat 本地 OpenAI 兼容 API（127.0.0.1:8080/v1），复用 OpenAI 分支
  *
  * 安全特性：
  * - 30秒请求超时
@@ -37,6 +38,9 @@ import { runtimeMonitor } from '@/lib/system/runtimeMonitor'
 import { safeFetch } from '@/lib/system/ssrfProtection'
 import { OLLAMA_TAGS_URL, recordUsage } from './llmProviders'
 import { getPrompt } from './promptRegistry'
+import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
+import { isMobileRuntime } from '@/lib/system/platform'
 // [Quality Review] DRY 提取：共享 SSE 流解析和 JSON 提取逻辑
 import { readTextStream, type StreamLineType } from './sseUtils'
 // SECURITY R-09: SSRF 防护 — LLM 请求使用 safeFetch 替代原生 fetch
@@ -193,6 +197,8 @@ async function fetchWithRetry(
 // ============ LLM 客户端 ============
 export class LLMClient {
   private config: AIConfig
+  /** 最近一次 chat() 调用的 token 用量（由子方法在流结束时写入） */
+  private _lastUsage: { input: number; output: number } | null = null
 
   constructor(config: AIConfig) {
     this.config = config
@@ -208,6 +214,11 @@ export class LLMClient {
     return this.config
   }
 
+  /** 最近一次 chat() 完成后的 token 用量（无数据时返回 null） */
+  get lastCallUsage(): { input: number; output: number } | null {
+    return this._lastUsage
+  }
+
   // 流式聊天：通过回调推送增量文本
   // onChunk 每收到一个文本片段时被调用
   // abortSignal 用于中断生成
@@ -217,6 +228,7 @@ export class LLMClient {
     onChunk?: (chunk: string) => void,
     abortSignal?: AbortSignal,
   ): Promise<string> {
+    this._lastUsage = null
     const provider = this.config.provider
     const llmHandle = runtimeMonitor.startLLMCall(provider)
     try {
@@ -227,6 +239,13 @@ export class LLMClient {
         result = await this.chatClaude(messages, onChunk, abortSignal)
       } else if (provider === 'gemini') {
         result = await this.chatGemini(messages, onChunk, abortSignal)
+      } else if (provider === 'ondevice') {
+        // 分流（ADR-0005）：
+        // - **移动端**：进程内 MNN 引擎（单进程持模型，无 loopback、无明文）
+        // - **桌面端**：companion loopback（MNN Chat 的 OpenAI 兼容端点 127.0.0.1:8080/v1）
+        result = isMobileRuntime()
+          ? await this.onDeviceGenerate(messages, onChunk, abortSignal)
+          : await this.chatOpenAI(messages, onChunk, abortSignal)
       } else {
         result = await this.chatOpenAI(messages, onChunk, abortSignal)
       }
@@ -236,6 +255,55 @@ export class LLMClient {
       runtimeMonitor.endLLMCall(llmHandle, true)
       throw e
     }
+  }
+
+  // ============ 端侧（移动端内嵌 MNN 引擎）============
+  // 经 Tauri 命令 ondevice_generate 调进程内 MNN 引擎；token 经 ondevice://token 事件流式回填前端。
+  // 桌面端不走此路径（chat() 已按 isMobileRuntime 分流到 companion loopback）。
+  private async onDeviceGenerate(
+    messages: ChatMessage[],
+    onChunk?: (text: string) => void,
+    abortSignal?: AbortSignal,
+  ): Promise<string> {
+    const prompt = messages
+      .map((m) => `${m.role}: ${typeof m.content === 'string' ? m.content : ''}`)
+      .join('\n')
+    const sessionId = crypto.randomUUID()
+    const modelId = this.config.model || 'qwen3.5-2b'
+    let full = ''
+
+    const tokenUnlisten = await listen<{ sessionId: string; text: string }>(
+      'ondevice://token',
+      (e) => {
+        if (e.payload.sessionId !== sessionId) return
+        full += e.payload.text
+        onChunk?.(e.payload.text)
+      },
+    )
+    const doneUnlisten = await listen<{ sessionId: string }>('ondevice://done', (e) => {
+      if (e.payload.sessionId !== sessionId) return
+      tokenUnlisten()
+      doneUnlisten()
+    })
+
+    const onAbort = () => {
+      invoke('ondevice_cancel', { sessionId }).catch(() => {})
+    }
+    abortSignal?.addEventListener('abort', onAbort)
+    try {
+      await invoke('ondevice_generate', {
+        modelId,
+        sessionId,
+        prompt,
+        paramsJson: '{}',
+      })
+    } finally {
+      abortSignal?.removeEventListener('abort', onAbort)
+      // 兜底：若未收到 done 事件，确保取消监听避免泄漏
+      tokenUnlisten()
+      doneUnlisten()
+    }
+    return full
   }
 
   // ============ OpenAI 兼容格式 ============
@@ -322,6 +390,7 @@ export class LLMClient {
       onChunk,
     ).then((text) => {
       if (lastUsage) {
+        this._lastUsage = lastUsage
         recordUsage(this.config.provider, this.config.model ?? '', lastUsage.input, lastUsage.output)
       }
       return text
@@ -386,6 +455,7 @@ export class LLMClient {
       onChunk,
     ).then((text) => {
       if (lastUsage) {
+        this._lastUsage = lastUsage
         recordUsage(this.config.provider, this.config.model ?? '', lastUsage.input, lastUsage.output)
       }
       return text
@@ -471,6 +541,7 @@ export class LLMClient {
       onChunk,
     ).then((text) => {
       if (lastUsage) {
+        this._lastUsage = lastUsage
         recordUsage(this.config.provider, this.config.model ?? '', lastUsage.input, lastUsage.output)
       }
       return text
@@ -566,6 +637,7 @@ export class LLMClient {
       onChunk,
     ).then((text) => {
       if (lastUsage) {
+        this._lastUsage = lastUsage
         recordUsage(this.config.provider, this.config.model ?? '', lastUsage.input, lastUsage.output)
       }
       return text

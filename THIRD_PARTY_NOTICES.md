@@ -1,6 +1,6 @@
 # SpiritPal 第三方组件声明（Third-Party Notices）
 
-> 更新日期：2026-09-02。本清单非穷尽：完整依赖以 `package.json` / `pnpm-lock.yaml`、
+> 更新日期：2026-09-16。本清单非穷尽：完整依赖以 `package.json` / `pnpm-lock.yaml`、
 > `src-tauri/Cargo.toml` / `Cargo.lock` 为准；各组件许可以其官方仓库与包内 LICENSE 为准。
 
 ## 项目主许可
@@ -36,6 +36,7 @@ Live2D Cubism Core 为专有软件、**不随包分发**（见 [COMPLIANCE_CHECK
 |---|---|---|
 | Live2D Cubism Core | 专有（不随包分发） | 用户自装，见 COMPLIANCE_CHECKLIST §2 |
 | 宠物动画素材（webm/svg/png） | 项目自有或按来源仓库 | `public/pets/` |
+| Doro Live2D 模型（`public/pets/doro/`） | GPL-3.0（随源仓库 MelanTech/Dororo） | 2026-09-16 接入，入口 `doro.model3.json`；渲染需用户自装 Cubism Core；授权申请 MelanTech/Dororo#10 进行中 |
 | 中文字体/图标 | 以文件头与来源为准 | `public/`、`src/` 内资源 |
 
 ---

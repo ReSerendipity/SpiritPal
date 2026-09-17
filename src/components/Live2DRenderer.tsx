@@ -28,6 +28,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 // （不导出 API），需在 pixi.js 之前 import 一次以启用 eval 能力。
 import 'pixi.js/unsafe-eval'
 import { Application, Ticker } from 'pixi.js'
+import Logger from '@/lib/system/logger'
 import type { PetState } from '@/lib/data/types'
 import { getParamAutoMapper } from '@/lib/system/paramAutoMapper'
 
@@ -73,6 +74,8 @@ async function ensureCubismCoreLoaded(): Promise<boolean> {
 async function loadLive2D() {
   if (_Live2DModel) return _Live2DModel
   const coreReady = await ensureCubismCoreLoaded()
+  // [L2DBG-TEMP]
+  Logger.info('[L2DBG] coreReady=' + coreReady)
   if (!coreReady) {
     // 社区方案：应用不随包分发 Cubism Core（Live2D 专有许可）。
     // 用户需自行从 Live2D 官网下载 Cubism SDK，将 live2dcubismcore.js 放入应用数据目录。
@@ -252,14 +255,17 @@ export const Live2DRenderer = forwardRef<Live2DRendererHandle, Live2DRendererPro
             }
 
             // 计算适配缩放
-            const modelW = model.width || 1
-            const modelH = model.height || 1
-            const fit = Math.min(width / modelW, height / modelH)
+            // [FIX] 首帧前 model.width/height 可能为 0（|| 1 兜底会让 scale 放大数倍，模型画到画布外不可见），
+            // 优先用 internalModel.originalWidth/Height（moc3 声明的原始画布尺寸）
+            const natW = model.internalModel?.originalWidth || model.width || 1
+            const natH = model.internalModel?.originalHeight || model.height || 1
+            const fit = Math.min(width / natW, height / natH)
             const finalScale = fit * scale
             model.scale.set(finalScale)
-            model.x = (width - modelW * finalScale) / 2
-            model.y = (height - modelH * finalScale) / 2
+            model.x = (width - natW * finalScale) / 2
+            model.y = (height - natH * finalScale) / 2
             model.alpha = opacity
+            Logger.info('[L2DBG] fit nat=' + natW + 'x' + natH + ' scale=' + finalScale.toFixed(4))
 
             app!.stage.addChild(model as unknown as import('pixi.js').Container)
 
