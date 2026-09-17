@@ -72,6 +72,14 @@ android {
     buildFeatures {
         buildConfig = true
     }
+    sourceSets {
+        main {
+            // cargo-ndk 把 libspiritpal_lib.so 拷到 src/main/jniLibs；
+            // 端侧 MNN 引擎库（libmnnllmapp.so/libMNN.so）由 scripts/download_mnn_engine.py
+            // 构建期生成到 mnnLibs/（不入库）。两者叠加进包。
+            jniLibs.srcDirs = ['src/main/jniLibs', 'mnnLibs']
+        }
+    }
 }
 
 rust {
