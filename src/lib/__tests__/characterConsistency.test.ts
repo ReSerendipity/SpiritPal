@@ -102,10 +102,6 @@ describe('getCharacterArchetype', () => {
     expect(getCharacterArchetype('doro')).toBe('soft')
   })
 
-  it('feibi → 元气', () => {
-    expect(getCharacterArchetype('feibi')).toBe('energetic')
-  })
-
   it('未知角色 → 默认软萌', () => {
     expect(getCharacterArchetype('nonexistent')).toBe('soft')
   })
@@ -130,13 +126,6 @@ describe('checkConsistency', () => {
     const result = checkConsistency('主人主人，要不要来一个欧润吉？', 'doro')
     expect(result.isConsistent).toBe(true)
     expect(result.violations).toHaveLength(0)
-  })
-
-  it('元气角色说消沉词汇 → 不一致', () => {
-    // feibi 是元气，冲突词含 '好累啊'
-    const result = checkConsistency('好累啊，不想动了', 'feibi')
-    expect(result.isConsistent).toBe(false)
-    expect(result.violations.length).toBeGreaterThan(0)
   })
 
   it('返回 violations 数组结构正确', () => {

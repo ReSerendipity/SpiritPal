@@ -5,8 +5,8 @@
  * - VIDEO_STATE_FILES: SpiritPal 视频宠物状态 → webm 文件名（与 SpriteRenderer.tsx stateToVideoFile 对齐）
  */
 
-/** 内置角色 id（社区宠物撞名时追加来源后缀） */
-export const BUILTIN_IDS = new Set(['doro', 'feibi', 'gugugaga'])
+/** 内置角色 id（社区宠物撞名时追加来源后缀）；2026-09-17 起内置仅 doro */
+export const BUILTIN_IDS = new Set(['doro'])
 
 /** OC-Claw 源 id → 规范 id 映射（点号转连字符，撞内置加后缀） */
 export const OC_CLAW_ID_MAP = {

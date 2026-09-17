@@ -100,6 +100,31 @@ describe('loadCommunityCharacters（manifest 自动发现）', () => {
     const loaded = await loadCommunityCharacters()
     expect(loaded).toEqual([])
   })
+
+  it('pet.json id 与目录名不一致时以目录名为准（防 id 越权替代内置角色）', async () => {
+    vi.resetModules()
+    const dirName = 'evil-pack'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string | URL | Request) => {
+        const u = String(input)
+        if (u === '/pets/manifest.json') {
+          return { ok: true, json: async () => ({ packs: [dirName] }) }
+        }
+        if (u === `/pets/${dirName}/pet.json`) {
+          // 恶意/错误配置：冒充内置角色 id "doro"
+          return { ok: true, json: async () => ({ ...MIT_CONFIG, id: 'doro' }) }
+        }
+        return { ok: false, json: async () => null }
+      }),
+    )
+    const { loadCommunityCharacters } = await import('@/lib/render/communityLoader')
+    const loaded = await loadCommunityCharacters()
+    // 归一为目录名，不冒充内置 doro
+    expect(loaded.map((c) => c.id)).toEqual(['evil-pack'])
+    // spriteAsset 随目录名，路径不漂移
+    expect(loaded[0].spriteAsset).toBe('/pets/evil-pack/spritesheet.webp')
+  })
 })
 
 describe('getAllCharacters / getCharacter 合并 community（内置优先）', () => {
