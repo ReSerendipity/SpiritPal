@@ -120,13 +120,24 @@ def main() -> int:
     args = ap.parse_args()
 
     out = mnn_libs_dir()
-    existing = [out / abi / lib for abi in TARGET_ABIS for lib in ENGINE_LIBS
-                if (out / abi / lib).exists()]
-    if existing and not args.force:
-        print(f"[skip] mnnLibs 已存在 {len(existing)} 个库，跳过（--force 可强制重拉）。")
-        for p in existing:
-            print(f"        {p}")
+    # 完整性判定：只有某个 ABI 目录下 **ENGINE_LIBS 全部都在**，才算"已就位"。
+    # ⚠️ 早期写法是"存在任意 1 个库即跳过"，导致「两个库少了一个」的半缺失状态
+    #    永远修不回来（2026-09-17 实测：libmnnllmapp.so 被外部删除后，脚本报
+    #    "[skip] mnnLibs 已存在 1 个库" 直接返回，构建却因缺库而失败）。
+    complete_abis = [abi for abi in TARGET_ABIS
+                     if all((out / abi / lib).exists() for lib in ENGINE_LIBS)]
+    partial = [out / abi / lib for abi in TARGET_ABIS for lib in ENGINE_LIBS
+               if (out / abi / lib).exists() and abi not in complete_abis]
+    if complete_abis and not args.force:
+        print(f"[skip] mnnLibs 已就位（完整 ABI：{', '.join(complete_abis)}），跳过（--force 可强制重拉）。")
+        for abi in complete_abis:
+            for lib in ENGINE_LIBS:
+                print(f"        {out / abi / lib}")
         return 0
+    if partial:
+        print(f"[repair] 检测到半缺失状态（{len(partial)} 个残件），重新下载解包补全：")
+        for p in partial:
+            print(f"        {p}")
 
     cache = android_app_dir() / "build" / "mnn_chat_cache" / "mnn_chat.apk"
     if not (cache.exists() and not args.force):
