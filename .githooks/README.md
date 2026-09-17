@@ -10,7 +10,7 @@ git config core.hooksPath .githooks      # 或执行 ./.githooks/install.sh
 
 | 钩子 | 作用 |
 | --- | --- |
-| `pre-commit` | 有 `.pre-commit-config.yaml` 且框架可用 → 走 pre-commit；否则走 `pre-commit-lite` |
+| `pre-commit` | 有 `.pre-commit-config.yaml` 且框架可用 → 走 pre-commit（先试 `.venv`/`python -m pre_commit`，再退回 PATH 上的 `pre-commit` 控制台命令）；否则走 `pre-commit-lite` |
 | `pre-push` | 执行仓库内 `precheck.ps1`（无则退回根目录守卫） |
 | `prepare-commit-msg` | 自动追加 `Signed-off-by`（幂等，插在注释块之前） |
 | `commit-msg` | DCO 硬校验（缺签名阻断）+ conventional 规范软提示 |
