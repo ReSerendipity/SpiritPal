@@ -232,15 +232,20 @@ try {
 }
 
 // ============================================================
-// 全屏检测自动隐藏：应用启动时自动启用
+// 全屏检测自动隐藏：仅在 pet-window 中启用
 // 当用户前台应用进入全屏（游戏/视频/演示）时自动隐藏 pet-window，
 // 退出全屏后恢复显示。仅恢复本检测器隐藏的窗口，不覆盖用户手动隐藏。
 // 检测源：Rust 命令 is_fullscreen_detected（Windows 矩形覆盖判定）。
 // 非 Windows / 非 Tauri 环境静默降级。使用动态 import 避免顶层 Tauri 依赖。
+// 注意：chat-window / settings-window 不启动此检测，否则自身全屏会被误判隐藏。
 // ============================================================
 try {
   void import('@/lib/system/fullscreenDetector').then(({ startFullscreenAutoHide }) => {
-    startFullscreenAutoHide()
+    void import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
+      if (getCurrentWindow().label === 'pet-window') {
+        startFullscreenAutoHide()
+      }
+    }).catch(() => { /* 非 Tauri 环境 */ })
   }).catch(() => {
     // 非 Tauri 环境或模块加载失败，静默降级
   })

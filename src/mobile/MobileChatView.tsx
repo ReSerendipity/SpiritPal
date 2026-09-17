@@ -34,7 +34,8 @@ import { usePetStore } from '@/stores/petStore'
  * @returns 聊天界面组件
  */
 export function MobileChatView() {
-  const messagesByCharacter = useChatStore((s) => s.messagesByCharacter)
+  const messagesBySession = useChatStore((s) => s.messagesBySession)
+  const activeSessionByCharacter = useChatStore((s) => s.activeSessionByCharacter)
   const isLoading = useChatStore((s) => s.isLoading)
   const sendMessage = useChatStore((s) => s.sendMessage)
   const appendAssistantChunk = useChatStore((s) => s.appendAssistantChunk)
@@ -46,8 +47,9 @@ export function MobileChatView() {
 
   const currentCharacterId = usePetStore((s) => s.currentCharacterId)
   const character = getCharacter(currentCharacterId)
+  const activeSessionId = activeSessionByCharacter[currentCharacterId] ?? ''
   // eslint-disable-next-line react-hooks/exhaustive-deps -- messages 是 ?? [] 逻辑表达式，每次渲染可能产生新引用；用 useMemo 包裹会改变 useEffect 滚动触发时机，故保留原依赖数组
-  const messages = messagesByCharacter[currentCharacterId] ?? []
+  const messages = messagesBySession[activeSessionId] ?? []
 
   const [input, setInput] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -106,7 +108,8 @@ export function MobileChatView() {
         // 忽略密钥获取错误
       }
 
-      if (!config.apiKey) {
+      // 端侧（移动端 = 进程内 MNN 引擎）**无需 API Key**；其余 provider 仍要求配置。
+      if (!config.apiKey && config.provider !== 'ondevice') {
         setError('请先在设置中配置 AI API Key')
         finishStreaming(assistantId)
         setLoading(false)

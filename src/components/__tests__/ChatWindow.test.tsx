@@ -5,7 +5,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 // ============ Mock 所有依赖 ============
 
 const mockChatStore = {
-  messagesByCharacter: { doro: [] as any[] },
+  sessions: { doro: [{ id: 'sess-1', characterId: 'doro', title: '测试会话', createdAt: Date.now(), updatedAt: Date.now(), messageCount: 0, totalPromptTokens: 0, totalCompletionTokens: 0, requestCount: 0 }] } as Record<string, any[]>,
+  messagesBySession: { 'sess-1': [] as any[] } as Record<string, any[]>,
+  activeSessionByCharacter: { doro: 'sess-1' } as Record<string, string>,
   isLoading: false,
   sendMessage: vi.fn(() => 'msg-1'),
   appendAssistantChunk: vi.fn(),
@@ -17,6 +19,9 @@ const mockChatStore = {
   flagMessage: vi.fn(),
   updateMessageContent: vi.fn(),
   setMessageConsistency: vi.fn(),
+  setMessageMetrics: vi.fn(),
+  createSession: vi.fn(() => 'sess-new'),
+  updateMessageThink: vi.fn(),
 }
 
 vi.mock('@/stores/chatStore', () => ({
@@ -169,7 +174,7 @@ import ChatWindow from '@/components/ChatWindow'
 describe('ChatWindow', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockChatStore.messagesByCharacter = { doro: [] }
+    mockChatStore.messagesBySession = { 'sess-1': [] }
     mockChatStore.isLoading = false
     sttMocks.supported = true
   })
@@ -244,8 +249,8 @@ describe('ChatWindow', () => {
   })
 
   it('渲染消息列表内容', () => {
-    mockChatStore.messagesByCharacter = {
-      doro: [
+    mockChatStore.messagesBySession = {
+      'sess-1': [
         { id: 'm1', role: 'user', content: '你好', timestamp: Date.now() },
         { id: 'm2', role: 'assistant', content: '你好呀主人～', timestamp: Date.now() },
       ],
@@ -304,8 +309,8 @@ describe('ChatWindow', () => {
   })
 
   it('渲染用户消息和 AI 消息', () => {
-    mockChatStore.messagesByCharacter = {
-      doro: [
+    mockChatStore.messagesBySession = {
+      'sess-1': [
         { id: 'm1', role: 'user', content: '用户消息', timestamp: Date.now() },
         { id: 'm2', role: 'assistant', content: 'AI回复内容', timestamp: Date.now() },
       ],
@@ -325,8 +330,8 @@ describe('ChatWindow', () => {
   })
 
   it('无匹配搜索结果时显示提示', () => {
-    mockChatStore.messagesByCharacter = {
-      doro: [
+    mockChatStore.messagesBySession = {
+      'sess-1': [
         { id: 'm1', role: 'user', content: '你好', timestamp: Date.now() },
       ],
     }

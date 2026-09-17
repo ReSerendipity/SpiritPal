@@ -69,7 +69,12 @@ export interface SyncPayload {
   background?: BackgroundConfig
   position?: { x: number; y: number } | null
   settings?: AppSettings
-  messagesByCharacter?: Record<string, ChatMessage[]>
+  /** 会话元数据（v2 同步格式） */
+  sessions?: Record<string, import('@/lib/data/types').ChatSession[]>
+  /** 按会话 ID 索引的消息列表 */
+  messagesBySession?: Record<string, ChatMessage[]>
+  /** 每个角色的活跃会话 ID */
+  activeSessionByCharacter?: Record<string, string>
 }
 
 /** 同步冲突记录 */
@@ -407,7 +412,7 @@ class SyncManager {
         const fieldsToMerge: Array<keyof SyncPayload> = [
           'stats', 'sharedCoins', 'currentCharacterId', 'inventory',
           'wornDecorations', 'background', 'position', 'settings',
-          'messagesByCharacter',
+          'sessions', 'messagesBySession', 'activeSessionByCharacter',
         ]
 
         // BUGFIX: [R6-B] 修复整体覆盖导致本地新值丢失的 Bug
@@ -512,7 +517,11 @@ class SyncManager {
         position: payload.position,
       },
       settings: payload.settings,
-      chatData: payload.messagesByCharacter as Record<string, unknown> | undefined,
+      chatData: payload.sessions ? {
+        sessions: payload.sessions,
+        messagesBySession: payload.messagesBySession,
+        activeSessionByCharacter: payload.activeSessionByCharacter,
+      } : undefined,
     })
 
     // 下载远程数据
@@ -542,7 +551,13 @@ class SyncManager {
     }
 
     if (remoteData.chatData) {
-      remotePayload.messagesByCharacter = remoteData.chatData as Record<string, ChatMessage[]>
+      const chat = remoteData.chatData as Record<string, unknown>
+      // v2 格式：sessions + messagesBySession + activeSessionByCharacter
+      if (chat.sessions) {
+        remotePayload.sessions = chat.sessions as SyncPayload['sessions']
+        remotePayload.messagesBySession = chat.messagesBySession as Record<string, ChatMessage[]> | undefined
+        remotePayload.activeSessionByCharacter = chat.activeSessionByCharacter as Record<string, string> | undefined
+      }
     }
 
     return remotePayload

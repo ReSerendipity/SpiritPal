@@ -34,7 +34,7 @@ import { emit } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
-import { Send, Square, Trash2, Bot, User, Search, X, ChevronUp, ChevronDown, Flag, AlertTriangle, RefreshCw, Mic, Volume2 } from 'lucide-react'
+import { Send, Square, Trash2, Bot, User, Search, X, ChevronUp, ChevronDown, Flag, AlertTriangle, RefreshCw, Mic, Volume2, PanelLeft, Brain, Plus } from 'lucide-react'
 import Markdown from 'react-markdown'
 // SECURITY R-02: 为 react-markdown 配置 rehype-sanitize，阻断 AI 输出型 XSS
 import rehypeSanitize from 'rehype-sanitize'
@@ -86,6 +86,17 @@ import { getVisualPerceptionManager } from '@/lib/memory/visualPerception'
 import { getSilentModeManager } from '@/lib/system/silentModeManager'
 import { useChatStore } from '@/stores/chatStore'
 import { usePetStore } from '@/stores/petStore'
+import { SessionList } from '@/components/chat/SessionList'
+import { MemorySidePanel } from '@/components/chat/MemorySidePanel'
+import { MessageMetricsBar } from '@/components/chat/MessageMetricsBar'
+import { SessionStatsBar } from '@/components/chat/SessionStatsBar'
+
+/**
+ * 技术指标采集用的时间源（模块级包装）。
+ * 组件内直接调用 `Date.now()` 会被 `react-hooks/purity` 判为「渲染期调用非纯函数」
+ * ——React Compiler 无法区分事件处理器与渲染期，故统一经本包装取时间。
+ */
+const nowMs = (): number => Date.now()
 
 /**
  * 创建聊天消息对象
@@ -123,7 +134,8 @@ function cleanVoicevoxText(text: string): string {
  * 情绪动画、Agent工具调用、角色一致性校验等功能。
  */
 export default function ChatWindow() {
-  const messagesByCharacter = useChatStore((s) => s.messagesByCharacter)
+  const messagesBySession = useChatStore((s) => s.messagesBySession)
+  const activeSessionByCharacter = useChatStore((s) => s.activeSessionByCharacter)
   const isLoading = useChatStore((s) => s.isLoading)
   const sendMessage = useChatStore((s) => s.sendMessage)
   const appendAssistantChunk = useChatStore((s) => s.appendAssistantChunk)
@@ -133,13 +145,16 @@ export default function ChatWindow() {
   const clearHistory = useChatStore((s) => s.clearHistory)
   const setAbortController = useChatStore((s) => s.setAbortController)
   const setLoading = useChatStore((s) => s.setLoading)
+  const setMessageMetrics = useChatStore((s) => s.setMessageMetrics)
+  const createSession = useChatStore((s) => s.createSession)
 
   const currentCharacterId = usePetStore((s) => s.currentCharacterId)
   const character = getCharacter(currentCharacterId)
   // 用 useMemo 稳定 messages 引用，避免 ?? [] 每次渲染产生新数组导致下游依赖频繁变化
+  const activeSessionId = activeSessionByCharacter[currentCharacterId] ?? ''
   const messages = useMemo(
-    () => messagesByCharacter[currentCharacterId] ?? [],
-    [messagesByCharacter, currentCharacterId],
+    () => messagesBySession[activeSessionId] ?? [],
+    [messagesBySession, activeSessionId],
   )
 
   const [input, setInput] = useState('')
@@ -147,6 +162,9 @@ export default function ChatWindow() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchIndex, setSearchIndex] = useState(0)
+  // 会话列表抽屉与记忆面板的展开/收起状态
+  const [sessionListOpen, setSessionListOpen] = useState(false)
+  const [memoryPanelOpen, setMemoryPanelOpen] = useState(false)
   // 当前正在重新生成的消息 id（用于禁用按钮、显示加载态）
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
   // STT 语音输入：是否正在识别中
@@ -358,7 +376,7 @@ export default function ChatWindow() {
     // F5：接线 ContextManager 做 token 预算管理（替代旧的硬编码滑窗）
     // ContextManager 支持优先级排序、token 预算控制、自动压缩
     const HISTORY_TOKEN_BUDGET = 6000
-    const allHistory = (messagesByCharacter[currentCharacterId] ?? [])
+    const allHistory = (messagesBySession[activeSessionId] ?? [])
       .filter((m) => m.role !== 'system')
     // F5：用 ContextManager 管理历史消息
     const ctxMgr = getContextManager({ defaultMaxTokens: HISTORY_TOKEN_BUDGET })
@@ -578,9 +596,14 @@ export default function ChatWindow() {
       // 用 ThinkTagParser 实时分离 think 内容，用 extractEmotionFromChunk 提取情绪动画
       const thinkParser = new ThinkTagParser()
       let cleanBuffer = '' // 已清理情绪标签的累积文本
+      // 技术指标采集：请求发起时间 + 首 token 时间
+      const requestStartTs = nowMs()
+      let firstTokenTs = 0
       const fullText = await client.chat(
         apiMessages,
         (chunk) => {
+          // 记录首 token 到达时间
+          if (firstTokenTs === 0) firstTokenTs = nowMs()
           // 情绪标签：实时检测并触发宠物动画（不送入最终文本）
           const emotions = extractEmotionFromChunk(chunk)
           if (emotions.length > 0) {
@@ -679,6 +702,27 @@ export default function ChatWindow() {
         appendAssistantChunk(assistantId, '\n\n[好的，我记住了～]')
       }
       trackChatReceive(cleanFinal.length, config.provider, 0)
+
+      // 技术指标回写：将本次 LLM 调用的 token/耗时/速率写入消息
+      const responseEndTs = nowMs()
+      const usage = client.lastCallUsage
+      const durationMs = responseEndTs - requestStartTs
+      const completionTokens = usage?.output ?? 0
+      setMessageMetrics(assistantId, {
+        promptTokens: usage?.input ?? 0,
+        completionTokens,
+        requestStartTs,
+        firstTokenTs: firstTokenTs || undefined,
+        responseEndTs,
+        durationMs,
+        ttftMs: firstTokenTs ? firstTokenTs - requestStartTs : undefined,
+        tokensPerSec: completionTokens > 0 && durationMs > 0
+          ? Math.round(completionTokens / (durationMs / 1000))
+          : undefined,
+        model: config.model,
+        provider: config.provider,
+      })
+
       // 触发 reply 阶段（宠物开心说话）
       chatStageMgr.setStage('reply')
       getAchievementManager().recordChat()
@@ -859,11 +903,35 @@ export default function ChatWindow() {
 
     try {
       const client = getLLMClient(config)
+      const requestStartTs = nowMs()
+      let firstTokenTs = 0
       const fullText = await client.chat(
         apiMessages,
-        (chunk) => appendAssistantChunk(messageId, chunk),
+        (chunk) => {
+          if (firstTokenTs === 0) firstTokenTs = nowMs()
+          appendAssistantChunk(messageId, chunk)
+        },
         controller.signal,
       )
+      // 技术指标回写
+      const responseEndTs = nowMs()
+      const usage = client.lastCallUsage
+      const durationMs = responseEndTs - requestStartTs
+      const completionTokens = usage?.output ?? 0
+      setMessageMetrics(messageId, {
+        promptTokens: usage?.input ?? 0,
+        completionTokens,
+        requestStartTs,
+        firstTokenTs: firstTokenTs || undefined,
+        responseEndTs,
+        durationMs,
+        ttftMs: firstTokenTs ? firstTokenTs - requestStartTs : undefined,
+        tokensPerSec: completionTokens > 0 && durationMs > 0
+          ? Math.round(completionTokens / (durationMs / 1000))
+          : undefined,
+        model: config.model,
+        provider: config.provider,
+      })
       chatStageMgr.setStage('reply')
 
       // 对新回复重新进行一致性校验
@@ -881,15 +949,24 @@ export default function ChatWindow() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col bg-cream text-ink">
+    <div className="relative flex h-full w-full flex-col overflow-hidden bg-cream text-ink">
+      {/* 左侧会话列表抽屉（覆盖式，不挤压主内容） */}
+      {sessionListOpen && (
+        <div className="absolute inset-y-0 left-0 z-30 shadow-xl">
+          <SessionList onClose={() => setSessionListOpen(false)} />
+        </div>
+      )}
+
+      {/* 主聊天区域 */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {/* 无边框窗口标题栏 */}
       <div className="relative z-50 shrink-0">
         <WindowControls title={`${character?.displayName ?? '宠物'} 聊天`} />
       </div>
 
       {/* 头部 */}
-      <div className="flex items-center justify-between border-b border-ink/10 px-4 py-3">
-        <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center justify-between border-b border-ink/10 px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2">
           <div
             className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold"
             style={{
@@ -903,7 +980,24 @@ export default function ChatWindow() {
             <div className="text-[11px] text-ink-faint">{character?.signaturePhrase}</div>
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-0.5">
+          <button
+            onClick={() => setSessionListOpen(!sessionListOpen)}
+            className={`spiritpal-focusable rounded-md p-1.5 ${sessionListOpen ? 'bg-tangerine/15 text-tangerine-deep' : 'text-ink-faint hover:bg-ink/8'}`}
+            aria-label="对话历史"
+            title="对话历史"
+          >
+            <PanelLeft size={16} aria-hidden="true" />
+          </button>
+          <button
+            onClick={() => { createSession() }}
+            className="spiritpal-focusable rounded-md p-1.5 text-ink-faint hover:bg-ink/8"
+            aria-label="新建对话"
+            title="新建对话"
+          >
+            <Plus size={16} aria-hidden="true" />
+          </button>
+          <SessionStatsBar />
           <button
             onClick={() => { setSearchOpen(!searchOpen); setSearchQuery('') }}
             className={`spiritpal-focusable rounded-md p-1.5 ${searchOpen ? 'bg-tangerine/15 text-tangerine-deep' : 'text-ink-faint hover:bg-ink/8'}`}
@@ -919,12 +1013,20 @@ export default function ChatWindow() {
           >
             <Trash2 size={16} aria-hidden="true" />
           </button>
+          <button
+            onClick={() => setMemoryPanelOpen(!memoryPanelOpen)}
+            className={`spiritpal-focusable rounded-md p-1.5 ${memoryPanelOpen ? 'bg-tangerine/15 text-tangerine-deep' : 'text-ink-faint hover:bg-ink/8'}`}
+            aria-label="记忆面板"
+            title="查看记忆"
+          >
+            <Brain size={16} aria-hidden="true" />
+          </button>
         </div>
       </div>
 
       {/* 搜索栏 */}
       {searchOpen && (
-        <div className="border-b border-ink/10 bg-cream-deep/60 px-4 py-2">
+        <div className="shrink-0 border-b border-ink/10 bg-cream-deep/60 px-4 py-2">
           <div className="flex items-center gap-2">
             <Search size={14} className="text-ink-faint" />
             <input
@@ -973,7 +1075,7 @@ export default function ChatWindow() {
 
       {/* 记忆引用提示 */}
       {memoryPreview && (
-        <div className="border-b border-ink/5 bg-blush-soft/70 px-4 py-1.5 text-[11px] text-tangerine-deep">
+        <div className="shrink-0 border-b border-ink/5 bg-blush-soft/70 px-4 py-1.5 text-[11px] text-tangerine-deep">
           📖 记得你上次说「{memoryPreview}」…
         </div>
       )}
@@ -981,7 +1083,7 @@ export default function ChatWindow() {
       {/* 消息列表 */}
       <div
         ref={scrollRef}
-        className="flex-1 space-y-3 overflow-y-auto px-4 py-3"
+        className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3"
         role="log"
         aria-live="polite"
         aria-label="聊天消息列表"
@@ -1096,6 +1198,10 @@ export default function ChatWindow() {
                     <Flag size={11} /> 已标记
                   </span>
                 )}
+                {/* 技术指标条：仅助手已完成消息且有 metrics 时显示 */}
+                {!isUser && !m.isStreaming && m.metrics && (
+                  <MessageMetricsBar metrics={m.metrics} />
+                )}
               </div>
             </div>
           )
@@ -1106,7 +1212,7 @@ export default function ChatWindow() {
       </div>
 
       {/* 输入框 */}
-      <div className="border-t border-ink/10 p-3">
+      <div className="shrink-0 border-t border-ink/10 p-3">
         <div className="flex items-end gap-2">
           <textarea
             value={input}
@@ -1150,6 +1256,23 @@ export default function ChatWindow() {
           )}
         </div>
       </div>
+      </div>{/* 主聊天区域 end */}
+
+      {/* 右侧记忆面板（覆盖式） */}
+      {memoryPanelOpen && (
+        <div className="absolute inset-y-0 right-0 z-30 shadow-xl">
+          <MemorySidePanel onClose={() => setMemoryPanelOpen(false)} />
+        </div>
+      )}
+
+      {/* 点击遮罩关闭面板 */}
+      {(sessionListOpen || memoryPanelOpen) && (
+        <div
+          className="absolute inset-0 z-20 bg-ink/20"
+          onClick={() => { setSessionListOpen(false); setMemoryPanelOpen(false) }}
+          aria-hidden="true"
+        />
+      )}
 
       {/* 无边框窗口缩放手柄 */}
       <FramelessResizeHandles />

@@ -35,6 +35,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core'
+import { isMobileRuntime } from './platform'
 
 // ============ Widget 状态接口 ============
 
@@ -242,11 +243,6 @@ export async function handleWidgetDeepLink(url: string): Promise<boolean> {
     case 'open_settings':
       return openWidgetSurface('settings')
   }
-}
-
-/** 当前是否移动端口径（安卓/iOS 为单窗口 + tab 导航） */
-function isMobileRuntime(): boolean {
-  return typeof navigator !== 'undefined' && /android|iphone|ipad|ipod/i.test(navigator.userAgent)
 }
 
 /**
