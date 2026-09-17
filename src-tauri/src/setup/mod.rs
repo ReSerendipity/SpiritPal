@@ -87,17 +87,18 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
 
     {
         use tauri::{WebviewUrl, WebviewWindowBuilder};
-        let pet_builder = WebviewWindowBuilder::new(app, "pet-window", WebviewUrl::App("index.html#/pet".into()))
-            .title("SpiritPal")
-            // 默认 224×304 = 1.0× 宠物的基准适配尺寸（精灵 192×208 + 32 边距 + 64 气泡空间），
-            // 减少首帧与前端按持久化 petSize 校正后的落差闪烁；前端挂载后会立即按实际 petSize 校正
-            .inner_size(224.0, 304.0)
-            // 最小尺寸对齐前端 WIN_MIN_W/H(160×200)：宠物可缩小到 0.5×，
-            // 窗口需要能跟随宠物缩小（否则小宠物配大窗口，边框预览显示巨大空白）
-            .min_inner_size(160.0, 200.0)
-            .max_inner_size(720.0, 900.0)
-            .resizable(true)
-            .fullscreen(false);
+        let pet_builder =
+            WebviewWindowBuilder::new(app, "pet-window", WebviewUrl::App("index.html#/pet".into()))
+                .title("SpiritPal")
+                // 默认 224×304 = 1.0× 宠物的基准适配尺寸（精灵 192×208 + 32 边距 + 64 气泡空间），
+                // 减少首帧与前端按持久化 petSize 校正后的落差闪烁；前端挂载后会立即按实际 petSize 校正
+                .inner_size(224.0, 304.0)
+                // 最小尺寸对齐前端 WIN_MIN_W/H(160×200)：宠物可缩小到 0.5×，
+                // 窗口需要能跟随宠物缩小（否则小宠物配大窗口，边框预览显示巨大空白）
+                .min_inner_size(160.0, 200.0)
+                .max_inner_size(720.0, 900.0)
+                .resizable(true)
+                .fullscreen(false);
         // 以下为桌面端专属属性：移动端 WebviewWindowBuilder 无这些方法，必须按平台条件编译
         #[cfg(desktop)]
         let pet_builder = pet_builder
@@ -133,8 +134,8 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
                     } else {
                         let _ = window.show();
                         // 聚焦为桌面端专属（移动端无窗口焦点概念）
-#[cfg(desktop)]
-let _ = window.set_focus();
+                        #[cfg(desktop)]
+                        let _ = window.set_focus();
                     }
                 }
             }
@@ -144,8 +145,8 @@ let _ = window.set_focus();
                 if let Some(window) = app.get_webview_window("pet-window") {
                     let _ = window.show();
                     // 聚焦为桌面端专属（移动端无窗口焦点概念）
-#[cfg(desktop)]
-let _ = window.set_focus();
+                    #[cfg(desktop)]
+                    let _ = window.set_focus();
                 }
             }
             "hide" => {
@@ -195,8 +196,8 @@ let _ = window.set_focus();
                 };
                 let _ = window.show();
                 // 聚焦为桌面端专属（移动端无窗口焦点概念）
-#[cfg(desktop)]
-let _ = window.set_focus();
+                #[cfg(desktop)]
+                let _ = window.set_focus();
             }
             "settings" => {
                 let window = if let Some(w) = app.get_webview_window("settings-window") {
@@ -214,8 +215,8 @@ let _ = window.set_focus();
                 };
                 let _ = window.show();
                 // 聚焦为桌面端专属（移动端无窗口焦点概念）
-#[cfg(desktop)]
-let _ = window.set_focus();
+                #[cfg(desktop)]
+                let _ = window.set_focus();
                 let _ = app.emit("open-settings", ());
             }
             // P0-1.5: 托盘「检查更新」→ 前端 UpdateNotification 弹窗执行完整状态机（每步可见）
