@@ -140,7 +140,7 @@
 **步骤**：
 1. **改素材源协议 → `CharacterPackConfig` 格式**（字段：id/name/version/author/license/description/**spritePath**/spriteType/atlasLayout/licenseMeta）。`loadPack()`（src/lib/render/characterResourceLoader.ts L200）已自带模板人设（systemPrompt/bubbleMessages/personality），**无需改它**。
 2. **落盘**：`public/pets/<id>/pet.json` + 素材（atlas 用 `spritesheet.webp|png`，video 按 `stateToVideoFile` 命名 idle/walk/rest/eat/spin/dance/angry/headpat.webm）；非 MIT 许可（GPL/版权二创）写 `licenseMeta: { type, audited: true }` 放行，且按独立目录便于后续删除。
-3. **manifest**：`public/pets/manifest.json` = `{ "packs": ["<id>", ...] }`（由 `scripts/import-community-pets.mjs` 的 writeManifest 扫描生成，排除内置 doro/feibi/gugugaga）。
+3. **manifest**：`public/pets/manifest.json` = `{ "packs": ["<id>", ...] }`（由 `scripts/import-community-pets.mjs` 的 writeManifest 扫描生成，排除内置 doro；2026-09-17 起内置仅 doro，feibi/gugugaga 已去内置）。
 4. **运行时接线**：`src/lib/render/communityLoader.ts`（仿 shimejiLoader 的"启动异步加载→模块级缓存→同步合并"）→ `App.tsx` 启动 useEffect 预热 → `getAllCharacters()/getCharacter()` 末尾合并（内置优先去重）。loadPack 已被 `licenseMeta.audited` 放行。
 5. **素材下载走 git blobs API**（GitHub contents API 限 1MB、raw 常被本机加速器 MITM、gh 不接受 octet-stream）：
    `GET /repos/<repo>/git/trees/main?recursive=1` 拿 blob sha → `GET /repos/<repo>/git/blobs/<sha>` 取 base64 content。

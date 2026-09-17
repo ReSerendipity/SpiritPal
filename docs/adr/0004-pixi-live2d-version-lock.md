@@ -1,9 +1,10 @@
 **ADR-0004: PixiJS 7 与 pixi-live2d-display 0.4.0 版本锁定（受 Live2D 渲染栈约束）**
 
-- **状态**: Implemented
-- **日期**: 2026-09-04
+- **状态**: Superseded（2026-09-17 触发条件 1 满足：`@jannchie/pixi-live2d-display@1.4.x`（PixiJS 8）已实测落地，Live2D 无回归）
+- **日期**: 2026-09-04（2026-09-17 解除锁定）
+- **遗留说明**：原锁定的前置事实有误——`pixi-live2d-display@0.4.0` 的 peerDependencies 实为 `@pixi/*: ^6`（仅 Pixi 6），**并非**"只兼容 Pixi 7"；且 Pixi 7 + 0.4 组合在真实环境中经实测**无法加载模型**（Doro Live2D 不显示的根因）。现已升级为 `pixi.js@8.20.x` + `@jannchie/pixi-live2d-display@^1.4`（原库官方 Pixi8 移植，API 近 1:1），详见 `docs/agents/GOTCHAS.md #106` 与 `src/components/Live2DRenderer.tsx`。
 - **决策者**: 项目维护者 + AI 指挥（前端工程体系评估 §2.3 / 治理路线 S4）
-- **关联**: `package.json`（pixi.js ^7.4.3 / pixi-live2d-display ^0.4.0）、`src/components/Live2DRenderer.tsx`、`src/lib/render/renderAdapter.ts`、`docs/LIVE2D_LICENSE_REMINDER.md`、`src/components/SpriteRenderer.tsx`
+- **关联**: `package.json`（pixi.js ^8.20 / @jannchie/pixi-live2d-display ^1.4）、`src/components/Live2DRenderer.tsx`、`src/lib/render/renderAdapter.ts`、`docs/LIVE2D_LICENSE_REMINDER.md`、`src/components/SpriteRenderer.tsx`
 
 ---
 

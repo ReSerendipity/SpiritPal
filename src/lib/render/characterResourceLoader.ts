@@ -72,6 +72,24 @@ export interface CharacterPackConfig {
   originalSize?: { width: number; height: number }
   /** 许可证验证元数据 */
   licenseMeta?: LicenseMeta
+  /**
+   * 可选人设覆盖：缺省字段沿用模板人设。
+   * 外部角色包（如 character-packs/feibi）借此携带完整角色设定，
+   * 使「去内置化」的角色在用户自备素材导入后与内置时期表现一致。
+   */
+  persona?: {
+    source?: string
+    birthBackground?: string
+    emotionalCore?: string
+    personality?: CharacterProfile['personality']
+    signaturePhrase?: string
+    classicQuotes?: string[]
+    systemPrompt?: string
+    fewShotExamples?: CharacterProfile['fewShotExamples']
+    bubbleMessages?: Partial<CharacterProfile['bubbleMessages']>
+    favoriteItems?: string[]
+    dislikeItems?: string[]
+  }
 }
 
 /** MIT 许可证验证元数据 */
@@ -118,6 +136,22 @@ export class CharacterResourceLoader {
   private resampleCache: Map<string, ResampleResult> = new Map()
 
   /**
+   * 以目录名（= manifest id = 资源路径段）为权威角色 id。
+   *
+   * pet.json 里的 id 若与目录名不一致，强制归一为目录名并告警。这杜绝两类问题：
+   * ① spriteAsset 路径漂移（loadPack 用 id 拼 `/pets/<id>/<spritePath>`，id≠目录名会指向不存在的路径）；
+   * ② 越权替代（某包把 id 写成他人在建角色的 id，进而在合并时按 id 去重把合法角色挤掉）。
+   * 目录名是文件系统里的唯一物理标识，故以其为准。
+   */
+  private normalizePackId(config: CharacterPackConfig, dirName: string): CharacterPackConfig {
+    if (!dirName || config.id === dirName) return config
+    console.warn(
+      `[CharacterResourceLoader] pet.json id "${config.id}" 与目录名 "${dirName}" 不一致，已以目录名为准（防路径漂移与 id 越权替代）`,
+    )
+    return { ...config, id: dirName }
+  }
+
+  /**
    * 从 pets/ 目录发现所有角色包
    * 优先使用 Tauri 自定义命令（生产环境），回退到 fetch（开发环境）
    */
@@ -157,8 +191,13 @@ export class CharacterResourceLoader {
           const results = await Promise.allSettled(
             petDirs.map(async (dir) => {
               try {
-                const text = await invoke<string>('read_text_file', { path: dir + '/pet.json' })
-                return JSON.parse(text) as CharacterPackConfig
+                // Rust scan_character_directory 在 Windows 会 canonicalize 出带 \\?\ 前缀的
+                // verbatim 路径；直接拼接 '/pet.json' 再传回 fs::canonicalize 会因混合分隔符
+                // 报 os error 123（语法不正确）→ 读取前剥离 verbatim 前缀
+                const normDir = dir.startsWith('\\\\?\\') ? dir.slice(4) : dir
+                const dirName = normDir.split(/[\\/]+/).filter(Boolean).pop() ?? ''
+                const text = await invoke<string>('read_text_file', { path: normDir + '/pet.json' })
+                return this.normalizePackId(JSON.parse(text) as CharacterPackConfig, dirName)
               } catch (e) {
                 console.error('[discoverPacks] read_text_file failed for', dir, e)
                 return null
@@ -196,7 +235,7 @@ export class CharacterResourceLoader {
                 if (this.discoveredPacks.has(packId)) return null
                 try {
                   const text = await readTextFile(`pets/${packId}/pet.json`, { baseDir: BaseDirectory.Resource })
-                  return JSON.parse(text) as CharacterPackConfig
+                  return this.normalizePackId(JSON.parse(text) as CharacterPackConfig, packId)
                 } catch {
                   return null
                 }
@@ -247,7 +286,7 @@ export class CharacterResourceLoader {
               if (this.discoveredPacks.has(packId)) return null
               const res = await fetch(`${basePath}/${packId}/pet.json`)
               if (!res.ok) return null
-              return (await res.json()) as CharacterPackConfig
+              return this.normalizePackId((await res.json()) as CharacterPackConfig, packId)
             }),
           )
 
@@ -322,30 +361,36 @@ export class CharacterResourceLoader {
     // 使用相对路径，与内置角色一致（public/pets/ 在 dev 和 release 均可用）
     const spriteAsset = `/pets/${config.id}/${config.spritePath}`
 
+    const persona = config.persona
+    const templateBubble: CharacterProfile['bubbleMessages'] = {
+      idle: ['…'],
+      hungry: ['有点饿了'],
+      sad: ['呜…'],
+      pet: ['好舒服~'],
+      feed: ['谢谢！'],
+      pomodoroDone: ['休息一下~'],
+    }
+
     const profile: CharacterProfile = {
       id: config.id,
       name: config.id,
       displayName: config.name,
-      source: config.tags?.join(', ') ?? 'Community',
-      birthBackground: config.description,
-      emotionalCore: '',
-      personality: { warmth: 0.5, liveliness: 0.5, dependence: 0.5, directness: 0, rationality: 0 },
-      signaturePhrase: '',
-      classicQuotes: [],
-      systemPrompt: `你是${config.name}，一个桌面宠物角色。`,
-      fewShotExamples: [],
+      source: persona?.source ?? config.tags?.join(', ') ?? 'Community',
+      birthBackground: persona?.birthBackground ?? config.description,
+      emotionalCore: persona?.emotionalCore ?? '',
+      personality:
+        persona?.personality ?? { warmth: 0.5, liveliness: 0.5, dependence: 0.5, directness: 0, rationality: 0 },
+      signaturePhrase: persona?.signaturePhrase ?? '',
+      classicQuotes: persona?.classicQuotes ?? [],
+      systemPrompt: persona?.systemPrompt ?? `你是${config.name}，一个桌面宠物角色。`,
+      fewShotExamples: persona?.fewShotExamples ?? [],
       spriteAsset,
       spriteType: config.spriteType,
       physicsPath: config.physicsPath,
       themeColor: config.themeColor ?? { primary: '#4ECDC4', secondary: '#FF6B6B' },
-      bubbleMessages: {
-        idle: ['…'],
-        hungry: ['有点饿了'],
-        sad: ['呜…'],
-        pet: ['好舒服~'],
-        feed: ['谢谢！'],
-        pomodoroDone: ['休息一下~'],
-      },
+      bubbleMessages: { ...templateBubble, ...persona?.bubbleMessages },
+      favoriteItems: persona?.favoriteItems,
+      dislikeItems: persona?.dislikeItems,
       atlasLayout,
       type: 'community',
     }

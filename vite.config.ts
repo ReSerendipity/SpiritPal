@@ -23,8 +23,15 @@ export default defineConfig({
     port: 5223,
     strictPort: true,
     host: '127.0.0.1',
+    // Windows: 排除 Rust 产物目录，避免 cargo 编译/运行期间 watch 到 DLL/EXE 文件锁（EBUSY）崩溃
+    watch: { ignored: ['**/src-tauri/target/**'] },
   },
   envPrefix: ['VITE_', 'TAURI_'],
+  optimizeDeps: {
+    // 仅以 index.html 为扫描入口，避免 src-tauri/gen 下旧构建产物（内嵌 dist 引用已移除的
+    // pixi-live2d-display）在依赖预构建阶段被误扫导致 "Failed to run dependency scan"
+    entries: ['index.html'],
+  },
   // SECURITY R-08: 生产构建剥离 console 日志，防止元信息泄露
   esbuild: {
     drop: !process.env.TAURI_ENV_DEBUG ? ['console', 'debugger'] : [],
@@ -51,9 +58,9 @@ export default defineConfig({
           if (id.includes('node_modules/pixi.js')) {
             return 'vendor-pixi'
           }
-          // pixi-live2d-display 独立 chunk — 避免 Cubism Core 缺失时拖垮整个应用
+          // @jannchie/pixi-live2d-display 独立 chunk — 避免 Cubism Core 缺失时拖垮整个应用
           // Live2DRenderer 通过 dynamic import 按需加载，Core 不可用时自动 fallback
-          if (id.includes('node_modules/pixi-live2d-display')) {
+          if (id.includes('pixi-live2d-display')) {
             return 'vendor-live2d'
           }
           // AI/ML 相关（@xenova/transformers 体积大）
