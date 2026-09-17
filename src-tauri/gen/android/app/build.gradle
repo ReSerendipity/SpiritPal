@@ -1,0 +1,92 @@
+plugins {
+    id "com.android.application"
+    id "org.jetbrains.kotlin.android"
+    id "rust"
+}
+
+android {
+    compileSdk 36
+    namespace "com.spiritpal.desktop_pet"
+    defaultConfig {
+        def tauriProperties = new Properties()
+        def tauriPropFile = file("tauri.properties")
+        if (tauriPropFile.exists()) {
+            tauriPropFile.withInputStream { tauriProperties.load(it) }
+        }
+        manifestPlaceholders["usesCleartextTraffic"] = "false"
+        applicationId "com.spiritpal.desktop_pet"
+        minSdk 24
+        targetSdk 36
+        versionCode tauriProperties.getProperty("tauri.android.versionCode", "1").toInteger()
+        versionName tauriProperties.getProperty("tauri.android.versionName", "1.0")
+    }
+
+    signingConfigs {
+        release {
+            def keystorePropsFile = file("keystore.properties")
+            def keystoreProps = new Properties()
+            if (keystorePropsFile.exists()) {
+                keystorePropsFile.withInputStream { keystoreProps.load(it) }
+            }
+            if (!keystorePropsFile.exists()) {
+                logger.warn("keystore.properties 缺失：release 签名未配置（不产出可分发产物）。请从安全渠道获取该文件（.gitignore 已忽略）。")
+            } else {
+                def alias = keystoreProps.getProperty("keyAlias")
+                if (alias == null) throw new GradleException("keystore.properties 缺少 keyAlias")
+                keyAlias = alias
+                def kp = keystoreProps.getProperty("keyPassword")
+                if (kp == null) throw new GradleException("keystore.properties 缺少 keyPassword")
+                keyPassword = kp
+                def sf = keystoreProps.getProperty("storeFile")
+                if (sf == null) throw new GradleException("keystore.properties 缺少 storeFile")
+                storeFile = file(sf)
+                def sp = keystoreProps.getProperty("storePassword")
+                if (sp == null) throw new GradleException("keystore.properties 缺少 storePassword")
+                storePassword = sp
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+            debuggable true
+            jniDebuggable true
+            minifyEnabled false
+            packaging {
+                jniLibs.keepDebugSymbols.add("*/arm64-v8a/*.so")
+                jniLibs.keepDebugSymbols.add("*/armeabi-v7a/*.so")
+                jniLibs.keepDebugSymbols.add("*/x86/*.so")
+                jniLibs.keepDebugSymbols.add("*/x86_64/*.so")
+            }
+        }
+        release {
+            minifyEnabled true
+            signingConfig signingConfigs.release
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro", "proguard-tauri.pro"
+        }
+    }
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+    buildFeatures {
+        buildConfig = true
+    }
+}
+
+rust {
+    rootDirRel = "../../../"
+}
+
+dependencies {
+    implementation "androidx.webkit:webkit:1.14.0"
+    implementation "androidx.appcompat:appcompat:1.7.1"
+    implementation "androidx.activity:activity-ktx:1.10.1"
+    implementation "com.google.android.material:material:1.12.0"
+    implementation "androidx.lifecycle:lifecycle-process:2.10.0"
+    testImplementation "junit:junit:4.13.2"
+    androidTestImplementation "androidx.test.ext:junit:1.1.4"
+    androidTestImplementation "androidx.test.espresso:espresso-core:3.5.0"
+}
+
+apply from: "tauri.build.gradle"
