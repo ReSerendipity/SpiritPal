@@ -206,12 +206,21 @@ pub fn build_configured_window(
         .title(cfg.title)
         .inner_size(cfg.width, cfg.height)
         .min_inner_size(cfg.min_width, cfg.min_height)
-        .resizable(cfg.resizable)
-        .decorations(cfg.decorations)
-        .transparent(cfg.transparent)
-        .always_on_top(cfg.always_on_top)
-        .skip_taskbar(cfg.skip_taskbar)
-        .shadow(cfg.shadow);
+        .resizable(cfg.resizable);
+    // 以下 5 个 builder 方法在 Tauri v2 中是桌面/iOS 专用（移动端 WebviewWindowBuilder 无这些方法）。
+    // 移动端本就无窗口装饰/置顶/任务栏概念，跳过即可 —— 否则 Android 构建报 E0599。
+    // 用 `#[cfg(desktop)]` 块**重赋值**原绑定（而非 `let mut builder = …` 遮蔽）：
+    // 后者会让第 205 行的 `mut` 在桌面构建下变成 unused_mut（下方 max_inner_size 重赋值
+    // 落到被遮蔽的新绑定上，原绑定不再被改）。
+    #[cfg(desktop)]
+    {
+        builder = builder
+            .decorations(cfg.decorations)
+            .transparent(cfg.transparent)
+            .always_on_top(cfg.always_on_top)
+            .skip_taskbar(cfg.skip_taskbar)
+            .shadow(cfg.shadow);
+    }
     if let (Some(max_w), Some(max_h)) = (cfg.max_width, cfg.max_height) {
         builder = builder.max_inner_size(max_w, max_h);
     }
@@ -641,6 +650,8 @@ pub async fn show_pet_window(app: tauri::AppHandle, window: WebviewWindow) -> Re
     }
     let _ = app;
     let _ = window.show();
+    // 聚焦为桌面端专属（移动端无窗口焦点概念）
+    #[cfg(desktop)]
     let _ = window.set_focus();
     Ok(())
 }
@@ -695,6 +706,8 @@ pub async fn set_pet_always_on_top(
         }
     }
     let _ = app;
+    // 置顶为桌面端专属
+    #[cfg(desktop)]
     let _ = window.set_always_on_top(always_on_top);
     Ok(())
 }

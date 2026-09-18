@@ -4,7 +4,7 @@
  * @fileoverview 定义多 LLM 服务商预设、统一接口、故障转移与成本追踪
  *
  * 主要模块：
- * - LLM_PROVIDERS: 服务商预设列表（DeepSeek/OpenAI/Qwen/GLM/Kimi/Doubao/Ollama/Claude/Gemini等）
+ * - LLM_PROVIDERS: 服务商预设列表（DeepSeek/OpenAI/Qwen/GLM/Kimi/Doubao/Ollama/Claude/Gemini/Custom/ondevice等）
  * - UnifiedLLMProvider: 统一接口封装（chat/chatStream/embed）
  * - FailoverConfig/ProviderHealthCheck: 故障转移与健康检查
  * - CostTracker: Token 用量与成本追踪
@@ -21,6 +21,7 @@
  * - 云端: DeepSeek, OpenAI, 千问(Qwen), 智谱GLM, Kimi, 豆包(Doubao), Claude, Gemini
  * - 本地: Ollama
  * - 自定义: 用户自定义 OpenAI 兼容端点
+ * - 端侧: ondevice（MNN Chat 本地 OpenAI 兼容 API，127.0.0.1:8080/v1）
  *
  * 增强功能：
  * - 主备故障自动切换
@@ -132,6 +133,14 @@ export const LLM_PROVIDERS: LLMProvider[] = [
     id: 'custom',
     name: '自定义 (Custom)',
     baseUrl: '',
+    defaultModel: '',
+    models: [],
+    apiKeyRequired: true,
+  },
+  {
+    id: 'ondevice',
+    name: '端侧 (MNN Chat 本地)',
+    baseUrl: 'http://127.0.0.1:8080/v1',
     defaultModel: '',
     models: [],
     apiKeyRequired: true,

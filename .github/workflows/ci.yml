@@ -235,6 +235,11 @@ jobs:
         with:
           workspaces: 'src-tauri -> target'
 
+      - name: Create placeholder frontend dist
+        # 同 rust-clippy：custom-protocol 使 generate_context! 编译期要求 frontendDist 存在，
+        # 否则 cargo test 会因 proc macro panic 失败（本 job 不需要真实前端产物）。
+        run: mkdir -p ../dist && printf '<!doctype html><title>ci-placeholder</title>\n' > ../dist/index.html
+
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
@@ -311,6 +316,12 @@ jobs:
         shell: bash
         run: |
           python scripts/security_gate.py
+
+      # 防回归门禁（GOTCHAS #98）：每次 PR 校验 `tauri` 已启用 custom-protocol 特性，
+      # 否则 release 不内嵌前端、双击 exe 会连 localhost:5223 失败。
+      - name: Verify Tauri custom-protocol feature (embed gate)
+        shell: bash
+        run: python3 scripts/verify_tauri_embed.py --config-only || python scripts/verify_tauri_embed.py --config-only
 
       - name: Run osv-scanner
         # 扫描结果以报告形式落盘供人工审阅，退出码不作为门禁（security_gate.py 设计）
@@ -460,6 +471,12 @@ jobs:
         with:
           args: ${{ matrix.args }}
 
+      # 防回归门禁（GOTCHAS #98）：release 构建后校验 exe 真正内嵌前端
+      # （gzip 流数 + tauri://localhost + 体积），未内嵌即阻断。
+      - name: Verify release binary embeds frontend
+        shell: bash
+        run: python3 scripts/verify_tauri_embed.py || python scripts/verify_tauri_embed.py
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -491,6 +508,13 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: 'src-tauri -> target'
+
+      - name: Create placeholder frontend dist
+        # tauri 启用 custom-protocol 特性后，generate_context! 会在**编译期**校验
+        # frontendDist（../dist）存在，否则 proc macro panic：
+        #   "The `frontendDist` configuration is set to \"../dist\" but this path doesn't exist"
+        # 本 job 只跑 clippy，不消费真实前端资源，占位即可（真实构建见 build job）。
+        run: mkdir -p ../dist && printf '<!doctype html><title>ci-placeholder</title>\n' > ../dist/index.html
 
       - name: Install Linux build dependencies
         run: |

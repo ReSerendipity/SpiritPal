@@ -23,7 +23,8 @@ describe('normalizeId（id 规范化与冲突表）', () => {
 
   it('撞内置 id 时追加来源后缀（内置优先）', () => {
     expect(normalizeId('doro', 'occlaw')).toBe('doro-occlaw')
-    expect(normalizeId('feibi', 'community')).toBe('feibi-community')
+    // feibi 已去内置（2026-09-17），不再撞名，原样保留
+    expect(normalizeId('feibi', 'community')).toBe('feibi')
     for (const id of BUILTIN_IDS) {
       expect(normalizeId(id, 'x') === id).toBe(false)
     }

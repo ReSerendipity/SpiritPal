@@ -1,0 +1,16 @@
+{
+  "id": "doro",
+  "name": "多罗",
+  "source": "《胜利女神：妮姬》桃乐丝二创",
+  "personality": {
+    "warmth": 0.9,
+    "liveliness": 0.3,
+    "dependence": 0.8,
+    "directness": -0.3,
+    "rationality": -0.4
+  },
+  "themeColor": {
+    "primary": "#FFB6C1",
+    "secondary": "#FFA500"
+  }
+}

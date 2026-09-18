@@ -31,7 +31,7 @@ import { enable, disable } from '@tauri-apps/plugin-autostart'
 import { useEffect, useRef, useState } from 'react'
 import {
 X, Bot, Palette, Settings as SettingsIcon, Info,
-Heart, ShoppingBag, Backpack, Brain, SlidersHorizontal, Trophy, Calendar, Package, Camera, Database, Sliders, Grid3x3, Activity, Sparkles, Users, Upload, Plug, BookOpen,
+Heart, ShoppingBag, Backpack, Brain, SlidersHorizontal, Trophy, Calendar, Package, Camera, Database, Sliders, Grid3x3, Activity, Sparkles, Users, Upload, Plug, BookOpen, Cpu,
 } from 'lucide-react'
 import { windowEventBus } from '@/lib/system/windowEventBus'
 import { usePetStore } from '@/stores/petStore'
@@ -55,6 +55,7 @@ import { MemoryPanel } from '@/components/MemoryPanel'
 import { MemoryVisualizer } from '@/components/MemoryVisualizer'
 import { ModPanel } from '@/components/ModPanel'
 import { NurturingPanel } from '@/components/NurturingPanel'
+import { OnDeviceModelPanel } from '@/components/OnDeviceModelPanel'
 import { PersonalityEditor } from '@/components/PersonalityEditor'
 import { PersonalityPanel } from '@/components/PersonalityPanel'
 import { QuickControlsPanel } from '@/components/QuickControlsPanel'
@@ -90,7 +91,7 @@ const selectInitCharacter = (s: ReturnType<typeof usePetStore.getState>) => s.in
 const selectBackground = (s: ReturnType<typeof usePetStore.getState>) => s.background
 const selectSetBackground = (s: ReturnType<typeof usePetStore.getState>) => s.setBackground
 
-type Tab = 'ai' | 'appearance' | 'personality' | 'personalityEditor' | 'nurturing' | 'shop' | 'inventory' | 'memory' | 'achievements' | 'leaderboard' | 'schedule' | 'journal' | 'mods' | 'album' | 'data' | 'quick' | 'sprite' | 'mcp' | 'community' | 'general' | 'about'
+type Tab = 'ai' | 'appearance' | 'personality' | 'personalityEditor' | 'nurturing' | 'shop' | 'inventory' | 'memory' | 'achievements' | 'leaderboard' | 'schedule' | 'journal' | 'mods' | 'album' | 'data' | 'quick' | 'sprite' | 'mcp' | 'ondevice' | 'community' | 'general' | 'about'
 type ToggleKey = 'autoStart' | 'startMinimized' | 'notifications' | 'showWindowBorder'
 
 /** H-3: Tab 分组定义（3 大类：基础 / 高级 / 关于） */
@@ -135,6 +136,7 @@ const TAB_GROUPS: TabGroup[] = [
       { key: 'quick', label: '快捷', icon: Sliders },
       { key: 'sprite', label: '精灵图', icon: Grid3x3 },
       { key: 'mcp', label: 'MCP', icon: Plug },
+      { key: 'ondevice', label: '端侧模型', icon: Cpu },
     ],
   },
   {
@@ -1100,6 +1102,13 @@ const [showImporter, setShowImporter] = useState(false)
           </div>
         )}
 
+        {tab === 'ondevice' && (
+          <div className="max-w-2xl">
+            <h2 className="mb-4 text-lg font-semibold">端侧模型</h2>
+            <OnDeviceModelPanel />
+          </div>
+        )}
+
         {tab === 'community' && (
           <div className="max-w-4xl">
             <h2 className="mb-1 text-lg font-semibold">社区形象</h2>
@@ -1376,7 +1385,8 @@ const [showImporter, setShowImporter] = useState(false)
               </a>
               <div className="mt-2 text-[11px] leading-relaxed text-ink-muted">
                 Live2D Cubism 为 Live2D Inc. 专有软件（本应用不分发 Core；许可状态见 docs/LIVE2D_LICENSE_REMINDER.md）。
-                内置角色素材（Doro、菲比等）归属各自创作者，来源与授权状态见
+                内置角色仅 Doro（作者已提供免费获取渠道并允许二创）；其余角色以社区包/用户自备形式提供，
+                归属与授权状态见
                 <a className="text-tangerine-deep underline decoration-dotted underline-offset-4" href="https://github.com/ReSerendipity/SpiritPal/blob/main/docs/CHARACTER_ATTRIBUTIONS.md" target="_blank" rel="noopener noreferrer">docs/CHARACTER_ATTRIBUTIONS.md</a>。
               </div>
               <ol className="list-decimal space-y-1 pl-4 pt-1 text-xs text-ink-muted" start={2}>

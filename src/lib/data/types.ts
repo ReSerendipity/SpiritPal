@@ -591,6 +591,67 @@ export interface ChatMessage {
   // Phase 1.4: Think 标签解析结果（内心独白），不送 TTS
   /** <think> 标签内的思考内容（半透明折叠显示，不送 TTS） */
   thinkContent?: string
+  // 技术性能指标（流式完成后回写）
+  /** 本次 LLM 调用的性能与 token 用量指标 */
+  metrics?: MessageMetrics
+}
+
+// ============ 消息性能指标 ============
+
+/**
+ * 单条助手消息的 LLM 调用性能指标
+ * 在流式生成完成后由 ChatWindow 回写到 chatStore
+ */
+export interface MessageMetrics {
+  /** 输入（prompt）token 数 */
+  promptTokens: number
+  /** 输出（completion）token 数 */
+  completionTokens: number
+  /** 请求发起时间戳（ms epoch） */
+  requestStartTs: number
+  /** 首 token 到达时间戳（ms epoch），即 TTFT 起点 */
+  firstTokenTs?: number
+  /** 流式结束时间戳（ms epoch） */
+  responseEndTs: number
+  /** 总耗时（ms）：responseEndTs - requestStartTs */
+  durationMs: number
+  /** 首 token 延迟（ms）：firstTokenTs - requestStartTs */
+  ttftMs?: number
+  /** 输出速率（tokens/s）：completionTokens / (durationMs / 1000) */
+  tokensPerSec?: number
+  /** 使用的模型名 */
+  model?: string
+  /** 使用的 provider id */
+  provider?: string
+}
+
+// ============ 聊天会话 ============
+
+/**
+ * 聊天会话元数据
+ * 每个角色可拥有多个会话（类似 ChatGPT 的对话列表）
+ */
+export interface ChatSession {
+  /** 会话唯一 ID */
+  id: string
+  /** 所属角色 ID */
+  characterId: string
+  /** 会话标题（自动从首条用户消息截取，或用户手动命名） */
+  title: string
+  /** 会话创建时间（ms epoch） */
+  createdAt: number
+  /** 最后一条消息时间（ms epoch），用于排序 */
+  updatedAt: number
+  /** 消息总数 */
+  messageCount: number
+  /** 会话级汇总：累计输入 tokens */
+  totalPromptTokens: number
+  /** 会话级汇总：累计输出 tokens */
+  totalCompletionTokens: number
+  /** 会话级汇总：LLM 请求次数 */
+  requestCount: number
+  /** 是否被用户置顶 */
+  pinned?: boolean
 }
 
 /**

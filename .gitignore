@@ -14,6 +14,10 @@ target/
 *.so
 *.dylib
 
+# 端侧 MNN 引擎库（构建期由 scripts/download_mnn_engine.py 从官方 MNN Chat APK 生成，不入库）
+# 说明：*.so 已全局忽略；此处显式声明目录意图，避免被误 force-add 进版本库。
+src-tauri/gen/android/app/mnnLibs/
+
 # Tauri
 src-tauri/target/
 src-tauri/WixTools/
@@ -31,8 +35,15 @@ src-tauri/gen/android/app/.externalNativeBuild/
 src-tauri/gen/android/app/src/main/jniLibs/
 src-tauri/gen/android/app/src/main/assets/
 
+# 注（2026-09-17 合并决议）：端侧 MNN 引擎 .so **不入库**，改由构建期
+# `scripts/download_mnn_engine.py` 从官方 MNN Chat APK 解包生成到 mnnLibs/（见 GOTCHAS #110）。
+# 故此处**不**添加 `!…/mnnLibs/**/*.so` 这类否定规则——那会让 8.9MB 二进制随每次改动进版本库。
+
 # Mobile / package artifacts
 *.apk
+# 便携版打包产物（build_portable.bat 生成，含 exe + pets 资源，单个 100–210MB）
+*.zip
+*.zip.bak-*
 *.aab
 *.ipa
 *.app/

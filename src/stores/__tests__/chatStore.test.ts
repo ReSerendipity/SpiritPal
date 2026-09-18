@@ -7,9 +7,11 @@ describe('chatStore', () => {
   beforeEach(() => {
     // 确保 petStore 有当前角色
     usePetStore.setState({ currentCharacterId: 'doro' })
-    // 重置 chatStore
+    // 重置 chatStore（v2 会话制结构）
     useChatStore.setState({
-      messagesByCharacter: {},
+      sessions: {},
+      messagesBySession: {},
+      activeSessionByCharacter: {},
       isLoading: false,
       abortController: null,
     })

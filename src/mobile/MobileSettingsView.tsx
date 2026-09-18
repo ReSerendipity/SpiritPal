@@ -16,8 +16,10 @@
 import { useState } from 'react'
 import {
   Sun, Moon, Monitor, Bell, RefreshCw, Cloud, Wifi,
-  Type, Info, ChevronRight, Brain, Sparkles,
+  Type, Info, ChevronRight, Brain, Sparkles, Cpu,
 } from 'lucide-react'
+import { OnDeviceModelPanel } from '@/components/OnDeviceModelPanel'
+import { LLM_PROVIDERS, getProvider } from '@/lib/ai/llmProviders'
 import { getAllCharacters } from '@/lib/data/characters'
 import { syncManager, type SyncConfig } from '@/lib/system/syncManager'
 import { themeManager, type ThemeMode } from '@/lib/system/themeManager'
@@ -27,7 +29,34 @@ import { usePetStore } from '@/stores/petStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 
 /** 设置页面分区类型 */
-type SettingsSection = 'main' | 'theme' | 'sync' | 'memory' | 'personality' | 'about'
+type SettingsSection = 'main' | 'theme' | 'sync' | 'memory' | 'personality' | 'ondevice' | 'ai' | 'about'
+
+/** AI 配置在 localStorage 的键（与 SettingsWindow / MobileChatView 一致） */
+const AI_CONFIG_KEY = 'spiritpal-ai-config'
+/** 与 llmClient 的 DEFAULT_AI_CONFIG.provider 保持一致 */
+const DEFAULT_PROVIDER = 'deepseek'
+
+/** 读取当前 provider（MobileChatView 每次发送都会重读该配置，故改完即时生效） */
+function readProvider(): string {
+  try {
+    const raw = localStorage.getItem(AI_CONFIG_KEY)
+    if (raw) return JSON.parse(raw).provider ?? DEFAULT_PROVIDER
+  } catch {
+    // 忽略解析错误
+  }
+  return DEFAULT_PROVIDER
+}
+
+/** 写入 provider（保留其余字段；API Key 不在此处，由 secureStorage 管理） */
+function writeProvider(id: string): void {
+  try {
+    const raw = localStorage.getItem(AI_CONFIG_KEY)
+    const cfg = raw ? JSON.parse(raw) : {}
+    localStorage.setItem(AI_CONFIG_KEY, JSON.stringify({ ...cfg, provider: id }))
+  } catch {
+    // 忽略存储错误
+  }
+}
 
 /**
  * 移动端设置视图组件
@@ -38,6 +67,13 @@ export function MobileSettingsView() {
   const updateSettings = useSettingsStore((s) => s.updateSettings)
   const setLanguage = useSettingsStore((s) => s.setLanguage)
   const switchSettingsChar = useSettingsStore((s) => s.switchCharacter)
+
+  // AI 服务商（持久化在 localStorage，MobileChatView 每次发送重读 → 改完即时生效）
+  const [provider, setProvider] = useState<string>(() => readProvider())
+  const selectProvider = (id: string) => {
+    writeProvider(id)
+    setProvider(id)
+  }
   const switchPetChar = usePetStore((s) => s.switchCharacter)
   const sharedCoins = usePetStore((s) => s.sharedCoins)
 
@@ -143,6 +179,32 @@ export function MobileSettingsView() {
               </label>
             </div>
           </div>
+
+          {/* AI 服务商 */}
+          <SettingItem
+            icon={Sparkles}
+            iconBg="bg-tangerine"
+            title="AI 服务商"
+            subtitle={getProvider(provider)?.name ?? provider}
+            chevronClass={chevronClass}
+            cardBgClass={cardBgClass}
+            cardBorderClass={cardBorderClass}
+            subtitleClass={subtitleClass}
+            onClick={() => setSection('ai')}
+          />
+
+          {/* 端侧模型（MNN 内嵌，进程内推理） */}
+          <SettingItem
+            icon={Cpu}
+            iconBg="bg-tangerine-deep"
+            title="端侧模型"
+            subtitle="MNN 内嵌 · 本地推理"
+            chevronClass={chevronClass}
+            cardBgClass={cardBgClass}
+            cardBorderClass={cardBorderClass}
+            subtitleClass={subtitleClass}
+            onClick={() => setSection('ondevice')}
+          />
 
           {/* 数据同步 */}
           <SettingItem
@@ -296,6 +358,53 @@ export function MobileSettingsView() {
   }
 
   // ===== 同步设置 =====
+  if (section === 'ai') {
+    return (
+      <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
+        <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
+          <button onClick={() => setSection('main')} className="text-sm text-tangerine">
+            ← 返回
+          </button>
+          <h2 className="text-base font-semibold">AI 服务商</h2>
+        </header>
+        <div className="flex-1 overflow-y-auto px-3 py-3">
+          <p className={`mb-3 text-xs ${subtitleClass}`}>
+            选「端侧」走手机<strong>本地</strong>推理（需先在「端侧模型」里加载模型，
+            <strong>无需 API Key</strong>、对话不出网）；其余服务商为云端，需先在桌面端配置 API Key。
+          </p>
+          {LLM_PROVIDERS.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => selectProvider(p.id)}
+              className={`mb-2 flex w-full items-center gap-3 rounded-xl ${cardBgClass} border ${
+                provider === p.id ? 'border-tangerine' : cardBorderClass
+              } p-3 text-left`}
+            >
+              <span className="flex-1 text-sm font-medium">{p.name}</span>
+              {provider === p.id && <span className="text-xs text-tangerine">当前</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (section === 'ondevice') {
+    return (
+      <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
+        <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
+          <button onClick={() => setSection('main')} className="text-sm text-tangerine">
+            ← 返回
+          </button>
+          <h2 className="text-base font-semibold">端侧模型</h2>
+        </header>
+        <div className="flex-1 overflow-y-auto px-3 py-3">
+          <OnDeviceModelPanel />
+        </div>
+      </div>
+    )
+  }
+
   if (section === 'sync') {
     return (
       <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
