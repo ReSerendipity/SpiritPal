@@ -89,7 +89,14 @@ interface ChatStoreState {
 // ============ 工具函数 ============
 
 function genId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+  // 会话/消息 ID 必须用密码学安全随机数（CSPRNG）。
+  // 原实现用 `Math.random()`，被 CodeQL 判为 "Insecure randomness"（security context），
+  // 在 PR 上留下未解决评审意见从而阻塞合并（分支保护开了 required_conversation_resolution）。
+  // crypto.getRandomValues 在 Tauri WebView 与 Node（vitest/jsdom）环境均可用。
+  const bytes = new Uint8Array(6)
+  crypto.getRandomValues(bytes)
+  const rand = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+  return `${Date.now()}-${rand}`
 }
 
 function getCurrentCharacterId(): string {
