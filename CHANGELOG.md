@@ -11,6 +11,8 @@
 
 ### Added
 
+- `scripts/check_android_proguard_keeps.py` —— Android release 的 **R8 keep 规则静态守卫**，并接入 CI 必需检查（`.github/workflows/structure-guard.yml` 的 `layout` job）。release 开 `minifyEnabled` 后 R8 会**静默**删掉「Kotlin/Java 侧无调用者、只能被 Rust 侧经 JNI 反射调用」的方法（编译期零告警、真机启动才 `NoSuchMethodError`，已踩 3 次）。守卫校验三件事：① `app/proguard-rules.pro` 是否覆盖全部 26 项「仅 JNI 可达」方法（ProGuard 语义感知：`native <methods>` 只算覆盖 native 方法、`pkg.*` 不跨包）；② `app/build.gradle` 的 release `proguardFiles` 是否仍引用该规则文件；③ `Cargo.lock` 里 `wry`/`tauri` 是否仍是已审计版本（依赖升级会改变 JNI 面，升级即报红要求重新审计）。纯静态、秒级、无需 Android 工具链。DEX 级证明仍需 `scripts/verify_android_jni_keeps.py`（需 APK，release 包出完必跑，SOP-4）。
+
 - `install.bat` — Windows 一键安装脚本（自动检查 Node.js / pnpm / Rust）
 
 - `start.bat` — Windows 一键启动开发环境脚本

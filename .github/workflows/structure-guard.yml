@@ -36,3 +36,12 @@ jobs:
       # 防止静默丢失；再犯时按应急预案走治理层裁决，不在 CI 层对抗。
       - name: Execution docs tracked guard
         run: node scripts/check-exec-docs-tracked.mjs
+      # Android release JNI keep 守卫（GOTCHAS #121/#122）：release 开 minifyEnabled 后，
+      # R8 会把「Kotlin/Java 侧无调用者、只能被 Rust 侧经 JNI 反射调用」的方法当 unused
+      # 整方法删除 —— 编译期零告警、打包零报错，真机启动才抛 NoSuchMethodError（已踩 3 次：
+      # WryActivity.getId / TauriActivity.getPluginManager / RustWebView.clearAllBrowsingData+getCookies）。
+      # 此处静态校验：keep 规则是否覆盖全部「仅 JNI 可达」方法 + build.gradle 是否仍引用规则
+      # 文件 + wry/tauri 版本是否仍是已审计版本（依赖升级会改变 JNI 面）。无需 Android 工具链。
+      # DEX 级证明（APK 里真有这些方法）需 APK，见 scripts/verify_android_jni_keeps.py，release 包出完必跑（SOP-4）。
+      - name: Android JNI keep guard
+        run: python scripts/check_android_proguard_keeps.py
