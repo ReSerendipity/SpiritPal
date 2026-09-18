@@ -5,10 +5,12 @@
 """
 import hashlib
 import json
+import os
 import re
 import time
 import urllib.request
 import urllib.parse
+from pathlib import Path
 
 TARGETS = [
     ("BV17wGP6rE2k", "大肥橘卡卡-全网最真实桌宠教程"),
@@ -136,7 +138,8 @@ def main():
             print(f"[ERR] {bvid} -> {e}")
         time.sleep(0.8)
 
-    out = "c:/Users/Doro/Multi-Tracker/_comments_github_results.json"
+    # 输出默认落在脚本所在目录（可移植）；用 BILI_RESULTS_OUT 环境变量可覆盖
+    out = os.environ.get("BILI_RESULTS_OUT") or str(Path(__file__).resolve().parent / "_comments_github_results.json")
     with open(out, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
 

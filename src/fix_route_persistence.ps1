@@ -1,5 +1,6 @@
 # SpiritPal 路由持久化修复脚本
-$contentPath = "C:\Users\Doro\SpiritPal\src\App.tsx"
+# 用 $PSScriptRoot 推导仓库内路径，保证克隆到任意目录均可运行
+$contentPath = Join-Path $PSScriptRoot "App.tsx"
 $content = Get-Content $contentPath -Raw -Encoding UTF8
 
 # 替换 getRoute 函数

@@ -4,10 +4,12 @@
 使用 B 站公开 view 接口，无需登录/CDP。
 """
 import json
+import os
 import re
 import time
 import urllib.request
 import urllib.parse
+from pathlib import Path
 
 # 候选视频（桌面宠物相关，BV号 -> 备注）
 CANDIDATES = [
@@ -84,7 +86,8 @@ def main():
         print(f"[{('OK' if info.get('repos') else ('ERR' if info.get('error') else '   '))}] {bvid} {info.get('title','')[:28]:<30} -> {status}")
         time.sleep(0.6)
 
-    out = "c:/Users/Doro/Multi-Tracker/_desc_github_results.json"
+    # 输出默认落在脚本所在目录（可移植）；用 BILI_RESULTS_OUT 环境变量可覆盖
+    out = os.environ.get("BILI_RESULTS_OUT") or str(Path(__file__).resolve().parent / "_desc_github_results.json")
     with open(out, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
 
