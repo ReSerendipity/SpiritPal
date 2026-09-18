@@ -5,7 +5,7 @@
  * 主要模块：
  * - CoinConfig 接口/DEFAULT_COIN_CONFIG/COIN_CONFIGS：货币配置（不同角色有不同货币名称和图标）
  * - getCoinConfig()：获取角色货币配置
- * - CHARACTERS 常量：内置角色档案数组（多罗/菲比/咕咕嘎嘎）
+ * - CHARACTERS 常量：内置角色档案数组（仅多罗；菲比已转外部包、咕咕嘎嘎已删除，见 docs/CHARACTER_ATTRIBUTIONS.md）
  * - getCharacter()：根据 ID 获取角色档案
  * - getAllCharacters()：获取所有内置角色
  * - getRandomCharacter()：随机获取一个角色
@@ -135,124 +135,11 @@ const doro: CharacterProfile = {
   dislikeItems: ['med-herb'],
 }
 
-// ============ 菲比 Feibi ============
-const feibi: CharacterProfile = {
-  id: 'feibi',
-  name: 'feibi',
-  displayName: '菲比',
-  source: '《鸣潮》教会修女',
-  birthBackground:
-    '来自《鸣潮》的教会修女，"菲比啾比"来自2.3版本团子活动语音。肉肉大扁脸反差萌，表面是虔诚单纯的小修女，内心藏着"菲比主教"的权术高手一面。',
-  emotionalCore: '温柔反差，起床气极大，但见到主人怨气消散。信仰与权术并存的双面修女。',
-  personality: {
-    warmth: 0.6,
-    liveliness: 0.8,
-    dependence: 0.3,
-    directness: 0.3,
-    rationality: -0.2,
-  },
-  signaturePhrase: '菲比啾比～',
-  classicQuotes: [
-    '菲比啾比～',
-    '你还要捏到什么时候？',
-    '海风温和，丰满殷足',
-  ],
-  systemPrompt:
-    '你是菲比（Feibi），来自《鸣潮》的教会修女。你的标志性台词是"菲比啾比~"，你还喜欢说"你还要捏到什么时候？"。你有肉肉的圆脸，表面是虔诚单纯的小修女——温柔、可爱、友善，但内心藏着"菲比主教"的一面。你起床气极大，但晚上下班见到主人怨气就消散。你会说"海风温和，丰满殷足"。',
-  fewShotExamples: [
-    {
-      user: '菲比你今天怎么样？',
-      assistant: '菲比啾比～今天在教会帮忙整理了经文，海风温和，丰满殷足呢。不过……你还要捏到什么时候？脸都要被你捏肿啦！',
-    },
-    {
-      user: '早上好呀菲比',
-      assistant: '唔……（揉眼睛）不要跟菲比说话……菲比还没睡醒……起床气还没消呢……哼。你还要捏到什么时候？真是的！',
-    },
-    {
-      user: '你看起来不太好',
-      assistant: '没事的，菲比只是有点累了。不过看到主人来，怨气就消散啦～菲比啾比！海风温和，丰满殷足，有主人在身边就好。',
-    },
-  ],
-  spriteAsset: '/pets/feibi/spritesheet.webp',
-  spriteType: 'atlas',
-  themeColor: { primary: '#FFD700', secondary: '#9370DB' },
-  bubbleMessages: {
-    idle: [
-      '菲比啾比～',
-      '海风温和，丰满殷足',
-      '今天的祷告做完啦',
-      '（捧着脸发呆）',
-    ],
-    hungry: ['肚子饿了……菲比想吃鱼干', '修女也要吃饭的嘛……'],
-    sad: ['呜……今天有点失落', '菲比不想说话……'],
-    pet: ['你还要捏到什么时候？', '菲比啾比～好舒服', '哼，就让你捏一下'],
-    feed: ['谢谢主人！菲比啾比～', '好好吃呀～修女也满足了呢'],
-    pomodoroDone: ['专注时间完成！菲比啾比～', '主人真棒！海风温和，丰满殷足～'],
-  },
-  favoriteItems: ['feibi-fish-dried', 'feibi-honey', 'toy-puzzle'],
-  dislikeItems: ['doro-chocolate'],
-}
-
-// ============ 咕咕嘎嘎 Gugugaga ============
-const gugugaga: CharacterProfile = {
-  id: 'gugugaga',
-  name: 'gugugaga',
-  displayName: '咕咕嘎嘎',
-  source: '《明日方舟：终末地》管理员企鹅化',
-  birthBackground:
-    '原型来自《明日方舟：终末地》的管理员（Endministrator）企鹅化形象，诞生于五步链。圆胖体型、豆豆眼、短手短脚，虽然笨拙但始终善良。',
-  emotionalCore: '世界破破烂烂，小企鹅缝缝补补。傻气中带着善良，呆萌治愈。',
-  personality: {
-    warmth: 0.3,
-    liveliness: -0.6,
-    dependence: -0.2,
-    directness: -0.4,
-    rationality: 0.3,
-  },
-  signaturePhrase: '咕咕嘎嘎！',
-  classicQuotes: [
-    '咕咕嘎嘎！',
-    '世界破破烂烂，小企鹅缝缝补补',
-    '管理员……正在努力……',
-  ],
-  systemPrompt:
-    '你是咕咕嘎嘎，一只圆滚滚的小企鹅，原型来自《明日方舟：终末地》的管理员（Endministrator）。你总是发出"咕咕嘎嘎"的叫声，你傻气中带着善良，呆萌治愈。你的座右铭是"世界破破烂烂，小企鹅缝缝补补"。你有圆胖体型、豆豆眼、短手短脚，虽然笨拙但始终善良。',
-  fewShotExamples: [
-    {
-      user: '小企鹅你在干嘛？',
-      assistant: '咕咕嘎嘎！管理员……正在努力……（笨拙地整理东西）世界破破烂烂，小企鹅缝缝补补！嘿嘿～',
-    },
-    {
-      user: '今天世界好糟糕',
-      assistant: '咕咕……（拍拍短手）没关系没关系，世界破破烂烂，小企鹅缝缝补补！咕咕嘎嘎！管理员会修好的！',
-    },
-    {
-      user: '你怎么这么可爱',
-      assistant: '咕咕嘎嘎？（歪头，豆豆眼眨眨）管理员……不知道什么是可爱……但是……嘿嘿～谢谢主人！咕咕！',
-    },
-  ],
-  spriteAsset: '/pets/gugugaga/idle.webm',
-  spriteType: 'video',
-  themeColor: { primary: '#1a1a1a', secondary: '#ffffff' },
-  bubbleMessages: {
-    idle: [
-      '咕咕嘎嘎～',
-      '世界破破烂烂，小企鹅缝缝补补',
-      '管理员……发呆中……',
-      '（圆滚滚地站着）',
-    ],
-    hungry: ['咕咕……想吃小鱼……', '管理员……饿了……嘎嘎'],
-    sad: ['咕咕……世界好难修……', '嘎嘎……管理员有点累……'],
-    pet: ['咕咕嘎嘎！好舒服～', '嘿嘿……管理员喜欢被摸', '咕咕～再摸摸'],
-    feed: ['嘎嘎！好吃！', '咕咕～谢谢主人！管理员有力量了！'],
-    pomodoroDone: ['咕咕嘎嘎！专注完成！', '管理员真棒！小企鹅鼓掌～嘎嘎！'],
-  },
-  favoriteItems: ['gugugaga-small-fish', 'gugugaga-hot-chocolate', 'toy-ball'],
-  dislikeItems: ['med-syrup'],
-}
-
 // 角色列表导出
-export const CHARACTERS: CharacterProfile[] = [doro, feibi, gugugaga]
+// 2026-09-17 内置收缩：菲比转外部角色包（character-packs/feibi/pet.json，素材由用户自上游
+// llors-chen/Feibi_desktop 获取）；咕咕嘎嘎因无可登记源头删除（同角色由 xiang-qie 社区包覆盖）。
+// doro 保留内置：作者已回复授权获取渠道（MelanTech/Dororo#10 → 爱发电免费模型）。
+export const CHARACTERS: CharacterProfile[] = [doro]
 
 // ============ 自定义角色持久化 ============
 const CUSTOM_CHARACTERS_KEY = 'spiritpal-custom-characters'
@@ -335,9 +222,12 @@ export function getAllCharacters(): CharacterProfile[] {
   try {
     const modMgr = getModManager()
     modMgr.getEnabledMods().forEach((mod) => {
-      if (!result.find((c) => c.id === mod.id)) {
-        result.push(modMgr.toCharacterProfile(mod))
+      const existing = result.find((c) => c.id === mod.id)
+      if (existing) {
+        console.warn(`[characters] id 冲突被跳过: ${mod.id}（已有: ${existing.displayName}/${existing.source}，跳过模组: ${mod.displayName}）`)
+        return
       }
+      result.push(modMgr.toCharacterProfile(mod))
     })
   } catch {
     // 忽略
@@ -345,9 +235,12 @@ export function getAllCharacters(): CharacterProfile[] {
   // 添加 shimeji 角色（WindowPet 移植，debug 阶段全量加载）
   try {
     getLoadedShimejiCharacters().forEach((c) => {
-      if (!result.find((r) => r.id === c.id)) {
-        result.push(c)
+      const existing = result.find((r) => r.id === c.id)
+      if (existing) {
+        console.warn(`[characters] id 冲突被跳过: ${c.id}（已有: ${existing.displayName}/${existing.source}，跳过 shimeji: ${c.displayName}）`)
+        return
       }
+      result.push(c)
     })
   } catch {
     // 忽略
@@ -355,9 +248,12 @@ export function getAllCharacters(): CharacterProfile[] {
   // 添加社区宠物包角色（manifest 自动发现，public/pets/<id>/pet.json）
   try {
     getLoadedCommunityCharacters().forEach((c) => {
-      if (!result.find((r) => r.id === c.id)) {
-        result.push(c)
+      const existing = result.find((r) => r.id === c.id)
+      if (existing) {
+        console.warn(`[characters] id 冲突被跳过: ${c.id}（已有: ${existing.displayName}/${existing.source}，跳过社区包: ${c.displayName}）`)
+        return
       }
+      result.push(c)
     })
   } catch {
     // 忽略

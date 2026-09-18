@@ -40,7 +40,10 @@
     "fs:allow-resource-read-recursive",
     {
       "identifier": "fs:scope",
-      "allow": [{ "path": "$RESOURCE/pets/**" }]
+      "allow": [
+        { "path": "$RESOURCE/pets/**" },
+        { "path": "$APPDATA/live2dcubismcore.js" }
+      ]
     }
   ]
 }

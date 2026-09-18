@@ -87,23 +87,27 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
 
     {
         use tauri::{WebviewUrl, WebviewWindowBuilder};
-        WebviewWindowBuilder::new(app, "pet-window", WebviewUrl::App("index.html#/pet".into()))
-            .title("SpiritPal")
-            // 默认 224×304 = 1.0× 宠物的基准适配尺寸（精灵 192×208 + 32 边距 + 64 气泡空间），
-            // 减少首帧与前端按持久化 petSize 校正后的落差闪烁；前端挂载后会立即按实际 petSize 校正
-            .inner_size(224.0, 304.0)
-            // 最小尺寸对齐前端 WIN_MIN_W/H(160×200)：宠物可缩小到 0.5×，
-            // 窗口需要能跟随宠物缩小（否则小宠物配大窗口，边框预览显示巨大空白）
-            .min_inner_size(160.0, 200.0)
-            .max_inner_size(720.0, 900.0)
-            .resizable(true)
-            .fullscreen(false)
+        let pet_builder =
+            WebviewWindowBuilder::new(app, "pet-window", WebviewUrl::App("index.html#/pet".into()))
+                .title("SpiritPal")
+                // 默认 224×304 = 1.0× 宠物的基准适配尺寸（精灵 192×208 + 32 边距 + 64 气泡空间），
+                // 减少首帧与前端按持久化 petSize 校正后的落差闪烁；前端挂载后会立即按实际 petSize 校正
+                .inner_size(224.0, 304.0)
+                // 最小尺寸对齐前端 WIN_MIN_W/H(160×200)：宠物可缩小到 0.5×，
+                // 窗口需要能跟随宠物缩小（否则小宠物配大窗口，边框预览显示巨大空白）
+                .min_inner_size(160.0, 200.0)
+                .max_inner_size(720.0, 900.0)
+                .resizable(true)
+                .fullscreen(false);
+        // 以下为桌面端专属属性：移动端 WebviewWindowBuilder 无这些方法，必须按平台条件编译
+        #[cfg(desktop)]
+        let pet_builder = pet_builder
             .decorations(false)
             .transparent(true)
             .shadow(false)
             .always_on_top(true)
-            .skip_taskbar(true)
-            .build()?;
+            .skip_taskbar(true);
+        pet_builder.build()?;
     }
 
     let menu = crate::tray::build_tray_menu(app)?;
@@ -129,6 +133,8 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
                         let _ = window.hide();
                     } else {
                         let _ = window.show();
+                        // 聚焦为桌面端专属（移动端无窗口焦点概念）
+                        #[cfg(desktop)]
                         let _ = window.set_focus();
                     }
                 }
@@ -138,6 +144,8 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
             "show" => {
                 if let Some(window) = app.get_webview_window("pet-window") {
                     let _ = window.show();
+                    // 聚焦为桌面端专属（移动端无窗口焦点概念）
+                    #[cfg(desktop)]
                     let _ = window.set_focus();
                 }
             }
@@ -166,7 +174,7 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
                     w
                 } else {
                     // 动态创建聊天窗口（无边框，自定义标题栏）
-                    match tauri::WebviewWindowBuilder::new(
+                    let chat_builder = tauri::WebviewWindowBuilder::new(
                         app,
                         "chat-window",
                         tauri::WebviewUrl::App("index.html#/chat".into()),
@@ -174,10 +182,11 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
                     .title("SpiritPal Chat")
                     .inner_size(420.0, 600.0)
                     .min_inner_size(320.0, 400.0)
-                    .resizable(true)
-                    .decorations(false)
-                    .build()
-                    {
+                    .resizable(true);
+                    // 桌面专属：无边框（移动端 WebviewWindowBuilder 无 decorations 方法）
+                    #[cfg(desktop)]
+                    let chat_builder = chat_builder.decorations(false);
+                    match chat_builder.build() {
                         Ok(w) => w,
                         Err(e) => {
                             log::error!("[SpiritPal] Failed to create chat window: {}", e);
@@ -186,6 +195,8 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
                     }
                 };
                 let _ = window.show();
+                // 聚焦为桌面端专属（移动端无窗口焦点概念）
+                #[cfg(desktop)]
                 let _ = window.set_focus();
             }
             "settings" => {
@@ -203,6 +214,8 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
                     }
                 };
                 let _ = window.show();
+                // 聚焦为桌面端专属（移动端无窗口焦点概念）
+                #[cfg(desktop)]
                 let _ = window.set_focus();
                 let _ = app.emit("open-settings", ());
             }

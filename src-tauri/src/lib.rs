@@ -73,8 +73,10 @@ mod keychain;
 #[cfg(target_os = "macos")]
 mod macos;
 mod magic_check;
+// 端侧推理子系统（on-device LLM）：设备分档/串行调度/模型缓存原语（架构参考 tauri-plugin-local-ai）
 mod mcp_bridge;
 mod memory_sidecar;
+pub mod ondevice;
 mod petmod;
 mod system;
 mod tray;
@@ -506,6 +508,16 @@ pub fn run() {
             {
                 tauri::generate_handler![
                     greet,
+                    // 端侧推理：设备分档（决定推荐模型尺寸）
+                    ondevice::detect_device_tier,
+                    // 端侧推理：内嵌 MNN 引擎桥（进程内，仅移动端；见 ondevice/engine.rs）
+                    // ⚠️ 命令名 = 函数名（Tauri 的 #[tauri::command] 不支持 name 属性，见 engine.rs 注释）
+                    ondevice::engine::ondevice_generate,
+                    ondevice::engine::ondevice_load_model,
+                    ondevice::engine::ondevice_unload_model,
+                    ondevice::engine::ondevice_list_models,
+                    ondevice::engine::ondevice_models_dir,
+                    ondevice::engine::ondevice_cancel,
                     log_frontend_error,
                     open_application,
                     // 加密

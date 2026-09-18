@@ -83,7 +83,7 @@ describe('NurturingPanel', () => {
 
   it('渲染角色名称', () => {
     render(<NurturingPanel />)
-    expect(screen.getByText('多罗')).toBeInTheDocument()
+    expect(screen.getByText('多罗（内置）')).toBeInTheDocument()
   })
 
   it('显示等级数字', () => {

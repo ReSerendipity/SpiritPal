@@ -1,4 +1,4 @@
-// characters 单元测试 — 4 个角色配置完整性、自定义角色持久化、查询函数
+// characters 单元测试 — 内置角色配置完整性、自定义角色持久化、查询函数
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
   CHARACTERS,
@@ -10,14 +10,14 @@ import {
 } from '@/lib/data/characters'
 import type { CharacterProfile } from '@/lib/data/types'
 
-const EXPECTED_IDS = ['doro', 'feibi', 'gugugaga']
+const EXPECTED_IDS = ['doro']
 
 describe('CHARACTERS', () => {
-  it('包含 3 个内置角色', () => {
-    expect(CHARACTERS).toHaveLength(3)
+  it('包含 1 个内置角色（菲比已转外部包、咕咕嘎嘎已删除）', () => {
+    expect(CHARACTERS).toHaveLength(1)
   })
 
-  it('包含预期的 4 个角色 id', () => {
+  it('包含预期的角色 id', () => {
     const ids = CHARACTERS.map((c) => c.id)
     for (const id of EXPECTED_IDS) {
       expect(ids).toContain(id)
@@ -109,20 +109,15 @@ describe('角色配置完整性', () => {
 })
 
 describe('各角色特征值', () => {
-  it('doro displayName 为多罗，signaturePhrase 含欧润吉', () => {
+  it('doro displayName 为多罗（内置），signaturePhrase 含欧润吉', () => {
     const doro = getCharacter('doro')!
-    expect(doro.displayName).toBe('多罗')
+    expect(doro.displayName).toBe('多罗（内置）')
     expect(doro.signaturePhrase).toContain('欧润吉')
   })
 
-  it('feibi displayName 为菲比', () => {
-    const feibi = getCharacter('feibi')!
-    expect(feibi.displayName).toBe('菲比')
-  })
-
-  it('gugugaga 是 video 类型精灵图', () => {
-    const gugu = getCharacter('gugugaga')!
-    expect(gugu.spriteType).toBe('video')
+  it('feibi/gugugaga 不再是内置角色', () => {
+    expect(CHARACTERS.find((c) => c.id === 'feibi')).toBeUndefined()
+    expect(CHARACTERS.find((c) => c.id === 'gugugaga')).toBeUndefined()
   })
 })
 

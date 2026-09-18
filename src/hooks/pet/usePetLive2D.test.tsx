@@ -13,9 +13,16 @@ vi.mock('@/lib/data/commonUtils', () => ({
   fetchWithTimeout: live2d.fetchWithTimeout,
 }))
 
+/** 合法 model3 响应体：探针会校验 FileReferences 字段（见下一条用例） */
+const MODEL3_JSON = JSON.stringify({ FileReferences: { Moc: 'doro.moc3' } })
+
 describe('usePetLive2D', () => {
   beforeEach(() => {
-    live2d.fetchWithTimeout.mockReset().mockResolvedValue({ ok: true })
+    // 探针用 GET 并校验响应体确为 model3 JSON，故 mock 必须提供 text()
+    live2d.fetchWithTimeout.mockReset().mockResolvedValue({
+      ok: true,
+      text: async () => MODEL3_JSON,
+    })
   })
 
   it('检测到模型路径后 useLive2D 为 true', async () => {
@@ -47,6 +54,25 @@ describe('usePetLive2D', () => {
     await waitFor(() => {
       expect(result.current.live2dModelPath).toBeNull()
     })
+    expect(result.current.useLive2D).toBe(false)
+  })
+
+  it('响应体不是 model3 JSON 时不算命中（防 asset/SPA fallback 假命中）', async () => {
+    live2d.fetchWithTimeout.mockResolvedValue({
+      ok: true,
+      text: async () => '<!doctype html><html><body>index.html</body></html>',
+    })
+    const { result } = renderHook(() =>
+      usePetLive2D({
+        currentCharacterId: 'doro',
+        petState: 'idle',
+        currentAnimId: 'idle',
+      }),
+    )
+    await waitFor(() => {
+      expect(live2d.fetchWithTimeout).toHaveBeenCalled()
+    })
+    expect(result.current.live2dModelPath).toBeNull()
     expect(result.current.useLive2D).toBe(false)
   })
 

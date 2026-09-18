@@ -330,10 +330,15 @@ function extractRustCommands(): Set<string> {
         scanDir(fullPath)
       } else if (entry.name.endsWith('.rs')) {
         const content = fs.readFileSync(fullPath, 'utf-8')
-        const regex = /#\[tauri::command\][\s\S]*?(?:pub\s+)?(?:async\s+)?fn\s+(\w+)/g
+        // 支持两种写法：
+        //   #[tauri::command]                       → 命令名 = 函数名
+        //   #[tauri::command(name = "explicit_name")] → 命令名 = 显式名（如 ondevice/engine.rs 的 ondevice_generate）
+        // 注意：显式名写法下，前端 invoke 用的是 name 而非函数名，故必须优先取 name。
+        const regex =
+          /#\[tauri::command(?:\s*\(\s*name\s*=\s*"([^"]+)"\s*\))?\][\s\S]*?(?:pub\s+)?(?:async\s+)?fn\s+(\w+)/g
         let match: RegExpExecArray | null
         while ((match = regex.exec(content)) !== null) {
-          commands.add(match[1])
+          commands.add(match[1] ?? match[2])
         }
       }
     }
@@ -502,20 +507,56 @@ function extractFrontendInvokeParams(): Map<string, string[]> {
 // 辅助函数：从 lib.rs 中提取 generate_handler 注册的命令
 // ============================================================
 
+/**
+ * 建立「Rust 函数名 → 实际注册的命令名」映射。
+ *
+ * `#[tauri::command(name = "x")]` 会让注册名 ≠ 函数名（如 engine.rs 的
+ * `fn generate` 注册为 `ondevice_generate`），故比对前必须解析出真实命令名。
+ */
+function extractRustCommandNames(): Map<string, string> {
+  const map = new Map<string, string>()
+  const srcDir = path.resolve(__dirname, '../../../src-tauri/src')
+
+  function scanDir(dir: string) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name)
+      if (entry.isDirectory()) {
+        scanDir(fullPath)
+      } else if (entry.name.endsWith('.rs')) {
+        const content = fs.readFileSync(fullPath, 'utf-8')
+        const regex =
+          /#\[tauri::command(?:\s*\(\s*name\s*=\s*"([^"]+)"\s*\))?\][\s\S]*?(?:pub\s+)?(?:async\s+)?fn\s+(\w+)/g
+        let match: RegExpExecArray | null
+        while ((match = regex.exec(content)) !== null) {
+          map.set(match[2], match[1] ?? match[2])
+        }
+      }
+    }
+  }
+
+  scanDir(srcDir)
+  return map
+}
+
 function extractRegisteredCommands(): Set<string> {
   const libPath = path.resolve(__dirname, '../../../src-tauri/src/lib.rs')
   const content = fs.readFileSync(libPath, 'utf-8')
-
-  const handlerMatch = content.match(/generate_handler!\s*\[([\s\S]*?)\]/)
-  if (!handlerMatch) return new Set()
+  const fnToName = extractRustCommandNames()
 
   const registered = new Set<string>()
-  const handlerContent = handlerMatch[1]
-  const regex = /(\w+(?:::\w+)*)\s*,/g
-  let match: RegExpExecArray | null
-  while ((match = regex.exec(handlerContent)) !== null) {
-    const parts = match[1].split('::')
-    registered.add(parts[parts.length - 1])
+  // 遍历**全部** generate_handler! 块（桌面端与移动端各有一个；原先只取第一个会漏掉移动端）。
+  // 结束符要求 `]` 独占一行：handler 列表末尾的 `]` 总是独立成行，而注释里出现的 `]`
+  // （如 `#[tauri::command]`）不会独占一行 —— 用 `[\s\S]*?\]` 会被注释里的 `]` 提前截断。
+  const blockRegex = /generate_handler!\s*\[([\s\S]*?)\n\s*\]/g
+  let block: RegExpExecArray | null
+  while ((block = blockRegex.exec(content)) !== null) {
+    const entryRegex = /(\w+(?:::\w+)*)\s*,/g
+    let m: RegExpExecArray | null
+    while ((m = entryRegex.exec(block[1])) !== null) {
+      const fnName = m[1].split('::').pop() as string
+      // 优先用 name= 声明的真实命令名，回退函数名
+      registered.add(fnToName.get(fnName) ?? fnName)
+    }
   }
   return registered
 }
