@@ -235,6 +235,11 @@ jobs:
         with:
           workspaces: 'src-tauri -> target'
 
+      - name: Create placeholder frontend dist
+        # 同 rust-clippy：custom-protocol 使 generate_context! 编译期要求 frontendDist 存在，
+        # 否则 cargo test 会因 proc macro panic 失败（本 job 不需要真实前端产物）。
+        run: mkdir -p ../dist && printf '<!doctype html><title>ci-placeholder</title>\n' > ../dist/index.html
+
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
@@ -503,6 +508,13 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: 'src-tauri -> target'
+
+      - name: Create placeholder frontend dist
+        # tauri 启用 custom-protocol 特性后，generate_context! 会在**编译期**校验
+        # frontendDist（../dist）存在，否则 proc macro panic：
+        #   "The `frontendDist` configuration is set to \"../dist\" but this path doesn't exist"
+        # 本 job 只跑 clippy，不消费真实前端资源，占位即可（真实构建见 build job）。
+        run: mkdir -p ../dist && printf '<!doctype html><title>ci-placeholder</title>\n' > ../dist/index.html
 
       - name: Install Linux build dependencies
         run: |
