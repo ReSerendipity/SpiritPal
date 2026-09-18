@@ -303,7 +303,6 @@ function render(){
   $('budgetVal').textContent = budgetGB.toFixed(1) + ' GB';
   $('appVal').textContent = appBaseGB.toFixed(2) + ' GB';
 
-  const m = MODELS[modelKey];
   const r = compute(modelKey, quantKey, kvBytes, budgetGB, appBaseGB, bwGBs, withMmproj);
 
   let cls, title, desc;
