@@ -8,7 +8,7 @@
 - 规则详见 docs/CODING_STANDARDS.md「1. 路径可移植性（强制）」
 """
 import re
-import subprocess
+import subprocess  # nosec B404（仅以参数列表调用 git，无 shell=True，风险可控）
 import sys
 from pathlib import Path
 
@@ -23,7 +23,7 @@ _REPO_HINT = SCRIPT_DIR.parent
 
 
 def _repo_root():
-    out = subprocess.run(
+    out = subprocess.run(  # nosec B603, B607（固定参数列表 git rev-parse，无 shell=True）
         ["git", "-C", str(_REPO_HINT), "rev-parse", "--show-toplevel"],
         capture_output=True, text=True)
     return Path(out.stdout.strip())
@@ -57,7 +57,7 @@ ALLOWLIST = [
 
 
 def _files_from(cmd):
-    out = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
+    out = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))  # nosec B603, B607（git 只读命令）
     return [p for p in out.stdout.split("\0") if p]
 
 
