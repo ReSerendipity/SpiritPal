@@ -14,11 +14,13 @@ dependency-vuln-scan job 每次 push / PR 都会运行，但三个审计步骤�
       - 低于基线 → 通过并提示回写基线（棘轮自动收紧）
       - 基线缺失或报告结构异常 → 失败，绝不"首次自动放行"
 
-当前基线说明
-------------
-npm_critical=2 / npm_high=10：来自传递依赖 gh-pages（pixi-live2d-display 引入）
-与 protobufjs，上游无可用修复版本，已人工确认并接受。
-cargo_vulns=2：Cargo.lock 中 691 个 crate 里有 2 个命中。
+当前基线说明（.ci/security_baseline.json）
+------------------------------------
+npm_critical=0 / npm_high=9：基线是天花板而非现值，当前 pnpm audit 实测 0/0，
+历史高点来自传递依赖 gh-pages（pixi-live2d-display 引入）与 protobufjs。
+cargo_vulns=1：Cargo.lock 681 个 package 中 1 个命中——
+  RUSTSEC-2026-0235 / rkyv 0.7.46，经 byte-unit → rust_decimal 传入，
+  patched 仅 >=0.8.17 且 0.7 系列上游已停维护，无法就地升级，已人工接受。
 基线入库后，**新增**任何高危漏洞都会让 CI 变红。
 
 用法
