@@ -16,8 +16,8 @@ dependency-vuln-scan job 每次 push / PR 都会运行，但三个审计步骤�
 
 当前基线说明（.ci/security_baseline.json）
 ------------------------------------
-npm_critical=0 / npm_high=9：基线是天花板而非现值，当前 pnpm audit 实测 0/0，
-历史高点来自传递依赖 gh-pages（pixi-live2d-display 引入）与 protobufjs。
+npm_critical=0 / npm_high=0：历史高点（gh-pages 经 pixi-live2d-display 引入、
+protobufjs）已由上游修复，2026-09-20 按棘轮约定回写收紧到实测值 0。
 cargo_vulns=1：Cargo.lock 681 个 package 中 1 个命中——
   RUSTSEC-2026-0235 / rkyv 0.7.46，经 byte-unit → rust_decimal 传入，
   patched 仅 >=0.8.17 且 0.7 系列上游已停维护，无法就地升级，已人工接受。
