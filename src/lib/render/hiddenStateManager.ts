@@ -6,7 +6,7 @@
  *
  * 主要功能：
  * - 屏幕边缘爬墙状态（climbing）
- * - 窗口后躲藏状态（hiding_wall）  
+ * - 窗口后躲藏状态（hiding_wall）
  * - 探头观察状态（peeking）
  * - 状态自动切换和超时恢复
  *
@@ -95,7 +95,7 @@ export class HiddenStateManager {
   async checkAndUpdateState(): Promise<void> {
     const now = Date.now()
     const info = await this.gatherWindowState()
-    
+
     // 在正常状态下才自动检测切换
     if (this.currentState.state === 'normal') {
       if (info.isAtEdge) {
@@ -123,7 +123,7 @@ export class HiddenStateManager {
       const win = getCurrentWindow()
       const pos = await win.outerPosition()
       const size = await win.outerSize()
-      
+
       // 获取主显示器信息
       const monitor = await (async () => {
         // 注意：currentMonitor 是顶层函数，不是 Window 实例方法

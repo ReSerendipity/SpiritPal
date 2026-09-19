@@ -1,7 +1,7 @@
 /**
  * @file timezoneSync.ts
  * @description 时区自动同步 — 本地化时间显示与转换
- * 
+ *
  * 实现功能：
  * - 自动检测系统时区
  * - 跨时区时间同步（UTC 基准）
@@ -62,12 +62,12 @@ export class TimezoneManager {
   private currentTimeZoneId: string
   private tasks: Map<string, ScheduledTaskConfig> = new Map()
   private timers: Map<string, NodeJS.Timeout> = new Map()
-  
+
   constructor() {
     // 从浏览器或系统获取默认时区
     this.currentTimeZoneId = DEFAULT_TIME_ZONE_ID
     console.log(`[Timezone] Default timezone: ${this.currentTimeZoneId}`)
-    
+
     // 监听系统时区变化（部分平台支持）
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -85,19 +85,19 @@ export class TimezoneManager {
    */
   getCurrentTimeZone(): TimeZoneInfo {
     const now = new Date()
-    
+
     // 使用 Intl API 获取时区信息
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone: this.currentTimeZoneId,
       timeZoneName: 'short',
     })
-    
+
     const parts = formatter.formatToParts(now)
     const abbreviation = parts.find(p => p.type === 'timeZoneName')?.value || 'UTC'
-    
+
     // 计算 UTC 偏移量
     const offset = this.getUTCOffset(now)
-    
+
     return {
       timeZoneId: this.currentTimeZoneId,
       utcOffset: offset,
@@ -114,17 +114,17 @@ export class TimezoneManager {
     try {
       // 验证时区 ID 是否有效
       Intl.DateTimeFormat(undefined, { timeZone: timeZoneId })
-      
+
       this.currentTimeZoneId = timeZoneId
-      
+
       // 保存用户偏好
       this.saveUserPreference()
-      
+
       console.log(`[Timezone] Set timezone to: ${timeZoneId}`)
-      
+
       // 重新调度所有定时任务
       this.rescheduleAllTasks()
-      
+
       return true
     } catch (error) {
       console.error('[Timezone] Invalid timezone ID:', timeZoneId)
@@ -137,11 +137,11 @@ export class TimezoneManager {
    */
   convertToTimeZone(date: Date, targetTimeZoneId: string): TimeConversionResult {
     const utcTime = new Date(date.getTime())
-    
+
     // 计算源时区和目标时区的偏移量
     const sourceOffset = this.getUTCOffset(date) // minutes
     const targetDate = new Date(utcTime.getTime())
-    
+
     // 临时切换到目标时区计算
     try {
       const targetFormatter = new Intl.DateTimeFormat('en-US', {
@@ -154,19 +154,19 @@ export class TimezoneManager {
         minute: '2-digit',
         second: '2-digit',
       })
-      
+
       const targetString = targetFormatter.format(targetDate)
       // Note: This is a simplified conversion
       // Real implementation would require proper date-fns-tz or moment-timezone library
     } catch (error) {
       console.warn('[Timezone] Conversion failed, using fallback')
     }
-    
+
     const targetOffset = this.getTargetTimezoneOffset(targetDate, targetTimeZoneId)
     const offsetDiff = targetOffset - sourceOffset
-    
+
     const targetLocalTime = new Date(date.getTime() + offsetDiff * 60 * 1000)
-    
+
     return {
       localTime: date,
       utcTime,
@@ -183,7 +183,7 @@ export class TimezoneManager {
       ...options,
       timeZone: this.currentTimeZoneId,
     }
-    
+
     return new Intl.DateTimeFormat(this.currentTimeZoneId, opts).format(date)
   }
 
@@ -235,11 +235,11 @@ export class TimezoneManager {
    */
   private handleSystemTimezoneChange(): void {
     const newTimeZoneId = DEFAULT_TIME_ZONE_ID
-    
+
     if (newTimeZoneId !== this.currentTimeZoneId) {
       console.log(`[Timezone] System timezone changed from ${this.currentTimeZoneId} to ${newTimeZoneId}`)
       this.currentTimeZoneId = newTimeZoneId
-      
+
       // 通知应用层
       const event = new CustomEvent('timezone-change', {
         detail: { oldTimeZone: this.currentTimeZoneId, newTimeZone: newTimeZoneId },
@@ -270,20 +270,20 @@ export class TimezoneManager {
         hour: '2-digit',
         minute: '2-digit',
       })
-      
+
       const parts = formatter.formatToParts(date)
       const hourPart = parts.find(p => p.type === 'hour')?.value
       const minutePart = parts.find(p => p.type === 'minute')?.value
-      
+
       if (hourPart && minutePart) {
         const hours = parseInt(hourPart, 10)
         const minutes = parseInt(minutePart, 10)
-        
+
         // 注意：这只是一个简化的计算
         // 真实情况需要更复杂的库来处理
         return hours * 60 + minutes
       }
-      
+
       return 0
     } catch (error) {
       console.warn('[Timezone] Failed to calculate target offset:', error)
@@ -299,7 +299,7 @@ export class TimezoneManager {
     // 真实场景需要完整的时区数据库
     const jan = new Date(date.getFullYear(), 0, 1)
     const jul = new Date(date.getFullYear(), 6, 1)
-    
+
     const stdOffset = Math.max(jan.getTimezoneOffset(), jul.getTimezoneOffset())
     return date.getTimezoneOffset() < stdOffset
   }
@@ -341,30 +341,30 @@ export class TimezoneManager {
     if (this.timers.has(config.id)) {
       clearTimeout(this.timers.get(config.id))
     }
-    
+
     // 计算延迟
     const now = new Date()
     const delay = config.scheduledTime.getTime() - now.getTime()
-    
+
     if (delay <= 0) {
       // 立即执行
       void config.callback()
       return
     }
-    
+
     // 创建定时器
     const timer = setTimeout(async () => {
       await config.callback()
-      
+
       // 如果是重复任务，重新调度
       if (config.recurrence) {
         this.scheduleRecurringTask(config)
       }
     }, delay)
-    
+
     this.timers.set(config.id, timer)
     this.tasks.set(config.id, config)
-    
+
     console.log(`[Timezone] Scheduled task "${config.id}" for ${config.scheduledTime.toISOString()}`)
   }
 
@@ -373,7 +373,7 @@ export class TimezoneManager {
    */
   private scheduleRecurringTask(config: ScheduledTaskConfig): void {
     let intervalMs: number
-    
+
     switch (config.recurrence) {
       case 'daily':
         intervalMs = 24 * 60 * 60 * 1000
@@ -390,11 +390,11 @@ export class TimezoneManager {
       default:
         return
     }
-    
+
     const timer = setInterval(async () => {
       await config.callback()
     }, intervalMs)
-    
+
     this.timers.set(config.id, timer)
   }
 

@@ -18,13 +18,11 @@ jobs:
           python-version: '3.11'
       - name: Check repository root layout
         run: python .github/scripts/check_layout.py
-      - name: Check spec references (if present)
-        run: |
-          if [ -f scripts/check_spec_refs.py ]; then
-            python scripts/check_spec_refs.py
-          else
-            echo "scripts/check_spec_refs.py not present; skipping"
-          fi
+      - name: Audit spec references
+        # 与 docs-consistency.yml 统一守卫风格：单条直调 + --allow-unavailable；
+        # 不再有 workflow 侧第二套 if [ -f ] 跳过逻辑——审计器缺失由包装脚本
+        # 输出 UNAVAILABLE 并由 CI 显式 ::warning:: 标注（绿 ≠ 已验证）。
+        run: python scripts/check_spec_refs.py --allow-unavailable
       # P2-1: capability 最小授权 lint（报告2 §二；负向测试见 scripts/__tests__/lint-capabilities.test.mjs）
       - uses: actions/setup-node@v4
         with:

@@ -1,14 +1,14 @@
 /**
  * @file memorySummarizer.ts
  * @description 记忆压缩与摘要生成模块
- * 
+ *
  * 实现功能：
  * - 基于 LLM 的自动记忆摘要生成
  * - 多粒度摘要（句子级/段落级/全文）
  * - 时间线摘要（按日/周/月聚合）
  * - 主题提取和关键词聚类
  * - 增量更新机制（新记忆加入时动态调整摘要）
- * 
+ *
  * 参考：Live2DPet memory_summarizer.py / OpenPets packages/memory/summarization/
  */
 
@@ -84,7 +84,7 @@ export class MemorySummarizer {
   private summaries: Map<string, MemorySummary> = new Map()
   private config: SummaryConfig
   private lastSummarizationTime: number = 0
-  
+
   constructor(config?: Partial<SummaryConfig>) {
     this.config = { ...DEFAULT_SUMMARY_CONFIG, ...(config || {}) }
   }
@@ -101,7 +101,7 @@ export class MemorySummarizer {
     }
 
     const cacheKey = this.generateCacheKey(memories)
-    
+
     // 检查缓存
     const cached = this.summaries.get(cacheKey)
     if (cached && !this.isExpired(cached)) {
@@ -132,7 +132,7 @@ export class MemorySummarizer {
       if (this.config.extractEvents) {
         summary.events = this.extractEvents(memories)
       }
-      
+
       if (this.config.includeSentiment) {
         summary.sentiment = this.analyzeSentiment(memories)
         summary.topics = this.extractTopics(memories)
@@ -145,7 +145,7 @@ export class MemorySummarizer {
       return summary
     } catch (error) {
       console.error('[MemorySummarizer] Summarization failed:', error)
-      
+
       // 降级方案：使用简单汇总
       return this.createFallbackSummary(memories)
     }
@@ -160,22 +160,22 @@ export class MemorySummarizer {
   ): Promise<TimelineSummary[]> {
     // 按时间段分组
     const grouped = this.groupByTimePeriod(memories, granularity)
-    
+
     const timelines: TimelineSummary[] = []
-    
+
     for (const [period, periodMemories] of grouped.entries()) {
       const summary = await this.summarize(periodMemories)
-      
+
       timelines.push({
         period,
         summary,
         count: periodMemories.length,
       })
     }
-    
+
     // 按时间倒序排序
     timelines.sort((a, b) => b.period.localeCompare(a.period))
-    
+
     return timelines
   }
 
@@ -193,7 +193,7 @@ export class MemorySummarizer {
       // 这里需要从现有摘要反推原始记忆（实际应存储原始记忆 ID）
       ...newMemories,
     ]
-    
+
     return this.summarize(allMemories)
   }
 
@@ -214,11 +214,11 @@ export class MemorySummarizer {
     }).join('\n')
 
     let fullPrompt = `${systemPrompt}\n\n对话记录：\n${userContent}`
-    
+
     if (context) {
       fullPrompt += `\n\n补充背景：${context}`
     }
-    
+
     return fullPrompt
   }
 
@@ -228,10 +228,10 @@ export class MemorySummarizer {
   private async callLLM(prompt: string): Promise<string> {
     // TODO: 集成实际的 LLM 调用
     // 这里使用简化实现
-    
+
     // 模拟 LLM 延迟
     await new Promise(resolve => setTimeout(resolve, 500))
-    
+
     // 简单的启发式摘要（实际应调用 Vision/Text LLM）
     return this.simpleHeuristicSummary(prompt)
   }
@@ -241,17 +241,17 @@ export class MemorySummarizer {
    */
   private simpleHeuristicSummary(prompt: string): string {
     const lines = prompt.split('\n').filter(l => l.includes('：'))
-    
+
     if (lines.length === 0) {
       return '暂无有效记忆内容'
     }
-    
+
     // 提取每句话的关键词
     const keywords = lines
       .slice(0, 10)
       .map(l => l.split('：')[1]?.substring(0, 30).trim())
       .filter(Boolean)
-    
+
     return `在最近的一段对话中，主要讨论了以下内容：\n${keywords.map(k => `- ${k}`).join('\n')}`
   }
 
@@ -268,7 +268,7 @@ export class MemorySummarizer {
       description: string
       significance: number
     }> = []
-    
+
     // 查找可能的事件模式
     const eventPatterns = [
       { pattern: /(恭喜 | 达成 | 解锁)/i, type: 'achievement' },
@@ -276,7 +276,7 @@ export class MemorySummarizer {
       { pattern: /(完成做 | 搞定 | 搞定)/i, type: 'completion' },
       { pattern: /(开始启动)/i, type: 'start' },
     ]
-    
+
     memories.forEach(m => {
       const text = (m.user + m.assistant).toLowerCase()
       for (const { pattern, type } of eventPatterns) {
@@ -290,7 +290,7 @@ export class MemorySummarizer {
         }
       }
     })
-    
+
     // 按时间排序并去重
     return events
       .sort((a, b) => b.timestamp - a.timestamp)
@@ -303,10 +303,10 @@ export class MemorySummarizer {
   private analyzeSentiment(memories: Array<{ created_at: string; user: string; assistant: string }>): 'positive' | 'neutral' | 'negative' {
     let positiveScore = 0
     let negativeScore = 0
-    
+
     const positiveWords = ['开心', '高兴', '棒', '好', '喜欢', '爱', '赞', '耶']
     const negativeWords = ['难过', '生气', '烦', '累', '讨厌', '恨', '糟', '唉']
-    
+
     memories.forEach(m => {
       const text = (m.user + m.assistant).toLowerCase()
       positiveWords.forEach(word => {
@@ -316,7 +316,7 @@ export class MemorySummarizer {
         if (text.includes(word)) negativeScore++
       })
     })
-    
+
     if (positiveScore > negativeScore + 2) return 'positive'
     if (negativeScore > positiveScore + 2) return 'negative'
     return 'neutral'
@@ -327,7 +327,7 @@ export class MemorySummarizer {
    */
   private extractTopics(memories: Array<{ created_at: string; user: string; assistant: string }>): string[] {
     const topicCounts = new Map<string, number>()
-    
+
     // 预定义话题关键词
     const topics: Record<string, string[]> = {
       '编程': ['代码', 'bug', '程序', '开发', '写代码', 'commit', 'git'],
@@ -336,7 +336,7 @@ export class MemorySummarizer {
       '工作': ['工作', '开会', '项目', '任务', '报告'],
       '生活': ['吃饭', '睡觉', '出门', '购物', '逛街'],
     }
-    
+
     memories.forEach(m => {
       const text = (m.user + m.assistant).toLowerCase()
       Object.entries(topics).forEach(([topic, keywords]) => {
@@ -345,7 +345,7 @@ export class MemorySummarizer {
         }
       })
     })
-    
+
     // 返回出现次数最多的前 5 个话题
     return Array.from(topicCounts.entries())
       .sort((a, b) => b[1] - a[1])
@@ -361,7 +361,7 @@ export class MemorySummarizer {
     granularity: 'day' | 'week' | 'month',
   ): Map<string, Array<{ created_at: string; user: string; assistant: string }>> {
     const groups = new Map<string, Array<{ created_at: string; user: string; assistant: string }>>()
-    
+
     memories.forEach(m => {
       // 时间戳缺失或非法时跳过：Invalid Date 调 toISOString() 会抛 RangeError
       const timestamp = Date.parse(m.created_at)
@@ -369,7 +369,7 @@ export class MemorySummarizer {
 
       const date = new Date(timestamp)
       let period: string
-      
+
       switch (granularity) {
         case 'day':
           period = date.toISOString().split('T')[0] // YYYY-MM-DD
@@ -383,13 +383,13 @@ export class MemorySummarizer {
           period = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`
           break
       }
-      
+
       if (!groups.has(period)) {
         groups.set(period, [])
       }
       groups.get(period)!.push(m as any)
     })
-    
+
     return groups
   }
 
@@ -428,7 +428,7 @@ export class MemorySummarizer {
   private createFallbackSummary(memories: Array<{ created_at: string; user: string; assistant: string }>): MemorySummary {
     const recent = memories.slice(-5)
     const texts = recent.map(m => m.user + m.assistant).join(' ')
-    
+
     return {
       text: texts.substring(0, 200) + (texts.length > 200 ? '...' : ''),
       length: texts.length,

@@ -16,7 +16,7 @@ test.describe('背包与商店系统', () => {
     if (inventoryBtn) {
       await inventoryBtn.click();
       await page.waitForTimeout(500);
-      
+
       const inventoryPanel = await page.$('[data-testid="inventory-panel"], .inventory-panel');
       expect(inventoryPanel).toBeTruthy();
     }
@@ -27,7 +27,7 @@ test.describe('背包与商店系统', () => {
     if (inventoryBtn) {
       await inventoryBtn.click();
       await page.waitForTimeout(500);
-      
+
       const items = await page.$$('.inventory-item, [data-testid^="item-"]');
       // 可能有空背包的情况，只验证元素存在性
       expect(items.length >= 0).toBe(true);

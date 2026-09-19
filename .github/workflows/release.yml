@@ -95,10 +95,10 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           BODY="
           ## SpiritPal v$VERSION
-          
+
           ### Windows 用户：SmartScreen 提示说明（P1-2）
           安装包暂无 Authenticode 代码签名，Windows SmartScreen 的“已保护你的电脑”提示属于无签名软件的正常现象，并非病毒警告。请点击 **更多信息 → 仍然运行** 完成安装。本仓库绝不伪造或冒用任何证书，产物哈希可在 Release 资产中核对。
-          
+
           ### 增量更新
           本版本已启用 Tauri 增量更新，应用内「检查更新」（托盘菜单 / 设置-关于）可自动下载并安装新版本。
           "
@@ -125,6 +125,12 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+      # R-11 构建期 SRI 门禁：tauri-action 内 beforeBuildCommand 已生成清单，
+      # 此处回读核对 dist 产物与 sri_hashes.rs 逐条一致，不一致即阻断发版。
+      - name: Verify SRI manifest matches dist
+        shell: bash
+        run: node scripts/obfuscate-and-sri.mjs --verify
 
       # 2026-09-10：性能测试原设计下载 spiritpal-build-* artifact 但 release job 从未上传（报告外 #16）
       # 补传构建产物（release exe + bundle），使性能门禁可用

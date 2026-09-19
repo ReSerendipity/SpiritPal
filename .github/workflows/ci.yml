@@ -104,7 +104,7 @@ jobs:
             sleep 1
           done
           curl -s http://127.0.0.1:5223 > /dev/null 2>&1 || (echo "Dev server failed to start" && exit 1)
-      
+
       - name: Wait for app ready
         run: sleep 10
 
@@ -476,6 +476,12 @@ jobs:
       - name: Verify release binary embeds frontend
         shell: bash
         run: python3 scripts/verify_tauri_embed.py || python scripts/verify_tauri_embed.py
+
+      # R-11 构建期 SRI 门禁：重算 dist 产物 SHA-256 与 sri_hashes.rs 清单逐条比对，
+      # 任何缺失/不一致即非零退出（防「清单登记与实际产物脱节」而运行时校验失去意义）。
+      - name: Verify SRI manifest matches dist
+        shell: bash
+        run: node scripts/obfuscate-and-sri.mjs --verify
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

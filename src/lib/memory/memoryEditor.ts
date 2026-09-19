@@ -370,7 +370,7 @@ export class MemoryEditor {
       // 应用过滤条件
       if (options.query) {
         const query = options.query.toLowerCase()
-        memories = memories.filter(m => 
+        memories = memories.filter(m =>
           m.user.toLowerCase().includes(query) ||
           m.category.toLowerCase().includes(query) ||
           m.tags.some(tag => tag.toLowerCase().includes(query))
@@ -389,19 +389,19 @@ export class MemoryEditor {
       if (options.importanceRange) {
         const min = options.importanceRange.min ?? 0
         const max = options.importanceRange.max ?? 100
-        memories = memories.filter(m => 
+        memories = memories.filter(m =>
           m.importance >= min && m.importance <= max
         )
       }
 
       if (options.categories) {
-        memories = memories.filter(m => 
+        memories = memories.filter(m =>
           options.categories!.includes(m.category)
         )
       }
 
       if (options.tags) {
-        memories = memories.filter(m => 
+        memories = memories.filter(m =>
           options.tags!.some(tag => m.tags.includes(tag))
         )
       }
@@ -442,9 +442,9 @@ export class MemoryEditor {
         memories = memories.slice(0, options.limit)
       }
 
-      this.logOperation('search', 'batch', { 
+      this.logOperation('search', 'batch', {
         query: options.query,
-        resultCount: memories.length 
+        resultCount: memories.length
       })
 
       return {
@@ -484,8 +484,8 @@ export class MemoryEditor {
               if (!operation.params?.importance) {
                 result = { success: false, error: 'Missing importance parameter' }
               } else {
-                result = await this.updateMemory(memoryId, { 
-                  importance: operation.params.importance 
+                result = await this.updateMemory(memoryId, {
+                  importance: operation.params.importance
                 })
               }
               break
@@ -493,8 +493,8 @@ export class MemoryEditor {
               if (!operation.params?.category) {
                 result = { success: false, error: 'Missing category parameter' }
               } else {
-                result = await this.updateMemory(memoryId, { 
-                  category: operation.params.category 
+                result = await this.updateMemory(memoryId, {
+                  category: operation.params.category
                 })
               }
               break

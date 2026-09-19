@@ -1,7 +1,7 @@
 /**
  * @file gpuParticleSystem.ts
  * @description GPU 加速粒子系统 — WebGL 批量渲染
- * 
+ *
  * 实现功能：
  * - 基于 WebGL 的 GPU 并行计算（Vertex Shader）
  * - 支持百万级粒子同时渲染（batch rendering）
@@ -9,7 +9,7 @@
  * - 碰撞检测与物理交互（GPU 简化版）
  * - 动态粒子池管理（对象复用）
  * - 内存优化（Float32Array + BufferStorage）
- * 
+ *
  * 参考：Unity Particle System / Pixi.js GPU Particles
  */
 
@@ -174,12 +174,12 @@ export class GPUParticleSystem {
   private canvas: HTMLCanvasElement
   private gl: WebGLRenderingContext | null = null
   private config: ParticleSystemConfig
-  
+
   // WebGL 资源
   private program: WebGLProgram | null = null
   private vertexBuffer: WebGLBuffer | null = null
   private texture: WebGLTexture | null = null
-  
+
   // 粒子数据（CPU 侧物理状态，10 floats/particle，含速度）
   private particles: Float32Array
   // 上传给 GPU 的顶点数据（8 floats/vertex，不含速度）
@@ -187,18 +187,18 @@ export class GPUParticleSystem {
   private particleCount: number = 0
   /** 发射速率的小数部分累加器，避免低帧率下取整丢失发射 */
   private emitAccumulator: number = 0
-  
+
   // Uniform 位置缓存
   private uniformLocations: Map<string, WebGLUniformLocation> = new Map()
-  
+
   constructor(canvas: HTMLCanvasElement, config?: Partial<ParticleSystemConfig>) {
     this.canvas = canvas
     this.config = { ...DEFAULT_CONFIG, ...(config || {}) }
-    
+
     // 初始化粒子数据缓冲区
     this.particles = new Float32Array(this.config.maxParticles * FLOATS_PER_PARTICLE)
     this.vertexData = new Float32Array(this.config.maxParticles * FLOATS_PER_VERTEX)
-    
+
     this.initWebGL()
     this.createShaderProgram()
     this.createDefaultTexture()
@@ -219,11 +219,11 @@ export class GPUParticleSystem {
     }
 
     this.gl = gl
-    
+
     // 启用混合
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-    
+
     // 视口设置
     this.resize(this.canvas.width, this.canvas.height)
   }
@@ -233,65 +233,65 @@ export class GPUParticleSystem {
    */
   private createShaderProgram(): void {
     const gl = this.gl!
-    
+
     // 编译顶点着色器
     const vertexShader = this.compileShader(gl.VERTEX_SHADER, VERTEX_SHADER_SOURCE)
     if (!vertexShader) return
-    
+
     // 编译片段着色器
     const fragmentShader = this.compileShader(gl.FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE)
     if (!fragmentShader) return
-    
+
     // 链接程序
     const program = gl.createProgram()
     if (!program) return
-    
+
     gl.attachShader(program, vertexShader)
     gl.attachShader(program, fragmentShader)
     gl.linkProgram(program)
-    
+
     // 检查链接状态
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
       console.error('Shader program link error:', gl.getProgramInfoLog(program))
       return
     }
-    
+
     this.program = program
-    
+
     // 获取属性位置（未使用的 attribute 会被编译器优化掉，返回 -1，需过滤）
     const positionLoc = gl.getAttribLocation(program, 'a_position')
     const sizeLoc = gl.getAttribLocation(program, 'a_size')
     const colorLoc = gl.getAttribLocation(program, 'a_color')
     const lifetimeLoc = gl.getAttribLocation(program, 'a_lifetime')
-    
+
     // 设置属性指针（顶点布局见 VERTEX_SHADER_SOURCE 注释）
     const stride = FLOATS_PER_VERTEX * 4
-    
+
     if (positionLoc >= 0) {
       gl.enableVertexAttribArray(positionLoc)
       gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, stride, 0)
     }
-    
+
     if (sizeLoc >= 0) {
       gl.enableVertexAttribArray(sizeLoc)
       gl.vertexAttribPointer(sizeLoc, 1, gl.FLOAT, false, stride, 2 * 4)
     }
-    
+
     if (colorLoc >= 0) {
       gl.enableVertexAttribArray(colorLoc)
       gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, stride, 3 * 4)
     }
-    
+
     if (lifetimeLoc >= 0) {
       gl.enableVertexAttribArray(lifetimeLoc)
       gl.vertexAttribPointer(lifetimeLoc, 1, gl.FLOAT, false, stride, 7 * 4)
     }
-    
+
     // 获取 Uniform 位置
     this.uniformLocations.set('u_resolution', gl.getUniformLocation(program, 'u_resolution')!)
     this.uniformLocations.set('u_fadeOut', gl.getUniformLocation(program, 'u_fadeOut')!)
     this.uniformLocations.set('u_texture', gl.getUniformLocation(program, 'u_texture')!)
-    
+
     // 创建顶点缓冲
     this.vertexBuffer = gl.createBuffer()
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer)
@@ -305,16 +305,16 @@ export class GPUParticleSystem {
     const gl = this.gl!
     const shader = gl.createShader(type)
     if (!shader) return null
-    
+
     gl.shaderSource(shader, source)
     gl.compileShader(shader)
-    
+
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
       console.error('Shader compile error:', gl.getShaderInfoLog(shader))
       gl.deleteShader(shader)
       return null
     }
-    
+
     return shader
   }
 
@@ -324,15 +324,15 @@ export class GPUParticleSystem {
   private createDefaultTexture(): void {
     const gl = this.gl!
     const size = 64
-    
+
     const { surface, ctx } = createOffscreenSurface(size, size)
     if (!surface || !ctx) return
-    
+
     ctx.fillStyle = '#ffffff'
     ctx.beginPath()
     ctx.arc(size / 2, size / 2, size / 2 - 1, 0, Math.PI * 2)
     ctx.fill()
-    
+
     // 创建纹理
     this.texture = gl.createTexture()
     gl.bindTexture(gl.TEXTURE_2D, this.texture)
@@ -348,16 +348,16 @@ export class GPUParticleSystem {
    */
   emit(emitterPos: EmitterPosition, customOverrides?: Partial<Particle>): void {
     if (this.particleCount >= this.config.maxParticles) return
-    
+
     const idx = this.particleCount * FLOATS_PER_PARTICLE
-    
+
     // 随机速度
     const speed = this.randRange(this.config.speedRange[0], this.config.speedRange[1])
     const angle = this.randRange(this.config.angleRange[0], this.config.angleRange[1])
-    
+
     const vx = Math.cos(angle) * speed
     const vy = Math.sin(angle) * speed
-    
+
     // 填充粒子数据
     this.particles[idx] = emitterPos.x
     this.particles[idx + 1] = emitterPos.y
@@ -369,7 +369,7 @@ export class GPUParticleSystem {
     this.particles[idx + 7] = customOverrides?.color?.[2] ?? this.config.color[2]
     this.particles[idx + 8] = customOverrides?.color?.[3] ?? this.config.color[3]
     this.particles[idx + 9] = customOverrides?.lifetime ?? this.config.lifetime
-    
+
     this.particleCount++
   }
 
@@ -394,7 +394,7 @@ export class GPUParticleSystem {
   update(deltaTime: number, emitterPos: EmitterPosition): void {
     // 钳制步长：标签页切回/长卡顿时不让粒子瞬移
     const dt = Math.min(Math.max(deltaTime, 0), 0.05)
-    
+
     // 发射新粒子（emitRate 为 0 时表示「只靠 burst 手动发射」）
     this.emitAccumulator += dt * this.config.emitRate
     const emitCount = Math.floor(this.emitAccumulator)
@@ -404,27 +404,27 @@ export class GPUParticleSystem {
         this.emit(emitterPos)
       }
     }
-    
+
     // 应用重力并移除死亡粒子
     const gravity = this.config.gravity
     let writeIdx = 0
-    
+
     for (let i = 0; i < this.particleCount; i++) {
       const readIdx = i * FLOATS_PER_PARTICLE
-      
+
       // 读取当前状态
       const px = this.particles[readIdx]!
       const py = this.particles[readIdx + 1]!
       const vx = this.particles[readIdx + 2]!
       const vy = this.particles[readIdx + 3]!
       const lifetime = this.particles[readIdx + 9]!
-      
+
       // 如果粒子还活着
       if (lifetime > 0) {
         // 应用重力
         const newVx = vx + gravity[0] * dt
         const newVy = vy + gravity[1] * dt
-        
+
         // 更新位置与状态
         this.particles[writeIdx] = px + newVx * dt
         this.particles[writeIdx + 1] = py + newVy * dt
@@ -436,13 +436,13 @@ export class GPUParticleSystem {
         this.particles[writeIdx + 7] = this.particles[readIdx + 7]!
         this.particles[writeIdx + 8] = this.particles[readIdx + 8]!
         this.particles[writeIdx + 9] = lifetime - dt
-        
+
         writeIdx++
       }
     }
-    
+
     this.particleCount = writeIdx
-    
+
     // 打包 GPU 顶点数据（8 floats/vertex：position + size + color + lifetime）
     for (let i = 0; i < this.particleCount; i++) {
       const r = i * FLOATS_PER_PARTICLE
@@ -456,7 +456,7 @@ export class GPUParticleSystem {
       this.vertexData[v + 6] = this.particles[r + 8]!
       this.vertexData[v + 7] = this.particles[r + 9]!
     }
-    
+
     // 更新 GPU 缓冲区
     if (this.particleCount > 0 && this.vertexBuffer) {
       const gl = this.gl!
@@ -477,30 +477,30 @@ export class GPUParticleSystem {
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
     if (this.particleCount === 0) return
-    
+
     gl.useProgram(program)
-    
+
     // 设置 Uniform
     const res = this.uniformLocations.get('u_resolution')
     if (res) {
       gl.uniform2f(res, this.canvas.width, this.canvas.height)
     }
-    
+
     const fadeOut = this.uniformLocations.get('u_fadeOut')
     if (fadeOut) {
       gl.uniform1f(fadeOut, this.config.fadeOutSeconds)
     }
-    
+
     const texture = this.uniformLocations.get('u_texture')
     if (texture) {
       gl.uniform1i(texture, 0)
     }
-    
+
     // 绑定默认纹理与顶点缓冲
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, this.texture)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer)
-    
+
     // 绘制点图元
     gl.drawArrays(gl.POINTS, 0, this.particleCount)
   }
@@ -513,7 +513,7 @@ export class GPUParticleSystem {
     this.canvas.width = width
     this.canvas.height = height
     gl.viewport(0, 0, width, height)
-    
+
     const res = this.uniformLocations.get('u_resolution')
     if (res) {
       gl.uniform2f(res, width, height)
@@ -564,7 +564,7 @@ export class GPUParticleSystem {
   destroy(): void {
     const gl = this.gl
     if (!gl) return
-    
+
     if (this.program) {
       gl.deleteProgram(this.program)
     }

@@ -59,4 +59,3 @@ npx playwright test --ui
 
 * 两层各自独立，互不干扰；`tests/e2e/setup/tauri-helper.ts` 是真实应用等待助手（非 IPC mock），
   若未来需要「带 Tauri API 的 Web E2E」，将 mock 放回 `tests/e2e/setup/` 单独维护。
-

@@ -7,7 +7,7 @@
 
 ***
 
-## \[Unreleased]
+## [Unreleased]
 
 ### Added
 
@@ -53,7 +53,7 @@
 
 - **CI 前端矩阵移除 Node 20**：仓库使用 pnpm 11（lockfile 与 `pnpm/action-setup` 均锁 11），pnpm 11 要求 Node >= 22.13，Node 20 上直接报 `This version of pnpm requires at least Node.js v22.13` 并退出 —— 该矩阵项结构性不可能通过（Node 20 亦已 EOL）；矩阵改为 `[22]`。
 
-## \[0.1.0] - 2026-09-10
+## [0.1.0] - 2026-09-10
 
 ### Added — 项目初始发布
 
@@ -157,4 +157,3 @@
 - 辅助脚本：WindowPet 资源转换器、代码混淆 + SRI 生成
 
 - ESLint + Prettier + TypeScript 严格模式
-

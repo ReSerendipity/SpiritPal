@@ -63,7 +63,7 @@ export const CODING_REACTION_ROWS: Record<CodingReaction, AnimationRow> = {
 // ============ 编码反应 → 动画 ID 映射 ============
 /**
  * 编码反应映射到 animationConfig.ts 中的 AnimationId
- * 
+ *
  * 映射策略：
  * - thinking → coding_companion（编码陪伴，静坐思考）
  * - editing → coding_companion（编码陪伴，持续编辑）

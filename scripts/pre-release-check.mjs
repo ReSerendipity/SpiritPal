@@ -12,6 +12,8 @@
  *   4. updates.json 远程可达且结构有效（仅可达性——发布后版本比对由 release.yml
  *      publish-updates job 负责；本地 GitHub 加速器 MITM 导致失败时用 --skip-remote 跳过并留痕）
  *   5. （可选 --local-artifacts）本地 bundle 存在 setup.exe + .sig 且 .sig 非空
+ *   6. release 二进制已内嵌前端（custom-protocol 特性 + gzip 流数 + 体积，GOTCHAS #98）
+ *   7. dist 产物与 sri_hashes.rs 清单逐条一致（R-11 构建期 SRI 门禁的本地等价物）
  *
  * 用法：
  *   node scripts/pre-release-check.mjs
@@ -185,6 +187,13 @@ function rglobExe(dir) {
       )
     }
   }
+}
+
+// ---- 7. dist 产物与 SRI 清单逐条一致（R-11 构建期门禁的本地等价物）----
+{
+  const r = sh('node', ['scripts/obfuscate-and-sri.mjs', '--verify'])
+  const tail = (r.out || '').trim().split('\n').filter(Boolean).slice(-2).join(' | ')
+  record('SRI 清单与 dist 一致', r.code === 0, tail || '无输出')
 }
 
 // ---- 汇总 ----

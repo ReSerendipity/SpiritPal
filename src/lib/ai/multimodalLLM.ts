@@ -1,7 +1,7 @@
 /**
  * @file multimodalLLM.ts
  * @description 多模态 LLM 能力 — 支持图片发送与视觉感知
- * 
+ *
  * 实现功能：
  * - 图片文件上传（拖拽/选择文件）
  * - Base64 编码与压缩优化
@@ -10,7 +10,7 @@
  * - 图像描述生成
  * - OCR 文本提取
  * - 隐私保护模式（本地处理选项）
- * 
+ *
  * 参考：OpenAI GPT-4V / Claude Vision / Dororo Image Chat
  */
 
@@ -79,7 +79,7 @@ export class ImageProcessor {
    */
   async readImageAsBase64(filePath: string): Promise<string> {
     const stats = await this.getImageStats(filePath)
-    
+
     // 检查文件大小
     if (stats.size > ImageProcessor.MAX_SIZE_MB * 1024 * 1024) {
       throw new Error(`图片过大：${(stats.size / 1024 / 1024).toFixed(2)}MB (最大 ${ImageProcessor.MAX_SIZE_MB}MB)`)
@@ -99,7 +99,7 @@ export class ImageProcessor {
   }> {
     const stats = await import('fs/promises').then(m => m.stat(filePath))
     const ext = extname(filePath).toLowerCase().replace('.', '') as ImageFormat
-    
+
     return {
       size: stats.size,
       format: ['jpg', 'jpeg'].includes(ext) ? 'jpeg' : ext,
@@ -147,7 +147,7 @@ export interface VisionLLMConfig {
 export class VisionLLMClient {
   private config: VisionLLMConfig
   private imageProcessor: ImageProcessor
-  
+
   constructor(config: VisionLLMConfig) {
     this.config = {
       temperature: 0.7,
@@ -169,7 +169,7 @@ export class VisionLLMClient {
       // 读取图片
       const base64 = await this.imageProcessor.readImageAsBase64(imagePath)
       const mimeType = this.imageProcessor.guessMimeType('jpeg')
-      
+
       // 构建请求
       const messages: MultimodalMessage[] = [
         {
@@ -185,7 +185,7 @@ export class VisionLLMClient {
 
       // 调用 Vision LLM
       const response = await this.callVisionAPI(messages)
-      
+
       // 解析结果
       return this.parseAnalysisResponse(response)
     } catch (error) {
@@ -234,7 +234,7 @@ export class VisionLLMClient {
     prompt?: Partial<VisionPrompt>,
   ): Promise<ImageAnalysisResult[]> {
     const results: ImageAnalysisResult[] = []
-    
+
     for (const path of imagePaths) {
       try {
         const result = await this.analyzeImage(path, prompt)
@@ -247,7 +247,7 @@ export class VisionLLMClient {
         })
       }
     }
-    
+
     return results
   }
 
@@ -272,11 +272,11 @@ export class VisionLLMClient {
     const goals = defaults.analysisGoals || []
     fullPrompt += `分析目标:\n${goals.map((g, i) => `${i + 1}. ${g}`).join('\n')}\n\n`
     fullPrompt += `用户问题：${defaults.userQuestion}\n`
-    
+
     if (defaults.includeOCR) {
       fullPrompt += '\n注意：如果图片中包含可读文字，请务必提取并引用。\n'
     }
-    
+
     if (defaults.responseFormat === 'detailed') {
       fullPrompt += '请提供尽可能详细和全面的分析。\n'
     } else if (defaults.responseFormat === 'json') {
@@ -292,10 +292,10 @@ export class VisionLLMClient {
   private async callVisionAPI(messages: MultimodalMessage[]): Promise<string> {
     // TODO: 集成实际的 LLM 调用（OpenAI/Claude/本地模型）
     // 这里使用简化实现
-    
+
     // 模拟 API 延迟
     await new Promise(resolve => setTimeout(resolve, 1000))
-    
+
     // 简单的启发式回复（实际应调用真实 Vision LLM）
     return this.simpleHeuristicResponse(messages)
   }
@@ -318,7 +318,7 @@ export class VisionLLMClient {
   private parseAnalysisResponse(response: string): ImageAnalysisResult {
     // TODO: 从 LLM 响应中结构化提取
     // 这里使用简化实现
-    
+
     return {
       description: response.substring(0, 200),
       objects: [],
@@ -398,7 +398,7 @@ export class VisualPerceptionManager {
   async petLookAtScreen(): Promise<string> {
     try {
       const result = await this.analyzeScreenshot()
-      
+
       // 生成自然的宠物回应
       return this.generatePetResponse(result)
     } catch (error) {
@@ -412,11 +412,11 @@ export class VisualPerceptionManager {
    */
   private generatePetResponse(result: ImageAnalysisResult): string {
     const responses: string[] = []
-    
+
     if (result.description) {
       responses.push(result.description.substring(0, 100))
     }
-    
+
     if (result.objects && result.objects.length > 0) {
       const objNames = result.objects.slice(0, 3).map(o => o.name)
       if (objNames.length > 0) {

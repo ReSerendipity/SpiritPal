@@ -93,8 +93,23 @@ python scripts/check_no_hardcoded_paths.py --all    # 全库
 - `build_portable.bat` / `build_portable_diag.bat`：`call "C:\Program Files (x86)\Microsoft Visual Studio\18\...\vcvars64.bat"` 改为**探测式定位**（优先环境变量 `VCVARS64`，其次常见 VS BuildTools 版本路径）；`cd /d "C:\Users\Doro\SpiritPal"` 改为 `cd /d "%~dp0"`。
 - `src/fix_route_persistence.ps1`：`C:\Users\Doro\SpiritPal\src\App.tsx` 改为 `Join-Path $PSScriptRoot "App.tsx"`。
 - `scripts/_fetch_bili_comments_github.py` / `_fetch_bili_desc_github.py`：输出路径 `c:/Users/Doro/Multi-Tracker/...` 改为**脚本目录默认 + `BILI_RESULTS_OUT` 环境变量覆盖**。
-- `scripts/check_spec_refs.py`：docstring 中的本机路径说明改为通用表述；脚本本身已按仓库相对位置推导并支持缺失时跳过（CI green），符合规范。
+- `scripts/check_spec_refs.py`：docstring 中的本机路径说明改为通用表述；脚本本身已按仓库相对位置推导。⚠️ 2026-09-18（v2.70）修订：原「缺失时跳过（CI green）」降级语义**已废除**（fail-open，见 GOTCHAS #123）——现为三态退出码（0=审计已执行且通过 / 1=已执行且失败 / 2=未执行），CI 以 `--allow-unavailable` 显式标注不可用态。
 
 ## 6. 关联文档
 
 - `docs/RELEASE_NOTES.md`、`docs/SECURITY_AUDIT_SpiritPal.md`
+
+---
+
+## 8. Markdown 写作规范
+
+所有 .md 文件遵循以下约定（2026-09-19 家族统一新增）：
+
+- **编码**：UTF-8 **无 BOM**。禁止保存为带 BOM 的 UTF-8、UTF-16 或 GBK。
+- **行尾**：统一 LF（.gitattributes 已锁 *.md text eol=lf），禁止 CRLF 入库。
+- **行宽**：正文建议 ≤ 120 字符；URL、表格、代码块、长 JSON 不强制折行。
+- **标题**：每个文件仅一个 #（一级标题），标题层级不跳级（# → ## → ###）。
+- **中英文混排**：中文字符与英文/数字之间加一个半角空格（例：使用 ruff check .、Python 3.12）。
+- **文件名**：公开文档优先英文 kebab-case（如 developer-guide.md）；存量中文文件名保留，新文档同一目录内风格保持一致。日期后缀统一用 -YYYYMMDD（如 exec-checklist-20260910.md）。
+- **换行**：markdown 行尾两个空格表示硬换行；不要用 \ 转义。
+- **链接**：相对路径引用仓库内文件，禁止引用本地绝对路径（C:\...、/home/...）。

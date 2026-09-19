@@ -108,10 +108,10 @@ export interface PipelineStats {
 
 /**
  * Layer 1: 将流式文本 chunk 拆分为完整句子
- * 
+ *
  * 输入：AsyncIterable<string>（LLM 流式输出）
  * 输出：AsyncGenerator<SentenceEvent>（完整句子事件）
- * 
+ *
  * 使用 SentenceDivider 处理分割逻辑
  * 同时处理 Think 标签，将 think 内容和 reply 内容分别输出
  */
@@ -179,10 +179,10 @@ async function* splitLayer(
 
 /**
  * Layer 2: 将句子映射为显示动作 + TTS 任务
- * 
+ *
  * 输入：句子事件
  * 输出：显示事件 + TTS 请求事件
- * 
+ *
  * 跳过 Think 内容（不送 TTS）
  * 对正常句子同时产出 Display 和 TTS 事件
  */
@@ -226,7 +226,7 @@ async function* actionLayer(
 
 /**
  * Layer 3: 产出显示事件供 UI 渲染
- * 
+ *
  * 直接透传 TextDelta 和 ThinkContent 事件
  * UI 层根据事件类型决定渲染方式：
  * - TextDelta: 正常追加到聊天区域
@@ -253,10 +253,10 @@ async function* displayLayer(
 
 /**
  * Layer 4: 将 TTS 请求发送给 TTS 引擎
- * 
+ *
  * 并行发送 TTS 请求，但通过 sentenceIndex 保持顺序
  * TTS 结果通过 TTSAudioReady 事件返回
- * 
+ *
  * 注意：此层为可选层，仅在 enableTTS=true 时激活
  */
 async function* ttsLayer(
@@ -314,23 +314,23 @@ async function* ttsLayer(
 
 /**
  * 流式管道主函数
- * 
+ *
  * 4 层 async generator 管道：
  * Source → Split → Action → Display → TTS
- * 
+ *
  * 使用 async generator 实现背压：
  * - 消费端（UI/TTS）处理慢时，生产端（LLM）自动暂停
  * - 各层独立可配置，支持替换和跳过
- * 
+ *
  * @param source LLM 流式输出源（AsyncIterable<string>）
  * @param options 管道配置选项
  * @returns AsyncGenerator<StreamEvent> 管道输出事件流
- * 
+ *
  * @example
  * ```ts
  * // 从 LLM 客户端获取流式输出
  * const stream = llmClient.chatStream(messages)
- * 
+ *
  * // 通过管道处理
  * for await (const event of streamPipeline(stream, { enableTTS: true })) {
  *   switch (event.type) {
@@ -395,9 +395,9 @@ export async function* streamPipeline(
 
 /**
  * 创建带统计收集的管道
- * 
+ *
  * 在消费管道事件的同时收集统计信息
- * 
+ *
  * @returns 管道消费者和统计查询函数
  */
 export function createPipelineWithStats() {
@@ -460,9 +460,9 @@ export function createPipelineWithStats() {
 
 /**
  * 同步消费管道，收集所有事件
- * 
+ *
  * 用于不需要实时渲染的场景（如批量处理、测试）
- * 
+ *
  * @param source LLM 流式输出源
  * @param options 管道配置选项
  * @returns 所有事件数组 + 统计信息

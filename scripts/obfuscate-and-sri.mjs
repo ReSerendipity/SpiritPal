@@ -1,12 +1,20 @@
 /**
- * R-12 + R-11: 前端代码混淆 + 资源完整性校验 (SRI) 生成脚本
+ * R-12 + R-11: 前端代码混淆 + 资源完整性清单 (SRI) 生成/校验脚本
  *
- * 构建后执行：
+ * 三种模式：
+ *   node scripts/obfuscate-and-sri.mjs                 默认：混淆 dist/assets/*.js → 生成清单 → 回读自校验
+ *   node scripts/obfuscate-and-sri.mjs --no-obfuscate  只生成清单（dist 已是最终产物，避免二次混淆）
+ *   node scripts/obfuscate-and-sri.mjs --verify        只校验：重算 dist 产物 SHA-256 与 sri_hashes.rs 逐条比对，
+ *                                                      任何缺失/不一致即退出码 1（构建期门禁，接入 CI 构建 job）
+ *
+ * 默认模式流程：
  * 1. 对 dist/assets/*.js 进行 javascript-obfuscator 混淆
  * 2. 计算混淆后的 SHA-256 哈希
  * 3. 生成 src-tauri/src/generated/sri_hashes.rs 供 Rust 编译时嵌入
+ * 4. 回读生成结果并与 dist 逐条比对（生成器输出保真自校验）
  *
- * 用法: node scripts/obfuscate-and-sri.mjs
+ * 运行时消费：src-tauri/src/integrity.rs（release 启动时重算内嵌资源哈希比对清单）
+ * 退出码：0 = 成功/校验通过；1 = 校验失败或生成失败
  */
 
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync } from 'node:fs'
@@ -18,6 +26,65 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
 const distAssets = resolve(root, 'dist', 'assets')
 const generatedDir = resolve(root, 'src-tauri', 'src', 'generated')
+const sriPath = join(generatedDir, 'sri_hashes.rs')
+
+const args = process.argv.slice(2)
+const VERIFY_ONLY = args.includes('--verify')
+const SKIP_OBFUSCATE = args.includes('--no-obfuscate')
+
+/**
+ * 重算 dist/assets/*.js 的 SHA-256 并与 sri_hashes.rs 清单逐条比对。
+ * 双向核对：dist 产物必须登记在清单中且哈希一致；清单条目必须对应真实产物。
+ * 不混淆、不写文件、不受 TAURI_ENV_DEBUG 跳过逻辑影响——它只回答「清单与产物是否一致」。
+ */
+function verifyManifest() {
+  if (!existsSync(distAssets)) {
+    console.error(`[obfuscate-and-sri] 校验失败：${distAssets} 不存在，无法核对 SRI 清单`)
+    return false
+  }
+  if (!existsSync(sriPath)) {
+    console.error(`[obfuscate-and-sri] 校验失败：${sriPath} 不存在，请先执行构建期生成`)
+    return false
+  }
+
+  const entries = new Map()
+  const entryRe = /m\.insert\("([^"]+)",\s*"([0-9a-fA-F]{64})"\);/g
+  let match
+  while ((match = entryRe.exec(readFileSync(sriPath, 'utf8'))) !== null) {
+    entries.set(match[1], match[2].toLowerCase())
+  }
+
+  const problems = []
+  const files = readdirSync(distAssets).filter((f) => f.endsWith('.js'))
+
+  for (const file of files) {
+    const actual = createHash('sha256').update(readFileSync(join(distAssets, file))).digest('hex')
+    const expected = entries.get(file)
+    if (!expected) {
+      problems.push(`清单缺失条目: ${file}`)
+    } else if (expected !== actual) {
+      problems.push(`哈希不一致: ${file}（清单 ${expected.slice(0, 12)}… ≠ 实际 ${actual.slice(0, 12)}…）`)
+    }
+  }
+  const fileSet = new Set(files)
+  for (const name of entries.keys()) {
+    if (!fileSet.has(name)) problems.push(`清单多余条目: ${name}（dist/ 中不存在该产物）`)
+  }
+
+  if (problems.length > 0) {
+    console.error(`[obfuscate-and-sri] SRI 校验失败：${problems.length} 项不一致`)
+    for (const p of problems) console.error(`  - ${p}`)
+    return false
+  }
+  console.log(`[obfuscate-and-sri] SRI 校验通过：${files.length} 个 dist 产物与 sri_hashes.rs 逐条一致`)
+  return true
+}
+
+// ============ --verify：只校验（构建期门禁） ============
+// 独立于下方 dev/缺目录的 Skipping 分支：门禁不允许静默通过。
+if (VERIFY_ONLY) {
+  process.exit(verifyManifest() ? 0 : 1)
+}
 
 // Skip obfuscation in dev mode
 if (process.env.TAURI_ENV_DEBUG) {
@@ -66,7 +133,9 @@ const OBFUSCATOR_OPTIONS = {
   unicodeEscapeSequence: false,
 }
 
-if (JavaScriptObfuscator) {
+if (SKIP_OBFUSCATE) {
+  console.log('[obfuscate-and-sri] --no-obfuscate：跳过混淆（直接基于现有 dist 生成清单）')
+} else if (JavaScriptObfuscator) {
   const jsFiles = readdirSync(distAssets).filter((f) => f.endsWith('.js'))
   let obfuscatedCount = 0
 
@@ -127,6 +196,8 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 /// 前端资源 SHA-256 哈希表（文件名 → 哈希值）
+/// 运行时由 crate::integrity::verify_integrity 消费：release 构建下逐个读取
+/// 内嵌资源重算哈希并与本表比对（debug 构建跳过，见 integrity.rs 模块注释）。
 // rustfmt::skip：自动生成的长行不参与格式检查（保持生成器输出原样）
 #[rustfmt::skip]
 pub static SRI_HASHES: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
@@ -135,23 +206,19 @@ ${hashes.map((h) => `    m.insert("${h.file}", "${h.hash}");`).join('\n')}
     m
 });
 
-/// 校验前端资源完整性
-/// 在 Rust 启动时调用，遍历所有已知资源验证哈希
-pub fn verify_integrity() -> bool {
-    // SRI 哈希在编译时嵌入二进制
-    // 运行时无法重新计算嵌入资源的哈希（Tauri 框架管理嵌入资源）
-    // 此函数保留供外部验证工具使用，或供前端通过 invoke 调用查询
-    let count = SRI_HASHES.len();
-    log::info!("[SRI] {} frontend resource hashes registered", count);
-    true
-}
-
 /// 获取指定资源的 SRI 哈希
 pub fn get_hash(filename: &str) -> Option<&'static str> {
     SRI_HASHES.get(filename).copied()
 }
 `
 
-const sriPath = join(generatedDir, 'sri_hashes.rs')
 writeFileSync(sriPath, rustCode, 'utf8')
 console.log(`[obfuscate-and-sri] Generated SRI hashes for ${hashes.length} files → ${sriPath}`)
+
+// ============ 生成结果自校验（生成器输出保真） ============
+// 回读刚写入的清单并与 dist 逐条比对：若生成逻辑被改坏（写错文件/编码错误/清单与产物不同源），
+// 构建立即失败，而不是静默产出与内嵌资源不匹配的清单。
+if (!verifyManifest()) {
+  console.error('[obfuscate-and-sri] 自校验失败：生成器输出与 dist 产物不一致')
+  process.exit(1)
+}
