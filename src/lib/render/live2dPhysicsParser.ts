@@ -1,7 +1,7 @@
 /**
  * @file live2dPhysicsParser.ts
  * @description Live2D Cubism 物理模拟解析器 — physics3.json 格式
- * 
+ *
  * 实现功能：
  * - 解析 physics3.json 配置文件
  * - 物理参数映射（重力/阻力/加速度）
@@ -9,7 +9,7 @@
  * - 风效应模拟（Wind Effect）
  * - 实时参数更新与平滑过渡
  * - 性能优化（批量计算 + 缓存）
- * 
+ *
  * 参考：Live2D Cubism SDK / Cubism Physics Specification
  */
 
@@ -90,7 +90,7 @@ export interface PhysicsSimulationState {
 
 export class PhysicsSimulator {
   protected state: PhysicsSimulationState
-  
+
   constructor(initialAngle: number = 0) {
     this.state = {
       angle: initialAngle,
@@ -124,7 +124,7 @@ export class PendulumSimulator extends PhysicsSimulator {
   private gravity: { x: number; y: number }
   private length: number
   private damping: number
-  
+
   constructor(
     config: {
       gravity?: { x: number; y: number }
@@ -133,7 +133,7 @@ export class PendulumSimulator extends PhysicsSimulator {
     } = {},
   ) {
     super()
-    
+
     this.gravity = config.gravity || { x: 0, y: 9.8 }
     this.length = config.length || 1
     this.damping = config.damping || 0.02
@@ -182,7 +182,7 @@ export class SpringSimulator extends PhysicsSimulator {
   private mass: number
   private dampingRatio: number
   private equilibriumPosition: number
-  
+
   constructor(
     config: {
       stiffness?: number
@@ -192,7 +192,7 @@ export class SpringSimulator extends PhysicsSimulator {
     } = {},
   ) {
     super()
-    
+
     this.stiffness = config.stiffness || 1.0
     this.mass = config.mass || 1.0
     this.dampingRatio = config.dampingRatio || 0.5
@@ -209,7 +209,7 @@ export class SpringSimulator extends PhysicsSimulator {
     // 胡克定律：F = -k * x
     const displacement = this.state.position - this.equilibriumPosition
     const springForce = -this.stiffness * displacement
-    
+
     // 阻尼力：F_d = -c * v
     const c = 2 * this.dampingRatio * Math.sqrt(this.stiffness * this.mass)
     const dampingForce = -c * this.state.velocity
@@ -351,11 +351,11 @@ export class Live2DPysicsParser {
       // 收集输入值
       let maxInputValue = 0
       let minInputValue = 0
-      
+
       for (const input of group.inputs) {
         const value = inputValues[input.id] ?? 0
         const scaledValue = (value - (input.offset ?? 0)) * (input.scale ?? 1)
-        
+
         maxInputValue = Math.max(maxInputValue, scaledValue)
         minInputValue = Math.min(minInputValue, scaledValue)
       }
@@ -385,7 +385,7 @@ export class Live2DPysicsParser {
    */
   private createSimulator(group: PhysicsGroup): void {
     let simulator: PhysicsSimulator
-    
+
     switch (group.type) {
       case 'pendulum':
         simulator = new PendulumSimulator({
@@ -394,7 +394,7 @@ export class Live2DPysicsParser {
           damping: group.settings.drag,
         })
         break
-        
+
       case 'spring':
         simulator = new SpringSimulator({
           stiffness: group.settings.stiffness,
@@ -402,7 +402,7 @@ export class Live2DPysicsParser {
           dampingRatio: group.settings.dampingRatio,
         })
         break
-        
+
       default:
         // 默认使用摆锤
         simulator = new PendulumSimulator()

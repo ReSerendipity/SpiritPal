@@ -1,13 +1,13 @@
 /**
  * @file windowTitleExtractor.ts
  * @description 窗口标题提取与关键文本高亮模块
- * 
+ *
  * 实现功能：
  * - 从活跃窗口提取标题和进程信息
  * - 智能解析窗口标题中的关键内容（文件路径、URL、搜索词等）
  * - 关键词高亮标记（代码变量名、URL、文件名等）
  * - 为上下文感知提供结构化信息
- * 
+ *
  * 参考：Live2DPet active_window.py / OpenPets packages/window/
  */
 
@@ -114,7 +114,7 @@ export class WindowTitleExtractor {
 
     try {
       const rawInfo = await invoke<{ title: string; process_name: string }>('get_active_window')
-      
+
       const title = rawInfo?.title ?? ''
       const processName = rawInfo?.process_name ?? ''
 
@@ -196,7 +196,7 @@ export class WindowTitleExtractor {
       if (projectMatch) {
         info.projectName = projectMatch[1]?.trim()
       }
-      
+
       // 提取代码相关的实体（简单启发式）
       info.codeEntities = this.extractCodeEntities(title)
     }
@@ -234,13 +234,13 @@ export class WindowTitleExtractor {
     separators.forEach(sep => {
       cleanTitle = cleanTitle.replace(new RegExp(`\\${sep}`, 'g'), ' ')
     })
-    
+
     // 提取有意义的单词（排除常用停用词）
     const stopWords = new Set(['and', 'the', 'of', 'in', 'on', 'at', 'to', 'for', 'with'])
     const words = cleanTitle
       .split(/\s+/)
       .filter(w => w.length > 2 && !stopWords.has(w.toLowerCase()))
-    
+
     info.keywords = words.slice(0, 5)
 
     return info
@@ -251,15 +251,15 @@ export class WindowTitleExtractor {
    */
   private extractCodeEntities(title: string): string[] {
     const entities: string[] = []
-    
+
     // 类名（帕斯卡命名）
     const classes = title.match(/\b[A-Z][a-zA-Z0-9]+\b/g) || []
     entities.push(...classes.slice(0, 3))
-    
+
     // 函数/方法调用（包含括号）
     const functions = title.match(/\b[a-zA-Z_][a-zA-Z0-9_]*\s*\(/g) || []
     entities.push(...functions.map(f => f.trim().slice(0, -1)).slice(0, 3))
-    
+
     // 导入语句
     const imports = title.match(/from\s+['"][^'"]+['"]/gi) || []
     entities.push(...imports.map(i => i.replace("from '", '').replace("from ", '').replace("'", '')).slice(0, 2))
@@ -274,7 +274,7 @@ export class WindowTitleExtractor {
    */
   highlightText(text: string): string {
     let highlighted = text
-    
+
     // 按优先级排序（URL 优先，避免被其他规则误匹配）
     const sortedPatterns = [...HIGHLIGHT_PATTERNS].sort((a, b) => {
       const priority = { url: 1, filepath: 2, code: 3, hash: 4, version: 5, email: 6 }

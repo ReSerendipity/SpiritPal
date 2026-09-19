@@ -24,7 +24,7 @@ function getRoute(): string {
   } catch {
     // localStorage 不可用（隐私模式），回退到默认行为
   }
-  
+
   const hash = window.location.hash.replace(/^#/, '')
   return hash || '/pet'
 }
@@ -32,7 +32,7 @@ function getRoute(): string {
 
 if ($content -match [regex]::Escape($oldGetRoute)) {
     $content = $content.Replace($oldGetRoute, $newGetRoute)
-    
+
     # 添加 localStorage 同步 useEffect
     $oldUseEffect = @"
   useEffect(() => {
@@ -65,7 +65,7 @@ if ($content -match [regex]::Escape($oldGetRoute)) {
   useEffect(() => {
     const checkMobile = () => setIsMobile(detectMobile())
 "@
-    
+
     if ($content -match [regex]::Escape($oldUseEffect)) {
         $content = $content.Replace($oldUseEffect, $newUseEffect)
         Set-Content $contentPath -Value $content -NoNewline -Encoding UTF8

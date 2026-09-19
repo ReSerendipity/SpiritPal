@@ -24,7 +24,7 @@ const METRICS = [
 
 function loadJson(file) {
   if (!existsSync(file)) return null
-  try { return JSON.parse(readFileSync(file, 'utf-8')) } 
+  try { return JSON.parse(readFileSync(file, 'utf-8')) }
   catch { return null }
 }
 
@@ -81,7 +81,7 @@ function generateReport() {
     md += `- **当前值**: ${r.value}${r.unit}\n`
     md += `- **阈值**: ${r.better === 'less' ? '<' : '>'} ${r.threshold}${r.unit}\n`
     md += `- **状态**: ${r.passed ? '✅ 通过' : '❌ 未通过'}\n`
-    
+
     if (!r.passed) {
       md += `\n#### 🔧 优化建议\n\n`
       if (r.key === 'coldStart') {
@@ -112,13 +112,13 @@ function generateReport() {
     md += `## 📉 趋势对比\n\n`
     md += `| 指标 | 基线值 | 当前值 | 变化 |\n`
     md += `|------|--------|--------|------|\n`
-    
+
     for (const r of results) {
       if (r.value === null || !baseline[r.key]) continue
       const diff = r.value - baseline[r.key]
       const percent = ((diff / baseline[r.key]) * 100).toFixed(1)
       const arrow = diff > 0 ? '⬆️' : diff < 0 ? '⬇️' : '➡️'
-      const color = r.better === 'less' 
+      const color = r.better === 'less'
         ? (diff <= 0 ? '✅' : '⚠️')
         : (diff >= 0 ? '✅' : '⚠️')
       md += `| ${r.label} | ${baseline[r.key]}${r.unit} | ${r.value}${r.unit} | ${arrow} ${percent}% ${color} |\n`

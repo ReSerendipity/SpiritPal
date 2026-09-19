@@ -3,7 +3,7 @@
  * ============================================================================
  * SpiritPal — AI 桌面宠物功能演示页面
  * ============================================================================
- * 
+ *
  * @fileoverview 交互式桌面宠物功能预览Demo，模拟真实桌面环境中的宠物行为与交互
  * @project SpiritPal - 越用越懂你的 AI 桌面宠物
  * @version 1.0.0
@@ -17,11 +17,11 @@
  *   - 宠物形象切换（Doro/菲比/咕咕嘎嘎）
  *   - 饱食度HP系统
  *   - 完整的设置面板（形象管理、性格配置、AI设置、记忆系统、系统设置）
- * 
+ *
  * @tech-stack 纯原生HTML + CSS + JavaScript（无框架依赖，便于快速预览）
  * @rendering GIF精灵图动画 + CSS Transform/Animation
  * @interaction 鼠标点击、拖拽、右键菜单、键盘输入
- * 
+ *
  * @key-features
  *   1. 二维自由行走：宠物在桌面范围内随机漫步，支持方向翻转
  *   2. 边缘智能吸附：靠近屏幕边缘时自动吸附到左/右/上边缘
@@ -29,7 +29,7 @@
  *   4. 气泡对话：定时弹出问候语，点击/喂食时触发对话
  *   5. 四段式记忆展示：实时记忆、对话记忆、语义记忆、情景记忆
  *   6. 五维性格配置：温度、活泼、依赖、直率、理性滑块调节
- * 
+ *
  * @note 本Demo为纯前端预览，不连接真实AI后端，对话为预设随机回复
  * @author SpiritPal Team
  * @date 2026
@@ -775,7 +775,7 @@ function snapToEdge() {
 function autoWalk() {
   if (isDragging) return; // 拖拽时不行走
   const vw = window.innerWidth, vh = window.innerHeight;
-  
+
   // 随机生成目标位置（在桌面安全区域内）
   const targetX = 40 + Math.random() * (vw - 200);
   const targetY = 40 + Math.random() * (vh - TASKBAR_H - 200);
@@ -851,7 +851,7 @@ function cyclePet() {
 function applyPet() {
   const p = pets[ci];
   const sprite = document.getElementById('petSprite');
-  
+
   if (p.src) {
     // 有GIF资源：显示精灵图
     sprite.src = p.src;
@@ -869,13 +869,13 @@ function applyPet() {
     }
     emojiEl.textContent = p.emoji || '🐾';
   }
-  
+
   // 清理之前宠物的emoji元素（当切换回有GIF的宠物时）
   if (p.src) {
     const old = petEl.querySelector('.gugu-emoji');
     if (old) old.remove();
   }
-  
+
   // 更新聊天面板信息
   document.getElementById('chatAvImg').src = p.icon || '';
   document.getElementById('chatName').textContent = p.name;

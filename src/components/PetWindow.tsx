@@ -375,7 +375,7 @@ export default function PetWindow() {
     posRef.current = pos
     clickScaleRef.current = clickScale
     panelOpenRef.current = panelOpen
-     
+
   })
 
   const showBubble = useCallback((msg: string) => {
@@ -1004,7 +1004,7 @@ export default function PetWindow() {
   function handleMouseLeave() {
     getEmotionManager().setHovered(false)
     setHovered(false)
-     
+
     hoveredRef.current = false
     miniMouseLeave() // A-14：迷你态下延迟收回预览窗口
     if (draggingRef.current) {
@@ -1018,7 +1018,7 @@ export default function PetWindow() {
   function handleMouseEnter() {
     getEmotionManager().setHovered(true)
     setHovered(true)
-     
+
     hoveredRef.current = true
     miniMouseEnter() // A-14：迷你态下延迟展开预览窗口
   }

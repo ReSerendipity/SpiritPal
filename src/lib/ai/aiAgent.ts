@@ -442,7 +442,7 @@ export async function processAgentRequest(
 
 /**
  * 工具模式层级
- * 
+ *
  * Chat < Agent < Developer < Worker
  * - Chat: 仅对话，无工具调用能力
  * - Agent: 基础工具集（打开应用、搜索、提醒、天气、宠物状态）
@@ -461,7 +461,7 @@ const TOOL_MODE_LEVEL: Record<ToolMode, number> = {
 
 /**
  * 工具模式对应的可用工具集
- * 
+ *
  * Chat: 无工具
  * Agent: 基础工具（AGENT_TOOLS 全部）
  * Developer: Agent + 文件/终端工具（TODO: 注册扩展工具）
@@ -478,7 +478,7 @@ const TOOL_MODE_LEVEL: Record<ToolMode, number> = {
 
 /**
  * 检查当前工具模式是否允许使用指定工具
- * 
+ *
  * @param mode 当前工具模式
  * @param toolName 工具名称
  * @returns true 表示允许使用
@@ -490,7 +490,7 @@ export function isToolAllowed(mode: ToolMode, toolName: string): boolean {
 
 /**
  * 获取当前模式下可用的工具列表
- * 
+ *
  * @param mode 工具模式
  * @returns 可用工具定义数组
  */
@@ -517,7 +517,7 @@ export function getToolModeDescription(mode: ToolMode): string {
 
 /**
  * 比较两个工具模式的层级
- * 
+ *
  * @returns 正数表示 a > b，0 表示相等，负数表示 a < b
  */
 export function compareToolMode(a: ToolMode, b: ToolMode): number {
@@ -612,16 +612,16 @@ function parseReActResponse(
 
 /**
  * ReAct Loop Agent 执行器
- * 
+ *
  * Reasoning → Action → Observation 循环（3-10 轮）
- * 
+ *
  * 工作流程：
  * 1. 将用户消息 + 工具描述发给 LLM
  * 2. LLM 输出 Thought + Action
  * 3. 执行 Action 对应的工具
  * 4. 将 Observation 追加到上下文
  * 5. 重复 1-4，直到 LLM 输出 Answer 或达到最大轮数
- * 
+ *
  * @param userMessage 用户消息
  * @param config AI 配置
  * @param characterId 角色 ID

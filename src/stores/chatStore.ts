@@ -27,6 +27,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { ChatMessage, ChatSession, MessageMetrics } from '@/lib/data/types'
+import { genId } from '@/lib/system/randomId'
 import { usePetStore } from '@/stores/petStore'
 import { sqliteStorage } from '@/lib/data/db'
 
@@ -88,16 +89,9 @@ interface ChatStoreState {
 
 // ============ 工具函数 ============
 
-function genId(): string {
-  // 会话/消息 ID 必须用密码学安全随机数（CSPRNG）。
-  // 原实现用 `Math.random()`，被 CodeQL 判为 "Insecure randomness"（security context），
-  // 在 PR 上留下未解决评审意见从而阻塞合并（分支保护开了 required_conversation_resolution）。
-  // crypto.getRandomValues 在 Tauri WebView 与 Node（vitest/jsdom）环境均可用。
-  const bytes = new Uint8Array(6)
-  crypto.getRandomValues(bytes)
-  const rand = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
-  return `${Date.now()}-${rand}`
-}
+// 会话/消息 ID 统一走 CSPRNG 实现（genId 来自 @/lib/system/randomId，已在文件顶部 import）。
+// 注意：不要从本模块 re-export genId —— 组件测试普遍 `vi.mock('@/stores/chatStore')`，
+// 只 mock 出 `useChatStore`，任何额外导出都会让被测组件拿到 undefined。
 
 function getCurrentCharacterId(): string {
   return usePetStore.getState().currentCharacterId

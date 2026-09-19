@@ -42,6 +42,7 @@ import { FramelessResizeHandles } from '@/components/FramelessChrome'
 import { WindowControls } from '@/components/WindowControls'
 import { usePetTTS } from '@/hooks/usePetTTS'
 import { trackChatSend, trackChatReceive, trackMemoryTrigger } from '@/lib/system/analytics'
+import { genId } from '@/lib/system/randomId'
 import { swallowedCatch } from '@/lib/system/swallowedCatch'
 import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 import { cogneeAdd } from '../lib/memory/cogneeClient'
@@ -106,7 +107,10 @@ const nowMs = (): number => Date.now()
  */
 function mkMsg(role: 'user' | 'assistant' | 'system', content: string): ChatMessage {
   return {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    // CSPRNG ID（与 chatStore 共用 lib/system/randomId.genId）：
+    // 本处原先用 `Math.random()`，与 chatStore 同属 CodeQL
+    // "Insecure randomness" 模式，故统一到一处实现。
+    id: genId(),
     role,
     content,
     timestamp: Date.now(),

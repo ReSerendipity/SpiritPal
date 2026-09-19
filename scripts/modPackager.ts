@@ -1,14 +1,14 @@
 /**
  * @file modPackager.ts
  * @description Mod 打包 CLI 工具 — ZIP 打包 + manifest 生成
- * 
+ *
  * 实现功能：
  * - 扫描 Mod 目录结构
  * - 自动生成 manifest.json（Mod 元数据）
  * - ZIP 打包为.petmod 格式
  * - 验证打包完整性
  * - 命令行/Node.js API 双模式
- * 
+ *
  * 参考：Vim-Vivace plugin-packaging / VSCode Extension Packager
  */
 
@@ -92,7 +92,7 @@ export interface PackResult {
 
 export class ModPackager {
   private options: Required<PackOptions>
-  
+
   constructor(options: PackOptions) {
     this.options = {
       includeSourceMap: false,
@@ -107,7 +107,7 @@ export class ModPackager {
    */
   async pack(): Promise<PackResult> {
     const startTime = Date.now()
-    
+
     // 1. 验证源目录
     if (!existsSync(this.options.sourceDir)) {
       throw new Error(`源目录不存在：${this.options.sourceDir}`)
@@ -115,7 +115,7 @@ export class ModPackager {
 
     // 2. 扫描文件
     const files = await this.scanFiles(this.options.sourceDir)
-    
+
     // 3. 生成或加载 manifest
     let manifest: ModManifest
     if (this.options.manifestPath && existsSync(this.options.manifestPath)) {
@@ -123,26 +123,26 @@ export class ModPackager {
     } else {
       manifest = this.generateManifest(files)
     }
-    
+
     // 4. 验证 manifest
     this.validateManifest(manifest)
-    
+
     // 5. 写入 manifest 到临时位置
     const tempManifestPath = join(this.options.sourceDir, 'manifest.json')
     writeFileSync(tempManifestPath, JSON.stringify(manifest, null, 2))
-    
+
     // 6. 创建 ZIP 包
     const zipPath = this.options.outputPath.replace('.petmod', '.zip.tmp')
     await this.createZip(files, zipPath)
-    
+
     // 7. 重命名为.petmod
     renameSync(zipPath, this.options.outputPath)
-    
+
     // 8. 清理临时文件
     unlinkSync(tempManifestPath)
-    
+
     const endTime = Date.now()
-    
+
     return {
       outputPath: this.options.outputPath,
       fileSize: statSync(this.options.outputPath).size,
@@ -157,17 +157,17 @@ export class ModPackager {
    */
   private async scanFiles(dir: string, baseDir: string = dir): Promise<string[]> {
     const files: string[] = []
-    
+
     const entries = readdirSync(dir)
     for (const entry of entries) {
       const fullPath = join(dir, entry)
       const relativePath = relative(baseDir, fullPath)
-      
+
       // 检查是否排除
       if (this.shouldExclude(relativePath)) {
         continue
       }
-      
+
       const stats = statSync(fullPath)
       if (stats.isDirectory()) {
         const subFiles = await this.scanFiles(fullPath, baseDir)
@@ -176,7 +176,7 @@ export class ModPackager {
         files.push(relativePath)
       }
     }
-    
+
     return files
   }
 
@@ -200,7 +200,7 @@ export class ModPackager {
   private generateManifest(files: string[]): ModManifest {
     const packageJsonPath = join(this.options.sourceDir, 'package.json')
     let pkg: Record<string, any> = {}
-    
+
     if (existsSync(packageJsonPath)) {
       try {
         pkg = JSON.parse(readFileSync(packageJsonPath, 'utf-8'))
@@ -244,7 +244,7 @@ export class ModPackager {
    */
   private validateManifest(manifest: ModManifest): void {
     const errors: string[] = []
-    
+
     if (!manifest.id) errors.push('缺少必要字段：id')
     if (!manifest.name) errors.push('缺少必要字段：name')
     if (!manifest.version) errors.push('缺少必要字段：version')
@@ -252,7 +252,7 @@ export class ModPackager {
     if (!['character', 'theme', 'animation', 'extension', 'mix'].includes(manifest.type)) {
       errors.push(`无效的 type：${manifest.type}`)
     }
-    
+
     if (errors.length > 0) {
       throw new Error(`Manifest 验证失败:\n${errors.join('\n')}`)
     }
@@ -264,9 +264,9 @@ export class ModPackager {
   private async createZip(files: string[], outputPath: string): Promise<void> {
     // TODO: 使用 archiver 或 jszip 库
     // 这里使用简化实现
-    
+
     console.log(`正在打包 ${files.length} 个文件...`)
-    
+
     // 简单实现：复制所有文件到一个目录
     // 实际应使用真实的 ZIP 库
     await fsPromises.writeFile(outputPath, Buffer.from('dummy zip'))

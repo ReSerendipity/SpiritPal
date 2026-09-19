@@ -44,7 +44,7 @@ const MAX_BATCH_SIZE = 32
 // ============ 嵌入状态 ============
 
 /** 模型加载状态 */
-export type EmbeddingModelStatus = 
+export type EmbeddingModelStatus =
   | 'idle'           // 未初始化
   | 'loading'        // 加载中
   | 'ready'          // 就绪
@@ -218,7 +218,7 @@ export class LocalEmbeddingManager {
   /**
    * 批量嵌入多条文本
    * 自动分批处理，避免单次推理过大
-   * 
+   *
    * @param texts 输入文本列表
    * @param useCache 是否使用缓存（默认 true）
    * @returns 嵌入结果列表

@@ -1,14 +1,14 @@
 /**
  * @file multimodalMemory.ts
  * @description 多模态记忆模块 — 支持语音、图像、文本等多种类型的记忆融合
- * 
+ *
  * 实现功能：
  * - 扩展记忆数据结构支持多模态内容
  * - 语音记忆：录音文件 + 转写文本 + 情感分析
  * - 图像记忆：截图/照片 + OCR 文本 + 视觉标签
  * - 文本记忆：纯文本对话/笔记
  * - 统一检索接口：跨模态语义搜索
- * 
+ *
  * 参考：Live2DPet multimodal_memory.py / OpenPets packages/memory/multimodal/
  */
 
@@ -124,10 +124,10 @@ export interface MultimodalMemoryEntry extends MemoryMetadata {
     voice?: VoiceMemoryContent
     image?: ImageMemoryContent
   }
-  
+
   /** 用于向量检索的嵌入表示 */
   embedding?: Float32Array
-  
+
   /** 关联的记忆条目 ID（用于建立关系） */
   relatedMemoryIds?: string[]
 }
@@ -172,7 +172,7 @@ export interface MemorySearchResult {
 export class MultimodalMemoryManager {
   private memories: Map<string, MultimodalMemoryEntry> = new Map()
   private indexBuilt: boolean = false
-  
+
   /**
    * 添加新的记忆条目
    */
@@ -213,50 +213,50 @@ export class MultimodalMemoryManager {
    */
   async search(query: MemoryQuery): Promise<MemorySearchResult> {
     const startTime = Date.now()
-    
+
     let results = Array.from(this.memories.values())
-    
+
     // 应用过滤器
     if (query.type) {
       results = results.filter(m => m.type === query.type || m.type === 'mixed')
     }
-    
+
     if (query.timeRange) {
-      results = results.filter(m => 
-        m.createdAt >= query.timeRange!.start && 
+      results = results.filter(m =>
+        m.createdAt >= query.timeRange!.start &&
         m.createdAt <= query.timeRange!.end
       )
     }
-    
+
     if (query.tags && query.tags.length > 0) {
-      results = results.filter(m => 
+      results = results.filter(m =>
         query.tags!.some(tag => m.tags.includes(tag))
       )
     }
-    
+
     if (query.characterId) {
       results = results.filter(m => m.characterId === query.characterId)
     }
-    
+
     if (query.minImportance !== undefined) {
       results = results.filter(m => m.importance >= query.minImportance!)
     }
-    
+
     // 关键词搜索
     if (query.query) {
       const queryLower = query.query.toLowerCase()
       results = results.filter(m => this.matchesQuery(m, queryLower))
     }
-    
+
     // 按时间倒序排序
     results.sort((a, b) => b.createdAt - a.createdAt)
-    
+
     // 限制数量
     const limit = query.limit ?? 50
     results = results.slice(0, limit)
-    
+
     const latency = Date.now() - startTime
-    
+
     return {
       memories: results,
       total: results.length,
@@ -272,30 +272,30 @@ export class MultimodalMemoryManager {
     if (memory.content.type === 'text' && memory.content.data.text.toLowerCase().includes(query)) {
       return true
     }
-    
+
     if (memory.content.type === 'voice' && memory.content.data.transcribedText.toLowerCase().includes(query)) {
       return true
     }
-    
+
     if (memory.content.type === 'image' && memory.content.data.ocrText?.toLowerCase().includes(query)) {
       return true
     }
-    
+
     if (memory.content.type === 'mixed') {
       if (memory.content.text?.text.toLowerCase().includes(query)) return true
       if (memory.content.voice?.transcribedText.toLowerCase().includes(query)) return true
       if (memory.content.image?.ocrText?.toLowerCase().includes(query)) return true
     }
-    
+
     // 在标签和关键词中搜索
     if (memory.tags.some(tag => tag.toLowerCase().includes(query))) {
       return true
     }
-    
+
     if (memory.content.type === 'text' && memory.content.data.keywords?.some(kw => kw.toLowerCase().includes(query))) {
       return true
     }
-    
+
     // 在上下文中搜索
     if (memory.context) {
       const contextStr = JSON.stringify(memory.context).toLowerCase()
@@ -303,7 +303,7 @@ export class MultimodalMemoryManager {
         return true
       }
     }
-    
+
     return false
   }
 
@@ -316,19 +316,19 @@ export class MultimodalMemoryManager {
     limit?: number
   }): MultimodalMemoryEntry[] {
     let result = Array.from(this.memories.values())
-    
+
     if (filters?.type) {
       result = result.filter(m => m.type === filters.type || m.type === 'mixed')
     }
-    
+
     if (filters?.characterId) {
       result = result.filter(m => m.characterId === filters.characterId)
     }
-    
+
     if (filters?.limit) {
       result = result.slice(0, filters.limit)
     }
-    
+
     return result
   }
 
@@ -342,25 +342,25 @@ export class MultimodalMemoryManager {
     avgImportance: number
   } {
     const allMemories = Array.from(this.memories.values())
-    
+
     const byType: Record<MemoryType, number> = {
       text: 0,
       voice: 0,
       image: 0,
       mixed: 0,
     }
-    
+
     allMemories.forEach(m => {
       byType[m.type]++
     })
-    
+
     const recentCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000 // 最近 7 天
     const recentCount = allMemories.filter(m => m.createdAt > recentCutoff).length
-    
+
     const avgImportance = allMemories.length > 0
       ? allMemories.reduce((sum, m) => sum + m.importance, 0) / allMemories.length
       : 0
-    
+
     return {
       total: allMemories.length,
       byType,

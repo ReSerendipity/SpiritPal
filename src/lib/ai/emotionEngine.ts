@@ -1,7 +1,7 @@
 /**
  * @file emotionEngine.ts
  * @description 情感引擎 — 情绪分类器与可视化系统
- * 
+ *
  * 实现功能：
  * - 实时情绪分析（基于对话内容）
  * - 情绪状态追踪（历史趋势）
@@ -9,7 +9,7 @@
  * - 宠物表情映射
  * - 情绪提醒与建议
  * - 多模态情绪融合（文本 + 语音 + 图像）
- * 
+ *
  * 参考：Dororo Emotion System / AI-Desktop-Pet Mood Tracker
  */
 
@@ -18,7 +18,7 @@ import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 // ============ 类型定义 ============
 
 /** 基础情绪类别 */
-export type BasicEmotion = 
+export type BasicEmotion =
   | 'happy'      // 开心
   | 'sad'        // 难过
   | 'angry'      // 生气
@@ -30,7 +30,7 @@ export type BasicEmotion =
   | 'neutral'    // 中性
 
 /** 复合情绪（由基础情绪组合而成） */
-export type ComplexEmotion = 
+export type ComplexEmotion =
   | 'proud'          // 自豪 (happy + proud)
   | 'frustrated'     // 沮丧 (sad + angry)
   | 'anxious'        // 焦虑 (tired + anxious)
@@ -182,17 +182,17 @@ export class EmotionAnalyzer {
    */
   analyze(text: string): EmotionData {
     const lowerText = text.toLowerCase()
-    
+
     // 检测基础情绪
     let detectedEmotion: BasicEmotion = 'neutral'
     let maxScore = 0
-    
+
     Object.entries(EMOTION_KEYWORDS).forEach(([emotion, keywords]) => {
       if (keywords.length === 0) return
-      
+
       const matches = keywords.filter(k => lowerText.includes(k)).length
       const score = matches / keywords.length
-      
+
       if (score > maxScore) {
         maxScore = score
         detectedEmotion = emotion as BasicEmotion
@@ -216,11 +216,11 @@ export class EmotionAnalyzer {
   analyzeConversation(userMsg: string, aiResponse: string): EmotionData {
     // 优先分析用户情绪
     const userEmotion = this.analyze(userMsg)
-    
+
     // 如果用户情绪中性，则看 AI 回复
     if (userEmotion.emotion === 'neutral') {
       const aiEmotion = this.analyze(aiResponse)
-      
+
       return {
         ...aiEmotion,
         trigger: {
@@ -253,17 +253,17 @@ export class EmotionAnalyzer {
    */
   private calculateIntensity(text: string, baseScore: number): number {
     let intensity = baseScore
-    
+
     // 感叹号越多，强度越高
     const exclamationCount = (text.match(/!/g) || []).length
     intensity += Math.min(0.3, exclamationCount * 0.05)
-    
+
     // 重复字符（如"好啊啊啊"）
     const repetitionMatch = text.match(/(.)\1{2,}/)
     if (repetitionMatch) {
       intensity += 0.1
     }
-    
+
     // 表情包/emoji 数量
     const emojiCount = (text.match(/[\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}]/gu) || []).length
     intensity += Math.min(0.2, emojiCount * 0.05)
@@ -276,7 +276,7 @@ export class EmotionAnalyzer {
    */
   addToHistory(emotionData: EmotionData): void {
     this.history.push(emotionData)
-    
+
     // 限制历史大小
     if (this.history.length > this.maxHistorySize) {
       this.history.shift()
@@ -305,7 +305,7 @@ export class EmotionStateManager {
   private analyzer: EmotionAnalyzer
   private currentState: EmotionState
   private timers: Map<string, NodeJS.Timeout> = new Map()
-  
+
   constructor() {
     this.analyzer = new EmotionAnalyzer()
     this.currentState = this.createInitialState()
@@ -316,22 +316,22 @@ export class EmotionStateManager {
    */
   update(emotionData: EmotionData): EmotionState {
     this.analyzer.addToHistory(emotionData)
-    
+
     // 检查是否改变当前情绪
     const shouldChange = this.shouldChangeEmotion(emotionData)
-    
+
     if (shouldChange) {
       this.currentState.current = emotionData.emotion
       this.currentState.intensity = emotionData.intensity
       this.currentState.startedAt = Date.now()
       this.currentState.duration = 0
-      
+
       // 添加到近期历史
       this.currentState.recentHistory.push(emotionData)
       if (this.currentState.recentHistory.length > 5) {
         this.currentState.recentHistory.shift()
       }
-      
+
       // 更新今日统计
       this.updateTodayStats(emotionData.emotion)
     } else {
@@ -339,17 +339,17 @@ export class EmotionStateManager {
       this.currentState.duration = Math.floor(
         (Date.now() - this.currentState.startedAt) / 1000
       )
-      
+
       // 平滑过渡强度
       this.currentState.intensity = this.smoothTransition(
         this.currentState.intensity,
         emotionData.intensity
       )
     }
-    
+
     // 更新整体情感倾向
     this.currentState.overallSentiment = this.calculateOverallSentiment()
-    
+
     return this.currentState
   }
 
@@ -358,18 +358,18 @@ export class EmotionStateManager {
    */
   private shouldChangeEmotion(newEmotion: EmotionData): boolean {
     const current = this.currentState.current
-    
+
     // 如果是完全不同的情绪类型
     if (newEmotion.emotion !== current) {
       // 新情绪强度更高或持续时间更长时切换
       return newEmotion.intensity > this.currentState.intensity * 0.8
     }
-    
+
     // 同一情绪但强度显著提升
     if (newEmotion.intensity > this.currentState.intensity * 1.3) {
       return true
     }
-    
+
     return false
   }
 
@@ -388,8 +388,8 @@ export class EmotionStateManager {
   private updateTodayStats(emotion: BasicEmotion | ComplexEmotion): void {
     // 如果是复合情绪，转换为最接近的基础情绪
     const basicEmotion = this.toBasicEmotion(emotion)
-    
-    this.currentState.todayStats[basicEmotion] = 
+
+    this.currentState.todayStats[basicEmotion] =
       (this.currentState.todayStats[basicEmotion] || 0) + 1
   }
 
@@ -405,7 +405,7 @@ export class EmotionStateManager {
       content: 'happy',
       disappointed: 'sad',
     }
-    
+
     return mapping[complex] || 'neutral'
   }
 
@@ -415,12 +415,12 @@ export class EmotionStateManager {
   private calculateOverallSentiment(): 'positive' | 'neutral' | 'negative' {
     const stats = this.currentState.todayStats
     const total = Object.values(stats).reduce((a, b) => a + b, 0)
-    
+
     if (total === 0) return 'neutral'
-    
+
     let positiveScore = 0
     let negativeScore = 0
-    
+
     Object.entries(stats).forEach(([emotion, count]) => {
       const score = EMOTION_SCORES[emotion] || 0
       if (score > 0.3) {
@@ -429,7 +429,7 @@ export class EmotionStateManager {
         negativeScore += count
       }
     })
-    
+
     if (positiveScore > negativeScore + 2) return 'positive'
     if (negativeScore > positiveScore + 2) return 'negative'
     return 'neutral'

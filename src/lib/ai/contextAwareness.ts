@@ -137,7 +137,7 @@ export class ContextAwarenessManager {
   private currentWindowState: WorkState = 'unknown'
   // [P2-14] 平台支持检测：首次调用后缓存结果，不支持时跳过轮询
   private windowDetectionSupported: boolean | null = null
-  
+
   // P1-1: 窗口标题提取器
   private windowTitleExtractor = getWindowTitleExtractor()
   private cachedWindowInfo: WindowInfo | null = null
@@ -361,12 +361,12 @@ export class ContextAwarenessManager {
           title,
           processName,
         }
-        
+
         // 使用提取器解析结构化信息
         try {
           const extracted = this.windowTitleExtractor.extractKeyInfo(title, processName)
           this.cachedExtractedInfo = extracted
-          
+
           // 更新 cachedWindowInfo 的扩展字段
           this.cachedWindowInfo.appName = this.windowTitleExtractor.inferAppName(processName)
           this.cachedWindowInfo.extractedInfo = extracted
