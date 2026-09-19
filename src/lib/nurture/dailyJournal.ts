@@ -3,7 +3,7 @@
  * @note 本模块依赖 Node 内置模块（fs/process），仅可在 Node 运行时（CLI / Rust 桥接）使用，
  *       无法在 Tauri webview 直接 import。设置页「日记」Tab 采用 webview 安全实现（components/JournalPanel.tsx）。
  * @description 日记系统 — 每日自动摘要生成
- * 
+ *
  * 实现功能：
  * - 自动收集当日对话与活动记录
  * - LLM 驱动的摘要生成（时间线/主题提炼）
@@ -12,7 +12,7 @@
  * - 日历视图与搜索
  * - 导出功能（Markdown/PDF）
  * - 隐私保护（本地加密存储选项）
- * 
+ *
  * 参考：Obsidian Daily Notes / Notion Journal / Day One App
  */
 
@@ -99,11 +99,11 @@ export class DailyJournalManager {
   private journalDir: string
   private entries: Map<string, JournalEntry> = new Map()
   private config: AutoSummaryConfig
-  
+
   constructor(journalDir: string, config?: Partial<AutoSummaryConfig>) {
     this.journalDir = journalDir
     this.config = { ...DEFAULT_AUTO_CONFIG, ...(config || {}) }
-    
+
     // 确保目录存在
     if (!existsSync(this.journalDir)) {
       void mkdir(this.journalDir, { recursive: true })
@@ -115,14 +115,14 @@ export class DailyJournalManager {
    */
   async generateTodayDraft(): Promise<Partial<JournalEntry>> {
     const today = new Date().toISOString().split('T')[0]
-    
+
     // TODO: 从记忆中提取今日对话和活动
     const memories = await this.fetchTodaysMemories(today)
     const activities = await this.fetchTodaysActivities(today)
-    
+
     // 自动生成摘要
     const autoSummary = await this.generateAutoSummary(memories, activities)
-    
+
     return {
       date: today,
       title: `📅 ${today}`,
@@ -143,9 +143,9 @@ export class DailyJournalManager {
    */
   async saveEntry(entry: JournalEntry): Promise<void> {
     const filePath = this.getEntryFilePath(entry.date)
-    
+
     await writeFile(filePath, JSON.stringify(entry, null, 2), 'utf-8')
-    
+
     this.entries.set(entry.date, entry)
   }
 
@@ -159,7 +159,7 @@ export class DailyJournalManager {
 
     // 从文件加载
     const filePath = this.getEntryFilePath(date)
-    
+
     if (!existsSync(filePath)) {
       return undefined
     }
@@ -167,7 +167,7 @@ export class DailyJournalManager {
     try {
       const content = await readFile(filePath, 'utf-8')
       const entry = JSON.parse(content) as JournalEntry
-      
+
       this.entries.set(date, entry)
       return entry
     } catch (error) {
@@ -184,21 +184,21 @@ export class DailyJournalManager {
     endDate: string,
   ): Promise<JournalEntry[]> {
     const entries: JournalEntry[] = []
-    
+
     const currentDate = new Date(startDate)
     const end = new Date(endDate)
-    
+
     while (currentDate <= end) {
       const dateStr = currentDate.toISOString().split('T')[0]
       const entry = await this.getEntry(dateStr)
-      
+
       if (entry) {
         entries.push(entry)
       }
-      
+
       currentDate.setDate(currentDate.getDate() + 1)
     }
-    
+
     return entries.sort((a, b) => a.date.localeCompare(b.date))
   }
 
@@ -212,17 +212,17 @@ export class DailyJournalManager {
     limit?: number
   }): Promise<JournalEntry[]> {
     const results: JournalEntry[] = []
-    
+
     // TODO: 遍历所有日记文件进行搜索
     // 简化实现：仅基于内存缓存
-    
+
     for (const entry of this.entries.values()) {
-      const match = keywords.some(keyword => 
+      const match = keywords.some(keyword =>
         entry.content.toLowerCase().includes(keyword.toLowerCase()) ||
         entry.title.toLowerCase().includes(keyword.toLowerCase()) ||
         entry.summary?.toLowerCase().includes(keyword.toLowerCase())
       )
-      
+
       if (match) {
         results.push(entry)
       }
@@ -251,17 +251,17 @@ export class DailyJournalManager {
       lines.push(`## ${entry.title}`)
       lines.push(`**日期**: ${entry.date}`)
       lines.push('')
-      
+
       if (entry.summary) {
         lines.push('### 📋 摘要')
         lines.push(entry.summary)
         lines.push('')
       }
-      
+
       lines.push('### 📖 内容')
       lines.push(entry.content)
       lines.push('')
-      
+
       if (entry.highlights && entry.highlights.length > 0) {
         lines.push('### ✨ 今日亮点')
         entry.highlights.forEach(h => {
@@ -269,12 +269,12 @@ export class DailyJournalManager {
         })
         lines.push('')
       }
-      
+
       if (entry.tags.length > 0) {
         lines.push(`**标签**: ${entry.tags.map(t => `#${t}`).join(' ')}`)
         lines.push('')
       }
-      
+
       lines.push('---')
       lines.push('')
     })
@@ -290,7 +290,7 @@ export class DailyJournalManager {
     endDate: string,
   ): Promise<JournalSummary> {
     const entries = await this.getEntriesInRange(startDate, endDate)
-    
+
     if (entries.length === 0) {
       return {
         dateRange: { start: startDate, end: endDate },
@@ -367,12 +367,12 @@ export class DailyJournalManager {
   }> {
     // TODO: 调用 LLM 生成智能摘要
     // 这里使用简化实现
-    
+
     const texts = memories.map(m => m.content).join(' ')
     const tags = this.extractTags(texts)
     const categories = this.detectCategories(texts)
     const moodScore = this.analyzeMood(texts)
-    
+
     return {
       summary: texts.substring(0, this.config.maxSummaryLength),
       tags,
@@ -403,9 +403,9 @@ export class DailyJournalManager {
    */
   private buildDailyContent(memories: any[], activities: any[]): string {
     const sections: string[] = []
-    
+
     sections.push('# 今天的发生的事情\n')
-    
+
     if (memories.length > 0) {
       sections.push('## 💭 对话记录\n')
       memories.forEach((m, idx) => {
@@ -414,7 +414,7 @@ export class DailyJournalManager {
       })
       sections.push('')
     }
-    
+
     if (activities.length > 0) {
       sections.push('## 📝 活动记录\n')
       activities.forEach(a => {
@@ -437,16 +437,16 @@ export class DailyJournalManager {
       social: ['聊天', '朋友', '聚会', '社交'],
       health: ['运动', '跑步', '健身', '健康'],
     }
-    
+
     const foundTags: string[] = []
     const textLower = text.toLowerCase()
-    
+
     Object.entries(predefinedTags).forEach(([tag, keywords]) => {
       if (keywords.some(k => textLower.includes(k))) {
         foundTags.push(tag)
       }
     })
-    
+
     return foundTags.length > 0 ? foundTags : ['daily']
   }
 
@@ -464,11 +464,11 @@ export class DailyJournalManager {
     // 简单启发式评分
     const positiveWords = ['开心', '高兴', '棒', '好', '喜欢', '赞']
     const negativeWords = ['难过', '累', '烦', '讨厌', '糟']
-    
+
     let score = 0
     positiveWords.forEach(w => { if (text.includes(w)) score += 1 })
     negativeWords.forEach(w => { if (text.includes(w)) score -= 1 })
-    
+
     return Math.max(-1, Math.min(1, score / 5))
   }
 

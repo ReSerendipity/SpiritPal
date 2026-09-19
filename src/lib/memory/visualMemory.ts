@@ -92,7 +92,7 @@ export interface VisualMemoryCallbacks {
 
 /**
  * 固定大小环形缓冲区
- * 
+ *
  * 自动覆盖最旧的条目
  */
 class RingBuffer<T> {
@@ -165,12 +165,12 @@ class RingBuffer<T> {
 
 /**
  * 关键帧视觉记忆管理器
- * 
+ *
  * 三级 Mipmap 环形缓冲区：
  * - L0: 原始分辨率，用于详细分析
  * - L1: 中等分辨率，用于模式匹配
  * - L2: 低分辨率，用于快速比对/去重
- * 
+ *
  * TODO(P2): 当前为桩实现，核心接口已定义，降采样逻辑待补充
  */
 export class VisualMemoryManager {
@@ -198,11 +198,11 @@ export class VisualMemoryManager {
 
   /**
    * 存入一帧视觉关键帧
-   * 
+   *
    * 自动降采样到 L1 和 L2 级别
-   * 
+   *
    * TODO(P2): 实现实际的降采样逻辑
-   * 
+   *
    * @param imageData Base64 编码的图像数据
    * @param width 图像宽度
    * @param height 图像高度
@@ -273,7 +273,7 @@ export class VisualMemoryManager {
 
   /**
    * 降采样图像
-   * 
+   *
    * TODO(P2): 使用 Canvas API 实现
    * 当前返回原始数据（不降采样）
    */

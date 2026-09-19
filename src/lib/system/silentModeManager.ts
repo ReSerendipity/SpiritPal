@@ -1,7 +1,7 @@
 /**
  * @file silentModeManager.ts
  * @description 静默模式管理器 — 一键禁用宠物发言的全局开关
- * 
+ *
  * 实现功能：
  * - 全局静音开关（键盘快捷键/菜单/设置面板）
  * - 本地持久化（用户偏好保存）
@@ -9,7 +9,7 @@
  * - 气泡消息抑制
  * - TTS 引擎静音
  * - 状态同步（跨窗口共享）
- * 
+ *
  * 参考：VPet SilentMode / Dororo Quiet Mode
  */
 
@@ -18,7 +18,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 
 // ============ 类型定义 ============
 
-export type SilentModeReason = 
+export type SilentModeReason =
   | 'manual'        // 手动触发
   | 'schedule'      // 计划任务（如深夜自动静音）
   | 'meeting'       // 会议模式（检测到会议软件时自动静音）
@@ -59,7 +59,7 @@ export class SilentModeManager {
   private tempTimer: number | null = null
   private scheduleCheckTimer: number | null = null
   private listeners: Set<(state: SilentModeState) => void> = new Set()
-  
+
   constructor() {
     this.init()
   }
@@ -70,13 +70,13 @@ export class SilentModeManager {
   private async init(): Promise<void> {
     // 加载用户偏好
     await this.loadPreferences()
-    
+
     // 启动定时调度检查
     this.startScheduleChecker()
-    
+
     // 监听全局快捷键（默认 F9 切换静音）
     this.setupGlobalShortcut()
-    
+
     // 监听系统事件（会议开始/结束）
     this.setupSystemEventListeners()
   }
@@ -95,7 +95,7 @@ export class SilentModeManager {
           ...this.state,
           ...data,
         }
-        
+
         // 如果曾经开启过，重新广播状态
         if (this.state.isActive) {
           this.notifyListeners()
@@ -125,16 +125,16 @@ export class SilentModeManager {
    */
   async enableSilentMode(reason: SilentModeReason = 'manual', duration?: number): Promise<void> {
     if (this.state.isActive) return
-    
+
     this.state = {
       isActive: true,
       reason,
       startedAt: Date.now(),
     }
-    
+
     if (duration) {
       this.state.resumeAt = Date.now() + duration
-      
+
       // 设置定时器自动恢复
       if (this.tempTimer) {
         clearTimeout(this.tempTimer)
@@ -143,11 +143,11 @@ export class SilentModeManager {
         void this.disableSilentMode('auto-resume')
       }, duration)
     }
-    
+
     await this.savePreferences()
     this.notifyListeners()
     this.emitToAllWindows({ type: 'enabled', state: this.state })
-    
+
     console.log(`[SilentMode] 静默模式已启用 (${reason})`)
   }
 
@@ -157,26 +157,26 @@ export class SilentModeManager {
    */
   async disableSilentMode(triggerReason?: string): Promise<void> {
     if (!this.state.isActive) return
-    
+
     const prevReason = this.state.reason
     const wasTemporary = !!this.state.resumeAt
-    
+
     // 清除定时器
     if (this.tempTimer) {
       clearTimeout(this.tempTimer)
       this.tempTimer = null
     }
-    
+
     this.state = {
       isActive: false,
       reason: 'manual',
       startedAt: 0,
     }
-    
+
     await this.savePreferences()
     this.notifyListeners()
     this.emitToAllWindows({ type: 'disabled', state: this.state, prevReason })
-    
+
     console.log(`[SilentMode] 静默模式已关闭 (${triggerReason ?? prevReason})`)
   }
 
@@ -212,7 +212,7 @@ export class SilentModeManager {
         return false
       }
     }
-    
+
     return this.state.isActive
   }
 
@@ -228,10 +228,10 @@ export class SilentModeManager {
    */
   onStateChange(listener: (state: SilentModeState) => void): () => void {
     this.listeners.add(listener)
-    
+
     // 立即发送当前状态
     listener(this.state)
-    
+
     return () => {
       this.listeners.delete(listener)
     }
@@ -272,12 +272,12 @@ export class SilentModeManager {
     if (this.scheduleCheckTimer) {
       clearInterval(this.scheduleCheckTimer)
     }
-    
+
     // 每分钟检查一次
     this.scheduleCheckTimer = window.setInterval(() => {
       this.checkAndApplySchedule()
     }, 60 * 1000)
-    
+
     // 立即执行一次
     this.checkAndApplySchedule()
   }
@@ -287,7 +287,7 @@ export class SilentModeManager {
    */
   private checkAndApplySchedule(): void {
     const currentHour = new Date().getHours()
-    
+
     for (const schedule of DEFAULT_SCHEDULES) {
       if (this.isTimeInRange(currentHour, schedule.startHour, schedule.endHour)) {
         // 当前时间在调度范围内，且未处于其他原因的静音中
@@ -297,7 +297,7 @@ export class SilentModeManager {
         return
       }
     }
-    
+
     // 不在任何调度范围内
     if (this.state.isActive && this.state.reason === 'schedule') {
       void this.disableSilentMode('schedule-ended')
@@ -342,7 +342,7 @@ export class SilentModeManager {
     if (!this.state.isActive || !this.state.resumeAt) {
       return null
     }
-    
+
     const remaining = this.state.resumeAt - Date.now()
     return Math.max(0, remaining)
   }
@@ -353,10 +353,10 @@ export class SilentModeManager {
   formatRemainingTime(): string | null {
     const remaining = this.getRemainingTime()
     if (remaining === null) return null
-    
+
     const minutes = Math.floor(remaining / 60000)
     const seconds = Math.floor((remaining % 60000) / 1000)
-    
+
     if (minutes > 0) {
       return `${minutes}分${seconds}秒`
     }

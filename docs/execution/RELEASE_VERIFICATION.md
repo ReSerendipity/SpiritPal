@@ -90,4 +90,3 @@ curl -sI https://raw.githubusercontent.com/ReSerendipity/SpiritPal/main/updates.
 
 发布前在 N 卡机器跑上述项并记录结果；任一项超阈值需修复后才可发版（T-08 门禁的本地等价物）。
 实测记录已由 AI 于 2026-09-11 在本机完成（结果 JSON 存 perf/results/，按 .gitignore 不入库）。
-

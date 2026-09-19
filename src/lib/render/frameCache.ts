@@ -1,14 +1,14 @@
 /**
  * @file frameCache.ts
  * @description 帧缓存模块 — LRU Cache 实现
- * 
+ *
  * 实现功能：
  * - 最近使用缓存（LRU 算法）
  * - 空闲时自动清理
  * - 命中率统计与监控
  * - 多级别缓存策略（内存/磁盘）
  * - 智能预加载
- * 
+ *
  * 适用场景：
  * - Live2D 帧动画缓存
  * - 粒子效果预处理
@@ -92,7 +92,7 @@ export class LRUCache<K extends string | number, V> {
   private cache: Map<K, CacheItem<V>>
   private stats: CacheStats
   private cleanupTimer: ReturnType<typeof setInterval> | null = null
-  
+
   constructor(config?: LRUCacheConfig) {
     this.config = {
       maxItems: 1000,
@@ -103,10 +103,10 @@ export class LRUCache<K extends string | number, V> {
       idleThresholdMs: 300000, // 5 分钟
       ...config,
     }
-    
+
     this.cache = new Map()
     this.stats = this.createInitialStats()
-    
+
     // 启动定时清理
     if (this.config.cleanupInterval > 0) {
       this.startAutoCleanup()
@@ -118,9 +118,9 @@ export class LRUCache<K extends string | number, V> {
    */
   get(key: K): V | undefined {
     const startTime = performance.now()
-    
+
     const item = this.cache.get(key)
-    
+
     if (!item) {
       if (this.config.enableStats) {
         this.stats.misses++
@@ -143,7 +143,7 @@ export class LRUCache<K extends string | number, V> {
     // 更新访问信息（LRU 关键步骤）
     item.lastAccessedAt = Date.now()
     item.accessCount++
-    
+
     // 移到链表尾部（通过删除再重新插入实现）
     this.cache.delete(key)
     this.cache.set(key, item)
@@ -278,7 +278,7 @@ export class LRUCache<K extends string | number, V> {
    */
   deleteByTags(tags: string[]): number {
     let deletedCount = 0
-    
+
     const keysToDelete: K[] = []
     for (const [key, item] of this.cache.entries()) {
       if (item.tags.some(tag => tags.includes(tag))) {
@@ -286,7 +286,7 @@ export class LRUCache<K extends string | number, V> {
         deletedCount++
       }
     }
-    
+
     keysToDelete.forEach(key => this.cache.delete(key))
 
     return deletedCount
@@ -359,7 +359,7 @@ export class LRUCache<K extends string | number, V> {
 
     // 超过最大数量或最大大小，开始清理
     while (
-      (this.cache.size >= this.config.maxItems || 
+      (this.cache.size >= this.config.maxItems ||
        this.calculateTotalSize() >= maxBytes) &&
       sorted.length > 0
     ) {
@@ -471,7 +471,7 @@ export class FrameAnimationCache {
    */
   clearAnimation(animationId: string): void {
     const keysToDelete: string[] = []
-    
+
     for (const key of this.cache.keys()) {
       if (typeof key === 'string' && key.startsWith(`${animationId}_`)) {
         keysToDelete.push(key)

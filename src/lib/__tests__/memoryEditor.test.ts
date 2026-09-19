@@ -365,7 +365,7 @@ describe('MemoryEditor', () => {
       expect(result.success).toBe(true)
       expect(result.affectedCount).toBe(3)
 
-      const stats = result.details?.stats as { 
+      const stats = result.details?.stats as {
         totalCount: number
         categoryDistribution: Record<string, number>
         importanceDistribution: { low: number; medium: number; high: number }

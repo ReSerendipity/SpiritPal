@@ -1,14 +1,14 @@
 /**
  * @file memoryRecommendation.ts
  * @description 基于记忆的个性化推荐引擎
- * 
+ *
  * 实现功能：
  * - 基于用户历史记忆的个性化推荐
  * - 物品/活动/话题推荐（协同过滤 + 内容过滤）
  * - 情境感知推荐（时间/地点/情绪适配）
  * - 冷启动策略（新用户/新物品）
  * - 推荐可解释性（为什么推荐这个）
- * 
+ *
  * 参考：Live2DPet memory_recommender.py / OpenPets packages/memory/recommendation/
  */
 
@@ -101,7 +101,7 @@ export class MemoryRecommendationEngine {
   private userProfiles: Map<string, UserInterestProfile> = new Map()
   private itemInteractions: Map<string, Set<string>> = new Map() // itemId -> userIds
   private config: typeof DEFAULT_CONFIG
-  
+
   constructor(config?: Partial<typeof DEFAULT_CONFIG>) {
     this.config = { ...DEFAULT_CONFIG, ...(config || {}) }
   }
@@ -114,29 +114,29 @@ export class MemoryRecommendationEngine {
     query: RecommendationQuery,
   ): Promise<Recommendation[]> {
     const userId = query.userId ?? 'default'
-    
+
     // 更新用户兴趣画像
     const profile = this.updateUserProfile(memories, userId)
-    
+
     // 候选池生成
     const candidates = this.generateCandidatePool(memories, profile, query)
-    
+
     // 评分排序
     const scored = candidates.map(candidate => ({
       ...candidate,
       score: this.scoreRecommendation(candidate, profile, query),
     }))
-    
+
     // 去重和多样化（原地修改 scored 数组）
     this.applyDiversityFilter(scored, 0.2)
-    
+
     // 应用上下文过滤（原地修改 filtered 数组）
     this.applyContextFilter(scored, query.context)
-    
+
     // 按分数排序并限制数量
     const sorted = scored.sort((a, b) => b.score - a.score)
     const limit = query.limit ?? 10
-    
+
     // 转换为 Recommendation 类型
     return sorted.slice(0, limit).map(({ score, id, type, title, description, tags }) => ({
       id,
@@ -159,7 +159,7 @@ export class MemoryRecommendationEngine {
   ): UserInterestProfile {
     const existing = this.userProfiles.get(userId)
     const now = Date.now()
-    
+
     const profile: UserInterestProfile = existing ? {
       ...existing,
       lastUpdated: now,
@@ -171,23 +171,23 @@ export class MemoryRecommendationEngine {
       recentTopics: [],
       lastUpdated: now,
     }
-    
+
     // 从记忆中提取兴趣
     memories.forEach(m => {
       const text = (m.user + m.assistant).toLowerCase()
-      
+
       // 主题提取
       const topics = this.extractTopicsFromText(text)
       topics.forEach(topic => {
         profile.topicPreferences[topic] = (profile.topicPreferences[topic] ?? 0) + 0.1
       })
-      
+
       // 活动提取
       const activities = this.extractActivitiesFromText(text)
       activities.forEach(activity => {
         profile.activityPreferences[activity] = (profile.activityPreferences[activity] ?? 0) + 0.1
       })
-      
+
       // 时间偏好
       const date = new Date(m.created_at)
       const hour = date.getHours()
@@ -196,21 +196,21 @@ export class MemoryRecommendationEngine {
       else if (hour < 18) timePeriod = 'afternoon'
       else if (hour < 22) timePeriod = 'evening'
       else timePeriod = 'night'
-      
+
       profile.timePreferences[timePeriod] = (profile.timePreferences[timePeriod] ?? 0) + 0.05
     })
-    
+
     // 归一化分数到 0-1
     profile.topicPreferences = this.normalizeScores(profile.topicPreferences)
     profile.activityPreferences = this.normalizeScores(profile.activityPreferences)
     profile.timePreferences = this.normalizeScores(profile.timePreferences)
-    
+
     // 更新最近主题（取前 10 个）
     profile.recentTopics = Object.entries(profile.topicPreferences)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10)
       .map(([topic]) => topic)
-    
+
     this.userProfiles.set(userId, profile)
     return profile
   }
@@ -238,7 +238,7 @@ export class MemoryRecommendationEngine {
       baseScore: number
       tags: string[]
     }> = []
-    
+
     // 基于主题的推荐
     profile.recentTopics.slice(0, 5).forEach((topic, idx) => {
       candidates.push({
@@ -250,7 +250,7 @@ export class MemoryRecommendationEngine {
         tags: [topic],
       })
     })
-    
+
     // 基于活动的推荐
     Object.entries(profile.activityPreferences)
       .sort((a, b) => b[1] - a[1])
@@ -265,12 +265,12 @@ export class MemoryRecommendationEngine {
           tags: [activity],
         })
       })
-    
+
     // 基于时间的推荐
-     
+
     const currentHour = new Date().getHours()
     let suggestedTimeActivity: { title: string; description: string }
-    
+
     if (currentHour >= 6 && currentHour < 12) {
       suggestedTimeActivity = {
         title: '晨间活动',
@@ -292,7 +292,7 @@ export class MemoryRecommendationEngine {
         description: '夜深了，该准备休息啦～',
       }
     }
-    
+
     if (suggestedTimeActivity) {
       candidates.push({
         id: `time_activity_${currentHour}`,
@@ -303,7 +303,7 @@ export class MemoryRecommendationEngine {
         tags: ['time_based'],
       })
     }
-    
+
     // 热门话题推荐（如果用户样本不足）
     if (memories.length < this.config.minSamplesForColdStart) {
       const trendingTopics = ['编程', '游戏', '学习', '音乐', '电影']
@@ -320,7 +320,7 @@ export class MemoryRecommendationEngine {
         }
       })
     }
-    
+
     return candidates
   }
 
@@ -340,24 +340,24 @@ export class MemoryRecommendationEngine {
     query: RecommendationQuery,
   ): number {
     let score = candidate.baseScore
-    
+
     // 协同过滤评分
     const collabScore = this.calculateCollaborativeScore(candidate, query.userId)
     score += collabScore * this.config.collaborativeWeight
-    
+
     // 内容匹配评分
     const contentScore = this.calculateContentScore(candidate, profile)
     score += contentScore * this.config.contentWeight
-    
+
     // 上下文适配评分
     if (query.context) {
       const contextScore = this.calculateContextScore(candidate, query.context, profile)
       score += contextScore * 0.2
     }
-    
+
     // 多样性调整
     score *= (1 + this.config.diversityFactor * Math.random())
-    
+
     return Math.min(1.0, score)
   }
 
@@ -369,10 +369,10 @@ export class MemoryRecommendationEngine {
     userId?: string,
   ): number {
     if (!userId) return 0
-    
+
     const interactions = this.itemInteractions.get(candidate.id)
     if (!interactions) return 0
-    
+
     return Math.min(0.3, interactions.size * 0.05)
   }
 
@@ -384,13 +384,13 @@ export class MemoryRecommendationEngine {
     profile: UserInterestProfile,
   ): number {
     let score = 0
-    
+
     // 检查标签匹配
     candidate.tags.forEach(tag => {
       const topicPref = profile.topicPreferences[tag] ?? 0
       score = Math.max(score, topicPref)
     })
-    
+
     // 检查标题匹配
     const titleLower = candidate.title.toLowerCase()
     Object.entries(profile.topicPreferences).forEach(([topic, pref]) => {
@@ -398,7 +398,7 @@ export class MemoryRecommendationEngine {
         score = Math.max(score, pref * 1.2)
       }
     })
-    
+
     return Math.min(1.0, score)
   }
 
@@ -411,12 +411,12 @@ export class MemoryRecommendationEngine {
     profile: UserInterestProfile,
   ): number {
     let score = 0
-    
+
     // 时间段匹配
     if (context.timeOfDay && context.timeOfDay in profile.timePreferences) {
       score = Math.max(score, profile.timePreferences[context.timeOfDay]!)
     }
-    
+
     // 心情适配
     if (context.mood) {
       const moodMapping: Record<string, string[]> = {
@@ -432,7 +432,7 @@ export class MemoryRecommendationEngine {
         }
       })
     }
-    
+
     return score
   }
 
@@ -444,19 +444,19 @@ export class MemoryRecommendationEngine {
     diversityFactor: number,
   ): void {
     if (diversityFactor <= 0) return
-    
+
     const usedTags = new Set<string>()
-    
+
     // 按分数排序
     const sorted = [...recommendations].sort((a, b) => b.score - a.score)
-    
+
     for (const rec of sorted) {
       const overlapRatio = rec.tags.filter(tag => usedTags.has(tag)).length / rec.tags.length
-      
+
       // 如果重叠率太高，降低分数
       const diversityPenalty = overlapRatio * diversityFactor
       rec.score *= (1 - diversityPenalty)
-      
+
       if (rec.score > 0.3) { // 保留得分依然较高的
         rec.tags.forEach(tag => usedTags.add(tag))
       } else {
@@ -473,7 +473,7 @@ export class MemoryRecommendationEngine {
     context?: RecommendationQuery['context'],
   ): void {
     if (!context) return
-    
+
     recommendations.forEach(rec => {
       // 如果有时间段偏好，过滤不合适的
       if (context.timeOfDay && rec.tags.includes('time_inappropriate')) {
@@ -494,16 +494,16 @@ export class MemoryRecommendationEngine {
       '音乐': ['听歌', '音乐', '歌手', '专辑', '演唱会'],
       '电影': ['电影', '电视剧', '动漫', '追剧', '导演', '演员'],
     }
-    
+
     const foundTopics: string[] = []
     const textLower = text.toLowerCase()
-    
+
     Object.entries(topicKeywords).forEach(([topic, keywords]) => {
       if (keywords.some(k => textLower.includes(k))) {
         foundTopics.push(topic)
       }
     })
-    
+
     return foundTopics
   }
 
@@ -518,16 +518,16 @@ export class MemoryRecommendationEngine {
       { pattern: /( 运动 | 健身 | 跑步)/i, activity: '运动' },
       { pattern: /( 做饭 | 买菜 | 吃饭)/i, activity: '烹饪' },
     ]
-    
+
     const foundActivities: string[] = []
     const textLower = text.toLowerCase()
-    
+
     activityPatterns.forEach(({ pattern, activity }) => {
       if (pattern.test(textLower)) {
         foundActivities.push(activity)
       }
     })
-    
+
     return foundActivities
   }
 
@@ -537,12 +537,12 @@ export class MemoryRecommendationEngine {
   private normalizeScores(scores: Record<string, number>): Record<string, number> {
     const max = Math.max(...Object.values(scores))
     if (max === 0) return scores
-    
+
     const normalized: Record<string, number> = {}
     Object.entries(scores).forEach(([key, value]) => {
       normalized[key] = value / max
     })
-    
+
     return normalized
   }
 

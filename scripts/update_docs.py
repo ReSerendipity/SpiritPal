@@ -10,7 +10,9 @@ Usage:
 Defaults: repo-root = one level above this script; tag = "HEAD" (range tag~5..tag).
 
 Exit codes: 0 always (best-effort). On no git range / missing FILEMAP it prints a
-short note and exits 0, mirroring the degradation semantics of check_spec_refs.py.
+short note and exits 0. NOTE (2026-09-18): this helper is advisory-only and has no
+CI gate; do NOT mirror check_spec_refs.py's old degrade-to-0 semantics -- that
+wrapper now uses a 3-state contract (0 ran+passed / 1 ran+failed / 2 not run).
 """
 import datetime
 import subprocess

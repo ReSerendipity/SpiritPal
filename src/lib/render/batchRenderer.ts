@@ -1,7 +1,7 @@
 /**
  * @file batchRenderer.ts
  * @description 批渲染管线 — 减少 Draw Calls
- * 
+ *
  * 实现功能：
  * - 批量合并相同材质/纹理的渲染对象
  * - 单顶点缓冲提交（Single VBO Submission）
@@ -10,7 +10,7 @@
  * - 视锥体剔除（Culling）
  * - LOD 多细节层次
  * - 性能统计与监控
- * 
+ *
  * 参考：Pixi.js BatchRenderer / Unity SRP Batcher
  *
  * ⚠️ 接线状态（A-7 结论）：**本模块只做 CPU 侧的分组 / 剔除 / 顶点打包，不做 GPU 提交。**
@@ -93,7 +93,7 @@ export class BatchRenderer {
   private batches: Map<string, SpriteBatch> = new Map()
   private renderables: Map<string, Renderable> = new Map()
   private config: RenderConfig
-  
+
   // 性能统计
   private stats = {
     totalDrawCalls: 0,
@@ -103,16 +103,16 @@ export class BatchRenderer {
     /** 最近一次 buildBatches 的耗时（毫秒） */
     lastBuildMs: 0,
   }
-  
+
   constructor(config?: Partial<RenderConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...(config || {}) }
-    
+
     // 初始化批次池
     for (let i = 0; i < this.config.maxBatches; i++) {
       // 每个顶点 8 个 float：[x, y, u, v, r, g, b, a]
       const batchSize = this.config.maxVerticesPerBatch * 8
       const vertices = new Float32Array(batchSize)
-      
+
       this.batches.set(`batch_${i}`, {
         key: { textureId: '', blendMode: 'normal' },
         vertices,
@@ -128,7 +128,7 @@ export class BatchRenderer {
    */
   add(renderable: Renderable): void {
     if (!renderable.visible) return
-    
+
     this.renderables.set(renderable.id, {
       ...renderable,
       visible: true,
@@ -148,7 +148,7 @@ export class BatchRenderer {
   update(id: string, updates: Partial<Renderable>): void {
     const renderable = this.renderables.get(id)
     if (!renderable) return
-    
+
     Object.assign(renderable, updates)
   }
 
@@ -157,13 +157,13 @@ export class BatchRenderer {
    */
   buildBatches(): SpriteBatch[] {
     const startTime = performance.now()
-    
+
     // 重置批次
     this.resetBatches()
-    
+
     // 按纹理分组
     const groups = this.groupByTexture()
-    
+
     // 为每个组创建批次
     for (const [textureId, group] of groups.entries()) {
       const batch = this.allocateBatch(textureId)
@@ -171,20 +171,20 @@ export class BatchRenderer {
         console.warn('[BatchRenderer] No available batch slots')
         continue
       }
-      
+
       // 将对象添加到批次
       for (const renderable of group) {
         this.addToBatch(batch, renderable)
       }
     }
-    
+
     const active = this.getActiveBatches()
-    
+
     // 更新统计
     this.stats.totalDrawCalls += active.length
     this.stats.totalVerticesSubmitted += this.getTotalVertexCount()
     this.stats.lastBuildMs = performance.now() - startTime
-    
+
     return active
   }
 
@@ -198,12 +198,12 @@ export class BatchRenderer {
    */
   private groupByTexture(): Map<string, Renderable[]> {
     const groups = new Map<string, Renderable[]>()
-    
+
     // 筛选可见对象并应用剔除
     const visibleObjects = Array.from(this.renderables.values())
       .filter(obj => {
         if (!obj.visible) return false
-        
+
         // 视锥体剔除
         if (this.config.enableCulling) {
           const cullResult = this.checkCulling(obj)
@@ -212,26 +212,26 @@ export class BatchRenderer {
             return false
           }
         }
-        
+
         return true
       })
-    
+
     // 按纹理 ID 分组
     for (const obj of visibleObjects) {
       const key = `${obj.textureId}_${obj.color[3] > 0.5 ? 'opaque' : 'transparent'}`
-      
+
       if (!groups.has(key)) {
         groups.set(key, [])
       }
-      
+
       groups.get(key)!.push(obj)
     }
-    
+
     // 按 z-index 排序
     for (const [, objects] of groups) {
       objects.sort((a, b) => a.zIndex - b.zIndex)
     }
-    
+
     return groups
   }
 
@@ -245,15 +245,15 @@ export class BatchRenderer {
       width: obj.size[0],
       height: obj.size[1],
     }
-    
+
     const vp = this.config.viewport
-    
+
     // AABB 包围盒相交检测
     if (x + width < vp.x || x > vp.x + vp.width ||
         y + height < vp.y || y > vp.y + vp.height) {
       return { culled: true, reason: 'outside_viewport' }
     }
-    
+
     return { culled: false }
   }
 
@@ -267,7 +267,7 @@ export class BatchRenderer {
         return batch
       }
     }
-    
+
     // 寻找空批次
     for (const [, batch] of this.batches) {
       if (batch.count === 0) {
@@ -277,7 +277,7 @@ export class BatchRenderer {
         return batch
       }
     }
-    
+
     return null
   }
 
@@ -287,30 +287,30 @@ export class BatchRenderer {
   private addToBatch(batch: SpriteBatch, obj: Renderable): void {
     // vertexIndex 已经是「顶点数」（末尾 +4），因此起始顶点索引就是它本身
     const idx = batch.vertexIndex
-    
+
     if (idx + 4 > batch.maxVertices) {
       console.warn('[BatchRenderer] Batch overflow')
       return
     }
-    
+
     const [x, y] = obj.position
     const [w, h] = obj.size
     const [sx, sy] = obj.scale
     const [r, g, b, a] = obj.color
-    
+
     // 计算变换后的四个角点
     const cx = x + w / 2
     const cy = y + h / 2
     const cos = Math.cos(obj.rotation)
     const sin = Math.sin(obj.rotation)
-    
+
     const corners = [
       { tx: -w / 2 * sx, ty: -h / 2 * sy },  // top-left
       { tx: w / 2 * sx, ty: -h / 2 * sy },   // top-right
       { tx: w / 2 * sx, ty: h / 2 * sy },    // bottom-right
       { tx: -w / 2 * sx, ty: h / 2 * sy },   // bottom-left
     ]
-    
+
     // UV 坐标（假设完整纹理）
     const uvs = [
       [0, 0],
@@ -318,19 +318,19 @@ export class BatchRenderer {
       [1, 1],
       [0, 1],
     ]
-    
+
     for (let i = 0; i < 4; i++) {
       const vtxIdx = idx + i
       const corner = corners[i]
-      
+
       // 旋转变换
       const rx = corner.tx * cos - corner.ty * sin
       const ry = corner.tx * sin + corner.ty * cos
-      
+
       // 世界坐标
       const wx = cx + rx
       const wy = cy + ry
-      
+
       // 写入顶点数据 [x, y, u, v, r, g, b, a]
       batch.vertices[vtxIdx * 8] = wx
       batch.vertices[vtxIdx * 8 + 1] = wy
@@ -341,7 +341,7 @@ export class BatchRenderer {
       batch.vertices[vtxIdx * 8 + 6] = b * obj.opacity
       batch.vertices[vtxIdx * 8 + 7] = a * obj.opacity
     }
-    
+
     batch.vertexIndex += 4
     batch.count++
   }

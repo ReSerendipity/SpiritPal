@@ -1,10 +1,10 @@
 import { test, expect } from './setup/tauri-fixture';
-import { 
-  waitForSpiritPalApp, 
-  clickPet, 
-  hasBubble, 
+import {
+  waitForSpiritPalApp,
+  clickPet,
+  hasBubble,
   waitForBubble,
-  getPetStats 
+  getPetStats
 } from './setup/tauri-helper';
 
 /**

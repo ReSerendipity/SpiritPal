@@ -16,7 +16,7 @@ test.describe('无障碍功能', () => {
 
   test('不应发现严重的无障碍问题', async ({ page }) => {
     const accessibilityScanResults = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
-    
+
     const criticalIssues = accessibilityScanResults.violations.filter(v => v.impact === 'critical');
     expect(criticalIssues.length).toBe(0);
   });
@@ -27,7 +27,7 @@ test.describe('无障碍功能', () => {
       const ariaLabel = await button.getAttribute('aria-label');
       const textContent = await button.innerText();
       const title = await button.getAttribute('title');
-      
+
       // 至少有某种形式的可识别文本
       expect(ariaLabel || textContent || title).toBeTruthy();
     }

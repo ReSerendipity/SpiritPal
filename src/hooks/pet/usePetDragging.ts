@@ -391,7 +391,7 @@ export function usePetDragging(options: UsePetDraggingOptions): UsePetDraggingRe
           const sf = await win.scaleFactor()
           lastWinPosRef.current = { x: p.x, y: p.y }
           dragScaleRef.current = sf
-           
+
           dragWinOriginRef.current = {
             winX: p.x,
             winY: p.y,

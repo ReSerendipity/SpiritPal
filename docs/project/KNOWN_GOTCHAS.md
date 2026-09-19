@@ -68,7 +68,7 @@
 | 52 | **vitest fake timers 全集合 + advanceTimersByTimeAsync 遇深层 await 链挂起到真实超时** | 单测用 `await vi.advanceTimersByTimeAsync(1000)` 想加速被测代码内部 `setTimeout(1000)`，但中间隔了多层 await Promise | "Test timed out in 5000ms"，multimodalLLM.test 5 个用例同时 5s 超时；顺序/并发运行行为不一致 | 改用 `vi.useFakeTimers({ shouldAdvanceTime: true, advanceTimeDelta: 20 })` 虚拟时钟自动推进，别再用手动 advanceTimersByTimeAsync 与深层 await 链博弈；runAllTimersAsync 在 jsdom+worker 下同样不可靠 | 2026-09-04 |
 | 53 | **PowerShell 的 git commit -m 传多行 here-string 会被拆义** | `$msg = @'...'@` 构造多行提交消息再 `git commit -m $msg` | git 报 "did not match any file(s) known to git"，提交根本没生成 | 多行提交消息用 `git commit -F <临时文件>`（Set-Content -Encoding utf8 后 -F 读取），或单行 `-m`；不要用 -m 接多行变量 | 2026-09-04 |
 | 54 | **多 Agent 并发写同一工作区：文件被改写/删除、测试结果随运行窗口漂移** | 长任务执行期间另一 Agent 在同时工作（运维整改、测试探针调试） | 早前 Read 的测试文件内容被另写（isolate3→isolate4）、_debugTimer.test.ts 突然消失、mtime 持续变化；全量测试失败集每次运行不同（mcpServer/visualMemory/multimodalLLM 轮番失败但单跑全过） | 关键操作前核对 git status 与文件 mtime；出现文件消失/内容被覆盖立即停下确认并发方；测试结论以连续 2 次稳定运行结果为准；提交只用白名单 add 自己负责的文件 | 2026-09-04 |
-| 2026-09-04 | rustup 工具链 manifest 损坏（rustc not applicable） | rustup component 显示 up to date 但 rustc 不可用 | 用 RUSTUP_DIST_SERVER=https://rsproxy.cn 重装对应 channel 修复；勿改 rust-toolchain.toml | 
+| 2026-09-04 | rustup 工具链 manifest 损坏（rustc not applicable） | rustup component 显示 up to date 但 rustc 不可用 | 用 RUSTUP_DIST_SERVER=https://rsproxy.cn 重装对应 channel 修复；勿改 rust-toolchain.toml |
 | 2026-09-04 | vi.mock('fs/promises') 未命中 node:fs/promises 业务 import | 测试 real read 抛 ENOENT | mock specifier 必须与业务 import 前缀完全一致（node: 前缀也匹配） |
 | 2026-09-04 | Playwright page.goto 10s load 超时（dev 多窗口重部件） | accessibility 测试 flaky 失败 | waitUntil=domcontentloaded + waitFor #root；navigationTimeout 放宽 30s |
 | 2026-09-04 | 工作区存在大量 WIP 与任务改动同文件交错 | 无法按片段分离提交 | 按模块分批 add 显式文件并在提交说明标注随带 WIP，避免 add -A |
@@ -78,10 +78,10 @@
 | 52 | **块注释内出现 `*/` 序列 → TS 报 "Unterminated regular expression"** | 写注释"schema_*/dirty_data_registry"（本意是通配符示意），`*/` 提前终止了 `/* */` 块注释，后续代码被当成正则/非法 token | tsc 报 TS1127 Invalid character / TS1161 Unterminated regular expression，定位在注释相邻行，容易误判为文件损坏 | TS 块注释里**禁止出现 `*/` 子串**（含通配符示意），改写为"schema 系列"或拆分措辞；写完含 SQL/通配符的注释立即 tsc 校验 | 2026-09-04 |
 | 53 | **vi.stubGlobal('URL', {...URL}) 会破坏 SSRF 校验的 `new URL()`，网络层用例报 "URL 格式无效"** | 测试为 stub createObjectURL 而 `vi.stubGlobal('URL', { ...URL, createObjectURL: v.fn() })`；实现把网络请求换成 safeFetch / SSRFProtector.validate（内部 `new URL(url)`）后，URL 构造器被普通对象替换 → 校验抛 TypeError 被捕获为 "URL 格式无效" | 改网络层后既有 fetch stub 用例全部失败：SSRF 防护: URL 格式无效；错误信息与真实 URL 无关，极难定位 | ① 单测隔离网络层一律 mock `safeFetch`（vi.mock 模块出口 + `mockResolvedValueOnce`），不要 stub 全局 fetch/URL；② 确需 stub createObjectURL 时避开构造器：`URL.createObjectURL = vi.fn()` 并在 afterEach 恢复；③ 改动涉及网络出口（safeFetch/httpproxy）时，先 grep 各测试是否 stubGlobal（'URL'/'fetch'） | 2026-09-04 |
 | 55 | **trait 对象经 Arc 进 spawn_blocking：dyn Trait 缺 Sync 报 E0277** | keychain.rs 整改把密钥访问抽成 	rait SecretStore（声明 Send + 'static），命令用 Arc<dyn SecretStore> 放入 	auri::async_runtime::spawn_blocking | 编译报 (dyn SecretStore) cannot be shared between threads safely，报错点在闭包捕获处而非 trait 声明处，极难定位（提示词甚至断言这是「既有编译失败」） | ① Arc<T>: Send 要求 T: Send + Sync，跨线程共享的 trait 对象一律声明 Send + Sync + 'static；② 改 trait 能力边界时先想它会以什么容器进入线程（Arc/Box+spawn）| 2026-09-04 |
-| 56 | **Cargo git 依赖 
-ev 与 ranch 互斥，不能同时 pin** | M4 给 tauri-nspanel 加 
+| 56 | **Cargo git 依赖
+ev 与 ranch 互斥，不能同时 pin** | M4 给 tauri-nspanel 加
 ev = "a3122e8…" 时保留了 ranch = "v2.1" | cargo metadata 报 dependency specification is ambiguous: Only one of branch/tag/rev is allowed | Cargo 的 git 依赖 pin：
-ev（commit）与 ranch/	ag 三选一；要防内容漂移就只用 
+ev（commit）与 ranch/	ag 三选一；要防内容漂移就只用
 ev（锁定确切 commit），要跟随分支就只用 ranch，不可共存 | 2026-09-04 |
 | 57 | **setup 拆分后出现「函数体重复 + 一方 dead_code」——哪份是最新实现要靠运行路径判断** | lib.rs 中 setup_desktop_app 与 run() 的 setup 闭包内联块几乎重复（窗口/托盘/快捷键），setup_desktop_app 标 #[allow(dead_code)] 但实际从未被调用；两版在 focus-mode/chat 窗口创建方式上还有行为差异 | 无法用静态分析确定哪份是「最新想要的」；直接删旧版可能丢行为，直接删内联版又把 dead 代码激活 | 重构「疑似重复」时：① 先看谁被真正调用（运行路径 = 事实源）：内联块在 run() 里被执行 → 以它为基准迁移；② 迁移后删除 dead 函数并去掉 allow(dead_code)；③ 对比两版差异逐项确认（本例 focus-mode 行为以运行版为准）| 2026-09-04 |
 | 58 | **PowerShell 管道吞掉原生命令退出码：cmd | Select-String 后 $LASTEXITCODE 不可信** | 用 cargo check 2>&1 | Select-String ...;  判断编译结果 | 管道后 $LASTEXITCODE 反映的是管道中最后一条原生命令（cargo）状态——但 Select-String 无输出时仍返回成功，且 EXIT 值曾被误读为 0 导致「以为全绿」 | 判断编译/测试成败：① 不用管道时直接看 $LASTEXITCODE；② 需要过滤时把输出重定向到文件再过滤（cmd | Out-File tmp; Select-String tmp），或观察命令自身 stderr 的 error 字样；③ 重要门禁（提交前）一律跑不带管道的原始命令 | 2026-09-04 |

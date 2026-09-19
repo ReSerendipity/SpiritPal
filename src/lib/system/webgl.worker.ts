@@ -1,7 +1,7 @@
 /**
  * @file webgl.worker.ts
  * @description WebGL 渲染 Worker 主线程
- * 
+ *
  * 运行在独立的 Worker 线程中，负责所有 WebGL 相关操作
  */
 
@@ -32,33 +32,33 @@ const stats = {
 
 self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
   const message = event.data
-  
+
   try {
     switch (message.type) {
       case 'init':
         await handleMessageInit(message)
         break
-        
+
       case 'render':
         handleRender(message)
         break
-        
+
       case 'resize':
         handleResize(message)
         break
-        
+
       case 'update':
         handleUpdate(message)
         break
-        
+
       case 'destroy':
         destroy()
         break
-        
+
       case 'stats':
         sendStats(message.id)
         break
-        
+
       default:
         sendError(message.id, `Unknown message type: ${message.type}`)
     }
@@ -73,18 +73,18 @@ async function handleMessageInit(message: WorkerMessage): Promise<void> {
   if (message.payload?.canvasTransferable) {
     // OffscreenCanvas 初始化
     console.log('[WebGLWorker] Initializing with OffscreenCanvas')
-    
+
     canvas = new OffscreenCanvas(1920, 1080)
     gl = canvas.getContext('webgl') as WebGLRenderingContext
-    
+
     if (!gl) {
       throw new Error('WebGL not available in worker')
     }
-    
+
     // 初始化粒子系统（OffscreenCanvas）
     const canvasEl = canvas as unknown as HTMLCanvasElement
     particleSystem = new GPUParticleSystem(canvasEl)
-    
+
     // 初始化批渲染器
     batchRenderer = new BatchRenderer({
       maxBatches: 16,
@@ -92,9 +92,9 @@ async function handleMessageInit(message: WorkerMessage): Promise<void> {
       enableCulling: true,
       viewport: { x: 0, y: 0, width: 1920, height: 1080 },
     })
-    
+
     sendSuccess(message.id, { success: true })
-    
+
     // 开始渲染循环
     startRenderLoop()
   } else {
@@ -107,17 +107,17 @@ function handleRender(message: WorkerMessage): void {
   if (!gl || !particleSystem || !batchRenderer) {
     return
   }
-  
+
   const commands = message.payload?.commands || []
-  
+
   // 执行命令
   for (const cmd of commands) {
     executeRenderCommand(cmd)
   }
-  
+
   // 提交帧
   gl.flush()
-  
+
   // 更新统计
   frameCount++
   const now = performance.now()
@@ -132,21 +132,21 @@ function handleRender(message: WorkerMessage): void {
 
 function handleResize(message: WorkerMessage): void {
   const { width, height } = message.payload
-  
+
   if (canvas && gl) {
     canvas.width = width
     canvas.height = height
-    
+
     gl.viewport(0, 0, width, height)
-    
+
     if (particleSystem) {
       particleSystem.resize(width, height)
     }
-    
+
     if (batchRenderer) {
       batchRenderer.setViewport(0, 0, width, height)
     }
-    
+
     sendSuccess(message.id, { width, height })
   }
 }
@@ -154,7 +154,7 @@ function handleResize(message: WorkerMessage): void {
 function handleUpdate(message: WorkerMessage): void {
   const deltaTime = message.payload?.deltaTime || 0.016
   const emitterPos = message.payload?.emitterPos || { x: 0, y: 0 }
-  
+
   if (particleSystem) {
     particleSystem.update(deltaTime * 1000, emitterPos)
   }
@@ -162,25 +162,25 @@ function handleUpdate(message: WorkerMessage): void {
 
 function executeRenderCommand(cmd: RenderCommand): void {
   if (!gl) return
-  
+
   switch (cmd.command) {
     case 'drawSprite':
       // TODO: 实现精灵绘制
       break
-      
+
     case 'drawParticle':
       if (particleSystem) {
         particleSystem.render()
       }
       break
-      
+
     case 'clear': {
       const color = cmd.params.color || [0, 0, 0, 0]
       gl.clearColor(color[0], color[1], color[2], color[3])
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
       break
     }
-      
+
     case 'present':
       // OffscreenCanvas 自动呈现
       break
@@ -252,7 +252,7 @@ function sendSuccess(messageId: string, data?: any): void {
     type: 'success',
     data,
   }
-  
+
   self.postMessage(response)
 }
 
@@ -262,7 +262,7 @@ function sendError(messageId: string, error: string): void {
     type: 'error',
     error,
   }
-  
+
   self.postMessage(response)
 }
 
@@ -283,11 +283,11 @@ function destroy(): void {
     const ext = gl.getExtension('WEBGL_lose_context')
     ext?.loseContext()
   }
-  
+
   canvas = null
   gl = null
   particleSystem = null
   batchRenderer = null
-  
+
   console.log('[WebGLWorker] Resources cleaned up')
 }

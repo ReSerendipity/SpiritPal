@@ -178,7 +178,7 @@ const styles = {
 const TimelineView: React.FC = () => {
   const keyframeMem = getKeyframeMemory()
   const { getMemoryByTimeRange } = useEnhancedMemory()
-  
+
   const frames = useMemo(() => {
     return keyframeMem.getAllFrames().sort((a, b) => b.timestamp - a.timestamp)
   }, [])
@@ -194,7 +194,7 @@ const TimelineView: React.FC = () => {
   return (
     <div style={styles.content}>
       <h3 style={{ marginBottom: '16px', color: '#333' }}>最近 24 小时记忆</h3>
-      
+
       {/* 关键帧时间线 */}
       <div style={{ marginBottom: '24px' }}>
         <h4 style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>视觉关键帧</h4>
@@ -245,13 +245,13 @@ const SearchView: React.FC = () => {
 
   useEffect(() => {
     if (!query.trim()) {
-       
+
       setResults([])
       return
     }
     // 本地时序索引即时命中（保持原同步契约）
     const found = searchMemory(query)
-     
+
     setResults(found)
     // B2（ADR-0003）：cognee 长期记忆增强检索，异步合并去重；
     // sidecar 离线/无结果时静默保持本地结果（cogneeClient 已做降级）。
@@ -280,8 +280,8 @@ const SearchView: React.FC = () => {
   const highlightText = (text: string, highlight: string): React.ReactNode => {
     if (!highlight.trim()) return text
     const parts = text.split(new RegExp(`(${highlight})`, 'gi'))
-    return parts.map((part, i) => 
-      part.toLowerCase() === highlight.toLowerCase() 
+    return parts.map((part, i) =>
+      part.toLowerCase() === highlight.toLowerCase()
         ? <mark key={i} style={{ backgroundColor: '#ffeb3b' }}>{part}</mark>
         : part
     )
@@ -290,7 +290,7 @@ const SearchView: React.FC = () => {
   return (
     <div style={styles.content}>
       <h3 style={{ marginBottom: '16px', color: '#333' }}>记忆搜索</h3>
-      
+
       <input
         type="text"
         placeholder="搜索记忆内容..."
@@ -423,7 +423,7 @@ const GraphView: React.FC = () => {
 
   useEffect(() => {
     // 模拟知识图谱数据（实际应从 enhanced memory 提取实体关系）
-     
+
     setNodes([
       { id: 'user', label: '主人', category: 'person' },
       { id: 'pet', label: 'SpiritPal', category: 'pet' },
@@ -455,7 +455,7 @@ const GraphView: React.FC = () => {
   return (
     <div style={styles.content}>
       <h3 style={{ marginBottom: '16px', color: '#333' }}>知识图谱</h3>
-      
+
       <div style={styles.graphCanvas}>
         <svg width="100%" height="100%" viewBox="0 0 768 400">
           {/* 连接线 */}
@@ -463,13 +463,13 @@ const GraphView: React.FC = () => {
             const source = nodes.find(n => n.id === link.source)
             const target = nodes.find(n => n.id === link.target)
             if (!source || !target) return null
-            
+
             // 简化布局：水平排列节点
             const sourceX = 100
             const targetX = 600
             const sourceY = 80 + (nodes.indexOf(source) * 40)
             const targetY = 80 + (nodes.indexOf(target) * 40)
-            
+
             return (
               <line
                 key={idx}
@@ -487,7 +487,7 @@ const GraphView: React.FC = () => {
           {nodes.map((node, idx) => {
             const x = idx % 2 === 0 ? 100 : 600
             const y = 80 + idx * 35
-            
+
             return (
               <g key={node.id}>
                 <circle

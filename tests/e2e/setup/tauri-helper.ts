@@ -1,6 +1,6 @@
 /**
  * Tauri E2E 测试辅助工具
- * 
+ *
  * 提供与 Tauri 应用交互的通用方法：
  * - 等待应用加载完成
  * - 模拟全局快捷键
@@ -32,14 +32,14 @@ export async function isPetReady(page): Promise<boolean> {
   try {
     const container = await page.$('[data-testid="live2d-container"]');
     if (!container) return false;
-    
+
     const visible = await container.isVisible();
     if (!visible) return false;
-    
+
     // 检查是否有错误状态
     const errorElement = await page.$('.pet-load-error');
     if (errorElement) return false;
-    
+
     return true;
   } catch {
     return false;
@@ -55,9 +55,9 @@ export async function getPetStats(page): Promise<PetStats | null> {
       const el = document.querySelector('[data-testid="pet-stats"]');
       return el?.textContent || null;
     });
-    
+
     if (!statsText) return null;
-    
+
     // 解析统计数据（根据实际格式调整）
     const match = statsText.match(/LVL:(\d+)\s+HUNGER:(\d+)\s+MOOD:(\d+)\s+HP:(\d+)\s+AFF:(\d+)/);
     if (match) {
@@ -69,7 +69,7 @@ export async function getPetStats(page): Promise<PetStats | null> {
         affection: parseInt(match[5])
       };
     }
-    
+
     return null;
   } catch {
     return null;
@@ -83,13 +83,13 @@ export async function clickPet(page, position: 'left'|'center'|'right' = 'center
   const selector = '[data-testid="live2d-container"]';
   const element = await page.$(selector);
   if (!element) throw new Error('Pet container not found');
-  
+
   const box = await element.boundingBox();
   if (!box) throw new Error('Could not get pet bounding box');
-  
+
   const x = box.x + (box.width * (position === 'left' ? 0.25 : position === 'center' ? 0.5 : 0.75));
   const y = box.y + box.height * 0.6;
-  
+
   await page.click(selector, { position: { x: Math.round(x - box.x), y: Math.round(y - box.y) } });
 }
 

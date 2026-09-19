@@ -15,7 +15,10 @@ jobs:
         with:
           python-version: '3.12'
       - name: Audit spec references
-        run: python scripts/check_spec_refs.py
+        # 家族审计器位于仓库外（同级 .spec_audit），干净 CI 检出必然缺失：
+        # --allow-unavailable 把「未执行」转为显式 ::warning:: 标注 + step summary；
+        # 绿色 job ≠ 已验证（状态契约见 scripts/check_spec_refs.py docstring）。
+        run: python scripts/check_spec_refs.py --allow-unavailable
 
   version-consistency:
     runs-on: ubuntu-latest

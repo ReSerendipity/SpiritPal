@@ -89,7 +89,7 @@ export function useDockVisualFeedback(
   // 吸附时更新表情和朝向
   useEffect(() => {
     if (!enabled || dragging) {
-       
+
       setIsDocked(false)
       setExpression('normal')
       setPeekScale(PEEK_SCALE_MAX)
@@ -98,7 +98,7 @@ export function useDockVisualFeedback(
 
     if (dockDir) {
       setIsDocked(true)
-      
+
       // 根据边缘方向设置表情
       if (dockDir === 'top' || dockDir === 'bottom') {
         setExpression('curious') // 上下边缘 → 好奇表情

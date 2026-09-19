@@ -1,7 +1,7 @@
 /**
  * @file emojiCultureData.ts
  * @description 文化适配表情包数据集 — 中/英/日/韩四文化特色表情
- * 
+ *
  * 不同文化背景下对表情的理解差异：
  * - 中文：偏爱可爱、萌系、网络流行语表情
  * - 英文：简洁直接，常用手势和物体表情
@@ -411,7 +411,7 @@ export function getCulturalEmoji(key: string, locale: CultureLocale): EmojiSet {
       category: 'neutral',
     }
   }
-  
+
   return set.primary[locale] || set.primary['zh-CN']
 }
 

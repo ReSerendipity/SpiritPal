@@ -751,4 +751,3 @@ export type BubbleType =
   | 'pet'            // 被摸头
   | 'feed'           // 被喂食
   | 'custom'         // 自定义气泡（如倒计时等）
-

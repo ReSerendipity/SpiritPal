@@ -1,14 +1,14 @@
 /**
  * @file batchOperationManager.ts
  * @description 批量操作管理器 — 多选 + 批量事务
- * 
+ *
  * 实现功能：
  * - 多选管理（复选框/Shift 范围选择）
  * - 批量删除/移动/修改标签
  * - 批量导出
  * - 撤销/重做支持
  * - 进度反馈和错误处理
- * 
+ *
  * 适用场景：
  * - 记忆管理：批量清理旧记忆/打标签
  * - 物品管理：批量使用/出售物品
@@ -18,7 +18,7 @@
 
 // ============ 类型定义 ============
 
-export type BatchOperationType = 
+export type BatchOperationType =
   | 'delete'
   | 'move'
   | 'tag'
@@ -88,7 +88,7 @@ export class BatchOperationManager<T extends { id: string }> {
     result: BatchOperationResult
   }> = []
   private maxHistorySize: number
-  
+
   constructor(
     initialItems: T[] = [],
     config?: { maxHistorySize?: number },
@@ -139,12 +139,12 @@ export class BatchOperationManager<T extends { id: string }> {
   selectRange(fromId: string, toId: string): void {
     const fromIndex = this.findItemIndex(fromId)
     const toIndex = this.findItemIndex(toId)
-    
+
     if (fromIndex === null || toIndex === null) return
-    
+
     const start = Math.min(fromIndex, toIndex)
     const end = Math.max(fromIndex, toIndex)
-    
+
     this.selection.selectedIds.clear()
     for (let i = start; i <= end; i++) {
       const item = this.selection.allItems[i]
@@ -152,7 +152,7 @@ export class BatchOperationManager<T extends { id: string }> {
         this.selection.selectedIds.add(item.id)
       }
     }
-    
+
     this.selection.lastClickedIndex = toIndex
     this.updateSelectAllState()
   }
@@ -189,7 +189,7 @@ export class BatchOperationManager<T extends { id: string }> {
   invertSelection(): void {
     const allIds = new Set(this.selection.allItems.map(i => i.id))
     const notSelected = new Set([...allIds].filter(id => !this.selection.selectedIds.has(id)))
-    
+
     this.selection.selectedIds = notSelected
     this.updateSelectAllState()
   }
@@ -198,7 +198,7 @@ export class BatchOperationManager<T extends { id: string }> {
    * 获取选中项
    */
   getSelectedItems(): T[] {
-    return this.selection.allItems.filter(item => 
+    return this.selection.allItems.filter(item =>
       this.selection.selectedIds.has(item.id)
     )
   }
@@ -237,7 +237,7 @@ export class BatchOperationManager<T extends { id: string }> {
   private updateSelectAllState(): void {
     const total = this.selection.allItems.length
     const selected = this.selection.selectedIds.size
-    
+
     if (total === 0) {
       this.selection.selectAllState = false
     } else if (selected === 0) {
@@ -427,7 +427,7 @@ export class BatchOperationManager<T extends { id: string }> {
 
       // 记录到历史
       this.operationHistory.push({ operation, result })
-      
+
       // 限制历史大小
       if (this.operationHistory.length > this.maxHistorySize) {
         this.operationHistory.shift()
@@ -442,7 +442,7 @@ export class BatchOperationManager<T extends { id: string }> {
     } catch (globalError) {
       operation.status = 'failed'
       operation.completedAt = Date.now()
-      
+
       return {
         success: false,
         successCount: 0,
@@ -466,7 +466,7 @@ export class BatchOperationManager<T extends { id: string }> {
     if (!last) return false
 
     const { operation, result } = last
-    
+
     if (result.undo) {
       try {
         result.undo(operation.itemIds)

@@ -117,6 +117,8 @@ mod asset_pipeline;
 mod generated {
     pub mod sri_hashes;
 }
+// R-11: 运行时完整性校验（读取二进制内嵌资源重算 SHA-256 与清单比对；语义详见模块注释）
+mod integrity;
 
 // ============ 跨模块命令导入（供 generate_handler! 使用）============
 // Tauri 的 generate_handler! 宏接受函数标识符，需要先 use 导入
@@ -273,7 +275,8 @@ pub fn run() {
             // R-12: 启动时反调试检查（D-6：命中写审计 + emit 前端安全模式事件）
             antidebug::startup_check(Some(app.handle()));
             // R-11: 启动时 SRI 完整性验证（D-7：消费返回布尔 —— 不匹配记 error + 通知前端，不阻断启动）
-            if !generated::sri_hashes::verify_integrity() {
+            // release：读取二进制内嵌资源重算 SHA-256 与清单逐条比对；debug：跳过（清单仅对 release 产物具权威性）
+            if !integrity::verify_integrity(app.handle()) {
                 log::error!("[SRI] 前端资源完整性校验失败（可能被篡改）");
                 use tauri::Emitter;
                 let _ = app.emit("spiritpal:integrity-warning", true);

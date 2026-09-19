@@ -7,9 +7,11 @@
 
 ***
 
-## \[Unreleased]
+## [Unreleased]
 
 ### Added
+
+- `scripts/check_android_proguard_keeps.py` —— Android release 的 **R8 keep 规则静态守卫**，并接入 CI 必需检查（`.github/workflows/structure-guard.yml` 的 `layout` job）。release 开 `minifyEnabled` 后 R8 会**静默**删掉「Kotlin/Java 侧无调用者、只能被 Rust 侧经 JNI 反射调用」的方法（编译期零告警、真机启动才 `NoSuchMethodError`，已踩 3 次）。守卫校验三件事：① `app/proguard-rules.pro` 是否覆盖全部 26 项「仅 JNI 可达」方法（ProGuard 语义感知：`native <methods>` 只算覆盖 native 方法、`pkg.*` 不跨包）；② `app/build.gradle` 的 release `proguardFiles` 是否仍引用该规则文件；③ `Cargo.lock` 里 `wry`/`tauri` 是否仍是已审计版本（依赖升级会改变 JNI 面，升级即报红要求重新审计）。纯静态、秒级、无需 Android 工具链。DEX 级证明仍需 `scripts/verify_android_jni_keeps.py`（需 APK，release 包出完必跑，SOP-4）。
 
 - `install.bat` — Windows 一键安装脚本（自动检查 Node.js / pnpm / Rust）
 
@@ -44,12 +46,14 @@
 
 ### Fixed
 
+- **`ChatWindow.mkMsg()` 的消息 ID 从 `Math.random()` 改为 CSPRNG（CodeQL "Insecure randomness" 收口）**：PR #58 时只修了 `chatStore.genId()`，`src/components/ChatWindow.tsx` 的 `mkMsg()` 仍在用 `Math.random().toString(36).slice(2, 9)` 生成消息 ID（当轮 CodeQL 未告警，属漏网）。本次把随机 ID 实现抽成独立模块 `src/lib/system/randomId.ts`（`genId()`：`<毫秒时间戳>-<12 位 hex>`，48 bit 熵），`chatStore` 与 `ChatWindow` 共用一份，避免两处各写一份再漂移；并补单测 `src/lib/system/__tests__/randomId.test.ts`（格式 / 时间戳前缀 / 同毫秒 1000 个不重复 / **断言走 `crypto.getRandomValues` 且不调 `Math.random`** 防回归）。注意实现位置：**不能**从 `chatStore` 导出给 `ChatWindow` 复用——组件测试用 `vi.mock('@/stores/chatStore', ...)` 整体替换模块，额外导出会让被测组件拿到 `undefined`（且只在 stderr 报错，测试仍显示全绿）。
+- **Android release 包真机启动即崩：R8 把「仅 JNI 可达」的方法当 unused 删掉（2026-09-18 修复）**：release 开启 `minifyEnabled=true` 后，R8 会删除「只能被 Rust 侧经 JNI 反射调用、Kotlin/Java 侧没有任何调用者」的方法，**编译期无任何告警**，真机启动瞬间抛 `java.lang.NoSuchMethodError` + SIGABRT。共修 3 处：① `WryActivity.getId()` 等 wry keep 集合（wry 自带的 `proguard-wry.pro` 从未接入本构建）；② `TauriActivity.getPluginManager()`（`app/build.gradle` 的 release `proguardFiles` 引用了 tauri CLI 自动生成的 `proguard-tauri.pro`，而该文件在本仓缺失——Gradle 对缺失的 proguard 文件**不报错也不警告**，静默少应用一份规则；该文件被 `gen/android/app/.gitignore` 忽略，故同一份 keep 规则同时写入被跟踪的 `app/proguard-rules.pro` 防复发）；③ `RustWebView.clearAllBrowsingData()` / `getCookies(String)`（wry 官方规则自身漏列，实测在 release DEX 中确已被删除，属定时炸弹）。同时新增门禁 `scripts/verify_android_jni_keeps.py`：抽 release APK 的 `classes*.dex`、按 `Class descriptor` 边界核对 **26 项 JNI 方法**是否保留，rc=0 才算过（release 包出完必跑）。验证：`assembleArm64Release` BUILD SUCCESSFUL；校验脚本 26/26 OK（对修复前的包报 15 项缺失）；真机（Realme RMX5010 / Android 16）安装启动后 `pidof` 存活、`logcat -b crash` 为空、截图见宠物主界面（状态面板 + 底部导航齐全）。
 - **检查更新在宠物/聊天窗口报 not allowed by ACL（2026-09-11 第五轮修复）**：UpdateNotification 挂在全部桌面窗口，但 updater/process 权限只授给 settings-window，主窗口 30s 自动检查必弹「更新失败：Command plugin:updater|check not allowed by ACL」（v0.1.0 受影响）；default.json(pet/main)/chat-window.json 补 updater:default、allow-check、allow-download-and-install、process:allow-restart；default.json 另补 store:allow-load/get/set（消除 windowPositionMemory 降级告警）。修复后真机 GUI 实测设置→关于→检查更新「正在检查更新」→「已是最新版本」正常。
 - **CI 前端门禁转红（vitest 4 覆盖率口径变化）**：`cc0885a` 将 vitest 3.2.7 → 4.1.11（安全修复，无 3.x 修复版）后，vitest 4 的 v8 provider 改为 AST 感知重映射，同一份代码实测覆盖率由 lines 50.6/funcs 66.8/branches 78.8 降到 46.68/43/38.66，跌破 48/60/50/48 阈值。判据：转红区间（`cb0c3498`→`969f786`）内 **src/ 生产代码零改动**、163 个测试文件全通过 → 属度量口径变化而非质量退化。按新口径重校准阈值（lines 46 / functions 42 / branches 38 / statements 45，留 ~0.5pp 余量）并同步 `docs/agents/QUALITY_CONTRACT.md`。
 
 - **CI 前端矩阵移除 Node 20**：仓库使用 pnpm 11（lockfile 与 `pnpm/action-setup` 均锁 11），pnpm 11 要求 Node >= 22.13，Node 20 上直接报 `This version of pnpm requires at least Node.js v22.13` 并退出 —— 该矩阵项结构性不可能通过（Node 20 亦已 EOL）；矩阵改为 `[22]`。
 
-## \[0.1.0] - 2026-09-10
+## [0.1.0] - 2026-09-10
 
 ### Added — 项目初始发布
 
@@ -153,4 +157,3 @@
 - 辅助脚本：WindowPet 资源转换器、代码混淆 + SRI 生成
 
 - ESLint + Prettier + TypeScript 严格模式
-

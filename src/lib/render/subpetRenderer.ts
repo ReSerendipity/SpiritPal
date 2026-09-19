@@ -46,7 +46,7 @@ export type SubpetImageFactory = (src: string) => SubpetImageLike
 
 /** 默认图片工厂 — 使用全局 Image（jsdom / 浏览器均可用） */
 function defaultImageFactory(src: string): SubpetImageLike {
-   
+
   const img = new Image()
   img.src = src
   // HTMLImageElement 的 onload 签名带 Event 参数，与 SubpetImageLike 兼容，此处窄化

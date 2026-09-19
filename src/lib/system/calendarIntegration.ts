@@ -4,7 +4,7 @@
  *       插件（CalendarSourceAdapter）的 Node 侧参考实现，需经 Tauri 命令桥接后在 webview 侧注册适配器
  *       （见 lib/scheduleManager.ts 的 CalendarSourceAdapter 接口）。
  * @description 日程集成 — 读取系统日历 + 智能提醒
- * 
+ *
  * 实现功能：
  * - Windows/macOS系统日历读取（Microsoft Outlook / Apple Calendar）
  * - Google Calendar / Office 365 API 集成
@@ -13,7 +13,7 @@
  * - 重要事件特别提示
  * - 日程冲突检测
  * - 隐私保护（用户授权机制）
- * 
+ *
  * 参考：Google Calendar API / Microsoft Graph API
  */
 
@@ -109,7 +109,7 @@ export class CalendarManager {
   private eventsCache: Map<string, CalendarEvent[]> = new Map()
   private config: ReminderConfig
   private reminderTimer: NodeJS.Timeout | null = null
-  
+
   constructor(config?: Partial<ReminderConfig>) {
     this.config = { ...DEFAULT_REMINDER_CONFIG, ...(config || {}) }
     this.initDataSources()
@@ -120,7 +120,7 @@ export class CalendarManager {
    */
   private initDataSources(): void {
     const os = process.platform
-    
+
     if (os === 'win32') {
       this.dataSources.set('windows-calendar', {
         name: 'Windows 日历',
@@ -136,7 +136,7 @@ export class CalendarManager {
         permissionGranted: false,
       })
     }
-    
+
     // 预留云端服务
     this.dataSources.set('google-calendar', {
       name: 'Google Calendar',
@@ -144,7 +144,7 @@ export class CalendarManager {
       connected: false,
       permissionGranted: false,
     })
-    
+
     this.dataSources.set('outlook', {
       name: 'Outlook',
       type: 'outlook',
@@ -189,8 +189,8 @@ export class CalendarManager {
     dataSourceIds?: string[],
   ): Promise<CalendarEvent[]> {
     const events: CalendarEvent[] = []
-    
-    const sources = dataSourceIds 
+
+    const sources = dataSourceIds
       ? dataSourceIds.map(id => this.dataSources.get(id)).filter((s): s is CalendarDataSource => s !== undefined)
       : Array.from(this.dataSources.values()).filter(s => s.permissionGranted && s.connected)
 
@@ -204,7 +204,7 @@ export class CalendarManager {
 
         const fetched = await this.fetchEvents(source, startDate, endDate)
         events.push(...fetched)
-        
+
         // 保存到缓存
         await this.saveToCache(source.name, fetched, startDate, endDate)
       } catch (error) {
@@ -224,7 +224,7 @@ export class CalendarManager {
     const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
     const endOfDay = new Date(startOfDay)
     endOfDay.setDate(endOfDay.getDate() + 1)
-    
+
     return this.getEventsInRange(startOfDay, endOfDay)
   }
 
@@ -234,7 +234,7 @@ export class CalendarManager {
   async getUpcomingEvents(minutes?: number): Promise<CalendarEvent[]> {
     const now = new Date()
     const future = new Date(now.getTime() + (minutes ?? 60) * 60 * 1000)
-    
+
     return this.getEventsInRange(now, future)
   }
 
@@ -278,7 +278,7 @@ export class CalendarManager {
     const remindTime = new Date(now.getTime() + this.config.minutesBefore * 60 * 1000)
 
     const events = await this.getEventsInRange(now, remindTime)
-    
+
     // 过滤低优先级
     const filtered = this.config.showOnlyHighPriority
       ? events.filter(e => e.priority === 'high')
@@ -327,9 +327,9 @@ export class CalendarManager {
 
     const now = new Date()
     const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-    
+
     const { start, end } = this.config.quietHours
-    
+
     if (start <= end) {
       // 正常范围（如 22:00-08:00 不跨夜）
       return currentTime >= start && currentTime < end
@@ -348,7 +348,7 @@ export class CalendarManager {
       const { stdout } = await execAsync(
         'events list -calendar "Home" -last 1 day 2>/dev/null || echo "permission denied"'
       )
-      
+
       if (!stdout.includes('permission denied')) {
         console.log('[Calendar] macOS calendar permission granted')
       }
@@ -380,7 +380,7 @@ export class CalendarManager {
   ): Promise<void> {
     const cacheKey = `${dataSourceName}_${startDate.toISOString()}_${endDate.toISOString()}`
     this.eventsCache.set(cacheKey, events)
-    
+
     // 限制缓存大小
     if (this.eventsCache.size > 100) {
       const firstKey = this.eventsCache.keys().next().value

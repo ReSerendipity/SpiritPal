@@ -17,7 +17,7 @@ test.describe('记忆系统', () => {
     if (settingsBtn) {
       await settingsBtn.click();
       await page.waitForTimeout(500);
-      
+
       // 检查记忆管理选项卡是否存在
       const memoryTab = await page.$('[data-testid="memory-tab"], .memory-tab');
       expect(memoryTab).toBeTruthy();
@@ -30,15 +30,15 @@ test.describe('记忆系统', () => {
     if (memoryLink) {
       await memoryLink.click();
       await page.waitForTimeout(1000);
-      
+
       const searchInput = await page.$('input[type="search"], input[placeholder*="搜索"]');
       expect(searchInput).toBeTruthy();
-      
+
       if (searchInput) {
         await searchInput.fill('测试');
         await page.keyboard.press('Enter');
         await page.waitForTimeout(500);
-        
+
         // 搜索结果容器应该存在
         const resultsContainer = await page.$('.memory-results, [data-testid="memory-search-results"]');
         expect(resultsContainer).toBeTruthy();

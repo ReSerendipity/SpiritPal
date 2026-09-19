@@ -1,14 +1,14 @@
 /**
  * @file spriteAtlasBuilder.ts
  * @description 精灵图合并模块 — 减少 draw calls
- * 
+ *
  * 实现功能：
  * - 多张图片自动拼合为精灵图（Sprite Atlas）
  * - 智能布局算法（矩形打包）
  * - 切片信息生成（UV 坐标映射）
  * - 增量更新（只重绘变化的部分）
  * - 多级分辨率支持（2x, 3x）
- * 
+ *
  * 适用场景：
  * - Live2D 精灵图预合成
  * - UI 图标集打包
@@ -107,7 +107,7 @@ export interface SpriteAtlasData {
 class BinPacker {
   private root: { x: number; y: number; width: number; height: number }
   private items: Array<{ rect: { x: number; y: number; w: number; h: number }; item: any }> = []
-  
+
   constructor(width: number, height: number) {
     this.root = { x: 0, y: 0, width, height }
   }
@@ -137,11 +137,11 @@ class BinPacker {
     if (root.used) {
       return this.findNode(root.right, width, height) || this.findNode(root.down, width, height)
     }
-    
+
     if (width <= root.width && height <= root.height) {
       return root
     }
-    
+
     return null
   }
 
@@ -246,7 +246,7 @@ export class SpriteAtlasBuilder {
       const item = pos.data as SpriteItem
       item.x = pos.x + pad
       item.y = pos.y + pad
-      
+
       // 计算边界
       usedAreaX = Math.min(usedAreaX, pos.x)
       usedAreaY = Math.min(usedAreaY, pos.y)

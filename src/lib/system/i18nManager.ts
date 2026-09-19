@@ -63,7 +63,7 @@ export class I18nManager {
 
   constructor(config?: Partial<I18nConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...(config || {}) }
-    
+
     // 加载所有支持的翻译
     if (this.config.cache) {
       for (const locale of this.config.supportedLocales) {
@@ -73,19 +73,19 @@ export class I18nManager {
         }
       }
     }
-    
+
     // 设置当前语言
     if (this.config.autoDetect) {
       this.currentLocale = this.detectSystemLanguage()
     } else {
       this.currentLocale = this.config.defaultLocale
     }
-    
+
     // 确保当前语言被支持
     if (!this.config.supportedLocales.includes(this.currentLocale)) {
       this.currentLocale = this.config.defaultLocale
     }
-    
+
     console.log(`[I18n] Current locale: ${this.currentLocale}`)
   }
 
@@ -96,7 +96,7 @@ export class I18nManager {
     const navigatorLang = typeof navigator !== 'undefined'
       ? navigator.language.toLowerCase()
       : 'zh-cn'
-    
+
     // 语言代码映射
     const localeMap: Record<string, Locale> = {
       'zh-cn': 'zh-CN',
@@ -110,7 +110,7 @@ export class I18nManager {
       'ko-kr': 'ko-KR',
       'ko': 'ko-KR',
     }
-    
+
     return localeMap[navigatorLang] || this.config.defaultLocale
   }
 
@@ -122,9 +122,9 @@ export class I18nManager {
       console.warn(`[I18n] Locale "${locale}" is not supported`)
       return
     }
-    
+
     this.currentLocale = locale
-    
+
     // 保存用户偏好
     if (typeof localStorage !== 'undefined') {
       try {
@@ -133,10 +133,10 @@ export class I18nManager {
         console.warn('[I18n] Failed to save locale preference:', error)
       }
     }
-    
+
     // 通知所有监听器
     this.notifyListeners(locale)
-    
+
     console.log(`[I18n] Switched to: ${locale}`)
   }
 
@@ -159,11 +159,11 @@ export class I18nManager {
    */
   t(keyPath: string, params?: InterpolationParams): string {
     const bundle = this.translations.get(this.currentLocale) || this.translations.get(this.config.defaultLocale)!
-    
+
     // 使用点号路径访问嵌套对象
     const keys = keyPath.split('.')
     let value: any = bundle
-    
+
     for (const k of keys) {
       value = value?.[k]
       if (value === undefined) {
@@ -171,17 +171,17 @@ export class I18nManager {
         return keyPath // Fallback to key path
       }
     }
-    
+
     if (typeof value !== 'string') {
       console.warn(`[I18n] Translation is not a string: ${keyPath}`)
       return keyPath
     }
-    
+
     // 插值参数替换
     if (params) {
       value = this.interpolate(value, params)
     }
-    
+
     return value
   }
 
@@ -217,7 +217,7 @@ export class I18nManager {
         weekday: 'long' as const,
       },
     }[formatType]
-    
+
     return new Intl.DateTimeFormat(this.currentLocale, options).format(date)
   }
 
@@ -236,7 +236,7 @@ export class I18nManager {
         second: '2-digit' as const,
       },
     }[formatType]
-    
+
     return new Intl.DateTimeFormat(this.currentLocale, options).format(date)
   }
 
@@ -257,7 +257,7 @@ export class I18nManager {
     const diffMins = Math.floor(diffSecs / 60)
     const diffHours = Math.floor(diffMins / 60)
     const diffDays = Math.floor(diffHours / 24)
-    
+
     if (diffSecs < 60) {
       return this.t('time.now')
     } else if (diffMins < 60) {
@@ -291,7 +291,7 @@ export class I18nManager {
    */
   onLocaleChange(callback: (locale: Locale) => void): () => void {
     this.listeners.push(callback)
-    
+
     // 返回取消订阅函数
     return () => {
       const index = this.listeners.indexOf(callback)

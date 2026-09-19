@@ -3,6 +3,11 @@
 #   1) 仓库有 .pre-commit-config.yaml 且 pre-commit 框架可用 -> 交给框架
 #   2) 否则 -> 交给同目录的 pre-commit-lite（大文件/密钥/冲突标记 + 根目录守卫）
 # 0) 路径可移植性检查：阻止本机绝对路径入库（规则见 docs/CODING_STANDARDS.md 第 1 节）
+# 本地层治理文档快照（AGENTS.md + docs/agents/，尽力而为，不阻断提交）
+if [ -f "$(dirname "$0")/lib-snapshot.sh" ]; then
+    . "$(dirname "$0")/lib-snapshot.sh"
+    snapshot_docs
+fi
 if [ -f scripts/check_no_hardcoded_paths.py ]; then
     PY_BIN=""
     for c in python python3; do

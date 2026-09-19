@@ -125,7 +125,7 @@ export class VisionPerceptionManager {
 
   /**
    * 截取全屏
-   * 调用 Rust 后端 invoke('take_screenshot') 
+   * 调用 Rust 后端 invoke('take_screenshot')
    */
   async screenshotFull(): Promise<ScreenshotResult> {
     return this.screenshotRegion({ x: 0, y: 0, width: 0, height: 0 })
@@ -210,7 +210,7 @@ export class VisionPerceptionManager {
       ])
 
       this.analysisCache.set(cacheKey, result)
-      
+
       // 限制缓存大小（最多保留最近 10 次）
       if (this.analysisCache.size > 10) {
         const keys = Array.from(this.analysisCache.keys()).sort((a, b) => a - b)
@@ -222,7 +222,7 @@ export class VisionPerceptionManager {
       return result
     } catch (error) {
       console.error('[VisionPerception] Vision analysis failed:', error)
-      
+
       // 降级方案：基于截图元数据 + 系统活动窗口信息返回简单描述
       return await this.fallbackAnalysis(img)
     }
@@ -292,7 +292,7 @@ export class VisionPerceptionManager {
     }
 
     const analysis = await this.analyzeScreen(this.lastScreenshot)
-    
+
     let context = `主人最近在 ${analysis.activeApp || '电脑前'}`
     if (analysis.windowTitle) {
       context += `，窗口标题是"${analysis.windowTitle}"`

@@ -1,5 +1,10 @@
 #!/bin/sh
-# 合并/拉取后提醒依赖漂移。post-* 钩子不阻断操作，仅提示。
+# 合并/拉取后提醒依赖漂移 + 本地层文档快照。post-* 钩子不阻断操作，仅提示。
 . "$(dirname "$0")/lib-depwatch.sh"
 depwatch "ORIG_HEAD" "HEAD"
+# 本地层治理文档快照（AGENTS.md + docs/agents/，尽力而为，不阻断）
+if [ -f "$(dirname "$0")/lib-snapshot.sh" ]; then
+    . "$(dirname "$0")/lib-snapshot.sh"
+    snapshot_docs
+fi
 exit 0

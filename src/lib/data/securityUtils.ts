@@ -34,7 +34,7 @@
 /** 路径遍历检测正则 */
 const PATH_TRAVERSAL_PATTERNS = [
   /\.\./,              // .. 父目录引用
-  /\.\.[\\/]/,         // ../ 或 ..\ 
+  /\.\.[\\/]/,         // ../ 或 ..\
   /[\\/]\.\.[\\/]/,   // /../ 或 \..\
   /[\\/]\.\.$/,        // /.. 或 \.. 结尾
   /\0/,                // 空字节注入
@@ -54,7 +54,7 @@ const ENCODED_TRAVERSAL_PATTERNS = [
 
 /**
  * 简易 Result 类型
- * 
+ *
  * 成功时 { ok: true, value: T }
  * 失败时 { ok: false, error: string }
  */
@@ -76,16 +76,16 @@ function err<T>(error: string): Result<T> {
 
 /**
  * 规范化路径
- * 
+ *
  * 解析 . 和 .. 组件，统一路径分隔符
  * 类似 Python 的 os.path.normpath
- * 
+ *
  * 注意：此函数不访问文件系统，仅做字符串处理
  * 符号链接等需要文件系统支持的场景不在处理范围内
- * 
+ *
  * @param inputPath 输入路径
  * @returns 规范化后的路径
- * 
+ *
  * @example
  * ```ts
  * normalizePath('a/b/../c')    // => 'a/c'
@@ -145,16 +145,16 @@ export function normalizePath(inputPath: string): string {
 
 /**
  * 检测路径遍历尝试
- * 
+ *
  * 使用正则匹配常见路径遍历模式：
  * - .. 父目录引用
  * - URL 编码的遍历（%2e%2e 等）
  * - 空字节注入
  * - Windows 非法字符
- * 
+ *
  * @param inputPath 输入路径
  * @returns true 表示检测到路径遍历尝试
- * 
+ *
  * @example
  * ```ts
  * detectPathTraversal('../../../etc/passwd')  // => true
@@ -187,14 +187,14 @@ export function detectPathTraversal(inputPath: string): boolean {
 
 /**
  * 校验路径是否在允许的基目录内
- * 
+ *
  * 将路径规范化后检查是否以 allowedBase 为前缀
  * 防止路径遍历逃逸出允许范围
- * 
+ *
  * @param inputPath 输入路径（可以是绝对或相对路径）
  * @param allowedBase 允许的基目录（绝对路径）
  * @returns Result<string> 成功时包含规范化后的绝对路径，失败时包含错误信息
- * 
+ *
  * @example
  * ```ts
  * // 允许访问 /app/data 目录
@@ -238,13 +238,13 @@ export function validatePath(inputPath: string, allowedBase: string): Result<str
 
 /**
  * 清理路径中的危险字符
- * 
+ *
  * 移除或替换可能导致安全问题的字符：
  * - 空字节（\0）
  * - Windows 保留字符
  * - 连续斜杠
  * - 前导/尾随空白
- * 
+ *
  * @param inputPath 输入路径
  * @returns 清理后的路径
  */
@@ -267,9 +267,9 @@ export function sanitizePath(inputPath: string): string {
 
 /**
  * 完整的路径安全校验
- * 
+ *
  * 组合 sanitize → detectTraversal → normalize → validate
- * 
+ *
  * @param inputPath 输入路径
  * @param allowedBase 允许的基目录
  * @returns Result<string> 安全的绝对路径或错误信息
@@ -294,14 +294,14 @@ export function securePath(inputPath: string, allowedBase: string): Result<strin
 
 /**
  * 校验 .petmod 包内文件路径
- * 
+ *
  * .petmod 是 zip 格式的宠物模组包
  * 解压时需确保文件不会逃逸到包目录之外
- * 
+ *
  * 特别防护：
  * - Zip Slip 攻击（压缩包内文件名包含 ../）
  * - 符号链接攻击（此处仅做字符串检查）
- * 
+ *
  * @param entryPath zip 条目路径（相对于包根目录）
  * @param allowedBase 解压目标基目录
  * @returns Result<string> 安全的绝对路径或错误信息

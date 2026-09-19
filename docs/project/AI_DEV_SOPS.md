@@ -227,7 +227,7 @@
 3. **版本号治理**：AGENTS.md 版本号由最终治理代理统一递增，子代理不得自行递增；如子代理已递增，最终治理时核对 REVISION_LOG 无重复后顺延。
 4. **并发槽位管理**：受 5 代理上限约束时，先派发高优先级/长耗时任务，完成一个补位一个；用 `wait_agent` 阻塞等待，不要 busy-poll。
 5. **完成验收**：每个子代理返回后检查：① tsc/eslint 退出码；② 新增测试数；③ 是否触碰了禁止文件；④ 是否修复了他代理在途文件（需标注）。
-6. **最终治理（串行）**：全部代码任务完成后，组织者统一执行：① `npx tsc --noEmit`；② `npx eslint src/`（0 error 即可，warning 为存量）；③ `npx vitest run`（0 failed）；④ `python scripts/check_spec_refs.py`（0 幻影）；⑤ 追加 GOTCHAS/SOP；⑥ 递增 AGENTS.md 版本 + REVISION_LOG。
+6. **最终治理（串行）**：全部代码任务完成后，组织者统一执行：① `npx tsc --noEmit`；② `npx eslint src/`（0 error 即可，warning 为存量）；③ `npx vitest run`（0 failed）；④ `python scripts/check_spec_refs.py`（rc=0 且 status=PASS；rc=2/status=UNAVAILABLE 说明审计器缺失、检查**未执行**，不得当作通过——见 GOTCHAS #123）；⑤ 追加 GOTCHAS/SOP；⑥ 递增 AGENTS.md 版本 + REVISION_LOG。
 7. **冲突复核**：重点核查被多个代理触碰的文件（git diff），确认合并无遗漏；复核被他代理修复过的在途文件最终状态正确。
 
 **常见问题**：① 子代理自行递增版本号导致重复——最终治理核对 REVISION_LOG；② 全量测试偶发超时（communityLoader/multimodalLLM）——隔离重跑确认非回归；③ CRLF 文件 Edit 多行 old_string 必失败（#83）——子代理用单行锚点或 PowerShell 替换。
