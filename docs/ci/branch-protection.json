@@ -23,7 +23,8 @@
   "contexts": [
     "Lint and Test (Frontend, Node 22)",
     "Rust Tests",
-    "layout"
+    "layout",
+    "Dependency Vuln Scan"
   ],
   "required_conversation_resolution": true
 }
