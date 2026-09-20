@@ -86,6 +86,7 @@ root_allowlist:
   - pnpm-lock.yaml
   - pnpm-workspace.yaml
   - public
+  - release-signing-public-key.asc
   - rust-toolchain.toml
   - scripts
   - src
