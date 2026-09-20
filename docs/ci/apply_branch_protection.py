@@ -21,7 +21,12 @@ CFG = os.path.join(os.path.dirname(HERE), "ci", "branch-protection.json")
 def gh(args: list[str]) -> tuple[int, str, str]:
     """调用 gh api，返回 (returncode, stdout, stderr)。"""
     r = subprocess.run(
-        ["gh", "api", *args], capture_output=True, text=True, check=False
+        ["gh", "api", *args],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",  # Windows 默认走 gbk，gh 输出含非 ASCII 时抛 UnicodeDecodeError
+        errors="replace",
+        check=False,
     )
     return r.returncode, (r.stdout or "").strip(), (r.stderr or "").strip()
 
@@ -55,10 +60,11 @@ def compute_drift(cur: dict, want: dict, slug: str) -> list[str]:
     d: list[str] = []
     pr = cur.get("required_pull_request_reviews") or {}
     want_pr = want["required_pull_request_reviews"]
-    if (
-        pr.get("required_approving_review_count")
-        != want_pr["required_approving_review_count"]
-    ):
+    # GitHub 对「要求 0 次批准」的表达是干脆不返回本对象，于是线上读到 None、
+    # 期望值是 0 —— 不归一就会永久误报 review 漂移（None != 0 恒真）。
+    live_count = int(pr.get("required_approving_review_count") or 0)
+    want_count = int(want_pr["required_approving_review_count"] or 0)
+    if live_count != want_count:
         d.append("review")
     rsc = cur.get("required_status_checks") or {}
     if bool(rsc.get("strict")) != want["required_status_checks"]["strict"]:
