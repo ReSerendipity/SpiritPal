@@ -64,6 +64,12 @@ Thumbs.db
 *.swo
 *~
 
+# SpiritPal 非核心执行文档（ondevice 调研/清单，不入库；白名单核心文档见 layout 门禁，必须入库）
+docs/execution/ondevice-*
+docs/execution/交接指导-GUI与后续项-20260911.md
+# 根目录贡献指南与组织级重复（README 已链接 org 版 Conventions + DCO），不入库
+CONTRIBUTING.md
+
 # Logs
 logs/
 *.log
