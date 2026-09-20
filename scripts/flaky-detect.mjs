@@ -10,7 +10,8 @@
  *   - 控制台摘要（每个测试的 pass/fail 序列）
  *   - perf/results/flaky-report.json（历史可累积，含时间戳）
  */
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
+import { createRequire } from 'node:module'
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -20,13 +21,26 @@ const patterns = process.argv.slice(3)
 const resultsDir = path.join(process.cwd(), 'perf', 'results')
 fs.mkdirSync(resultsDir, { recursive: true })
 
+// 不走 shell：patterns 来自 process.argv.slice(3)，拼成字符串交给 execSync 会让
+// 命令行参数变成可执行的 shell 片段。用 node 直调 vitest 入口，跨平台且不经过 shell
+// （execFileSync('pnpm', …) 在 Windows 上会因 pnpm 实为 .cmd 垫片而 ENOENT）。
+// 只能先解析 vitest/package.json（它在 exports 白名单里）再取同目录入口：
+// 直接 require.resolve('vitest/vitest.mjs') 会抛 ERR_PACKAGE_PATH_NOT_EXPORTED。
+const requireFromProject = createRequire(path.join(process.cwd(), 'noop.js'))
+const vitestPkgDir = path.dirname(requireFromProject.resolve('vitest/package.json'))
+const vitestBin = path.join(vitestPkgDir, 'vitest.mjs')
+if (!fs.existsSync(vitestBin)) {
+  console.error(`[flaky-detect] 找不到 vitest 入口：${vitestBin}`)
+  process.exit(1)
+}
+
 /** 跑一轮 vitest，解析 JSON reporter 输出 */
 function runOnce(round) {
-  const cmd = ['pnpm', 'exec', 'vitest', 'run', '--reporter=json', '--outputFile',
+  const args = [vitestBin, 'run', '--reporter=json', '--outputFile',
     path.join(resultsDir, `flaky-round-${round}.json`)]
-  if (patterns.length > 0) cmd.push(...patterns)
+  if (patterns.length > 0) args.push(...patterns)
   try {
-    execSync(cmd.join(' '), { cwd: process.cwd(), stdio: 'inherit' })
+    execFileSync(process.execPath, args, { cwd: process.cwd(), stdio: 'inherit' })
     return true
   } catch {
     // vitest 有失败用例时 exit code 非 0，但 JSON 报告已写出
