@@ -1,0 +1,16 @@
+chore(governance): stop tracking local-kept docs so self-purify passes
+
+The org-level self-purify rule (ReSerendipity/.github) requires
+docs/{plans,project,_devarchive,agents,execution}/ and LOCAL_RULES.md /
+FIX_LOG.md to never be tracked: these are local governance docs that must
+live under .gitignore. Eleven files landed on main anyway - nine under
+docs/execution/ and two under docs/project/ - so the check has been red on
+every run since PR #80 merged.
+
+- git rm --cached the 11 files (they stay on disk locally, only untracked)
+- .gitignore: add docs/execution/ and drop the two negated exceptions that
+  were force-including known catch-all docs/project files
+
+After this change `git ls-files` matching the rule prefixes is empty and
+the self-purify step 1 check passes.
+Signed-off-by: ReSerendipity <zengyangc@outlook.com>
