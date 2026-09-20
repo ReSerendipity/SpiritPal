@@ -43,9 +43,32 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
-          # 查询套件从行内 `queries:` 迁入 config，才能按路径分组：
-          # 发布代码跑完整 security-and-quality，纯测试目录摘掉恒误报的那条规则。
-          config: .github/codeql/config.yml
+          # 注意：init@v3 的 `config` 输入要的是 YAML **内容本身**，不是文件路径。
+          # 传路径会被当成标量字符串，报 `Cannot create property 'queries' on
+          # string '.github/codeql/config.yml'`（#76 首版实测踩到，两个语言全挂）。
+          # 套件必须走 config 才能按路径分组：行内 `queries:` 输入不支持分组。
+          config: |
+            name: SpiritPal SAST
+            queries:
+              # 发布代码：完整套件，零豁免。
+              - name: shipped (full security-and-quality)
+                exclude-paths:
+                  - src-tauri/tests/**
+                queries:
+                  - uses: security-and-quality
+              # 纯测试目录：摘掉 rust/hard-coded-cryptographic-value。
+              # 依据（2026-09-20 逐条核对）：该规则 88 条 open 告警中 33 条落在
+              # src-tauri/tests/test_crypto.rs，全是加密测试的口令/盐/IV/期望值，
+              # 真实可修问题 0 条。写在 src-tauri/src/** 文件**内部**的
+              # #[cfg(test)]（crypto.rs 39 条、lib.rs 13 条）按路径排除不掉，
+              # 连同生产代码 3 条零初始化缓冲，共 55 条走逐条 dismiss 绑定理由。
+              - name: tests (minus hard-coded-crypto false positives)
+                paths:
+                  - src-tauri/tests/**
+                queries:
+                  - uses: security-and-quality
+                    exclude:
+                      - rust/hard-coded-cryptographic-value
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
