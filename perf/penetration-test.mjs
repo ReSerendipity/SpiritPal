@@ -155,13 +155,16 @@ async function runPenetrationTest() {
 
     // 4. Zip Slip 防护
     console.log('  ▶ 测试 4: Zip Slip 防护')
-    const zipSlipPaths = ['../../../escape.petmod', '..\\\\..\\\\escape.petmod']
+    // 覆盖三种遍历写法：POSIX `../`、Windows 单反斜杠 `..\`、Windows 双反斜杠 `..\\`
+    // （原写法的 /\.\.\\\\/g 把反斜杠数量写死成 2，而测试集里恰好只有双反斜杠形式，
+    //   现实中更常见的单反斜杠载荷 ..\..\escape.petmod 判不出 isSlip —— 断言恒 PASS，属假信心。）
+    const zipSlipPaths = ['../../../escape.petmod', '..\\..\\escape.petmod', '..\\\\..\\\\escape.petmod']
     let zipBlocked = 0
     for (const p of zipSlipPaths) {
       // Zip Slip 检测：zip 条目路径含 .. 应被拒绝
       const hasZipSlip = p.includes('..')
-      // 验证路径归一化后不在目标目录之外
-      const normalized = p.replace(/\.\.\//g, '').replace(/\.\.\\\\/g, '')
+      // 归一化：剥掉 `..` 后紧跟的任意个 / 或 \
+      const normalized = p.replace(/\.\.[/\\]+/g, '')
       const isSlip = hasZipSlip && normalized !== p
       if (isSlip) zipBlocked++
     }
