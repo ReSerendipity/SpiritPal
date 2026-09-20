@@ -2,7 +2,7 @@
 // 将安全评估报告中的 8 项渗透测试清单脚本化
 import { chromium } from 'playwright'
 import { formatResult, printResult, PROJECT_ROOT } from './_helpers.mjs'
-import { join } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 
 const RESULTS_DIR = join(PROJECT_ROOT, 'perf', 'results')
@@ -156,16 +156,19 @@ async function runPenetrationTest() {
     // 4. Zip Slip 防护
     console.log('  ▶ 测试 4: Zip Slip 防护')
     // 覆盖三种遍历写法：POSIX `../`、Windows 单反斜杠 `..\`、Windows 双反斜杠 `..\\`
-    // （原写法的 /\.\.\\\\/g 把反斜杠数量写死成 2，而测试集里恰好只有双反斜杠形式，
-    //   现实中更常见的单反斜杠载荷 ..\..\escape.petmod 判不出 isSlip —— 断言恒 PASS，属假信心。）
+    // 判据是「解析后是否逃出解压目标目录」，不是「把 .. 从字符串里删掉」——
+    // 删字符串式写法自身可被绕过（`....//` 经 /\.\.[/\\]+/ 只削掉一层、结果里仍留 ../），
+    // 且旧实现的反斜杠数量被写死成 2，漏掉现实中更常见的单反斜杠载荷而照样 PASS。
     const zipSlipPaths = ['../../../escape.petmod', '..\\..\\escape.petmod', '..\\\\..\\\\escape.petmod']
+    const slipDest = resolve(PROJECT_ROOT, 'tmp-petmod-out', 'scan')
     let zipBlocked = 0
     for (const p of zipSlipPaths) {
       // Zip Slip 检测：zip 条目路径含 .. 应被拒绝
       const hasZipSlip = p.includes('..')
-      // 归一化：剥掉 `..` 后紧跟的任意个 / 或 \
-      const normalized = p.replace(/\.\.[/\\]+/g, '')
-      const isSlip = hasZipSlip && normalized !== p
+      // zip 规范用 /，Windows 打包器会写 \；先统一分隔符再解析成绝对路径
+      const target = resolve(slipDest, p.replace(/\\/g, '/'))
+      const escapes = target !== slipDest && !target.startsWith(slipDest + sep)
+      const isSlip = hasZipSlip && escapes
       if (isSlip) zipBlocked++
     }
     results.push(formatResult({
