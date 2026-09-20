@@ -260,9 +260,9 @@ export class WindowTitleExtractor {
     const functions = title.match(/\b[a-zA-Z_][a-zA-Z0-9_]*\s*\(/g) || []
     entities.push(...functions.map(f => f.trim().slice(0, -1)).slice(0, 3))
 
-    // 导入语句
-    const imports = title.match(/from\s+['"][^'"]+['"]/gi) || []
-    entities.push(...imports.map(i => i.replace("from '", '').replace("from ", '').replace("'", '')).slice(0, 2))
+    // 导入语句：用捕获组一次取准模块名，双引号形式不再残留引号
+    const imports = [...title.matchAll(/from\s+['"]([^'"]+)['"]/gi)]
+    entities.push(...imports.map(i => i[1]).slice(0, 2))
 
     return [...new Set(entities)] // 去重
   }

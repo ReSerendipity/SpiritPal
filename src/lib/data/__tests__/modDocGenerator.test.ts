@@ -131,3 +131,64 @@ describe('saveReadme', () => {
     expect(content).toContain('## 安装说明')
   })
 })
+
+describe('generateReadme 表格单元格转义（mod 数据不可信）', () => {
+  // 只有 string 字段是真正的注入面：anim.state 是 PetState 联合类型、
+  // item.type 是 ItemType 联合类型，放不进任意字符串（tsc 会拦）。
+  // 可注入的表格单元格是 item.name 与 dep.id / dep.version。
+  function buildInjectionMod(): CharacterMod {
+    const mod = createModTemplate()
+    mod.petConf.id = 'evil-pet'
+    mod.petConf.displayName = '恶意包'
+    mod.itemsConf = {
+      foods: [
+        {
+          id: 'x',
+          name: '[点我](javascript:alert(1))',
+          icon: 'x.png',
+          type: 'food',
+          price: 1,
+        },
+        { id: 'y', name: 'de`p', icon: 'y.png', type: 'food', price: 2 },
+      ],
+      toys: [],
+      medicines: [],
+    }
+    return mod
+  }
+
+  const injectionMeta: ReadmeMeta = {
+    version: '1.0.0',
+    author: 'a',
+    description: 'd',
+    homepage: '',
+    dependencies: [{ id: 'dep|id', version: 'v`2|3' }],
+  }
+
+  const readme = generateReadme(buildInjectionMod(), injectionMeta)
+
+  it('链接语法被转义，不会渲染成可点链接', () => {
+    expect(readme).not.toContain('[点我](javascript:alert(1))')
+    expect(readme).toContain('\\[点我\\](javascript:alert(1))')
+  })
+
+  it('反引号被转义，不会提前开启代码段', () => {
+    expect(readme).toContain('de\\`p')
+    expect(readme).not.toContain('| v`2')
+  })
+
+  it('竖线被转义为 \\|，不会把表格列数撑开', () => {
+    expect(readme).toContain('dep\\|id')
+    expect(readme).toContain('v\\`2\\|3')
+    // 注入串所在行渲染出的列数必须与其他行一致：这里 2 个依赖字段各占 1 列
+    const depRow = readme.split('\n').find((l) => l.includes('dep\\|id'))!
+    expect(depRow.split(/(?<!\\)\|/)).toHaveLength(5) // | id | version | 可选 | → 首尾各 1 空段
+  })
+
+  it('良性内容不受影响', () => {
+    const benign = generateReadme(buildTestMod(), meta)
+    expect(benign).toContain('| idle | 10 | 活跃 | 0 | 是 |')
+    expect(benign).toContain('| base-lib | ^1.0.0 | 否 |')
+    expect(benign).toContain('苹果')
+  })
+})
