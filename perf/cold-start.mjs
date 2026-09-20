@@ -92,8 +92,8 @@ async function runColdStartTest() {
   console.log('  ℹ️  等待窗口出现...')
 
   // 先等待进程出现，再等待窗口
+  // （命中即 break，故不需要跨迭代的 found 早退守卫——CodeQL 判其恒 false）
   for (const exeName of EXE_CANDIDATES) {
-    if (found) break
     const procResult = await waitForProcess({
       processName: exeName,
       timeoutMs: useDev ? timeoutMs : Math.min(timeoutMs, 15000),

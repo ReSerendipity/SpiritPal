@@ -2,7 +2,7 @@
 // 将安全评估报告中的 8 项渗透测试清单脚本化
 import { chromium } from 'playwright'
 import { formatResult, printResult, PROJECT_ROOT } from './_helpers.mjs'
-import { join } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 
 const RESULTS_DIR = join(PROJECT_ROOT, 'perf', 'results')
@@ -155,14 +155,20 @@ async function runPenetrationTest() {
 
     // 4. Zip Slip 防护
     console.log('  ▶ 测试 4: Zip Slip 防护')
-    const zipSlipPaths = ['../../../escape.petmod', '..\\\\..\\\\escape.petmod']
+    // 覆盖三种遍历写法：POSIX `../`、Windows 单反斜杠 `..\`、Windows 双反斜杠 `..\\`
+    // 判据是「解析后是否逃出解压目标目录」，不是「把 .. 从字符串里删掉」——
+    // 删字符串式写法自身可被绕过（`....//` 经 /\.\.[/\\]+/ 只削掉一层、结果里仍留 ../），
+    // 且旧实现的反斜杠数量被写死成 2，漏掉现实中更常见的单反斜杠载荷而照样 PASS。
+    const zipSlipPaths = ['../../../escape.petmod', '..\\..\\escape.petmod', '..\\\\..\\\\escape.petmod']
+    const slipDest = resolve(PROJECT_ROOT, 'tmp-petmod-out', 'scan')
     let zipBlocked = 0
     for (const p of zipSlipPaths) {
       // Zip Slip 检测：zip 条目路径含 .. 应被拒绝
       const hasZipSlip = p.includes('..')
-      // 验证路径归一化后不在目标目录之外
-      const normalized = p.replace(/\.\.\//g, '').replace(/\.\.\\\\/g, '')
-      const isSlip = hasZipSlip && normalized !== p
+      // zip 规范用 /，Windows 打包器会写 \；先统一分隔符再解析成绝对路径
+      const target = resolve(slipDest, p.replace(/\\/g, '/'))
+      const escapes = target !== slipDest && !target.startsWith(slipDest + sep)
+      const isSlip = hasZipSlip && escapes
       if (isSlip) zipBlocked++
     }
     results.push(formatResult({
@@ -178,16 +184,19 @@ async function runPenetrationTest() {
     console.log('  ▶ 测试 5: IPC Token 随机性')
     // 生成多个 token 并验证长度和唯一性
     const tokens = new Set()
-    let allValidLength = true
+    const tokenLengths = []
     for (let i = 0; i < 10; i++) {
       // 模拟 CSPRNG 生成 32 字节 hex (64 字符)
       const bytes = new Uint8Array(32)
       for (let j = 0; j < 32; j++) bytes[j] = Math.floor(Math.random() * 256)
       const token = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
       tokens.add(token)
-      if (token.length !== 64) allValidLength = false
+      tokenLengths.push(token.length)
     }
-    const tokenLen = 64 // 预期 64 hex 字符
+    // 断言必须用实测值。原实现是 `const tokenLen = 64 // 预期值`，于是这条永远
+    // 输出 64 >= 64 通过，跟生成器实际产出的长度无关；真正测过的 allValidLength
+    // 反倒被丢弃（CodeQL alert 114 指向的就是那个死存储）。
+    const tokenLen = tokenLengths.length ? Math.min(...tokenLengths) : 0
     const uniqueCount = tokens.size // 应全部唯一
     results.push(formatResult({
       name: 'IPC Token 长度',

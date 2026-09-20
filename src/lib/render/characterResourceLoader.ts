@@ -185,9 +185,9 @@ export class CharacterResourceLoader {
             // 尝试下一个路径
           }
         }
-        console.log('[discoverPacks] scan_character_directory result:', petDirs?.length, petDirs)
+        console.log('[discoverPacks] scan_character_directory result:', petDirs.length, petDirs)
 
-        if (petDirs && petDirs.length > 0) {
+        if (petDirs.length > 0) {
           const results = await Promise.allSettled(
             petDirs.map(async (dir) => {
               try {
@@ -299,7 +299,8 @@ export class CharacterResourceLoader {
               }
             }
           }
-          discovered = true
+          // 此处不再置 discovered = true：全文件对该标志的读取只有 L226 与 L262 两处，
+          // 而本行位于 L262 `if (!discovered)` 块内部，赋值之后再无读取（CodeQL alert 115）。
           break
         }
       }

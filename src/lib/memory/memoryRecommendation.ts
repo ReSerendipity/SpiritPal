@@ -293,16 +293,14 @@ export class MemoryRecommendationEngine {
       }
     }
 
-    if (suggestedTimeActivity) {
-      candidates.push({
-        id: `time_activity_${currentHour}`,
-        type: 'activity',
-        title: suggestedTimeActivity.title,
-        description: suggestedTimeActivity.description,
-        baseScore: 0.7,
-        tags: ['time_based'],
-      })
-    }
+    candidates.push({
+      id: `time_activity_${currentHour}`,
+      type: 'activity',
+      title: suggestedTimeActivity.title,
+      description: suggestedTimeActivity.description,
+      baseScore: 0.7,
+      tags: ['time_based'],
+    })
 
     // 热门话题推荐（如果用户样本不足）
     if (memories.length < this.config.minSamplesForColdStart) {
