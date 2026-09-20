@@ -3,7 +3,6 @@
 > 项目:SpiritPal(移动端进程内推理现为内嵌 MNN)
 > 评估日期:2026-09-18
 > 结论先行:**接入 GGUF = 加/换「引擎后端」,不是从零搭端侧**;Rust 命令层与 JNI 回灌已引擎无关且真机验证过,净新增集中在 Android 原生工具链。估 **3–6 周(单人)**,最大风险在 NDK 交叉编译与真机性能(可能倒退)。
-> **最终决定(2026-09-18,同机实测):移动端不接 GGUF、维持内嵌 MNN;llama.cpp 仅保留于桌面 companion。详见 §6。**
 > 关联:`docs/repo-analysis/_GGUF端侧_索引.md`、`ondevice-{inference-framework-survey,custom-model-pipeline,theory-validation}-*.md`、`ondevice-mnn-conversion-checklist.md`
 
 ---
@@ -47,8 +46,7 @@
 ## 3. 性能风险(决定值不值的命门)
 
 - MNN 实测基线:Qwen3.5-2B-MNN @ CPU 4 线程 prefill≈74、decode 18–29 tok/s;**长上下文 prefill +2k 历史即飙到 ~151s**。桌宠是长 prefill 场景。
-- **同机实测已回 §3 的问题**(2026-09-18,realme RMX5010 / 骁龙8 Elite / llama-bench CPU 4 线程 / `-fa off`,模型 `qwen35 2B Q4_K_M`):llama.cpp prefill pp512=**27.0**、pp2048=**22.3**、pp4096=**16.4** tok/s → 仅为 MNN(≈74,同条件)的 **0.22–0.36×**,且随上下文单调恶化,pp4096 单轮 prefill **≈249 s**。另证:CPU 上 **flash-attn 反拖慢**(fa-on pp512 仅 17.7 < 27.0)——flash 只利 GPU。
-- MNN 胜因(经论文 `arXiv:2506.10443` 一手核实,勘误先前口径):不是「LinearAttention」,而是 **int8 W4A8/W8A8 计算 + 权重按指令集(i8mm/i8sdot/NEON)分块重排**(硬件驱动数据重排)+ DRAM-Flash 混合存储;论文小米14 CPU 4 线程 prefill **8.6×** 对 llama.cpp。llama.cpp 官方 `docs/android.md` 仅声明 Arm SME2/x86 AMX CPU 加速,其设计重心在桌面 GPU/多后端,移动端非首要。
+- llama.cpp 官方 `docs/android.md` 仅声明 Arm SME2 / x86 AMX 的 **CPU** 加速、**未提 Vulkan/GPU**;CPU 口径 prefill 大概率不及 MNN。**若只在 CPU 上比,接 GGUF 对体验是倒退**——所以**接之前必须先用桌面 companion 或独立 App 拿 llama.cpp 真实数据**(尤其带 GPU 后端时)。
 
 ## 4. 路线取舍
 
@@ -62,23 +60,3 @@
 3. 决定后再细化:引擎枚举、`.gguf` 发现、视觉 `mtmd` 打通、真机回归清单。
 
 > 一句话:能接、复用度高,净新增 3–6 周全在 Android 工具链与真机性能;但**先用现成 companion/独立 App 拿数据再决定,别为省一个转换脚本贸然背双引擎维护**。
-
-## 6. 最终决定(2026-09-18 · 同机实测 + MNN-LLM 论文一手核实)
-
-**决定:移动端不接入 GGUF/llama.cpp,维持内嵌 MNN;llama.cpp 仅保留在桌面 companion(桌面有独显,情况完全不同)。**
-
-**实测依据(realme RMX5010 / 骁龙8 Elite SM8750 / 15.1GB / llama-bench CPU):**
-
-| 上下文 | llama.cpp(4线程/fa-off) | MNN(同条件基线) | 比值 |
-|---|---|---|---|
-| pp512 | 27.0 tok/s | ≈74 | 0.36× |
-| pp2048 | 22.3 | — | ~0.30× |
-| pp4096 | 16.4(单轮 prefill ≈249 s) | — | 0.22× |
-
-- llama.cpp prefill **只有 MNN 的 0.22–0.36×、随长上下文单调恶化**,直击桌宠最痛的「带历史首 token 卡死」;
-- 上限档亦无法翻盘:CPU 上 **flash-attn 反成负担**(17.7 < 27),唯一杠杆是加线程,量级仍够不到 MNN;
-- MNN 的胜因是**为移动 CPU 而生**(int8 W4A8 + 权重按指令集分块重排,见 `arXiv:2506.10443`),非桌面优先的 llama.cpp 可比。
-
-**因此路线 A/B(进程内 llama.cpp)与 §2 的 3–6 周投入全部作废(不立项)。** 若将来出现「用户必须直吃任意 GGUF」的硬需求,再评估——但须以「GPU 后端 llama.cpp 不输 CPU MNN」的新证据为前提。
-
-> 勘误留痕:本文早期版本把 MNN 优势误记为「Qwen3.5 LinearAttention 优化」、把权重加载误称「mmap」;已据论文更正为「int8 量化 matmul + 硬件驱动数据重排」与「DRAM-Flash 混合存储」。
