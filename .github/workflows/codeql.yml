@@ -13,7 +13,12 @@ on:
 
 jobs:
   analyze:
-    if: github.event_name != 'push'
+    # 原本 `!= 'push'` 一刀切，导致 43 次 push 到 main 全部 skipped：
+    # main 的告警态只能靠每周一次的 cron 刷新（历史上仅 2026-09-14 跑过一次，
+    # 此后 6 天没更新）—— 这才是 204 条 open 告警不收敛的机制性原因。
+    # 现改为「非 push 一律跑；push 只在 main 上跑」。特性分支的 push 仍跳过，
+    # 由它自己的 PR 扫描覆盖，不额外增加 Actions 分钟数。
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
     name: CodeQL Analyze
     runs-on: ubuntu-latest
     timeout-minutes: 30
