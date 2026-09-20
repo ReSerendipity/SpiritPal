@@ -71,9 +71,11 @@ const ITEM_CATEGORY_LABELS: Array<{ key: 'foods' | 'toys' | 'medicines'; label: 
   { key: 'medicines', label: '药品' },
 ]
 
-/** 转义 Markdown 表格单元格中的竖线 */
+/** 转义 Markdown 表格单元格中的特殊字符（mod 数据来自社区包，不可信） */
+const MD_CELL_SPECIAL = /[\\|`[\]*_~<>]/g
 function escapeCell(text: string): string {
-  return text.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')
+  // 单遍替换：反斜杠自身也在集合内，故不会出现二次转义
+  return text.replace(MD_CELL_SPECIAL, (c) => '\\' + c).replace(/\r?\n/g, ' ')
 }
 
 /** 生成动画列表明文 */
