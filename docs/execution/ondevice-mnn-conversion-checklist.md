@@ -9,20 +9,19 @@
 
 ## A. MNN 在 SpiritPal 的定位与选型理由
 
-**结论:移动端进程内推理只走内嵌 MNN;它不是「随便选的引擎」,而是为桌宠场景(长上下文 + 视觉 + 手机 CPU)选的。**
+**结论:移动端进程内推理只走内嵌 MNN;它不是「随便选的引擎」,而是为桌宠场景(长上下文 + 视觉 + 手机 CPU/NPU)选的。**
 
 - 架构三件套(设备分档 tier / 串行调度 scheduler / 模型 LRU)移植自 `Daniele-rolli/tauri-plugin-local-ai`(纯 Rust、与引擎解耦);**实际推理走内嵌 MNN 引擎**(`libmnnllmapp.so`,经 Kotlin/JNI 桥 `SpiritPalOnDevice.kt` 包 MNN `LlmSession`)。MNN 不是桌面依赖——桌面本地推理由 Ollama 承担。
 - **为什么是 MNN 而不是 llama.cpp(当时定为候选 C 兜底)**:
-  1. **原生支持 Qwen 系**(v0.8.0 起支持到 Qwen3.5);注:MNN 快的**主因不是「线性注意力」**——`arXiv:2506.10443` 通篇是标准 decoder-only 注意力,其 prefill 优势来自**int8 W4A8 计算 + 权重按指令集(i8mm/i8sdot/NEON)分块重排**(见 B 段勘误),「Qwen3.5 LinearAttention CPU 路径」是更晚的 changelog 说法、未经一手核实,勿当性能主因;
-  2. **prefill 更快**——桌宠每轮带历史,**首 token(prefill)是命门**;MNN-LLM 论文在**小米14 / CPU / 4 线程**实测对 llama.cpp prefill **8.6×**(decode 2.3×),与我们 2026-09-18 同机(RMX5010)自测方向一致(llama.cpp 仅 MNN 的 0.22–0.36×);
+  1. **已原生支持 Qwen3.5**(v0.8.0 起),并针对其 **LinearAttention / Gated DeltaNet** 做了安卓 **CPU** 优化路径;
+  2. **prefill 更快**——桌宠每轮带历史,**首 token(prefill)是命门**;调研口径称 prefill 比 llama.cpp 快约 8.6x(**厂商自测数据,需真机验证**);而 llama.cpp 官方 `docs/android.md` 只声明 Arm SME2 / x86 AMX 的 CPU 加速、**未在该文档提及 Vulkan/GPU**;
   3. **全模态**:文本 + 图生文(视觉 `visual.mnn`),直接对应「看屏幕」;
-  4. **移动端成熟度**:自带生产级安卓栈(DRAM-Flash 混合权重存储、ModelScope/HF 模型市场、Qwen 预设);llama.cpp 的安卓 JNI 官方定性为「参考实现,非成品库」,其设计重心在桌面 GPU/多后端。
+  4. **移动端成熟度**:自带生产级安卓栈(mmap 加载、ModelScope/HF 模型市场、Qwen 预设);llama.cpp 的安卓 JNI 官方定性为「参考实现,非成品库」。
 - **其余 provider 在手机上的可用性**:Ollama 依赖 `localhost:11434` 服务(手机没有)、不可用;「端侧 MNN Chat 本地」(`127.0.0.1:8080`)是靠**另一个 App** 加载模型、非本进程;所以**本 App 手机端进程内实际可用的只有内嵌 MNN**。
 
-## B. 性能 / 内存基线与限制(真机实测)
+## B. 性能 / 内存基线与限制(真机实测,2026-09-16)
 
-- 设备:realme RMX5010 / 骁龙8 Elite(SM8750)/ arm64-v8a / Android 16 / **MemTotal ≈15.1GB**。**Qwen3.5-2B-MNN @ CPU 4 thread / precision=low → prefill ≈74 tok/s、decode 18–29 tok/s**(随上下文增长衰减;2026-09-16)。
-- **MNN 为何移动端 prefill 快(据论文 `arXiv:2506.10443`,一手)**:prefill 属**计算受限**;MNN 把量化矩阵乘(`Linear`/`Attention`)按目标指令集**硬件驱动数据重排**(加载时把 int4/int8 权重排成 tiled 布局,降内存访问、吃满寄存器复用),并走 **int8 计算(W4A8/W8A8,`i8mm smmla` 吞吐≈`sdot` 2×)** + fp16 NEON;再配 **DRAM-Flash 混合存储**(embedding 落 Flash、层权重进 DRAM)与 **KV 量化**(K 走 int8、V 走 fp8 + Flash 溢出预取)。这套是为移动 CPU 深度定制,而 llama.cpp 桌面优先、prefill 内核未同等调优 → 实测同机仅 MNN 的 0.22–0.36×。
+- 设备:realme RMX5010 / arm64-v8a / Android 16 / 14.75GB RAM。**Qwen3.5-2B-MNN @ CPU 4 thread / precision=low → prefill ≈74 tok/s、decode 18–29 tok/s**(随上下文增长衰减)。
 - **长上下文 prefill 是最大痛点**:多带 ~2k 历史 KV 时,**prefill 飙到 ~151s**。→ 直接推高对「量化档 + 上下文长度」的转换前决策要求(见 §3)。
 - 内存:Native Heap ≈1.7GB / PSS ≈1.9GB(单进程持 2B Q4)。
 - **ABI 仅 `arm64-v8a`**:官方 MNN Chat 不含 x86_64;要 v7a/x86_64 得自编引擎。
@@ -113,8 +112,8 @@ MNN 的架构支持面属上游、随版本变;Qwen 家族是 SpiritPal 已实�
 ## 7. MNN vs GGUF 定位(避免误判「GGUF 跑通就能换 MNN」)
 
 - **GGUF 的杀手锏只有一个**:免转换直跑 + 全生态通用(海量 HF `.gguf` 直接下)。
-- **MNN 的不可替代处(在 SpiritPal 场景)**:为移动 CPU 深度定制的 **int8 W4A8 + 权重分块重排** → 更强 prefill(`arXiv:2506.10443`)、现成视觉、成熟安卓栈;代价是**必须先转 + 生态面窄**。
-- **已判定(2026-09-18,同机 RMX5010 实测)**:llama.cpp 纯 CPU prefill 仅 MNN 的 **0.22–0.36×** 且随长上下文恶化(flash-attn 在 CPU 上反成负担)。**→ 维持 MNN,移动端不接 GGUF;llama.cpp 只留桌面 companion。** 详见 `ondevice-gguf-integration-effort-20260918.md §6`。
+- **MNN 的不可替代处(在 SpiritPal 场景)**:Qwen3.5 + LinearAttention 的安卓 CPU 优化、更快的 prefill、现成视觉、成熟安卓栈;代价是**必须先转 + 生态面窄**。
+- 因此:若只认现成 Qwen MNN 模型、看重 prefill/视觉/NPU,**MNN 仍是更强默认引擎**;GGUF 是「想让用户丢任意 GGUF」时才补的第二通道。**真要替换,须先证明带 GPU 后端的 llama.cpp 在目标机上、长上下文 prefill 与视觉都不输 MNN。**
 
 ## 8. 快速结论
 
