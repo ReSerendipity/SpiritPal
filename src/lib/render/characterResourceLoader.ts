@@ -299,7 +299,8 @@ export class CharacterResourceLoader {
               }
             }
           }
-          discovered = true
+          // 此处不再置 discovered = true：全文件对该标志的读取只有 L226 与 L262 两处，
+          // 而本行位于 L262 `if (!discovered)` 块内部，赋值之后再无读取（CodeQL alert 115）。
           break
         }
       }
