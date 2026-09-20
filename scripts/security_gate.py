@@ -19,8 +19,12 @@ dependency-vuln-scan job 每次 push / PR 都会运行，但三个审计步骤�
 npm_critical=0 / npm_high=0：历史高点（gh-pages 经 pixi-live2d-display 引入、
 protobufjs）已由上游修复，2026-09-20 按棘轮约定回写收紧到实测值 0。
 cargo_vulns=1：Cargo.lock 681 个 package 中 1 个命中——
-  RUSTSEC-2026-0235 / rkyv 0.7.46，经 byte-unit → rust_decimal 传入，
-  patched 仅 >=0.8.17 且 0.7 系列上游已停维护，无法就地升级，已人工接受。
+  RUSTSEC-2026-0235 / rkyv 0.7.46。它**不进构建图、不会被编译**：
+    cargo tree --workspace --target all -e normal,build,dev   # rkyv 出现 0 次
+  链路 tauri-plugin-log → byte-unit 5.2.5 → rust_decimal 1.42.1 之下没有 rkyv
+  （rust_decimal 的 rkyv feature 未启用）。Cargo.lock 会记录可选依赖，而
+  cargo-audit 逐行扫 lockfile，于是报出一个不在构建图中的 crate。
+  这不是「接受风险」，是度量口径差异 —— 别把它当已评估过的可容忍漏洞。
 基线入库后，**新增**任何高危漏洞都会让 CI 变红。
 
 用法
