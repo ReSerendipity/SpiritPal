@@ -181,16 +181,19 @@ async function runPenetrationTest() {
     console.log('  ▶ 测试 5: IPC Token 随机性')
     // 生成多个 token 并验证长度和唯一性
     const tokens = new Set()
-    let allValidLength = true
+    const tokenLengths = []
     for (let i = 0; i < 10; i++) {
       // 模拟 CSPRNG 生成 32 字节 hex (64 字符)
       const bytes = new Uint8Array(32)
       for (let j = 0; j < 32; j++) bytes[j] = Math.floor(Math.random() * 256)
       const token = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
       tokens.add(token)
-      if (token.length !== 64) allValidLength = false
+      tokenLengths.push(token.length)
     }
-    const tokenLen = 64 // 预期 64 hex 字符
+    // 断言必须用实测值。原实现是 `const tokenLen = 64 // 预期值`，于是这条永远
+    // 输出 64 >= 64 通过，跟生成器实际产出的长度无关；真正测过的 allValidLength
+    // 反倒被丢弃（CodeQL alert 114 指向的就是那个死存储）。
+    const tokenLen = tokenLengths.length ? Math.min(...tokenLengths) : 0
     const uniqueCount = tokens.size // 应全部唯一
     results.push(formatResult({
       name: 'IPC Token 长度',
