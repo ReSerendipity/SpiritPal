@@ -202,7 +202,7 @@ describe('向量检索', () => {
       // Falls back to LCS
       const result = await mgr.checkTriggers('apple')
       // 向量检索路径不应抛出异常；返回值为 null 或包含 type 属性的 TriggerResult
-      expect(result === null || (result !== null && typeof result.type === 'string')).toBe(true)
+      expect(result === null || typeof result.type === 'string').toBe(true)
     })
 
     it('向量检索成功返回结果', async () => {
@@ -227,7 +227,7 @@ describe('向量检索', () => {
       }
       const result = await mgr.checkTriggers('apple')
       // 向量检索异常时应优雅降级，返回值为 null 或 TriggerResult
-      expect(result === null || (result !== null && typeof result.type === 'string')).toBe(true)
+      expect(result === null || typeof result.type === 'string').toBe(true)
     })
 
     it('saveToVectorStore 嵌入生成失败不影响记忆存储', async () => {
@@ -249,7 +249,7 @@ describe('向量检索', () => {
       }
       const result = await mgr.checkTriggers('test')
       // 加载失败时应优雅降级，返回值为 null 或 TriggerResult
-      expect(result === null || (result !== null && typeof result.type === 'string')).toBe(true)
+      expect(result === null || typeof result.type === 'string').toBe(true)
     })
   })
 })

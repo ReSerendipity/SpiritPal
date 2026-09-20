@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   shouldApplyRollout,
   getRolloutConfig,
@@ -17,8 +17,6 @@ vi.mock('@/lib/ai/promptRegistry', () => ({
     'llm.emotion_select': 1,
   }),
 }))
-
-import { vi } from 'vitest'
 
 describe('gradualRollout', () => {
   beforeEach(() => {
