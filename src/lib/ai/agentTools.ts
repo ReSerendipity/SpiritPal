@@ -78,7 +78,7 @@ export async function toolOpenApplication(params: Record<string, unknown>): Prom
   // [Tauri Review] 客户端侧输入校验：拒绝 shell 元字符，防御纵深
   // R-10: 补充 $ (变量替换), 空格 (IFS 注入), 制表符, 双引号
   // eslint-disable-next-line no-control-regex -- 安全校验正则，控制字符（空字节/垂直制表符等）正是检测目标
-  const SHELL_METACHARS = /[\x00\x09\x0b\x0c&|><^()%!;`\r\n$ "\t]/
+  const SHELL_METACHARS = /[\x00\x09\x0b\x0c&|><^()%!;`\r\n$ "]/
   if (SHELL_METACHARS.test(appName)) {
     return `❌ 应用程序名称包含非法字符：${rawName}`
   }

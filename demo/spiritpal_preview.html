@@ -1014,8 +1014,11 @@ function sendMsg() {
   const inp = document.getElementById('chatIn');
   const t = inp.value.trim(); if(!t) return;
   const body = document.getElementById('chatBody');
-  // 添加用户消息
-  body.innerHTML += `<div class="msg user">${t}</div>`;
+  // 添加用户消息（t 来自输入框，用 textContent 而非 innerHTML 拼接，避免自 XSS）
+  const um = document.createElement('div');
+  um.className = 'msg user';
+  um.textContent = t;
+  body.appendChild(um);
   inp.value = '';
   body.scrollTop = body.scrollHeight; // 自动滚动到底部
   // 模拟AI思考延迟（0.7-1.2秒）后回复
