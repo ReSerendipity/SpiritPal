@@ -185,9 +185,9 @@ export class CharacterResourceLoader {
             // 尝试下一个路径
           }
         }
-        console.log('[discoverPacks] scan_character_directory result:', petDirs?.length, petDirs)
+        console.log('[discoverPacks] scan_character_directory result:', petDirs.length, petDirs)
 
-        if (petDirs && petDirs.length > 0) {
+        if (petDirs.length > 0) {
           const results = await Promise.allSettled(
             petDirs.map(async (dir) => {
               try {
