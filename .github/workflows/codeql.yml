@@ -13,7 +13,11 @@ on:
 
 jobs:
   analyze:
-    if: github.event_name != 'push'
+    # 原本 `!= 'push'` 一刀切，导致 43 次 push 到 main 全部 skipped：
+    # main 的告警态只能靠每周一次的 cron 刷新（历史仅 2026-09-14 跑过一次）。
+    # 现改为「非 push 一律跑；push 只在 main 上跑」——特性分支的 push 仍跳过，
+    # 由它自己的 PR 扫描覆盖，不额外增加分钟数。
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
     name: CodeQL Analyze
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -39,8 +43,9 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
-          # 使用 security-and-quality 查询套件，包含安全 + 代码质量
-          queries: security-and-quality
+          # 查询套件从行内 `queries:` 迁入 config，才能按路径分组：
+          # 发布代码跑完整 security-and-quality，纯测试目录摘掉恒误报的那条规则。
+          config: .github/codeql/config.yml
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3

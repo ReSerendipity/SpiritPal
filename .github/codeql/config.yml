@@ -1,0 +1,25 @@
+name: SpiritPal SAST
+
+# 分两组，路径互斥，同一文件不会被扫两遍。
+queries:
+  # 发布代码：完整套件，不做任何规则豁免。
+  - name: shipped (full security-and-quality)
+    exclude-paths:
+      - src-tauri/tests/**
+    queries:
+      - uses: security-and-quality
+
+  # 纯测试目录：摘掉 rust/hard-coded-cryptographic-value。
+  # 依据（2026-09-20 逐条核对）：该规则 88 条 open 告警中 33 条落在
+  # src-tauri/tests/test_crypto.rs，内容全是加密测试的口令/盐/IV 与期望值，
+  # 属规则设计意图之外的命中，真实可修问题 0 条。
+  # 注意：本豁免只覆盖独立的测试目录。写在 src-tauri/src/** 文件内部的
+  # #[cfg(test)] mod tests（crypto.rs 39 条、lib.rs 13 条）按路径无法排除，
+  # 那 52 条 + 生产代码 3 条零初始化缓冲仍需逐条 dismiss 并绑定理由。
+  - name: tests (minus hard-coded-crypto false positives)
+    paths:
+      - src-tauri/tests/**
+    queries:
+      - uses: security-and-quality
+        exclude:
+          - rust/hard-coded-cryptographic-value
