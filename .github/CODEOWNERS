@@ -1,27 +1,46 @@
 # ============================================================
-# CODEOWNERS — 代码审查负责人机制
-# 安全相关代码指定专人审查，确保任何改动都经过安全把关。
-# 格式：<路径> <审查者>（GitHub 用户名或团队）
+# CODEOWNERS — 安全敏感路径的所有者登记
+# 格式：<路径> <审查者>（GitHub 用户名或团队）；无斜杠的模式在任意层级匹配。
+#
+# ⚠️ 本文件当前【不具强制力】，且短期不应被强制：
+#   分支保护里 require_code_owner_reviews=false、required_approving_review_count=0。
+#   本仓是单人仓库，一旦开启 code-owner 审查，PR 会要求「由 @ReSerendipity 批准」，
+#   而唯一能批的人就是提交者本人 → 自批死锁（GitHub 不认可作者自批为 code-owner 批准）。
+#   因此这里的价值是：路径登记 + 未来引入第二名维护者时的接线点，而非当下的门禁。
+#   要真正生效，必须先有第二个可批的人。
 # ============================================================
 
 # 全局默认 — 所有 PR 默认指派
 * @ReSerendipity
 
-# 安全核心模块 — 所有改动必须由安全负责人审查
-app/security/ @ReSerendipity
-app/auth/ @ReSerendipity
-app/csrf* @ReSerendipity
+# 安全核心实现（加密 / IPC / 路径校验 / Tauri 能力与窗口配置）
+src-tauri/src/crypto.rs @ReSerendipity
+src-tauri/tests/test_crypto.rs @ReSerendipity
+src/lib/system/ipcSecurity.ts @ReSerendipity
+src/lib/system/pathSecurity.ts @ReSerendipity
+src/lib/data/securityUtils.ts @ReSerendipity
+src-tauri/capabilities/ @ReSerendipity
+src-tauri/tauri.conf.json @ReSerendipity
+
+# 依赖安全棘轮与密钥扫描口径
+.ci/security_baseline.json @ReSerendipity
+scripts/security_gate.py @ReSerendipity
+src-tauri/.cargo/audit.toml @ReSerendipity
+gitleaks.toml @ReSerendipity
 
 # 密钥与配置
 .env* @ReSerendipity
-config/ @ReSerendipity
 
-# 安全策略与审查流程
+# 安全策略、审查流程与 CI 定义
 SECURITY.md @ReSerendipity
 SECURITY_MATRIX.md @ReSerendipity
+docs/SECURITY_AUDIT_SpiritPal.md @ReSerendipity
 .github/workflows/ @ReSerendipity
 .github/CODEOWNERS @ReSerendipity
+.github/dependabot.yml @ReSerendipity
 
-# 构建与发布
+# 移动端安全面（TLS 配置 / 混淆保留规则 / 签名与构建脚本）
+src-tauri/gen/android/app/src/main/res/xml/network_security_config.xml @ReSerendipity
+src-tauri/gen/android/app/proguard-rules.pro @ReSerendipity
+src-tauri/gen/android/app/build.gradle @ReSerendipity
 scripts/build* @ReSerendipity
-scripts/assemble* @ReSerendipity
