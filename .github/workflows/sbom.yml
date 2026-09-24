@@ -24,8 +24,8 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 11
+        # 版本由 package.json 的 packageManager 驱动（同 ci.yml:36-38）；
+        # 显式 version 输入会与之冲突并被 action 拒绝。
 
       - name: Install Node.js
         uses: actions/setup-node@v4
@@ -51,7 +51,9 @@ jobs:
 
       - name: Generate Rust SBOM (CycloneDX)
         working-directory: src-tauri
-        run: cargo cyclonedx --format json --output-pattern package
+        # cargo-cyclonedx 0.5.9 移除了 --output-pattern（实测 exit 2 unexpected argument）；
+        # 默认命名仍以 .cdx.json 结尾，下一步的 glob 不受影响。
+        run: cargo cyclonedx --format json
 
       - name: Upload SBOM artifacts
         uses: actions/upload-artifact@v4
