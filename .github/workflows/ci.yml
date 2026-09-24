@@ -474,16 +474,51 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      # externalBin 预编：tauri.conf.json 声明 binaries/spiritpal-mcp，而仓库只提交占位脚本
+      # （*.exe 被 .gitignore 排除，unix 目标亦无产物）→ 缺此步 windows 构建必失败：
+      # `resource path binaries\spiritpal-mcp-x86_64-pc-windows-msvc.exe doesn't exist`。
+      # triple 由 rustc -vV 的 host 行推导，不写死三个字符串（同 release.yml:59 的做法，但去掉了
+      # 手工 arch 分支）。产物名与 tauri 查找规则 binaries/spiritpal-mcp-<triple>[.exe] 对齐。
+      - name: Build sidecar (externalBin)
+        shell: bash
+        working-directory: src-tauri/mcp-server
+        run: |
+          set -euo pipefail
+          cargo build --release
+          triple=$(rustc -vV | sed -n 's/^host: //p')
+          test -n "$triple" || { echo "rustc -vV 未给出 host triple"; exit 1; }
+          ext=''
+          case "$triple" in *windows*) ext='.exe' ;; esac
+          mkdir -p ../binaries
+          cp "target/release/spiritpal-mcp${ext}" "../binaries/spiritpal-mcp-${triple}${ext}"
+          ls -l "../binaries/spiritpal-mcp-${triple}${ext}"
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
+        # createUpdaterArtifacts=true + tauri.conf.json 已登记 updater.pubkey：
+        # 缺私钥时 tauri 直接失败（ubuntu 实测 `A public key has been found, but no private key`）。
+        # secret 名与 release.yml:113-114 一致；只引用，不读值、不打印。
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           args: ${{ matrix.args }}
 
-      # 防回归门禁（GOTCHAS #98）：release 构建后校验 exe 真正内嵌前端
+      # 防回归门禁（GOTCHAS #98）：release 构建后校验主二进制真内嵌前端
       # （gzip 流数 + tauri://localhost + 体积），未内嵌即阻断。
+      # 显式传路径：三平台主二进制同为 cargo 产物 target/release/spiritpal-app（macOS/Linux 无扩展名，
+      # Windows 为 .exe），run 35976217476 里 macOS 腿就是因脚本只认 *.exe 而误报。
       - name: Verify release binary embeds frontend
         shell: bash
-        run: python3 scripts/verify_tauri_embed.py || python scripts/verify_tauri_embed.py
+        run: |
+          set -euo pipefail
+          bin=src-tauri/target/release/spiritpal-app
+          case "$RUNNER_OS" in
+            Windows) bin="$bin.exe" ;;
+          esac
+          test -f "$bin" || { echo "[FAIL] 未找到主二进制 $bin"; exit 1; }
+          python3 scripts/verify_tauri_embed.py "$bin" || python scripts/verify_tauri_embed.py "$bin"
 
       # R-11 构建期 SRI 门禁：重算 dist 产物 SHA-256 与 sri_hashes.rs 清单逐条比对，
       # 任何缺失/不一致即非零退出（防「清单登记与实际产物脱节」而运行时校验失去意义）。
@@ -555,7 +590,10 @@ jobs:
     # P2-1：让 mutation score 有每周记录，不设门禁（mutate 面随 src/lib 结构演进）
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # run 35976217476 实测：job 撞 30min 上限被 cancel（时长 1819s），当时 Stryker 进度 669/990。
+    # 前 632 个只花约 5 分钟（大量 no-cov 突变体近乎零成本），其后 37 个用了 23 分钟≈37 s/个。
+    # 按后期速率剩余 321 个需 3h+，故先放宽到 60min 取首份分数基线；缩面另议。
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
