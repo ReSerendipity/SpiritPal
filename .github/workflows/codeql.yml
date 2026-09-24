@@ -11,6 +11,11 @@ on:
     # 每周一 00:00 UTC 定期扫描
     - cron: '0 0 * * 1'
 
+# 同一事件同一 ref 只留最新一次（PR 与其后 merge push 不再各跑一遍）；带 event_name 以免 cron 扫描被 push 取消
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   analyze:
     # 原本 `!= 'push'` 一刀切，导致 43 次 push 到 main 全部 skipped：

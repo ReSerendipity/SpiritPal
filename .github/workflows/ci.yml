@@ -11,9 +11,17 @@ on:
   # 每周一 03:00 UTC 定期跑非门禁类工具链（flaky-detect / mutation / memory-recall）
   schedule:
     - cron: '0 3 * * 1'
+  # 缺失本触发器时，下方 6 处 job 级 `if: ... == 'workflow_dispatch'`（137/368/420/547/586/623）
+  # 恒为假：perf-baseline / perf-stress / build 永不执行，mutation / flaky / memory-recall 只能等周一。
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+# group 带 event_name 是有意的：否则周一 03:00 的 30 分钟 mutation 作业会被同期 push 取消。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint-and-test:
@@ -538,6 +546,7 @@ jobs:
         with:
           name: clippy-log
           path: src-tauri/clippy.log
+          retention-days: 7
 
   # ============ 非门禁类工具链（workflow_dispatch / 每周 schedule，不阻塞 push） ============
 

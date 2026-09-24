@@ -37,9 +37,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate npm SBOM (CycloneDX)
+        # node_modules 是 pnpm 的隔离软链布局，`npm ls` 判它 ELSPROBLEMS 并以 1 退出（本地复现），
+        # cyclonedx-npm 便中止。树其实读全了：加 flag 后产出 1893 component，故不是"绿而空"。
         run: |
-          npx @cyclonedx/cyclonedx-npm --output-file sbom-npm.json --output-format json
-          npx @cyclonedx/cyclonedx-npm --output-file sbom-npm.xml --output-format xml
+          npx @cyclonedx/cyclonedx-npm --ignore-npm-errors --output-file sbom-npm.json --output-format json
+          npx @cyclonedx/cyclonedx-npm --ignore-npm-errors --output-file sbom-npm.xml --output-format xml
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -64,6 +66,8 @@ jobs:
       # P2-2: SBOM 随发布 tag 附带进 GitHub Release（draft，与 release.yml 对齐），
       # 使发布资产包含完整依赖清单，避免 SBOM 只存在于 90 天后过期的 workflow artifact 中。
       - name: Attach SBOM to GitHub Release
+        # workflow_dispatch 时 github.ref_name 是分支名而非 tag，此步必然失败；只在 tag 上执行
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
