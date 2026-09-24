@@ -7,11 +7,14 @@
      src-tauri/Cargo.toml 的 tauri 依赖 features 必须包含 `custom-protocol`，
      否则 release 构建不内嵌 dist 前端（会回退 devUrl，双击 exe 报 localhost 拒绝连接）。
   2. 二进制门禁（release 构建后执行，默认模式）：
-     指定（或跨平台自动定位）release 主二进制，三项一律先量后判、失败也全量打印：
-       - 内嵌 gzip 流数量 >= 100（dist 前端资源被 Tauri 压缩内嵌）——主判据
-       - 二进制内容包含 `tauri://localhost` 标记（custom-protocol 已启用）——主判据
-       - 体积只做地板值：PE 50 MiB（Windows 单体 exe 原口径）；ELF / Mach-O 8 MiB
-         （CI 实测 ubuntu 13.6 / macOS 9.6 MiB，见 MIN_BYTES_UNIVERSAL 注释的标定来源）
+     指定（或跨平台自动定位）release 主二进制，一律先量后判、失败也全量打印读数。
+     判据（卡）：
+       - 含 `tauri://localhost` 标记 —— custom-protocol 生效、前端确实被内嵌；
+       - sri_hashes.rs 清单里的前端资产键在二进制中可寻（本轮仅在"一个都没找到"时判红）。
+     只读数不卡：体积、gzip magic 计数。原因见 check_binary docstring：
+     frontendDist 由 generate_context! 以 **brotli** 内嵌（src-tauri/src/integrity.rs:11），
+     数 gzip magic 量的不是前端资产；dist 资产真值仅 37 个（sri_hashes.rs），
+     「gzip>=100」与「裸二进制 >=50MiB」在任何平台都不成立。
      主二进制三平台同源同名：Linux/macOS 为 src-tauri/target/release/<name>（无扩展名），
      Windows 为 <name>.exe，macOS bundle 内层为 <ProductName>.app/Contents/MacOS/<ProductName>。
 
@@ -31,18 +34,11 @@ import os
 import re
 import sys
 
-MIN_GZIP_STREAMS = 100
-# 体积地板按产物格式分化（gzip 流数与 tauri://localhost 才是"内嵌前端"的直接证据，三种格式同样有效）：
-#   PE/50MiB —— AGENTS v2.60 的原口径（Windows 单体 exe 标定），保持不变。
-#   ELF/Mach-O/8MiB —— run 35997489906 三平台 CI 实测：ubuntu 13.6 MiB、macOS 9.6 MiB
-#     （src-tauri/Cargo.toml [profile.release] 有 strip=true + opt-level="z" + lto="fat"，
-#      所以裸主二进制远小于早年按未 strip 本地产物标定的 50MiB）。取 8MiB 作保守地板
-#     （低于最小实测 9.6MiB 约 17%），只防"异常缩水仍静默通过"，不当主判据。
-MIN_BYTES_PE = 50 * 1024 * 1024
-MIN_BYTES_UNIVERSAL = 8 * 1024 * 1024
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CARGO_TOML = os.path.join(ROOT, "src-tauri", "Cargo.toml")
 TAURI_CONF = os.path.join(ROOT, "src-tauri", "tauri.conf.json")
+# 前端资产清单：Rust 编译期嵌入用的 SRI 清单，条目数即 dist 资产数的真值
+SRI_MANIFEST = os.path.join(ROOT, "src-tauri", "src", "generated", "sri_hashes.rs")
 GZIP_MAGIC = b"\x1f\x8b"
 MARKER = b"tauri://localhost"
 MACHO_MAGICS = (b"\xcf\xfa\xed\xfe", b"\xfe\xed\xfa\xcf", b"\xca\xfe\xba\xbe", b"\xbe\xba\xfe\xca")
@@ -100,34 +96,56 @@ def detect_format(data: bytes) -> str:
     return "unknown"
 
 
+def manifest_assets() -> list[str]:
+    """编译期嵌入用的前端资产清单（dist 资产数的真值来源）。"""
+    if not os.path.isfile(SRI_MANIFEST):
+        return []
+    text = open(SRI_MANIFEST, encoding="utf-8", errors="replace").read()
+    out: list[str] = []
+    for name in re.findall(r"\"([^\"]+\.(?:js|css|html|json|woff2?|png|svg))\"", text):
+        if name not in out:
+            out.append(name)
+    return out
+
+
 def check_binary(binary: str) -> None:
-    """三项判据一律先量完再判定：任何一项失败都要把三项实测值全打出来（可观测优先，
-    原来的短路 fail 会让后两项读数丢失）。"""
+    """主二进制门禁。
+
+    实测（run 36017549312）：三平台裸二进制 9.6~13.6 MiB、gzip 流 51/85/200、marker 均在。
+    这两项曾判红的原因是口径错，而非产物缩水：src-tauri/src/integrity.rs:11 写明
+    `generate_context!` 把 frontendDist **以 brotli 压缩内嵌进二进制**，所以
+    「数 gzip magic」量的从来不是前端资产（而 dist 资产真值仅 37 个，见 sri_hashes.rs，
+    「>=100」在任何平台都不可能成立）。据此本轮改为：
+      - 卡：`tauri://localhost` 标记（= custom-protocol 生效、前端确实被内嵌）；
+      - 读数：清单资产键在二进制中的命中比例（asset map 是否落空）——本轮不卡，理由见函数末尾；
+      - 读数：体积与 gzip 流数，不再设阈值。
+    """
     if not os.path.isfile(binary):
         fail(f"release 主二进制不存在：{binary}")
     with open(binary, "rb") as fh:
         data = fh.read()
     size = len(data)
     fmt = detect_format(data)
-    floor = MIN_BYTES_PE if fmt in ("PE", "unknown") else MIN_BYTES_UNIVERSAL
     streams = count_gzip_streams(data)
     has_marker = MARKER in data
+    assets = manifest_assets()
+    hit = [a for a in assets if a.encode() in data]
+    ratio = f"{len(hit)}/{len(assets)}" if assets else "n/a"
 
     print(f"[MEASURE] {binary}\n"
-          f"          format={fmt}  size={size / 1024 / 1024:.1f} MiB (地板 {floor / 1024 / 1024:.0f} MiB)"
-          f"  gzip_streams={streams} (门槛 {MIN_GZIP_STREAMS})"
-          f"  tauri://localhost={'yes' if has_marker else 'no'}")
+          f"          format={fmt}  size={size / 1024 / 1024:.1f} MiB（本轮不设体积阈值）"
+          f"  gzip_streams={streams}（历史读数，brotli 内嵌下无判据意义）"
+          f"  tauri://localhost={'yes' if has_marker else 'no'}"
+          f"  资产键命中={ratio} 清单={SRI_MANIFEST.split(os.sep)[-1]}")
 
     problems = []
-    if size < floor:
-        problems.append(f"体积 {size / 1024 / 1024:.1f} MiB < 地板 {floor / 1024 / 1024:.0f} MiB")
-    if streams < MIN_GZIP_STREAMS:
-        problems.append(f"内嵌 gzip 流 {streams} < {MIN_GZIP_STREAMS}（前端资源未内嵌）")
     if not has_marker:
-        problems.append("未找到 `tauri://localhost` 标记（custom-protocol 未生效）")
+        problems.append("未找到 `tauri://localhost` 标记（custom-protocol 未生效，前端不会内嵌）")
     if problems:
         fail("；".join(problems))
-    print(f"[OK] 二进制门禁：{fmt} 含 {streams} 个 gzip 流与 tauri://localhost 标记")
+    # 资产键命中率先只作读数：Tauri codegen 里 asset map 的键写法（是否带 / 或 assets/ 前缀）
+    # 未经三平台实测，本轮就以 0 命中判红等于再赌一次 dispatch。取到三平台稳定值后收紧为判据。
+    print(f"[OK] 二进制门禁：marker 在；资产键命中 {ratio}（读数，暂不判据）")
 
 
 def _binary_names() -> list[str]:

@@ -505,8 +505,27 @@ jobs:
         with:
           args: ${{ matrix.args }}
 
-      # 防回归门禁（GOTCHAS #98）：release 构建后校验主二进制真内嵌前端
-      # （gzip 流数 + tauri://localhost + 体积），未内嵌即阻断。
+      # 取证轮：把三平台 build 后 bundle 的真实布局原样打出来，不在这里判定。
+      # 要回答的问题是——tauri.conf.json 的 bundle.resources=['../public/pets','memory_sidecar']
+      # 各自落到哪个目录，以及前端 dist（index.html + assets/*）是否真以目录形态存在于产物里。
+      # 上一轮的 50MiB / gzip>=100 之所以三平台全判红，就是因为判据对象是猜的；先取证再标定。
+      - name: Inspect bundle layout (evidence)
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## bundle layout — ${{ matrix.platform }}"
+            echo '### tree (depth 3)'; find src-tauri/target/release/bundle -maxdepth 3 | sed 's|^|  |'
+            echo '### sizes'; du -sh src-tauri/target/release/bundle/* 2>/dev/null
+            echo '### index.html anywhere under target/release'; find src-tauri/target/release -name 'index.html' 2>/dev/null | head -10
+            echo '### resources dirs'; find src-tauri/target/release -maxdepth 7 -type d \( -name resources -o -name Resources \) 2>/dev/null | head -20
+            echo '### pets / memory_sidecar landed?'; find src-tauri/target/release -maxdepth 8 \( -ipath '*pets*' -o -ipath '*memory_sidecar*' \) 2>/dev/null | head -20
+            echo '### loose artifacts'; ls -l src-tauri/target/release/bundle/*/* 2>/dev/null | head -40
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # 防回归门禁（GOTCHAS #98）：校验主二进制确实内嵌了前端（custom-protocol 生效）。
+      # 判据本轮收敛为 `tauri://localhost` marker 一项——三平台实测 marker 均在；
+      # 体积与 gzip 流数改为读数（口径错的原因见 scripts/verify_tauri_embed.py）。
       # 显式传路径：三平台主二进制同为 cargo 产物 target/release/spiritpal-app（macOS/Linux 无扩展名，
       # Windows 为 .exe），run 35976217476 里 macOS 腿就是因脚本只认 *.exe 而误报。
       - name: Verify release binary embeds frontend
