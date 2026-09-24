@@ -2,8 +2,15 @@
   "$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker/master/packages/api/schema/stryker-core.json",
   "_comment": "T-18: Mutation Testing 配置 — 验证测试用例有效性",
   "packageManager": "pnpm",
-  "reporters": ["html", "clear-text", "progress"],
+  "reporters": [
+    "html",
+    "clear-text",
+    "progress"
+  ],
   "testRunner": "vitest",
+  "appendPlugins": [
+    "@stryker-mutator/vitest-runner"
+  ],
   "coverageAnalysis": "perTest",
   "mutate": [
     "src/lib/ai/behaviorEngine.ts",
@@ -19,7 +26,8 @@
   "vitest": {
     "configFile": "vitest.config.ts"
   },
-  "timeoutMs": 60000,
+  "timeoutMS": 60000,
   "concurrency": 2,
-  "disableTypeChecks": true
+  "disableTypeChecks": true,
+  "appendPlugins_comment": "pnpm 下必须显式声明插件，否则 Stryker 按 @stryker-mutator/* 相对 core 在 .pnpm 虚拟目录里的位置扫描，那里只有 core 的依赖（api/instrumenter/util），反向依赖它的 vitest-runner 不在同级 → runner 永不加载，报 no TestRunner plugins were loaded。见 stryker-mutator.io/docs/stryker-js/troubleshooting/。用 appendPlugins 而非 plugins，保留默认 glob。删掉本行会让 schedule 作业重新变红。"
 }
