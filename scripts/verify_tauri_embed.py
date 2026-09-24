@@ -7,10 +7,11 @@
      src-tauri/Cargo.toml 的 tauri 依赖 features 必须包含 `custom-protocol`，
      否则 release 构建不内嵌 dist 前端（会回退 devUrl，双击 exe 报 localhost 拒绝连接）。
   2. 二进制门禁（release 构建后执行，默认模式）：
-     指定（或跨平台自动定位）release 主二进制，要求：
-       - 文件体积 >= 50 MiB
-       - 内嵌 gzip 流数量 >= 100（dist 前端资源被 Tauri 压缩内嵌）
-       - 二进制内容包含 `tauri://localhost` 标记（custom-protocol 已启用）
+     指定（或跨平台自动定位）release 主二进制，三项一律先量后判、失败也全量打印：
+       - 内嵌 gzip 流数量 >= 100（dist 前端资源被 Tauri 压缩内嵌）——主判据
+       - 二进制内容包含 `tauri://localhost` 标记（custom-protocol 已启用）——主判据
+       - 体积只做地板值：PE 50 MiB（Windows 单体 exe 原口径）；ELF / Mach-O 8 MiB
+         （CI 实测 ubuntu 13.6 / macOS 9.6 MiB，见 MIN_BYTES_UNIVERSAL 注释的标定来源）
      主二进制三平台同源同名：Linux/macOS 为 src-tauri/target/release/<name>（无扩展名），
      Windows 为 <name>.exe，macOS bundle 内层为 <ProductName>.app/Contents/MacOS/<ProductName>。
 
@@ -30,13 +31,29 @@ import os
 import re
 import sys
 
-MIN_EXE_BYTES = 50 * 1024 * 1024          # 50 MiB
 MIN_GZIP_STREAMS = 100
+# 体积地板按产物格式分化（gzip 流数与 tauri://localhost 才是"内嵌前端"的直接证据，三种格式同样有效）：
+#   PE/50MiB —— AGENTS v2.60 的原口径（Windows 单体 exe 标定），保持不变。
+#   ELF/Mach-O/8MiB —— run 35997489906 三平台 CI 实测：ubuntu 13.6 MiB、macOS 9.6 MiB
+#     （src-tauri/Cargo.toml [profile.release] 有 strip=true + opt-level="z" + lto="fat"，
+#      所以裸主二进制远小于早年按未 strip 本地产物标定的 50MiB）。取 8MiB 作保守地板
+#     （低于最小实测 9.6MiB 约 17%），只防"异常缩水仍静默通过"，不当主判据。
+MIN_BYTES_PE = 50 * 1024 * 1024
+MIN_BYTES_UNIVERSAL = 8 * 1024 * 1024
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CARGO_TOML = os.path.join(ROOT, "src-tauri", "Cargo.toml")
 TAURI_CONF = os.path.join(ROOT, "src-tauri", "tauri.conf.json")
 GZIP_MAGIC = b"\x1f\x8b"
 MARKER = b"tauri://localhost"
+MACHO_MAGICS = (b"\xcf\xfa\xed\xfe", b"\xfe\xed\xfa\xcf", b"\xca\xfe\xba\xbe", b"\xbe\xba\xfe\xca")
+
+# Windows 托管 runner 的 stdout 默认 cp1252，打印中文即 UnicodeEncodeError
+# （run 35997489906 的 windows 腿就死在 check_config 的第一次 print，根本没读到二进制）。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, OSError, ValueError):
+        pass
 
 
 def fail(msg: str) -> None:
@@ -73,20 +90,44 @@ def count_gzip_streams(data: bytes) -> int:
     return count
 
 
-def check_binary(exe: str) -> None:
-    if not os.path.isfile(exe):
-        fail(f"release exe 不存在：{exe}")
-    size = os.path.getsize(exe)
-    if size < MIN_EXE_BYTES:
-        fail(f"体积不足：{size / 1024 / 1024:.1f} MiB < 50 MiB（exe={exe}）")
-    with open(exe, "rb") as fh:
+def detect_format(data: bytes) -> str:
+    if data.startswith(b"\x7fELF"):
+        return "ELF"
+    if data[:4] in MACHO_MAGICS:
+        return "Mach-O"
+    if data.startswith(b"MZ"):
+        return "PE"
+    return "unknown"
+
+
+def check_binary(binary: str) -> None:
+    """三项判据一律先量完再判定：任何一项失败都要把三项实测值全打出来（可观测优先，
+    原来的短路 fail 会让后两项读数丢失）。"""
+    if not os.path.isfile(binary):
+        fail(f"release 主二进制不存在：{binary}")
+    with open(binary, "rb") as fh:
         data = fh.read()
+    size = len(data)
+    fmt = detect_format(data)
+    floor = MIN_BYTES_PE if fmt in ("PE", "unknown") else MIN_BYTES_UNIVERSAL
     streams = count_gzip_streams(data)
+    has_marker = MARKER in data
+
+    print(f"[MEASURE] {binary}\n"
+          f"          format={fmt}  size={size / 1024 / 1024:.1f} MiB (地板 {floor / 1024 / 1024:.0f} MiB)"
+          f"  gzip_streams={streams} (门槛 {MIN_GZIP_STREAMS})"
+          f"  tauri://localhost={'yes' if has_marker else 'no'}")
+
+    problems = []
+    if size < floor:
+        problems.append(f"体积 {size / 1024 / 1024:.1f} MiB < 地板 {floor / 1024 / 1024:.0f} MiB")
     if streams < MIN_GZIP_STREAMS:
-        fail(f"内嵌 gzip 流不足：{streams} < {MIN_GZIP_STREAMS}（前端资源未内嵌）")
-    if MARKER not in data:
-        fail("二进制中未找到 `tauri://localhost` 标记（custom-protocol 未生效）")
-    print(f"[OK] 二进制门禁：{size / 1024 / 1024:.1f} MiB，gzip 流 {streams} 个，含 tauri://localhost")
+        problems.append(f"内嵌 gzip 流 {streams} < {MIN_GZIP_STREAMS}（前端资源未内嵌）")
+    if not has_marker:
+        problems.append("未找到 `tauri://localhost` 标记（custom-protocol 未生效）")
+    if problems:
+        fail("；".join(problems))
+    print(f"[OK] 二进制门禁：{fmt} 含 {streams} 个 gzip 流与 tauri://localhost 标记")
 
 
 def _binary_names() -> list[str]:

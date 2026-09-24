@@ -518,7 +518,9 @@ jobs:
             Windows) bin="$bin.exe" ;;
           esac
           test -f "$bin" || { echo "[FAIL] 未找到主二进制 $bin"; exit 1; }
-          python3 scripts/verify_tauri_embed.py "$bin" || python scripts/verify_tauri_embed.py "$bin"
+          # 只解析一次解释器：旧写法 python3 ... || python ... 会在真失败时把脚本跑两遍
+          py=$(command -v python3 || command -v python)
+          "$py" scripts/verify_tauri_embed.py "$bin"
 
       # R-11 构建期 SRI 门禁：重算 dist 产物 SHA-256 与 sri_hashes.rs 清单逐条比对，
       # 任何缺失/不一致即非零退出（防「清单登记与实际产物脱节」而运行时校验失去意义）。
@@ -592,8 +594,9 @@ jobs:
     runs-on: ubuntu-latest
     # run 35976217476 实测：job 撞 30min 上限被 cancel（时长 1819s），当时 Stryker 进度 669/990。
     # 前 632 个只花约 5 分钟（大量 no-cov 突变体近乎零成本），其后 37 个用了 23 分钟≈37 s/个。
-    # 按后期速率剩余 321 个需 3h+，故先放宽到 60min 取首份分数基线；缩面另议。
-    timeout-minutes: 60
+    # 剩余 321 个按后期速率约 3h19m（Stryker 自估 remaining ~3h34m）→ 全量首份基线约 4h。
+    # 60min 必然再次超时，故取 240min；本 job 仅 dispatch/schedule、非门禁、public 仓 runner 不计费。
+    timeout-minutes: 240
 
     steps:
       - name: Checkout code
