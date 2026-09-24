@@ -24,8 +24,8 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 11
+        # 版本由 package.json 的 packageManager 驱动（同 ci.yml:36-38）；
+        # 显式 version 输入会与之冲突并被 action 拒绝。
 
       - name: Install Node.js
         uses: actions/setup-node@v4
