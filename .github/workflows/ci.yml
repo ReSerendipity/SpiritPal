@@ -156,7 +156,29 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: spiritpal-build-ubuntu-22.04
-          path: src-tauri/target/release/
+          # 以工作区为根解出，与上传侧默认 root 对称；不再猜中间目录层级。
+          path: .
+
+      # 主二进制按名字定位，不写死层级：artifact 内部到底带不带 src-tauri/target/release/
+      # 前缀，从未被任何一次 run 证实过（#95 就是靠这个推断改上传布局而把三平台产物传空的）。
+      # 找到就把可用路径交回下游；找不到就打印真实解包布局再红——红得有信息，不放行。
+      - name: Locate app binary
+        id: appbin
+        shell: bash
+        run: |
+          set -euo pipefail
+          # -print -quit 而非 | head -1：step 是 pipefail，head 早关管道会让长目录树上的
+          # find 收到 SIGPIPE 而以 141 退出，把"找到了"误判成失败。
+          bin=$(find . -type d -name node_modules -prune -o -type f \
+                 \( -name 'spiritpal-app' -o -name 'spiritpal-app.exe' \) -print -quit)
+          if [ -z "$bin" ]; then
+            echo "::error::artifact 内未找到主二进制；实际解包布局如下："
+            find . -maxdepth 4 -not -path "./node_modules/*" -not -path "./.git/*" | sed -n '1,60p'
+            exit 1
+          fi
+          chmod +x "$bin"
+          echo "path=$bin" >> "$GITHUB_OUTPUT"
+          echo "主二进制：$bin（$(du -h "$bin" | cut -f1)）"
 
       - name: Install pnpm
         # 必须先装 pnpm：本 job 此前只有 setup-node(cache:'pnpm')，缺 action-setup，
@@ -176,25 +198,25 @@ jobs:
       - name: Run cold-start test
         run: node perf/cold-start.mjs
         env:
-          SPIRITPAL_EXE: ./src-tauri/target/release/spiritpal-app
+          SPIRITPAL_EXE: ${{ steps.appbin.outputs.path }}
         continue-on-error: true
 
       - name: Run memory-usage test
         run: node perf/memory-usage.mjs
         env:
-          SPIRITPAL_EXE: ./src-tauri/target/release/spiritpal-app
+          SPIRITPAL_EXE: ${{ steps.appbin.outputs.path }}
         continue-on-error: true
 
       - name: Run FPS test
         run: node perf/fps-test.mjs
         env:
-          SPIRITPAL_EXE: ./src-tauri/target/release/spiritpal-app
+          SPIRITPAL_EXE: ${{ steps.appbin.outputs.path }}
         continue-on-error: true
 
       - name: Run model-switch-latency test
         run: node perf/model-switch-latency.mjs
         env:
-          SPIRITPAL_EXE: ./src-tauri/target/release/spiritpal-app
+          SPIRITPAL_EXE: ${{ steps.appbin.outputs.path }}
         continue-on-error: true
 
       - name: Generate benchmark report
@@ -206,7 +228,7 @@ jobs:
       - name: Baseline regression gate
         run: node perf/baseline-trend.mjs --read-only
         env:
-          SPIRITPAL_EXE: ./src-tauri/target/release/spiritpal-app
+          SPIRITPAL_EXE: ${{ steps.appbin.outputs.path }}
 
       - name: Upload performance results
         if: always()
@@ -566,17 +588,22 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: spiritpal-build-${{ matrix.platform }}
-          # root 必须显式设：默认以工作区根为基准，产物在 zip 里带 `src-tauri/target/release/` 前缀，
-          # 而 perf-baseline 用 `path: src-tauri/target/release/` 下载 → 解出双层嵌套，
-          # 主二进制永远不在 SPIRITPAL_EXE 指的路径上（run 36097921523 实测 spawn ENOENT）。
-          # 现在产物内路径 = 相对 src-tauri/target/release，下载后正好落回该目录。
-          root: src-tauri/target/release
+          # 修 #95 引入的回归：那笔把 root 当成了 path 的解析基准。run 36113821570 实测
+          # root=src-tauri/target/release + path=bundle/ → "No files were found with the
+          # provided path"，三平台各上传 0 文件、artifact 干脆不存在（perf-baseline 因此
+          # 5 秒红在 Download build artifacts：Artifact not found for name: …）。
+          # root 只影响产物内的存放基准，不改变 path 的解析根；这里不设 root，
+          # 与 perf-baseline 侧 `path: .` 同以工作区为根。
+          # 另注：#95 里"下载必然解出双层嵌套"是我的推断，从未被任何 run 证实；本笔不再拿它当依据，
+          # 产物实际布局由下面的 Locate app binary 步骤按名字定位，两种布局都能落到正确路径。
           path: |
-            bundle/
-            spiritpal-app
-            spiritpal-app.exe
-            *.msi
-          if-no-files-found: ignore
+            src-tauri/target/release/bundle/
+            src-tauri/target/release/spiritpal-app
+            src-tauri/target/release/spiritpal-app.exe
+            src-tauri/target/release/*.msi
+          # error 而非 ignore：零匹配就不再静默"成功"。bundle/ 三平台都有，聚合必非空，
+          # 不会因某平台天然缺某个二进制名而误报。
+          if-no-files-found: error
           retention-days: 14
 
   rust-clippy:
