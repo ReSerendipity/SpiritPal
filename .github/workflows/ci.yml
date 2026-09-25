@@ -566,10 +566,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: spiritpal-build-${{ matrix.platform }}
+          # root 必须显式设：默认以工作区根为基准，产物在 zip 里带 `src-tauri/target/release/` 前缀，
+          # 而 perf-baseline 用 `path: src-tauri/target/release/` 下载 → 解出双层嵌套，
+          # 主二进制永远不在 SPIRITPAL_EXE 指的路径上（run 36097921523 实测 spawn ENOENT）。
+          # 现在产物内路径 = 相对 src-tauri/target/release，下载后正好落回该目录。
+          root: src-tauri/target/release
           path: |
-            src-tauri/target/release/bundle/
-            src-tauri/target/release/*.exe
-            src-tauri/target/release/*.msi
+            bundle/
+            spiritpal-app
+            spiritpal-app.exe
+            *.msi
           if-no-files-found: ignore
           retention-days: 14
 

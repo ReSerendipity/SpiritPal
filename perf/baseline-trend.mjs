@@ -68,14 +68,34 @@ function main() {
   }
 
   // 读取单项指标 JSON（P3-12 S1：由各 perf 脚本 saveResultJson 留存）
+  const missing = []
   for (const [file, key] of [['cold-start.json', 'coldStart'], ['memory-usage.json', 'memory'], ['fps-test.json', 'fps']]) {
     const fp = join(RESULTS_DIR, file)
-    if (existsSync(fp)) {
-      try {
-        const rec = JSON.parse(readFileSync(fp, 'utf-8'))
-        if (typeof rec.value === 'number') current[key] = rec.value
-      } catch {}
+    if (!existsSync(fp)) {
+      missing.push(`${file}（不存在）`)
+      continue
     }
+    let rec = null
+    try { rec = JSON.parse(readFileSync(fp, 'utf-8')) } catch { missing.push(`${file}（JSON 解析失败）`); continue }
+    if (typeof rec.value !== 'number' || !Number.isFinite(rec.value)) {
+      missing.push(`${file}（value 非有限数值：${JSON.stringify(rec.value)}）`)
+      continue
+    }
+    current[key] = rec.value
+  }
+
+  // fail-closed：缺任何一项指标就不放行。run 36097921523 的反例——四项采集步骤全
+  // continue-on-error、结果文件一个没落，闸门却因"无可比数据 ⇒ 无回归"判 ✅ 并 exit 0，
+  // 报告里五项指标全是 `—`、阈值 `undefined`，绿而空。
+  // 也不允许在缺数据时把空 current 写成新基线（那会把"从没测过"固化成基准）。
+  if (missing.length > 0 && !process.argv.includes('--allow-partial')) {
+    console.error('  [FAIL] 指标缺数据，闸门判红（禁止 ⚠️ 后继续 success）:')
+    for (const m of missing) console.error(`     - ${m}`)
+    console.error('     采到全部指标后再跑；确需部分指标请显式加 --allow-partial。')
+    process.exit(1)
+  }
+  if (missing.length > 0) {
+    console.log(`  ⚠️  --allow-partial：忽略 ${missing.length} 项缺数据（CI 不使用该开关）`)
   }
 
   const baseline = loadBaseline()
