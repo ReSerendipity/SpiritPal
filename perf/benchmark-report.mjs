@@ -9,18 +9,26 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { PROJECT_ROOT } from './_helpers.mjs'
+import { PROJECT_ROOT, THRESHOLDS } from './_helpers.mjs'
 
 const RESULTS_DIR = join(PROJECT_ROOT, 'perf', 'results')
 const REPORT_FILE = join(PROJECT_ROOT, 'perf', 'benchmark-report.md')
 
+// threshold 取自 _helpers.mjs 的 THRESHOLDS（PRD v0.2 单一来源，run-all.mjs 也用同一份）；
+// 此前本表没有 threshold 字段，报告里就打印出 `< undefinedms`（run 36097921523 实测）。
+// 没有 PRD 数值的指标（modelSwitch）留 null，由渲染处显示为 —，不编造门限。
 const METRICS = [
-  { key: 'coldStart', file: 'cold-start.json', label: '冷启动时间', unit: 'ms', better: 'less' },
-  { key: 'memory', file: 'memory-usage.json', label: '内存占用', unit: 'MB', better: 'less' },
-  { key: 'fps', file: 'fps-test.json', label: '帧率 (FPS)', unit: 'fps', better: 'more' },
-  { key: 'packageSize', file: 'package-size.json', label: '安装包大小', unit: 'MB', better: 'less' },
-  { key: 'modelSwitch', file: 'model-switch-latency.json', label: '模型切换延迟', unit: 'ms', better: 'less' },
+  { key: 'coldStart', file: 'cold-start.json', label: '冷启动时间', unit: 'ms', better: 'less', threshold: THRESHOLDS.coldStartMs },
+  { key: 'memory', file: 'memory-usage.json', label: '内存占用', unit: 'MB', better: 'less', threshold: THRESHOLDS.memoryMB },
+  { key: 'fps', file: 'fps-test.json', label: '帧率 (FPS)', unit: 'fps', better: 'more', threshold: THRESHOLDS.fps },
+  { key: 'packageSize', file: 'package-size.json', label: '安装包大小', unit: 'MB', better: 'less', threshold: THRESHOLDS.packageSizeMB },
+  { key: 'modelSwitch', file: 'model-switch-latency.json', label: '模型切换延迟', unit: 'ms', better: 'less', threshold: null },
 ]
+
+function formatThreshold(r) {
+  if (r.threshold == null) return '—'
+  return `${r.better === 'less' ? '<' : '≥'} ${r.threshold}${r.unit}`
+}
 
 function loadJson(file) {
   if (!existsSync(file)) return null
@@ -68,7 +76,7 @@ function generateReport() {
   for (const r of results) {
     const valueStr = r.value !== null ? `${r.value}${r.unit}` : '—'
     const statusIcon = r.status === 'pass' ? '✅' : r.status === 'fail' ? '❌' : '⚠️'
-    const thresholdStr = r.better === 'less' ? `< ${r.threshold}${r.unit}` : `≥ ${r.threshold}${r.unit}`
+    const thresholdStr = formatThreshold(r)
     md += `| ${r.label} | ${valueStr} | ${thresholdStr} | ${statusIcon} |\n`
   }
 
@@ -79,7 +87,7 @@ function generateReport() {
     if (r.value === null) continue
     md += `### ${r.label}\n\n`
     md += `- **当前值**: ${r.value}${r.unit}\n`
-    md += `- **阈值**: ${r.better === 'less' ? '<' : '>'} ${r.threshold}${r.unit}\n`
+    md += `- **阈值**: ${formatThreshold(r)}\n`
     md += `- **状态**: ${r.passed ? '✅ 通过' : '❌ 未通过'}\n`
 
     if (!r.passed) {
