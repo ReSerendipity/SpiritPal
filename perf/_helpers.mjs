@@ -219,6 +219,37 @@ export function getProcessMemoryMB(processName) {
 // Linux: wmctrl -l (需要安装 wmctrl)
 // macOS: ps + AppleScript (简化：仅检查进程存在)
 // ============================================================
+// ============================================================
+// Unix 窗口检测（cold-start 用）
+//
+// 旧实现 `wmctrl -l | grep -i <进程名>` 有两处致命前提，run 36131292512 因此只能走
+// "进程出现即算 PASS" 的假绿回退：
+//   1) wmctrl 不在 CI 的 apt 列表里，且 Xvfb 默认没有窗口管理器（无 EWMH _NET_CLIENT_LIST）；
+//   2) wmctrl -l 列出的是**窗口标题**，用它 grep 进程名（spiritpal-app）语义就不对。
+// 下面按 PID 匹配（xdotool 优先，wmctrl -lp 兜底），并把"工具缺失/无 WM"与"没有窗口"
+// 区分开——前者是环境错误，绝不能算通过。
+// ============================================================
+let _windowTool
+
+export function windowTool() {
+  if (_windowTool !== undefined) return _windowTool
+  const has = (cmd) => runCommand(`command -v ${cmd} 2>/dev/null || true`, { allowFail: true }).trim().length > 0
+  _windowTool = has('xdotool') ? 'xdotool' : (has('wmctrl') ? 'wmctrl' : null)
+  return _windowTool
+}
+
+/** 该 PID 是否有可见窗口；工具不可用时返回 null（区别于 false） */
+export function hasWindowForPid(pid) {
+  const tool = windowTool()
+  if (!tool || !pid) return null
+  if (tool === 'xdotool') {
+    const out = runCommand(`xdotool search --pid ${pid} --onlyvisible 2>/dev/null | head -1 || true`, { allowFail: true })
+    return out.trim().length > 0
+  }
+  const out = runCommand(`wmctrl -lp 2>/dev/null | awk -v p=${pid} '$3==p' || true`, { allowFail: true })
+  return out.trim().length > 0
+}
+
 export function hasProcessWindow(processName) {
   const baseName = processName.replace(/\.exe$/i, '')
 
