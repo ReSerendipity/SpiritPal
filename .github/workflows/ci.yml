@@ -195,6 +195,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # GUI 指标（memory/fps/model-switch）需要真实显示服务；ubuntu runner 无 DISPLAY，
+      # 用 xvfb 提供虚拟帧缓冲，并补齐 Tauri/webkit 运行库（run 36131292512 实测缺它三指标全缺）。
+      - name: Install GUI runtime (xvfb + webkit libs)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgtk-3-0 libwebkit2gtk-4.1-0 libnss3 libatk-bridge2.0-0 \
+            libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2
+
       - name: Run cold-start test
         run: node perf/cold-start.mjs
         env:
@@ -202,19 +210,19 @@ jobs:
         continue-on-error: true
 
       - name: Run memory-usage test
-        run: node perf/memory-usage.mjs
+        run: xvfb-run -a node perf/memory-usage.mjs
         env:
           SPIRITPAL_EXE: ${{ steps.appbin.outputs.path }}
         continue-on-error: true
 
       - name: Run FPS test
-        run: node perf/fps-test.mjs
+        run: xvfb-run -a node perf/fps-test.mjs
         env:
           SPIRITPAL_EXE: ${{ steps.appbin.outputs.path }}
         continue-on-error: true
 
       - name: Run model-switch-latency test
-        run: node perf/model-switch-latency.mjs
+        run: xvfb-run -a node perf/model-switch-latency.mjs
         env:
           SPIRITPAL_EXE: ${{ steps.appbin.outputs.path }}
         continue-on-error: true
