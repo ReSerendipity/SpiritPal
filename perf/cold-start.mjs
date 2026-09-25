@@ -26,7 +26,10 @@ import {
   launchExe,
   killProcess,
   isProcessRunning,
+  isWindows,
   hasProcessWindow,
+  hasWindowForPid,
+  windowTool,
   waitForProcess,
   sleep,
   formatResult,
@@ -88,11 +91,15 @@ async function runColdStartTest() {
   const timeoutMs = parseInt(process.env.SPIRITPAL_PERF_TIMEOUT || '30000', 10)
   let found = false
   let elapsedMs = 0
+  let envError = null
 
   console.log('  ℹ️  等待窗口出现...')
 
-  // 先等待进程出现，再等待窗口
-  // （命中即 break，故不需要跨迭代的 found 早退守卫——CodeQL 判其恒 false）
+  // 先等进程出现（拿到 PID），再按 PID 判窗口是否真的映射出来。
+  // 这里刻意没有"进程出现即算时间"的回退：那等于把"起没起来"和"界面出不来"混为一谈，
+  // run 36131292512 就是靠这条回退在无 DISPLAY 时给出 8ms 的假 PASS。
+  let procPid = null
+  let procName = null
   for (const exeName of EXE_CANDIDATES) {
     const procResult = await waitForProcess({
       processName: exeName,
@@ -101,24 +108,53 @@ async function runColdStartTest() {
       checkWindow: false,
     })
     if (procResult.found) {
-      // 进程已出现，尝试检测窗口（短超时，Tauri 无装饰窗口可能没有标题）
-      const winResult = await waitForProcess({
-        processName: exeName,
-        timeoutMs: 5000,
-        intervalMs: 100,
-        checkWindow: true,
-      })
-      if (winResult.found) {
-        found = true
-        elapsedMs = Date.now() - startTime
-        console.log(`  ℹ️  检测到窗口: ${exeName}`)
+      procName = exeName.replace(/\.exe$/i, '')
+      procPid = useDev ? null : (childProc && childProc.pid) || null
+      break
+    }
+  }
+
+  if (!procName) {
+    found = false
+    console.log('  ❌ 应用进程未在超时内出现')
+  } else if (isWindows()) {
+    // Windows：沿用 MainWindowTitle 判定，但同样去掉"进程在就算冷启动成功"的回退
+    const deadline = Date.now() + timeoutMs
+    while (Date.now() < deadline) {
+      if (hasProcessWindow(procName)) {
+        found = true; elapsedMs = Date.now() - startTime
+        console.log(`  ✅ 窗口已出现：${procName}（${elapsedMs}ms）`)
         break
-      } else {
-        // 窗口未出现但进程在运行，使用进程出现时间作为冷启动时间
-        elapsedMs = procResult.elapsedMs
-        found = true
-        console.log(`  ℹ️  检测到进程: ${exeName}（窗口标题未检测到，使用进程出现时间 ${procResult.elapsedMs}ms）`)
-        break
+      }
+      await sleep(100)
+    }
+    if (!found) console.log(`  ❌ 超时 ${timeoutMs}ms 内未出现窗口（进程 ${procName} 存活）`)
+  } else {
+    // Linux/macOS：按 PID 判窗口。工具或窗口管理器缺失时判"环境错误"，不给分数。
+    const tool = windowTool()
+    const pid = procPid
+    if (!tool) {
+      envError = '缺少 X 侧窗口检测工具（xdotool / wmctrl），无法判定窗口是否出现'
+    } else if (!pid && !useDev) {
+      envError = `拿不到子进程 PID，无法用 ${tool} 按 PID 判定窗口`
+    } else {
+      const deadline = Date.now() + timeoutMs
+      let last = null
+      while (Date.now() < deadline) {
+        last = hasWindowForPid(pid)
+        if (last === null) {
+          envError = `${tool} 无法完成检测（无 DISPLAY，或 Xvfb 上没起窗口管理器）`
+          break
+        }
+        if (last === true) {
+          found = true; elapsedMs = Date.now() - startTime
+          console.log(`  ✅ 窗口已出现：pid=${pid} via ${tool}（${elapsedMs}ms）`)
+          break
+        }
+        await sleep(100)
+      }
+      if (!found && !envError) {
+        console.log(`  ❌ 超时 ${timeoutMs}ms 内未出现窗口（pid=${pid} 存活，via ${tool}）`)
       }
     }
   }
@@ -147,15 +183,20 @@ async function runColdStartTest() {
   }
 
   // --- 6. 输出结果 ---
+  if (envError) {
+    // 环境不可用 ≠ 性能不达标：抛给入口按 exit 2 结束，原因写进日志。
+    // 绝不复用"进程出现即 PASS"那条路，否则又变回假绿。
+    throw new Error(`检测环境不可用：${envError}`)
+  }
   if (!found) {
-    console.log('  ❌ 未检测到应用进程启动（超时）')
+    console.log(`  ❌ 判 FAIL：窗口未在 ${timeoutMs}ms 内出现（进程名 ${procName || '未检出'}）`)
     const result = formatResult({
       name: '冷启动时间',
       value: timeoutMs,
       unit: 'ms',
       threshold: THRESHOLDS.coldStartMs,
       compare: 'lt',
-      detail: `超时未检测到窗口（${timeoutMs}ms）`,
+      detail: `超时未出现窗口（${timeoutMs}ms）`,
     })
     printResult(result)
     return result
