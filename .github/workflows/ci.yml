@@ -158,7 +158,13 @@ jobs:
           name: spiritpal-build-ubuntu-22.04
           path: src-tauri/target/release/
 
-      - name: Setup pnpm and Node.js
+      - name: Install pnpm
+        # 必须先装 pnpm：本 job 此前只有 setup-node(cache:'pnpm')，缺 action-setup，
+        # run 36029050680 实测红在 `Unable to locate executable file: pnpm`（11s，其后 4 步 skipped）。
+        # 版本不写死，由 package.json 的 packageManager 字段驱动（同 ci.yml:36-38）。
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -474,16 +480,81 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      # externalBin 预编：tauri.conf.json 声明 binaries/spiritpal-mcp，而仓库只提交占位脚本
+      # （*.exe 被 .gitignore 排除，unix 目标亦无产物）→ 缺此步 windows 构建必失败：
+      # `resource path binaries\spiritpal-mcp-x86_64-pc-windows-msvc.exe doesn't exist`。
+      # triple 由 rustc -vV 的 host 行推导，不写死三个字符串（同 release.yml:59 的做法，但去掉了
+      # 手工 arch 分支）。产物名与 tauri 查找规则 binaries/spiritpal-mcp-<triple>[.exe] 对齐。
+      - name: Build sidecar (externalBin)
+        shell: bash
+        working-directory: src-tauri/mcp-server
+        run: |
+          set -euo pipefail
+          cargo build --release
+          triple=$(rustc -vV | sed -n 's/^host: //p')
+          test -n "$triple" || { echo "rustc -vV 未给出 host triple"; exit 1; }
+          ext=''
+          case "$triple" in *windows*) ext='.exe' ;; esac
+          mkdir -p ../binaries
+          cp "target/release/spiritpal-mcp${ext}" "../binaries/spiritpal-mcp-${triple}${ext}"
+          ls -l "../binaries/spiritpal-mcp-${triple}${ext}"
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
+        # createUpdaterArtifacts=true + tauri.conf.json 已登记 updater.pubkey：
+        # 缺私钥时 tauri 直接失败（ubuntu 实测 `A public key has been found, but no private key`）。
+        # secret 名与 release.yml:113-114 一致；只引用，不读值、不打印。
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           args: ${{ matrix.args }}
 
-      # 防回归门禁（GOTCHAS #98）：release 构建后校验 exe 真正内嵌前端
-      # （gzip 流数 + tauri://localhost + 体积），未内嵌即阻断。
+      # 取证轮：把三平台 build 后 bundle 的真实布局原样打出来，不在这里判定。
+      # 要回答的问题是——tauri.conf.json 的 bundle.resources=['../public/pets','memory_sidecar']
+      # 各自落到哪个目录，以及前端 dist（index.html + assets/*）是否真以目录形态存在于产物里。
+      # 上一轮的 50MiB / gzip>=100 之所以三平台全判红，就是因为判据对象是猜的；先取证再标定。
+      - name: Inspect bundle layout (evidence)
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## bundle layout — ${{ matrix.platform }}"
+            echo '### tree (depth 3)'; find src-tauri/target/release/bundle -maxdepth 3 | sed 's|^|  |'
+            echo '### sizes'; du -sh src-tauri/target/release/bundle/* 2>/dev/null
+            echo '### index.html anywhere under target/release'; find src-tauri/target/release -name 'index.html' 2>/dev/null | head -10
+            echo '### resources dirs'; find src-tauri/target/release -maxdepth 7 -type d \( -name resources -o -name Resources \) 2>/dev/null | head -20
+            echo '### pets / memory_sidecar landed?'; find src-tauri/target/release -maxdepth 8 \( -ipath '*pets*' -o -ipath '*memory_sidecar*' \) 2>/dev/null | head -20
+            echo '### loose artifacts'; ls -l src-tauri/target/release/bundle/*/* 2>/dev/null | head -40
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # 防回归门禁（GOTCHAS #98）：校验主二进制确实内嵌了前端（custom-protocol 生效）。
+      # 判据本轮收敛为 `tauri://localhost` marker 一项——三平台实测 marker 均在；
+      # 体积与 gzip 流数改为读数（口径错的原因见 scripts/verify_tauri_embed.py）。
+      # 显式传路径：三平台主二进制同为 cargo 产物 target/release/spiritpal-app（macOS/Linux 无扩展名，
+      # Windows 为 .exe），run 35976217476 里 macOS 腿就是因脚本只认 *.exe 而误报。
       - name: Verify release binary embeds frontend
         shell: bash
-        run: python3 scripts/verify_tauri_embed.py || python scripts/verify_tauri_embed.py
+        run: |
+          set -euo pipefail
+          bin=src-tauri/target/release/spiritpal-app
+          case "$RUNNER_OS" in
+            Windows) bin="$bin.exe" ;;
+          esac
+          test -f "$bin" || { echo "[FAIL] 未找到主二进制 $bin"; exit 1; }
+          # 只解析一次解释器：旧写法 python3 ... || python ... 会在真失败时把脚本跑两遍
+          py=$(command -v python3 || command -v python)
+          "$py" scripts/verify_tauri_embed.py "$bin"
+
+      # 资源目录门禁：bundle.resources（memory_sidecar、../public/pets）必须真落盘且非空。
+      # 落点用尾段 glob 匹配，不按平台枚举中间目录（三平台形态见 run 36029050680 的取证步）。
+      - name: Verify bundle resources landed
+        shell: bash
+        run: |
+          set -euo pipefail
+          py=$(command -v python3 || command -v python)
+          "$py" scripts/verify_tauri_embed.py --check-resources
 
       # R-11 构建期 SRI 门禁：重算 dist 产物 SHA-256 与 sri_hashes.rs 清单逐条比对，
       # 任何缺失/不一致即非零退出（防「清单登记与实际产物脱节」而运行时校验失去意义）。
@@ -555,7 +626,11 @@ jobs:
     # P2-1：让 mutation score 有每周记录，不设门禁（mutate 面随 src/lib 结构演进）
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # run 35976217476 实测：job 撞 30min 上限被 cancel（时长 1819s），当时 Stryker 进度 669/990。
+    # 前 632 个只花约 5 分钟（大量 no-cov 突变体近乎零成本），其后 37 个用了 23 分钟≈37 s/个。
+    # 剩余 321 个按后期速率约 3h19m（Stryker 自估 remaining ~3h34m）→ 全量首份基线约 4h。
+    # 60min 必然再次超时，故取 240min；本 job 仅 dispatch/schedule、非门禁、public 仓 runner 不计费。
+    timeout-minutes: 240
 
     steps:
       - name: Checkout code
