@@ -29,6 +29,7 @@ import {
   killProcess,
   getProcessMemoryMB,
   isProcessRunning,
+  isWindows,
   waitForProcess,
   sleep,
   formatResult,
@@ -96,7 +97,10 @@ async function runMemoryTest() {
     })
     if (result.found) {
       detectedExe = exeName
-      console.log(`  ℹ️  检测到进程: ${exeName}（${result.elapsedMs}ms）`)
+      // EXE_CANDIDATES 是 Windows 形态的名字（isProcessRunning 会剥掉 .exe 再 pgrep），
+      // 原样打印会让 Linux 日志谎称进程叫 spiritpal-app.exe —— run 36131292512 的日志就是这样。
+      const shown = isWindows() ? exeName : exeName.replace(/\.exe$/i, '')
+      console.log(`  ℹ️  检测到进程: ${shown}（${result.elapsedMs}ms）`)
       break
     }
   }
