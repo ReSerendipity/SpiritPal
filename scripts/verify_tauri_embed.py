@@ -8,18 +8,25 @@
      否则 release 构建不内嵌 dist 前端（会回退 devUrl，双击 exe 报 localhost 拒绝连接）。
   2. 二进制门禁（release 构建后执行，默认模式）：
      指定（或跨平台自动定位）release 主二进制，一律先量后判、失败也全量打印读数。
-     判据（卡）：
+     判据（卡，全部满足才放行）：
        - 含 `tauri://localhost` 标记 —— custom-protocol 生效、前端确实被内嵌；
-       - sri_hashes.rs 清单里的前端资产键在二进制中可寻（本轮仅在"一个都没找到"时判红）。
+       - 资产清单非空，且 `src-tauri/src/generated/sri_hashes.rs` 里每个资产键都能在主二进制
+         中寻得（fail-closed：清单缺失/为空即判红，不当通过）。
      只读数不卡：体积、gzip magic 计数。原因见 check_binary docstring：
      frontendDist 由 generate_context! 以 **brotli** 内嵌（src-tauri/src/integrity.rs:11），
-     数 gzip magic 量的不是前端资产；dist 资产真值仅 37 个（sri_hashes.rs），
-     「gzip>=100」与「裸二进制 >=50MiB」在任何平台都不成立。
+     数 gzip magic 量的不是前端资产；dist 资产真值仅 37 个（sri_hashes.rs，条目数变化时
+     判据自动跟随），「gzip>=100」与「裸二进制 >=50MiB」在任何平台都不成立。
+     标定基线：run 36029050680，ELF/Mach-O/PE 三平台命中均 37/37、marker 均在。
      主二进制三平台同源同名：Linux/macOS 为 src-tauri/target/release/<name>（无扩展名），
      Windows 为 <name>.exe，macOS bundle 内层为 <ProductName>.app/Contents/MacOS/<ProductName>。
+  3. 资源目录门禁（--check-resources，release 构建后执行）：
+     bundle.resources 声明的 memory_sidecar 与 public/pets 必须在 target/release 子树里
+     真实落盘且各含 >=1 个文件（前端本体不在此列——它只存在于主二进制的内嵌资产里，
+     三平台产物树均无 index.html，见 run 36029050680 取证）。
 
 用法：
   python scripts/verify_tauri_embed.py --config-only
+  python scripts/verify_tauri_embed.py --check-resources
   python scripts/verify_tauri_embed.py [path/to/release/binary]
 
 退出码：0 = 通过；1 = 未通过（任一子项失败即失败）。
@@ -115,10 +122,10 @@ def check_binary(binary: str) -> None:
     这两项曾判红的原因是口径错，而非产物缩水：src-tauri/src/integrity.rs:11 写明
     `generate_context!` 把 frontendDist **以 brotli 压缩内嵌进二进制**，所以
     「数 gzip magic」量的从来不是前端资产（而 dist 资产真值仅 37 个，见 sri_hashes.rs，
-    「>=100」在任何平台都不可能成立）。据此本轮改为：
+    「>=100」在任何平台都不可能成立）。据此口径为：
       - 卡：`tauri://localhost` 标记（= custom-protocol 生效、前端确实被内嵌）；
-      - 读数：清单资产键在二进制中的命中比例（asset map 是否落空）——本轮不卡，理由见函数末尾；
-      - 读数：体积与 gzip 流数，不再设阈值。
+      - 卡：资产清单非空，且清单里每个资产键都能在二进制中寻得（fail-closed，缺清单即判红）；
+      - 读数：体积与 gzip 流数，不设阈值。
     """
     if not os.path.isfile(binary):
         fail(f"release 主二进制不存在：{binary}")
@@ -133,19 +140,63 @@ def check_binary(binary: str) -> None:
     ratio = f"{len(hit)}/{len(assets)}" if assets else "n/a"
 
     print(f"[MEASURE] {binary}\n"
-          f"          format={fmt}  size={size / 1024 / 1024:.1f} MiB（本轮不设体积阈值）"
-          f"  gzip_streams={streams}（历史读数，brotli 内嵌下无判据意义）"
+          f"          format={fmt}  size={size / 1024 / 1024:.1f} MiB（不设阈值，仅读数）"
+          f"  gzip_streams={streams}（仅读数：codegen 用 brotli，此数是字节巧合，同代码相邻两次 run 85/51/200 → 92/58/213）"
           f"  tauri://localhost={'yes' if has_marker else 'no'}"
           f"  资产键命中={ratio} 清单={SRI_MANIFEST.split(os.sep)[-1]}")
 
+    # 判据（run 36029050680 标定：ELF / Mach-O / PE 三平台命中一致，均 37/37、marker 均在）。
+    # 键写法无需归一化：清单里的裸文件名在三种格式的字节流里都能直接寻得。
     problems = []
     if not has_marker:
         problems.append("未找到 `tauri://localhost` 标记（custom-protocol 未生效，前端不会内嵌）")
+    if not assets:
+        # fail-closed：清单由 beforeBuildCommand 生成，读不到/为空即链路断了，不能算通过
+        problems.append(f"资产清单为空或不可读：{SRI_MANIFEST}")
+    elif len(hit) != len(assets):
+        missing = [a for a in assets if a.encode() not in data]
+        problems.append(f"资产键命中 {len(hit)}/{len(assets)}，未在内嵌资产中寻得："
+                        + ", ".join(missing[:8]) + ("…" if len(missing) > 8 else ""))
     if problems:
         fail("；".join(problems))
-    # 资产键命中率先只作读数：Tauri codegen 里 asset map 的键写法（是否带 / 或 assets/ 前缀）
-    # 未经三平台实测，本轮就以 0 命中判红等于再赌一次 dispatch。取到三平台稳定值后收紧为判据。
-    print(f"[OK] 二进制门禁：marker 在；资产键命中 {ratio}（读数，暂不判据）")
+    print(f"[OK] 二进制门禁：marker 在，前端资产键 {len(hit)}/{len(assets)} 全覆盖")
+
+
+
+# bundle.resources 声明项的落点探针。用**尾段路径 glob**而不是按平台枚举中间目录：
+# run 36029050680 三平台取证显示构建后都先暂存到 target/release/memory_sidecar 与
+# target/release/_up_/public/pets，打进包后则分别在 …/usr/lib/SpiritPal/…（deb/AppImage）、
+# ….app/Contents/Resources/…（dmg）、…/resources/…（NSIS）——同一条 `**/memory_sidecar`
+# 对这四种形态同时成立，换平台/换 tauri 版本都不需要先改这里。
+RESOURCE_PROBES = (
+    ("memory_sidecar", ("**/memory_sidecar",)),
+    ("public/pets", ("**/public/pets", "**/pets")),
+)
+
+
+def check_resources() -> None:
+    """资源目录门禁：bundle.resources 的每一项都要真实落盘且非空。
+    前端本体不在此列——三平台产物树里都没有 index.html，它只存在于主二进制的内嵌资产中。"""
+    base = os.path.join(ROOT, "src-tauri", "target", "release")
+    if not os.path.isdir(base):
+        fail(f"构建产物目录不存在：{base}")
+    problems = []
+    for label, patterns in RESOURCE_PROBES:
+        landed = []
+        for pat in patterns:
+            for d in glob.glob(os.path.join(base, pat), recursive=True):
+                if os.path.isdir(d):
+                    n = sum(len(fs) for _, _, fs in os.walk(d))
+                    if n:
+                        landed.append((os.path.relpath(d, ROOT), n))
+        if not landed:
+            problems.append(f"{label} 未落盘：在 {os.path.relpath(base, ROOT)} 下按 "
+                            + "/".join(patterns) + " 未找到任何含文件的目录")
+        else:
+            path, n = max(landed, key=lambda x: x[1])
+            print(f"[OK] 资源目录：{label} → {path}（{n} 个文件）")
+    if problems:
+        fail("；".join(problems))
 
 
 def _binary_names() -> list[str]:
@@ -204,11 +255,17 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="SpiritPal 前端内嵌发布门禁")
     ap.add_argument("binary", nargs="?", help="release 主二进制路径；缺省跨平台自动定位")
     ap.add_argument("--config-only", action="store_true", help="仅执行配置门禁（CI 每 PR）")
+    ap.add_argument("--check-resources", action="store_true",
+                    help="仅执行资源目录门禁（bundle.resources 落盘，release 构建后）")
     args = ap.parse_args()
 
     check_config()
     if args.config_only:
         print("[OK] 配置门禁全部通过")
+        return 0
+    if args.check_resources:
+        check_resources()
+        print("[OK] 资源目录门禁全部通过")
         return 0
 
     binary = args.binary or auto_find_exe()

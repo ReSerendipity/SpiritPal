@@ -158,7 +158,13 @@ jobs:
           name: spiritpal-build-ubuntu-22.04
           path: src-tauri/target/release/
 
-      - name: Setup pnpm and Node.js
+      - name: Install pnpm
+        # 必须先装 pnpm：本 job 此前只有 setup-node(cache:'pnpm')，缺 action-setup，
+        # run 36029050680 实测红在 `Unable to locate executable file: pnpm`（11s，其后 4 步 skipped）。
+        # 版本不写死，由 package.json 的 packageManager 字段驱动（同 ci.yml:36-38）。
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -540,6 +546,15 @@ jobs:
           # 只解析一次解释器：旧写法 python3 ... || python ... 会在真失败时把脚本跑两遍
           py=$(command -v python3 || command -v python)
           "$py" scripts/verify_tauri_embed.py "$bin"
+
+      # 资源目录门禁：bundle.resources（memory_sidecar、../public/pets）必须真落盘且非空。
+      # 落点用尾段 glob 匹配，不按平台枚举中间目录（三平台形态见 run 36029050680 的取证步）。
+      - name: Verify bundle resources landed
+        shell: bash
+        run: |
+          set -euo pipefail
+          py=$(command -v python3 || command -v python)
+          "$py" scripts/verify_tauri_embed.py --check-resources
 
       # R-11 构建期 SRI 门禁：重算 dist 产物 SHA-256 与 sri_hashes.rs 清单逐条比对，
       # 任何缺失/不一致即非零退出（防「清单登记与实际产物脱节」而运行时校验失去意义）。
