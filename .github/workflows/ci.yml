@@ -195,16 +195,31 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # GUI 指标（memory/fps/model-switch）需要真实显示服务；ubuntu runner 无 DISPLAY，
-      # 用 xvfb 提供虚拟帧缓冲，并补齐 Tauri/webkit 运行库（run 36131292512 实测缺它三指标全缺）。
+      # GUI 指标需要真实显示服务；ubuntu runner 无 DISPLAY，用 xvfb 提供虚拟帧缓冲并补运行库。
+      # 包名按 noble(ubuntu-24.04) 官方索引核对：t64 迁移后 libgtk-3-0 / libatk-bridge2.0-0 /
+      # libasound2 已不是可安装的真实包名（前两个只作为 lib*-t64 的 Provides 存在，
+      # libasound2 连这条都不通 → run 36149568095 实测 `E: Package 'libasound2' has no
+      # installation candidate`，apt exit 100，五个测量步全 skipped）。这里一律写索引里的真实包名。
+      # xdotool/wmctrl/openbox 是 cold-start 的窗口判定链所需：旧实现依赖 wmctrl 且 Xvfb 无窗口管理器。
       - name: Install GUI runtime (xvfb + webkit libs)
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libgtk-3-0 libwebkit2gtk-4.1-0 libnss3 libatk-bridge2.0-0 \
-            libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2
+          sudo apt-get install -y xvfb libgtk-3-0t64 libwebkit2gtk-4.1-0 libnss3 \
+            libatk-bridge2.0-0t64 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
+            libxfixes3 libxrandr2 libgbm1 libasound2t64 xdotool wmctrl openbox
+
+      # fps-test / model-switch-latency 用 Playwright 起 chromium；全 job 此前没有任何浏览器安装步
+      # （@playwright/test 只是 devDep，pnpm 11 默认不跑依赖的构建脚本 → pnpm install 不会下浏览器），
+      # run 36131292512 实测报 `chromium_headless_shell-1243` 不存在。
+      # 版本由 lockfile 里的 @playwright/test 决定，不写死修订号。
+      - name: Install Playwright chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Run cold-start test
-        run: node perf/cold-start.mjs
+        # Xvfb 本身不带窗口管理器，xdotool/wmctrl 需要 EWMH 的 _NET_CLIENT_LIST，
+        # 所以同一 X 会话内先拉一个 openbox；缺 WM 时窗口检测会拿到 null →
+        # perf/cold-start.mjs 按 exit 2（环境错误）结束，不再回退成假 PASS。
+        run: xvfb-run -a sh -c 'openbox & sleep 1; exec node perf/cold-start.mjs'
         env:
           SPIRITPAL_EXE: ${{ steps.appbin.outputs.path }}
         continue-on-error: true
