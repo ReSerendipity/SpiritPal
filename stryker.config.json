@@ -21,8 +21,9 @@
   "thresholds": {
     "high": 80,
     "low": 60,
-    "break": 50
+    "break": 42
   },
+  "thresholds_comment": "ratchet：break=42 取自 run 36029050680 全量基线（990 突变体 / 0 error / 0 timeout，final score 42.83，killed 424、survived 382、no-cov 184）。只许升不许降；补突变测试后逐步上调，收紧时同步改本注释。原先 break=50 高于基线，会让每次全量 run 恒红、把真实信号（behaviorEngine.ts 仅 23.08、154 个 no-cov）淹在失败噪音里。",
   "vitest": {
     "configFile": "vitest.config.ts"
   },

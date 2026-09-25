@@ -31,6 +31,23 @@ import { EnhancedMemoryManager, getEnhancedMemoryManager } from '@/lib/memory/en
 import { invoke } from '@tauri-apps/api/core'
 import { isVectorSearchAvailable, embed, searchSimilar } from '@/lib/system/vectorSearch'
 
+// 时钟钉死：这批用例断言"当前没有节日/生日/纪念日事件"，等于把断言绑在运行日期上。
+// FESTIVALS 只有 1/1、12/25 与农历 2026 春节 2/17、2026 中秋 9/25（src/lib/memory/memoryTypes.ts:152-164）。
+// 2026-09-25（中秋）当天 checkPeriodicTrigger 会抢先返回 type='periodic'，于是
+// run 36081930785 里 21/35 红（AssertionError: expected {...} to be null / expected 'periodic' to be 'relevance'），
+// 而 UTC 前一天（09-24）同一 job 在 main 上是绿的 —— 差异只有日期，不是抖动。
+// 需要特定日期的用例（四个节日、"新的一天首次对话触发"）自己 setSystemTime，不受这里影响。
+const EVENT_FREE_DATE = new Date(2026, 7, 10, 12, 0, 0)
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(EVENT_FREE_DATE)
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 describe('EnhancedMemoryManager', () => {
   let mgr: EnhancedMemoryManager
 
