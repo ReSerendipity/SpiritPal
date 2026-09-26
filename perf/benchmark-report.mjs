@@ -16,13 +16,18 @@ const REPORT_FILE = join(PROJECT_ROOT, 'perf', 'benchmark-report.md')
 
 // threshold 取自 _helpers.mjs 的 THRESHOLDS（PRD v0.2 单一来源，run-all.mjs 也用同一份）；
 // 此前本表没有 threshold 字段，报告里就打印出 `< undefinedms`（run 36097921523 实测）。
-// 没有 PRD 数值的指标（modelSwitch）留 null，由渲染处显示为 —，不编造门限。
+//
+// 模型切换延迟（model-switch）已从本表移除 = **local-only 指标**。原因：perf/model-switch.html:56,59
+// 把两个 fixture 模型写死成 ../docs/_devarchive/repo_research/8_MyFlowingFireflyWife/…，而
+// docs/_devarchive/ 被 .gitignore（:128/:145/:148/:190）排除、全仓 `git ls-files "*.model3.json"` = 0，
+// 所以干净 checkout 里这项永远 ERR_FILE_NOT_FOUND（run 36160969873 实测 `实测值: N/A`）。
+// 继续挂在 CI 报告里只会产出一行恒定缺失数据；要恢复成 CI 指标，得先有入仓的模型资产
+// （许可/体积/来源三项待定），而不是把路径改回那个 gitignore 目录。
 const METRICS = [
   { key: 'coldStart', file: 'cold-start.json', label: '冷启动时间', unit: 'ms', better: 'less', threshold: THRESHOLDS.coldStartMs },
   { key: 'memory', file: 'memory-usage.json', label: '内存占用', unit: 'MB', better: 'less', threshold: THRESHOLDS.memoryMB },
   { key: 'fps', file: 'fps-test.json', label: '帧率 (FPS)', unit: 'fps', better: 'more', threshold: THRESHOLDS.fps },
   { key: 'packageSize', file: 'package-size.json', label: '安装包大小', unit: 'MB', better: 'less', threshold: THRESHOLDS.packageSizeMB },
-  { key: 'modelSwitch', file: 'model-switch-latency.json', label: '模型切换延迟', unit: 'ms', better: 'less', threshold: null },
 ]
 
 function formatThreshold(r) {
@@ -62,7 +67,7 @@ function generateReport() {
     console.log('    pnpm perf:cold-start')
     console.log('    pnpm perf:memory')
     console.log('    pnpm perf:fps')
-    console.log('    pnpm perf:model-switch (new)\n')
+    console.log('    node perf/package-size.mjs（无 pnpm 别名）\n')
   }
 
   // 生成 Markdown 报告
@@ -79,6 +84,10 @@ function generateReport() {
     const thresholdStr = formatThreshold(r)
     md += `| ${r.label} | ${valueStr} | ${thresholdStr} | ${statusIcon} |\n`
   }
+
+  md += `\n> **local-only 指标**：模型切换延迟（\`pnpm perf:model-switch\`）不在本表，也不进任何闸门——`
+  md += `CI 检出里没有它依赖的 Live2D 模型资产（\`docs/_devarchive/\` 被 .gitignore 排除）。`
+  md += `本地有模型时可单独运行该脚本。\n`
 
   md += `\n## 📈 详细分析\n\n`
 
@@ -104,10 +113,6 @@ function generateReport() {
         md += `- 降低渲染分辨率\n`
         md += `- 限制粒子系统复杂度\n`
         md += `- 优化动画插值算法\n`
-      } else if (r.key === 'modelSwitch') {
-        md += `- 预加载常用模型\n`
-        md += `- 采用增量加载策略\n`
-        md += `- 优化模型解析流程\n`
       }
     }
     md += '\n'

@@ -229,6 +229,10 @@ jobs:
         continue-on-error: true
 
       - name: Run memory-usage test
+        # 采样语义（PR-A 起）：perf/memory-usage.mjs 先按 PID 等窗口真的映射出来，再起稳定倒计时。
+        # 旧实现从 spawn 起睡 10s，run 36160969873 的三次采样落在 10.1/12.1/14.1s，而同一二进制
+        # 的窗口要 26.4s 才出现（cold-start 实测）——量的是启动中途 RSS，不是稳态，故 90.74MB
+        # 没有入库为基线。判不了窗口/超时未出现 → 脚本 exit 2 且不写 JSON → 下面的闸门 fail-closed。
         run: xvfb-run -a node perf/memory-usage.mjs
         env:
           SPIRITPAL_EXE: ${{ steps.appbin.outputs.path }}
@@ -241,6 +245,13 @@ jobs:
         continue-on-error: true
 
       - name: Run model-switch-latency test
+        # local-only 指标，**故意**留在 CI 里继续跑：它依赖的两个 fixture 模型写死在
+        # perf/model-switch.html:56,59 → ../docs/_devarchive/repo_research/8_MyFlowingFireflyWife/…，
+        # 而 docs/_devarchive/ 被 .gitignore（:128/:145/:148/:190）排除、全仓 `git ls-files "*.model3.json"` = 0，
+        # 所以干净 checkout 必是 ERR_FILE_NOT_FOUND（run 36160969873 实测 `实测值: N/A`）。
+        # 它已从 perf/benchmark-report.mjs 的 METRICS 与基线口径里摘掉（不再进报告/趋势/闸门），
+        # 留这一步的目的是：哪天有入仓的模型资产（许可/体积/来源三项定了），这里会自己开始出数，
+        # 届时把 METRICS 那行加回来即可，不必再猜 CI 到底能不能测。continue-on-error 保证它不红 job。
         run: xvfb-run -a node perf/model-switch-latency.mjs
         env:
           SPIRITPAL_EXE: ${{ steps.appbin.outputs.path }}
