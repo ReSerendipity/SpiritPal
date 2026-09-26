@@ -1,6 +1,38 @@
 {
-  "timestamp": "2026-09-04T12:50:28.619Z",
+  "timestamp": "2026-09-25T16:46:49.859Z",
+  "coldStart": 26449,
   "fps": 59.1,
   "packageSize": 29.18,
-  "_note": "初始基线（2026-09-04 由 perf/results 现存数据合成）。coldStart/memory 两项需发布版 release exe 才能离线采集，待 CI perf-baseline job 首次全量运行后补齐并提交更新。"
+  "_note": "基线语义 = GitHub CI 的 ubuntu-24.04 + Xvfb 软件渲染环境（perf-baseline job，run 36160969873）下采到的数。绝对值与本地 GPU 真机不可比，禁止两套环境的数字互相覆盖或混用。闸门判的是相对回归（±20%），不是 PRD 绝对阈值：coldStart 26449ms 超 PRD v0.2 的 <2000ms，但 2000ms 是真机口径、THRESHOLDS.coldStartMs 一字未改（改在 CI 侧会污染 PRD 的唯一来源）；Xvfb 下 2s 本来就不可达——实测窗口要到 26.4s 才映射，而 perf/cold-start.mjs 的探测预算默认 30000ms，所以超过 30s 的表现是「没采到」（闸门红）而不是「慢一点」。26449 是**单次采样**，20% 带宽只有 +5.29s，冷启动抖动可能直接报警，届时先复核环境而不是先改基线。memory 键刻意缺席：#98 及之前的实现从 spawn 起直接睡 10s，三次采样落在 10.1/12.1/14.1s，全部早于 26.4s 的窗口出现时刻，90.74MB 是启动中途值不是稳态值；采样时机改为「等窗口出现后再起稳定倒计时」之后，稳态读数由后续 PR-B 入库。",
+  "_sources": {
+    "coldStart": {
+      "value": 26449,
+      "unit": "ms",
+      "run": "36160969873",
+      "job": "Performance Baseline Tests",
+      "logLine": "✅ 窗口已出现：pid=4739 via xdotool（26449ms）",
+      "env": "CI ubuntu-24.04 + Xvfb(:99) + openbox，软件渲染",
+      "capturedAt": "2026-09-25T16:46:49.859Z",
+      "singleSample": true
+    },
+    "fps": {
+      "value": 59.1,
+      "unit": "fps",
+      "env": "本地 GPU（2026-09-04 由 perf/results 现存数据合成）",
+      "capturedAt": "2026-09-04T12:50:28.619Z",
+      "note": "同项在 run 36160969873 的 CI-Xvfb 实测为 58.8（-0.5%）。未换成 CI 值：本文件的口径统一不是本笔授权范围，且换了就等于拿一个新环境的数去覆盖旧环境的基线。"
+    },
+    "packageSize": {
+      "value": 29.18,
+      "unit": "MB",
+      "env": "release 链产物（perf/package-size.mjs 由 release.yml 调用；ci.yml 的 perf-baseline job 不产此文件）",
+      "capturedAt": "2026-09-04T12:50:28.619Z"
+    },
+    "memory": {
+      "value": null,
+      "unit": "MB",
+      "status": "待 PR-B",
+      "reason": "旧采样时机量到的是启动中途 RSS（90.74MB @10/12/14s，窗口 26.4s 才出现），不作为基线。"
+    }
+  }
 }
