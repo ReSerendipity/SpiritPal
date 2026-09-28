@@ -58,6 +58,31 @@ function writeProvider(id: string): void {
   }
 }
 
+/** 读取端点配置字段（MobileChatView 每次发送都会重读该配置，改完即时生效） */
+function readEndpointConfig(): { baseUrl: string; model: string } {
+  try {
+    const raw = localStorage.getItem(AI_CONFIG_KEY)
+    if (raw) {
+      const j = JSON.parse(raw)
+      return { baseUrl: j.baseUrl ?? '', model: j.model ?? '' }
+    }
+  } catch {
+    // 忽略解析错误
+  }
+  return { baseUrl: '', model: '' }
+}
+
+/** 合并写入端点配置字段（保留其余字段；API Key 不在此处，由 secureStorage 管理） */
+function writeEndpointConfig(patch: { baseUrl?: string; model?: string }): void {
+  try {
+    const raw = localStorage.getItem(AI_CONFIG_KEY)
+    const cfg = raw ? JSON.parse(raw) : {}
+    localStorage.setItem(AI_CONFIG_KEY, JSON.stringify({ ...cfg, ...patch }))
+  } catch {
+    // 忽略存储错误
+  }
+}
+
 /**
  * 移动端设置视图组件
  * @returns 设置界面 JSX 元素
@@ -73,6 +98,12 @@ export function MobileSettingsView() {
   const selectProvider = (id: string) => {
     writeProvider(id)
     setProvider(id)
+  }
+  // 端点配置（custom / ollama：Base URL + 模型名；llama.cpp 等本地服务无需 API Key）
+  const [endpointCfg, setEndpointCfg] = useState(() => readEndpointConfig())
+  const updateEndpointCfg = (patch: { baseUrl?: string; model?: string }) => {
+    writeEndpointConfig(patch)
+    setEndpointCfg((prev) => ({ ...prev, ...patch }))
   }
   const switchPetChar = usePetStore((s) => s.switchCharacter)
   const sharedCoins = usePetStore((s) => s.sharedCoins)
@@ -384,6 +415,26 @@ export function MobileSettingsView() {
               {provider === p.id && <span className="text-xs text-tangerine">当前</span>}
             </button>
           ))}
+          {provider === 'custom' && (
+            <div className={`mb-2 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
+              <div className="mb-2 text-sm font-medium">连接配置</div>
+              <input
+                value={endpointCfg.baseUrl}
+                onChange={(e) => updateEndpointCfg({ baseUrl: e.target.value })}
+                placeholder="API 地址，如 http://127.0.0.1:8081/v1"
+                className={`mb-2 w-full rounded-lg border ${cardBorderClass} bg-cream px-3 py-2 text-sm`}
+              />
+              <input
+                value={endpointCfg.model}
+                onChange={(e) => updateEndpointCfg({ model: e.target.value })}
+                placeholder="模型名，如 qwen3.6-35b-a3b"
+                className={`w-full rounded-lg border ${cardBorderClass} bg-cream px-3 py-2 text-sm`}
+              />
+              <p className={`mt-2 text-xs ${subtitleClass}`}>
+                本地服务（llama.cpp / Ollama / LM Studio 等）无需 API Key，填地址与模型名即可；改完即时生效，无需重启。
+              </p>
+            </div>
+          )}
         </div>
       </div>
     )
