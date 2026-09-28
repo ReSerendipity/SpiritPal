@@ -18,12 +18,12 @@ SpiritPal 是一只住在你桌面的 AI 伙伴：一个 Tauri v2 原生应用�
 - 自然语言聊天与本地记忆召回（本地 embedding，`@xenova/transformers`，数据不出机器）
 - 专注模式与番茄钟，通过系统托盘或聊天唤起
 
-**桌面原生能力（阶段五佐证，2026-09-10 核验）**
+**桌面原生能力**
 
-- **系统托盘**：显示/隐藏宠物、专注模式、番茄钟、切换形态、打开聊天、设置、检查更新、退出（`src-tauri/src/tray.rs`）
+- **系统托盘**：显示/隐藏宠物、专注模式、番茄钟、切换形态、打开聊天、设置、检查更新、退出
 - **单实例**：二次启动唤出主窗口不抢焦点（`tauri-plugin-single-instance`）
 - **崩溃自启**：panic hook 落盘崩溃现场（`{log_dir}/crash_*.log`）后受限自动重启——60 秒冷却窗口内连续崩溃 ≤3 次自动重启，超限停止防循环（可用 `SPIRITPAL_DISABLE_CRASH_RESTART=1` 关闭）
-- **增量更新**：Tauri updater 已启用（签名密钥与发布链见项目内 SOP 文档，本地保留）；入口：托盘「检查更新」/ 设置-关于
+- **增量更新**：内置更新器，入口：托盘「检查更新」/ 设置 → 关于
 
 ## 技术栈
 
@@ -77,25 +77,14 @@ SpiritPal/
 ├── demo/               # Demo HTML 页面与预览素材
 ├── perf/               # 性能评测（记忆召回 P95 / 准确率趋势）
 ├── .github/workflows/  # CI/CD
-└── AGENTS.md           # AI 辅助开发指南（本地保留，未随仓库发布）
+└── AGENTS.md           # AI 辅助开发指南
 ```
-
-## 已知阻塞 / 待办（透明披露）
-
-- **性能验收数据待真实跑批**：记忆召回评测（P95 / 准确率趋势）数据已落地，但 PRD 性能验收（冷启动 / 内存 / 帧率 / 包体时序）依赖 `pnpm tauri build` + `pnpm perf` 的真实产物，目前为空（数据仅本地、不入库）
-- **评测 case 20（运动 → 跑步）语义鸿沟**：本地召回评测 29/30（96.7%），`运动` 与 `跑步` 的语义关联超出当前 LCS/同义词扩展能力；待启用真实 embedding/RAG 路径后该 case 应自然命中
-
-## 开源模式说明
-
-本仓库为**公开仓库**，以 Apache License 2.0 发布（Copyright 2026 ReSerendipity）。原「main 私有开发 + origin 公开演示」双仓双分支体系已废止：私有仓已改名为本仓库并全量公开（含完整 main 历史）。
-
-- `main` 为唯一主分支，push 即发布；禁止 force push
-- 敏感文件永不入库：`*.jks` / `local.properties` / `.env` 等（.gitignore 已覆盖，全历史已扫描核验）
-- 安全漏洞请通过 [SECURITY.md](.github/SECURITY.md) 的私密披露渠道报告，勿直接提公开 issue
 
 ## 贡献
 
 参与贡献请遵循 [组织级贡献指南](https://github.com/ReSerendipity/.github/blob/main/CONTRIBUTING.md)（Conventional Commits + DCO 签名）。
+
+安全漏洞请通过 [SECURITY.md](.github/SECURITY.md) 的私密披露渠道报告，勿直接提公开 issue。
 
 ## 许可证
 
