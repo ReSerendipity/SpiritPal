@@ -108,8 +108,11 @@ export function MobileChatView() {
         // 忽略密钥获取错误
       }
 
-      // 端侧（移动端 = 进程内 MNN 引擎）**无需 API Key**；其余 provider 仍要求配置。
-      if (!config.apiKey && config.provider !== 'ondevice') {
+      // 端侧（移动端 = 进程内 MNN 引擎）无需 API Key；custom / ollama 常指向
+      // llama.cpp 等**无鉴权本地服务**，同样不客户端强制——Key 真必要时由服务端
+      // 401 在聊天错误条兜底（移动端 keychain 未接线，见 docs/execution/chat-llama-e2e-20260928.md P1-A）。
+      const keylessProviders = ['ondevice', 'custom', 'ollama']
+      if (!config.apiKey && !keylessProviders.includes(config.provider)) {
         setError('请先在设置中配置 AI API Key')
         finishStreaming(assistantId)
         setLoading(false)
