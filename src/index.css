@@ -1,5 +1,38 @@
 @import "tailwindcss";
 
+/* ===== P2-1 修复：Tailwind v4 默认 dark: 变体跟随 prefers-color-scheme 媒体查询，
+ * themeManager 往 <html> 加的 .dark 类无人消费 → 手动深色模式完全失效。
+ * 此声明让 dark: 变体改为跟随 .dark 类（themeManager.applyToDOM 控制该类）。
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ===== 深色模式语义变量覆盖（themeManager 切 .dark 类时生效）=====
+ * 与上方 @theme 浅色表一一对应；仅覆盖颜色类 token，圆角/阴影/动效共用。
+ */
+html.dark {
+  --color-cream: #221a14;
+  --color-cream-deep: #2c231b;
+  --color-surface: #2a2119;
+  --color-ink: #f0e6da;
+  --color-ink-muted: #b3a18e;
+  --color-ink-faint: #8f7f6c;
+  --color-tangerine: #f0925a;
+  --color-tangerine-deep: #e8874a;
+  --color-tangerine-soft: #3d2c1e;
+  --color-blush: #e8a2b4;
+  --color-blush-soft: #3a262e;
+  --color-success: #8bbd7d;
+  --color-success-deep: #6fae62;
+  --color-stat-good: #34d399;
+  --color-stat-mid: #facc15;
+  --color-stat-bad: #f87171;
+  --color-error: #f87171;
+  --color-warning: #fbbf24;
+  --shadow-soft: 0 6px 18px -10px rgba(0, 0, 0, 0.6);
+  --shadow-warm: 0 18px 44px -18px rgba(0, 0, 0, 0.7);
+  color-scheme: dark;
+}
+
 /* ===== SpiritPal 设计 Token（对应高保真主流程 v1.0 · 治愈温暖基调）=====
  * 统一语义令牌体系：所有 UI 必须使用以下语义 Token，禁止硬编码颜色。
  * --color-* 系列为唯一主令牌；--pet-* / --color-primary 系列已合并映射。
