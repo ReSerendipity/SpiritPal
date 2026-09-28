@@ -77,7 +77,12 @@ export function MobileChatView() {
    */
   async function handleSend() {
     const text = input.trim()
-    if (!text || isLoading) return
+    if (!text) return
+    // 生成中拦截：消息保留在输入框不丢失，但给出可见提示（此前为静默 return）
+    if (isLoading) {
+      setError('上一条回复还在生成中，请稍候再发送')
+      return
+    }
     setInput('')
     setError(null)
     // 重置输入框高度
@@ -176,7 +181,16 @@ export function MobileChatView() {
       }
       finishStreaming(assistantId)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const raw = err instanceof Error ? err.message : String(err)
+      // 常见错误转译为用户语言（原始技术错误保留在括号内便于排查）
+      let msg = raw
+      if (/error sending request for url|network|fetch failed|ERR_CONNECTION/i.test(raw)) {
+        msg = '无法连接到 AI 服务：请确认本地服务已启动、地址与端口正确后重试。'
+      } else if (/401|403|unauthorized|invalid[ _-]?api[ _-]?key/i.test(raw)) {
+        msg = '鉴权失败：API Key 无效或缺失，请检查服务端配置。'
+      } else if (/timeout|timed out|aborted/i.test(raw)) {
+        msg = '请求超时或已中止：模型响应时间过长，请稍后重试。'
+      }
       setError(msg)
       finishStreaming(assistantId)
     } finally {

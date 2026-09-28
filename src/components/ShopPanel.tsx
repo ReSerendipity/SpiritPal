@@ -19,7 +19,7 @@
  * - shopManager: 商店管理器（锁状态机+折价逻辑+搜索）
  * - petStore: 金币、背包、穿戴操作
  */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import type { InventoryItem, AnchorPoint, WornDecoration } from '@/lib/data/types'
 import { getRarityDisplay } from '@/lib/nurture/foodEffectContract'
 import { getShopManager, ShopLockState } from '@/lib/nurture/shopManager'
@@ -69,6 +69,9 @@ export function ShopPanel() {
   const removeDecoration = usePetStore(selectRemoveDecoration)
 
   const [toast, setToast] = useState<string | null>(null)
+  // 购买防抖：真机触摸抖动会产生两次 click 导致双倍扣费（实测 -16 案例）。
+  // 用 setTimeout 锁而非时间戳比较（React 编译器规则禁止渲染函数内 Date.now）
+  const buyLockRef = useRef(0)
 
   function showToast(msg: string) {
     setToast(msg)
@@ -101,6 +104,10 @@ export function ShopPanel() {
   }, [catalog, tab, searchQuery])
 
   function handleBuy(item: InventoryItem) {
+    if (buyLockRef.current) return
+    buyLockRef.current = window.setTimeout(() => {
+      buyLockRef.current = 0
+    }, 300)
     const ok = shop.buyItem(item.id)
     showToast(ok ? `已购买 ${item.name}` : (shop.getLockState(item.id) !== ShopLockState.NONE ? '该物品尚未解锁' : '金币不足'))
   }

@@ -155,7 +155,7 @@ export function MemoryPanel() {
   const tabButton = (t: Tab, label: string, icon: React.ReactNode, count: number) => (
     <button
       onClick={() => setTab(t)}
-      className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+      className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
         tab === t
           ? 'bg-tangerine text-white'
           : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
@@ -268,8 +268,8 @@ export function MemoryPanel() {
         )}
       </div>
 
-      {/* Tab 选择 */}
-      <div className="flex gap-2 border-b border-ink/10 pb-3">
+      {/* Tab 选择（窄屏横向滚动，防按钮文字竖排挤压） */}
+      <div className="flex gap-2 overflow-x-auto border-b border-ink/10 pb-3">
         {tabButton('facts', '主人画像', <User size={16} />, facts.length)}
         {tabButton('experiences', '我们的故事', <Heart size={16} />, experiences.length)}
         {tabButton('diary', '日记', <BookOpen size={16} />, diaries.length)}

@@ -13,11 +13,12 @@
  * - 角色切换：多角色选择
  * - 语言：中/英/日/韩多语言
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Sun, Moon, Monitor, Bell, RefreshCw, Cloud, Wifi,
   Type, Info, ChevronRight, Brain, Sparkles, Cpu,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { OnDeviceModelPanel } from '@/components/OnDeviceModelPanel'
 import { LLM_PROVIDERS, getProvider } from '@/lib/ai/llmProviders'
 import { getAllCharacters } from '@/lib/data/characters'
@@ -92,6 +93,9 @@ export function MobileSettingsView() {
   const updateSettings = useSettingsStore((s) => s.updateSettings)
   const setLanguage = useSettingsStore((s) => s.setLanguage)
   const switchSettingsChar = useSettingsStore((s) => s.switchCharacter)
+  // P2-2：useTranslation 在语言变化时触发本组件重渲染（此前静态 t()/硬编码
+  // 中文使语言切换"看起来不生效"）；i18n.setLanguage 调用点不变
+  const { t, i18n } = useTranslation()
 
   // AI 服务商（持久化在 localStorage，MobileChatView 每次发送重读 → 改完即时生效）
   const [provider, setProvider] = useState<string>(() => readProvider())
@@ -108,8 +112,24 @@ export function MobileSettingsView() {
   const switchPetChar = usePetStore((s) => s.switchCharacter)
   const sharedCoins = usePetStore((s) => s.sharedCoins)
 
+  /** 语言切换：settingsStore 持久化 + i18n 即时生效 + html lang 同步（a11y） */
+  function handleSetLanguage(lang: 'zh' | 'en' | 'ja' | 'ko' | 'zh-TW') {
+    setLanguage(lang)
+    void i18n.changeLanguage(lang)
+    const langMap: Record<string, string> = {
+      zh: 'zh-CN', en: 'en-US', ja: 'ja-JP', ko: 'ko-KR', 'zh-TW': 'zh-TW',
+    }
+    document.documentElement.lang = langMap[lang] ?? 'zh-CN'
+  }
+
   const [section, setSection] = useState<SettingsSection>('main')
+  // 主题模式订阅制：初始快照可能早于 themeManager.init()（MobileApp useEffect），
+  // 故挂载后订阅权威状态回填，避免「选中态与实际渲染脱节」
   const [themeMode, setThemeMode] = useState<ThemeMode>(themeManager.getMode())
+  useEffect(() => {
+    setThemeMode(themeManager.getMode())
+    return themeManager.subscribe((_effective, mode) => setThemeMode(mode))
+  }, [])
   const [syncConfig, setSyncConfig] = useState<SyncConfig>(syncManager.getConfig())
 
   // 主题样式（与桌面端 SettingsWindow 一致的语义 Token 配色）
@@ -125,8 +145,8 @@ export function MobileSettingsView() {
    * @param mode - 主题模式（light/dark/system）
    */
   function handleSetTheme(mode: ThemeMode) {
+    // 权威状态由 themeManager.subscribe 回填（含 setMode 对相同值的 early-return 场景）
     themeManager.setMode(mode)
-    setThemeMode(mode)
   }
 
   /**
@@ -158,7 +178,7 @@ export function MobileSettingsView() {
     return (
       <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
         <header className={`border-b ${cardBorderClass} px-4 py-3`}>
-          <h2 className="text-base font-semibold">设置</h2>
+          <h2 className="text-base font-semibold">{t('settings.title')}</h2>
         </header>
 
         <div className="flex-1 overflow-y-auto px-3 py-3">
@@ -252,7 +272,7 @@ export function MobileSettingsView() {
 
           {/* 角色切换 */}
           <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
-            <h3 className="mb-2 text-sm font-medium">当前角色</h3>
+            <h3 className="mb-2 text-sm font-medium">{t('settings.character')}</h3>
             <div className="flex flex-wrap gap-2">
               {getAllCharacters().map((char) => (
                 <button
@@ -272,7 +292,7 @@ export function MobileSettingsView() {
 
           {/* 语言 */}
           <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
-            <h3 className="mb-2 text-sm font-medium">语言</h3>
+            <h3 className="mb-2 text-sm font-medium">{t('settings.language')}</h3>
             <div className="flex gap-2">
               {([
                 { id: 'zh', label: '中文' },
@@ -283,7 +303,7 @@ export function MobileSettingsView() {
               ] as const).map((lang) => (
                 <button
                   key={lang.id}
-                  onClick={() => setLanguage(lang.id)}
+                  onClick={() => handleSetLanguage(lang.id)}
                   className={`rounded-lg px-3 py-1.5 text-xs ${
                     settings.language === lang.id
                       ? 'bg-tangerine text-white'
