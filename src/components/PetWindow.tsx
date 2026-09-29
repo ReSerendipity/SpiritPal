@@ -50,13 +50,17 @@ import {
 } from 'lucide-react'
 import { AgreementGate, agreementAccepted } from '@/components/AgreementGate'
 import { CharacterSelector } from '@/components/CharacterSelector'
-import { swallowedCatch } from '@/lib/system/swallowedCatch'
-import { LevelUpOverlay } from '@/components/LevelUpOverlay'
-import { getScreenshotManager } from '@/lib/system/screenshotManager'
-import { getVisualPerceptionManager } from '@/lib/memory/visualPerception'
 import { DecorationLayer } from '@/components/DecorationLayer'
 import { DialoguePanel } from '@/components/DialoguePanel'
 import { FirstRunGreeting } from '@/components/FirstRunGreeting'
+import { FramelessResizeHandles, DRAG_SURFACE_CLASS } from '@/components/FramelessChrome'
+import { LevelUpOverlay } from '@/components/LevelUpOverlay'
+import { Live2DRenderer } from '@/components/Live2DRenderer'
+import { ExpressionSelector } from '@/components/pet/ExpressionSelector'
+import { PetBubble } from '@/components/PetBubble'
+import { ActionButton, ActionRow, StatRow, tierColor } from '@/components/petPanelParts'
+import { PomodoroOverlay } from '@/components/PomodoroOverlay'
+import { SpriteRenderer } from '@/components/SpriteRenderer'
 import {
   useSafeTimeout,
   usePetGaze,
@@ -70,18 +74,31 @@ import {
   usePetMemoryTriggers,
   useRoamWalk,
 } from '@/hooks'
-import { useDockVisualFeedback } from '@/hooks/pet/useDockVisualFeedback'
-// A-7：抚摸时触发 GPU 粒子特效（WebGL 不可用时自动降级为 no-op）
-import { usePetParticles } from '@/hooks/pet/usePetParticles'
 // A-13：装饰部件伪物理（physics3.json → 装饰摆角）
 import { useDecorationPhysics } from '@/hooks/pet/useDecorationPhysics'
+import { useDockVisualFeedback } from '@/hooks/pet/useDockVisualFeedback'
 // A-14：迷你模式（Tauri 官方 window API，无自定义 Rust 命令）
 import { useMiniMode } from '@/hooks/pet/useMiniMode'
-import { getHiddenStateManager } from '@/lib/render/hiddenStateManager'
-import { getSilentModeManager, temporarySilence } from '@/lib/system/silentModeManager'
 import type { DockDir } from '@/hooks/pet/usePetDragging'
+// A-7：抚摸时触发 GPU 粒子特效（WebGL 不可用时自动降级为 no-op）
+import { usePetParticles } from '@/hooks/pet/usePetParticles'
+import { pickPetReaction } from '@/lib/ai/behaviorEngine'
+import { getDialogueManager } from '@/lib/ai/dialogueManager'
+import { getEmotionManager } from '@/lib/ai/emotionManager'
+import { getCharacter, getDefaultCharacter, getAllCharacters } from '@/lib/data/characters'
+import { getModManager } from '@/lib/data/modManager'
+import type { InventoryItem } from '@/lib/data/types'
+import { getVisualPerceptionManager } from '@/lib/memory/visualPerception'
+import { getAchievementManager } from '@/lib/nurture/achievementSystem'
+import { getFoodsForCharacter } from '@/lib/nurture/items'
+// P2-4：宠物共同经历记忆
+import { getPetExperienceManager } from '@/lib/nurture/petExperience'
 import { switchPetForm } from '@/lib/nurture/petForm'
-import { windowEventBus, useWindowEvent } from '@/lib/system/windowEventBus'
+import { cssUrl } from '@/lib/render/cssUrl'
+import { getHiddenStateManager } from '@/lib/render/hiddenStateManager'
+import { renderPetTrayIcon } from '@/lib/render/trayIconRenderer'
+import { trackPetInteraction, trackTomatoComplete, trackImageSwitch } from '@/lib/system/analytics'
+import { safeGetWindow } from '@/lib/system/appWindows'
 import {
   SPRITE_W,
   SPRITE_H,
@@ -98,29 +115,12 @@ import {
   DIALOGUE_ZONE_PAD,
   type StatusCardMode,
 } from '@/lib/system/petWindowSizing'
-import { renderPetTrayIcon } from '@/lib/render/trayIconRenderer'
-import { FramelessResizeHandles, DRAG_SURFACE_CLASS } from '@/components/FramelessChrome'
-import { Live2DRenderer } from '@/components/Live2DRenderer'
-import { PetBubble } from '@/components/PetBubble'
-import { ExpressionSelector } from '@/components/pet/ExpressionSelector'
-import { ActionButton, ActionRow, StatRow, tierColor } from '@/components/petPanelParts'
-import { PomodoroOverlay } from '@/components/PomodoroOverlay'
-import { SpriteRenderer } from '@/components/SpriteRenderer'
-import { pickPetReaction } from '@/lib/ai/behaviorEngine'
-import { getDialogueManager } from '@/lib/ai/dialogueManager'
-import { getEmotionManager } from '@/lib/ai/emotionManager'
-import { getCharacter, getDefaultCharacter, getAllCharacters } from '@/lib/data/characters'
-import { getModManager } from '@/lib/data/modManager'
-import type { InventoryItem } from '@/lib/data/types'
-import { getAchievementManager } from '@/lib/nurture/achievementSystem'
-import { getFoodsForCharacter } from '@/lib/nurture/items'
-// P2-4：宠物共同经历记忆
-import { getPetExperienceManager } from '@/lib/nurture/petExperience'
-import { cssUrl } from '@/lib/render/cssUrl'
-import { trackPetInteraction, trackTomatoComplete, trackImageSwitch } from '@/lib/system/analytics'
-import { safeGetWindow } from '@/lib/system/appWindows'
 import { usePixelClickThrough } from '@/lib/system/pixelClickThrough'
+import { getScreenshotManager } from '@/lib/system/screenshotManager'
+import { getSilentModeManager, temporarySilence } from '@/lib/system/silentModeManager'
+import { swallowedCatch } from '@/lib/system/swallowedCatch'
 import { useInputReactions } from '@/lib/system/useInputReactions'
+import { windowEventBus, useWindowEvent } from '@/lib/system/windowEventBus'
 import { usePetStore } from '@/stores/petStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 

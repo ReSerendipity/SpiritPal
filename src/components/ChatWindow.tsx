@@ -45,46 +45,46 @@ import { SessionStatsBar } from '@/components/chat/SessionStatsBar'
 import { FramelessResizeHandles } from '@/components/FramelessChrome'
 import { WindowControls } from '@/components/WindowControls'
 import { usePetTTS } from '@/hooks/usePetTTS'
+// P0-1：注入真实工具确认处理器（高风险工具默认需确认；无处理器时 fail-closed 一律拒绝）
+import { setToolConfirmationHandler } from '@/lib/ai/agentSandbox'
+import { detectAgentIntent, processAgentRequest } from '@/lib/ai/aiAgent'
 import { loadAIConfig } from '@/lib/ai/aiConfig'
+import { getChatStageManager } from '@/lib/ai/chatStages'
+// P2-2：情境感知信号
+import { getContextAwarenessManager } from '@/lib/ai/contextAwareness'
+import { getEmotionAnalyzer, getEmotionStateManager } from '@/lib/ai/emotionEngine'
 // Phase 1.3 + 1.4: 情绪标签与 Think 标签解析
 import { extractEmotionFromChunk, extractEmotion } from '@/lib/ai/emotionExtractor'
-import { ThinkTagParser } from '@/lib/render/thinkTagParser'
-import { getChatStageManager } from '@/lib/ai/chatStages'
-import { getAchievementManager } from '@/lib/nurture/achievementSystem'
-import { getScheduleManager } from '@/lib/nurture/scheduleManager'
-import { detectAgentIntent, processAgentRequest } from '@/lib/ai/aiAgent'
+// P1-5：情绪标签提示词 + 好感度解析
+import { EMOTION_PROMPT_FRAGMENT, extractAffectionDeltas, sumAffectionDeltas, emotionTagsToMood } from '@/lib/ai/emotionExtractor'
+import { getLLMClient } from '@/lib/ai/llmClient'
+import { composeFullSystemPrompt, getEffectivePersonality } from '@/lib/ai/personalityEngine'
 // STT：语音输入转文字（Web Speech API 主，零依赖）
 import { STTEngine, isSpeechRecognitionSupported } from '@/lib/ai/stt'
 // VOICEVOX 本地 TTS：助手回复「朗读」按钮（HTTP API → wav Blob → HTMLAudioElement）
 import { voicevoxTTS } from '@/lib/ai/tts'
 import { TTSPlayer } from '@/lib/ai/ttsPlayer'
-// P0-1：注入真实工具确认处理器（高风险工具默认需确认；无处理器时 fail-closed 一律拒绝）
-import { setToolConfirmationHandler } from '@/lib/ai/agentSandbox'
-// P1-1：接线日记系统
-import { getDiarySystemManager } from '@/lib/nurture/diarySystem'
-// P1-6：接线防重复机制
-import { getAntiRepetitionManager } from '@/lib/system/antiRepetition'
-// P1-5：情绪标签提示词 + 好感度解析
-import { EMOTION_PROMPT_FRAGMENT, extractAffectionDeltas, sumAffectionDeltas, emotionTagsToMood } from '@/lib/ai/emotionExtractor'
-import { getEmotionAnalyzer, getEmotionStateManager } from '@/lib/ai/emotionEngine'
-// P2-1：结构化用户画像层
-import { getOwnerFactsManager } from '@/lib/memory/ownerFacts'
-// P2-4：宠物共同经历记忆
-import { getPetExperienceManager } from '@/lib/nurture/petExperience'
-// P2-2：情境感知信号
-import { getContextAwarenessManager } from '@/lib/ai/contextAwareness'
-import { getLLMClient } from '@/lib/ai/llmClient'
+import { getCharacter } from '@/lib/data/characters'
+import type { ChatMessage } from '@/lib/data/types'
 // R2：约定与计划追踪
 import { ContextManager, getContextManager } from '@/lib/memory/contextManager'
-import { composeFullSystemPrompt, getEffectivePersonality } from '@/lib/ai/personalityEngine'
-import { getCharacter } from '@/lib/data/characters'
-import { checkConsistency, generateCorrectionPrompt } from '@/lib/nurture/characterConsistency'
-import type { ChatMessage } from '@/lib/data/types'
 import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
+// P2-1：结构化用户画像层
+import { getOwnerFactsManager } from '@/lib/memory/ownerFacts'
 // 2.1: 视觉感知「看看」
 import { getVisualPerceptionManager } from '@/lib/memory/visualPerception'
+import { getAchievementManager } from '@/lib/nurture/achievementSystem'
+import { checkConsistency, generateCorrectionPrompt } from '@/lib/nurture/characterConsistency'
 import { getCommitmentTracker } from '@/lib/nurture/commitmentTracker'
+// P1-1：接线日记系统
+import { getDiarySystemManager } from '@/lib/nurture/diarySystem'
+// P2-4：宠物共同经历记忆
+import { getPetExperienceManager } from '@/lib/nurture/petExperience'
+import { getScheduleManager } from '@/lib/nurture/scheduleManager'
+import { ThinkTagParser } from '@/lib/render/thinkTagParser'
 import { trackChatSend, trackChatReceive, trackMemoryTrigger } from '@/lib/system/analytics'
+// P1-6：接线防重复机制
+import { getAntiRepetitionManager } from '@/lib/system/antiRepetition'
 import { genId } from '@/lib/system/randomId'
 import { getSilentModeManager } from '@/lib/system/silentModeManager'
 import { swallowedCatch } from '@/lib/system/swallowedCatch'
