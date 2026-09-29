@@ -176,11 +176,12 @@ const styles = {
 // ============ 时间线视图组件 ============
 
 const TimelineView: React.FC = () => {
-  const keyframeMem = getKeyframeMemory()
   const { getMemoryByTimeRange } = useEnhancedMemory()
 
+  // 注意：在 useMemo 内部调用 getKeyframeMemory()（模块级单例，引用稳定）。
+  // 若提到外面再作为依赖，会因每次渲染都取一次而触发无谓重算。
   const frames = useMemo(() => {
-    return keyframeMem.getAllFrames().sort((a, b) => b.timestamp - a.timestamp)
+    return getKeyframeMemory().getAllFrames().sort((a, b) => b.timestamp - a.timestamp)
   }, [])
 
   // eslint-disable-next-line react-hooks/purity -- Date.now() 用于时间范围查询，仅在渲染期调用一次

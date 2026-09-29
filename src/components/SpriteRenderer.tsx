@@ -308,6 +308,10 @@ export function SpriteRenderer({
       maybeDetectChromaKey(back)
       finishSwap(backIdx)
     }, handleVideoFailed)
+    // 说明：state 只在 handleVideoFailed 的回退分支里读一次，而本 effect 的键 videoSrc
+    // 已由 state 派生（不同状态对应不同视频 URL）；把 state 也列进依赖会在 videoSrc
+    // 未变化时重复触发视频加载。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoSrc, character, finishSwap, loadWithFallback])
 
   // ===== 色度键绘制循环 =====
