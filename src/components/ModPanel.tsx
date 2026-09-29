@@ -305,7 +305,7 @@ export function ModPanel() {
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => { setJsonInput(''); setShowImport(true) }}
-          className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-gray-900 hover:bg-amber-400"
+          className="flex items-center gap-1.5 rounded-lg bg-tangerine px-3 py-1.5 text-xs font-medium text-white hover:bg-tangerine-deep"
         >
           <Upload size={14} /> 导入模组
         </button>
@@ -399,7 +399,7 @@ export function ModPanel() {
               key={mod.id}
               className={`rounded-lg border p-3 transition-colors ${
                 selectedMod?.id === mod.id
-                  ? 'border-amber-400 bg-amber-400/5'
+                  ? 'border-tangerine bg-amber-400/5'
                   : 'border-ink/10 bg-surface/50'
               } ${mod.enabled ? '' : 'opacity-50'}`}
             >
@@ -407,7 +407,7 @@ export function ModPanel() {
                 <ModCardThumbnail url={thumbnailUrls[mod.id]} />
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <Package size={14} className="text-amber-300" />
+                    <Package size={14} className="text-tangerine-deep" />
                     <span className="text-sm font-medium">{mod.displayName}</span>
                     {mod.isBuiltIn && (
                       <span className="rounded bg-blue-600/30 px-1.5 py-0.5 text-[10px] text-blue-300">内置</span>
@@ -526,7 +526,7 @@ export function ModPanel() {
               </button>
               <button
                 onClick={handleInstallFromJSON}
-                className="rounded-lg bg-amber-500 px-4 py-2 text-xs font-medium text-gray-900 hover:bg-amber-400"
+                className="rounded-lg bg-tangerine px-4 py-2 text-xs font-medium text-white hover:bg-tangerine-deep"
               >
                 安装模组
               </button>
@@ -554,7 +554,7 @@ export function ModPanel() {
                 className="w-full rounded-lg border border-ink/10 bg-surface p-3 text-left hover:border-amber-400"
               >
                 <div className="flex items-center gap-2 text-sm">
-                  <Plus size={16} className="text-amber-300" />
+                  <Plus size={16} className="text-tangerine-deep" />
                   从空白模板创建
                 </div>
                 <div className="mt-1 text-[11px] text-ink-muted">

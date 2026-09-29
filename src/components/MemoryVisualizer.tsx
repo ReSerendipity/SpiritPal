@@ -60,7 +60,7 @@ const styles = {
   container: {
     width: '800px',
     height: '600px',
-    backgroundColor: '#fff',
+    backgroundColor: 'var(--color-surface)',
     borderRadius: '8px',
     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
     display: 'flex',
@@ -70,8 +70,8 @@ const styles = {
   },
   tabBar: {
     display: 'flex',
-    borderBottom: '1px solid #e0e0e0',
-    backgroundColor: '#f5f5f5',
+    borderBottom: '1px solid var(--color-hairline)',
+    backgroundColor: 'var(--color-cream-deep)',
   },
   tab: (active: boolean) => ({
     flex: 1,
@@ -80,8 +80,8 @@ const styles = {
     background: 'none',
     cursor: 'pointer',
     fontWeight: active ? 600 : 400,
-    color: active ? '#1976d2' : '#666',
-    borderBottom: active ? '2px solid #1976d2' : '2px solid transparent',
+    color: active ? 'var(--color-tangerine-deep)' : 'var(--color-ink-muted)',
+    borderBottom: active ? '2px solid var(--color-tangerine-deep)' : '2px solid transparent',
     transition: 'all 0.2s ease',
   }),
   content: {
@@ -95,19 +95,19 @@ const styles = {
     gap: '12px',
     marginBottom: '16px',
     padding: '12px',
-    backgroundColor: '#fafafa',
+    backgroundColor: 'var(--color-cream)',
     borderRadius: '8px',
-    borderLeft: '3px solid #1976d2',
+    borderLeft: '3px solid var(--color-tangerine-deep)',
   },
   timestamp: {
     fontSize: '12px',
-    color: '#999',
+    color: 'var(--color-ink-faint)',
     minWidth: '80px',
   },
   contentText: {
     fontSize: '14px',
     lineHeight: 1.6,
-    color: '#333',
+    color: 'var(--color-ink)',
   },
   levelBadge: (level: KeyframeLevel) => ({
     display: 'inline-block',
@@ -124,7 +124,7 @@ const styles = {
     width: '100%',
     padding: '10px 12px',
     fontSize: '14px',
-    border: '1px solid #ddd',
+    border: '1px solid var(--color-hairline)',
     borderRadius: '6px',
     outline: 'none',
     marginBottom: '16px',
@@ -133,8 +133,8 @@ const styles = {
   resultItem: {
     padding: '12px',
     marginBottom: '8px',
-    backgroundColor: '#fff',
-    border: '1px solid #eee',
+    backgroundColor: 'var(--color-surface)',
+    border: '1px solid var(--color-hairline)',
     borderRadius: '6px',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
@@ -143,7 +143,7 @@ const styles = {
   emotionChart: {
     width: '100%',
     height: '300px',
-    backgroundColor: '#fafafa',
+    backgroundColor: 'var(--color-cream)',
     borderRadius: '8px',
     padding: '16px',
   },
@@ -155,7 +155,7 @@ const styles = {
   emotionLabel: {
     width: '80px',
     fontSize: '14px',
-    color: '#666',
+    color: 'var(--color-ink-muted)',
   },
   emotionBarFill: (value: number, color: string) => ({
     width: `${Math.min(value, 100)}%`,
@@ -168,7 +168,7 @@ const styles = {
   graphCanvas: {
     width: '100%',
     height: '400px',
-    backgroundColor: '#fafafa',
+    backgroundColor: 'var(--color-cream)',
     borderRadius: '8px',
   },
 }
@@ -193,11 +193,11 @@ const TimelineView: React.FC = () => {
 
   return (
     <div style={styles.content}>
-      <h3 style={{ marginBottom: '16px', color: '#333' }}>最近 24 小时记忆</h3>
+      <h3 style={{ marginBottom: '16px', color: 'var(--color-ink)' }}>最近 24 小时记忆</h3>
 
       {/* 关键帧时间线 */}
       <div style={{ marginBottom: '24px' }}>
-        <h4 style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>视觉关键帧</h4>
+        <h4 style={{ fontSize: '14px', color: 'var(--color-ink-muted)', marginBottom: '8px' }}>视觉关键帧</h4>
         {frames.slice(0, 10).map((frame, idx) => (
           <div key={idx} style={styles.timelineItem}>
             <div style={styles.timestamp}>{formatTime(frame.timestamp)}</div>
@@ -211,24 +211,24 @@ const TimelineView: React.FC = () => {
           </div>
         ))}
         {frames.length === 0 && (
-          <p style={{ color: '#999', textAlign: 'center' }}>暂无关键帧记录</p>
+          <p style={{ color: 'var(--color-ink-faint)', textAlign: 'center' }}>暂无关键帧记录</p>
         )}
       </div>
 
       {/* 对话记忆时间线 */}
       <div>
-        <h4 style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>对话记忆</h4>
+        <h4 style={{ fontSize: '14px', color: 'var(--color-ink-muted)', marginBottom: '8px' }}>对话记忆</h4>
         {timeRange.entries.slice(0, 5).map((entry: MemoryEntry, idx: number) => (
           <div key={idx} style={styles.timelineItem}>
             <div style={styles.timestamp}>{formatTime(new Date(entry.created_at).getTime())}</div>
             <div style={{ flex: 1 }}>
               <p style={{ ...styles.contentText, marginBottom: '4px' }}><strong>主人：</strong>{entry.user}</p>
-              <p style={{ ...styles.contentText, color: '#666' }}><strong>宠物：</strong>{entry.assistant}</p>
+              <p style={{ ...styles.contentText, color: 'var(--color-ink-muted)' }}><strong>宠物：</strong>{entry.assistant}</p>
             </div>
           </div>
         ))}
         {timeRange.entries.length === 0 && (
-          <p style={{ color: '#999', textAlign: 'center' }}>暂无对话记录</p>
+          <p style={{ color: 'var(--color-ink-faint)', textAlign: 'center' }}>暂无对话记录</p>
         )}
       </div>
     </div>
@@ -282,14 +282,14 @@ const SearchView: React.FC = () => {
     const parts = text.split(new RegExp(`(${highlight})`, 'gi'))
     return parts.map((part, i) =>
       part.toLowerCase() === highlight.toLowerCase()
-        ? <mark key={i} style={{ backgroundColor: '#ffeb3b' }}>{part}</mark>
+        ? <mark key={i} style={{ backgroundColor: 'var(--color-tangerine-soft)', color: 'var(--color-ink)' }}>{part}</mark>
         : part
     )
   }
 
   return (
     <div style={styles.content}>
-      <h3 style={{ marginBottom: '16px', color: '#333' }}>记忆搜索</h3>
+      <h3 style={{ marginBottom: '16px', color: 'var(--color-ink)' }}>记忆搜索</h3>
 
       <input
         type="text"
@@ -306,17 +306,17 @@ const SearchView: React.FC = () => {
               <strong>主人：</strong>
               {highlightText(entry.user, query)}
             </p>
-            <p style={{ color: '#666', marginBottom: '8px' }}>
+            <p style={{ color: 'var(--color-ink-muted)', marginBottom: '8px' }}>
               <strong>宠物：</strong>
               {highlightText(entry.assistant, query)}
             </p>
-            <small style={{ color: '#999' }}>
+            <small style={{ color: 'var(--color-ink-faint)' }}>
               {new Date(entry.created_at).toLocaleString('zh-CN')}
             </small>
           </div>
         ))
       ) : (
-        query && <p style={{ color: '#999', textAlign: 'center' }}>未找到相关记忆</p>
+        query && <p style={{ color: 'var(--color-ink-faint)', textAlign: 'center' }}>未找到相关记忆</p>
       )}
     </div>
   )
@@ -355,10 +355,10 @@ const EmotionView: React.FC = () => {
 
   return (
     <div style={styles.content}>
-      <h3 style={{ marginBottom: '16px', color: '#333' }}>情绪分布分析</h3>
+      <h3 style={{ marginBottom: '16px', color: 'var(--color-ink)' }}>情绪分布分析</h3>
 
       {total === 0 ? (
-        <div style={{ padding: '32px 0', textAlign: 'center', color: '#999', fontSize: '14px' }}>
+        <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--color-ink-faint)', fontSize: '14px' }}>
           今天还没有情绪记录
           <div style={{ marginTop: '8px', fontSize: '12px' }}>
             和宠物聊聊天，这里就会统计出真实的情绪分布
@@ -382,7 +382,7 @@ const EmotionView: React.FC = () => {
                     />
                   </div>
                   <div
-                    style={{ width: '40px', textAlign: 'right', fontSize: '12px', color: '#999' }}
+                    style={{ width: '40px', textAlign: 'right', fontSize: '12px', color: 'var(--color-ink-faint)' }}
                   >
                     {Math.round(pctOf(count))}%
                   </div>
@@ -394,14 +394,14 @@ const EmotionView: React.FC = () => {
             style={{
               marginTop: '24px',
               padding: '12px',
-              backgroundColor: '#e3f2fd',
+              backgroundColor: 'var(--color-tangerine-soft)',
               borderRadius: '6px',
             }}
           >
-            <p style={{ fontSize: '13px', color: '#1976d2', marginBottom: '8px' }}>
+            <p style={{ fontSize: '13px', color: 'var(--color-tangerine-deep)', marginBottom: '8px' }}>
               <strong>💡 分析建议</strong>
             </p>
-            <p style={{ fontSize: '13px', color: '#666', margin: 0 }}>
+            <p style={{ fontSize: '13px', color: 'var(--color-ink-muted)', margin: 0 }}>
               {happyRatio > 50
                 ? '主人今天心情很好！可以继续互动增强亲密度～'
                 : negativeRatio > 40
@@ -454,7 +454,7 @@ const GraphView: React.FC = () => {
 
   return (
     <div style={styles.content}>
-      <h3 style={{ marginBottom: '16px', color: '#333' }}>知识图谱</h3>
+      <h3 style={{ marginBottom: '16px', color: 'var(--color-ink)' }}>知识图谱</h3>
 
       <div style={styles.graphCanvas}>
         <svg width="100%" height="100%" viewBox="0 0 768 400">
@@ -477,7 +477,7 @@ const GraphView: React.FC = () => {
                 y1={sourceY}
                 x2={targetX}
                 y2={targetY}
-                stroke="#ddd"
+                style={{ stroke: 'var(--color-hairline)' }}
                 strokeWidth="2"
               />
             )
@@ -511,7 +511,7 @@ const GraphView: React.FC = () => {
                   x={x}
                   y={y + 28}
                   textAnchor="middle"
-                  fill="#666"
+                  style={{ fill: 'var(--color-ink-muted)' }}
                   fontSize="11"
                 >
                   {node.label}
@@ -522,7 +522,7 @@ const GraphView: React.FC = () => {
         </svg>
       </div>
 
-      <div style={{ marginTop: '16px', fontSize: '12px', color: '#999' }}>
+      <div style={{ marginTop: '16px', fontSize: '12px', color: 'var(--color-ink-faint)' }}>
         <p>🔴 人物 | 🟢 宠物 | 🔵 活动 | 🟠 应用</p>
       </div>
     </div>

@@ -210,7 +210,7 @@ export function AlbumPanel() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Camera size={16} className="text-amber-300" />
+          <Camera size={16} className="text-tangerine-deep" />
           <span className="text-sm">宠物相册 ({screenshots.length})</span>
         </div>
         {screenshots.length > 0 && (
@@ -228,7 +228,7 @@ export function AlbumPanel() {
           <button
             onClick={() => setFilterChar('all')}
             className={`rounded px-2 py-0.5 text-[11px] ${
-              filterChar === 'all' ? 'bg-amber-400 text-gray-900' : 'bg-cream-deep text-ink'
+              filterChar === 'all' ? 'bg-tangerine text-white' : 'bg-cream-deep text-ink'
             }`}
           >
             全部
@@ -240,7 +240,7 @@ export function AlbumPanel() {
                 key={id}
                 onClick={() => setFilterChar(id)}
                 className={`rounded px-2 py-0.5 text-[11px] ${
-                  filterChar === id ? 'bg-amber-400 text-gray-900' : 'bg-cream-deep text-ink'
+                  filterChar === id ? 'bg-tangerine text-white' : 'bg-cream-deep text-ink'
                 }`}
               >
                 {c?.displayName ?? id}
@@ -344,14 +344,14 @@ export function AlbumPanel() {
 
             {/* 滤镜选择栏 */}
             <div className="mt-2 flex items-center gap-1 overflow-x-auto rounded-lg bg-cream-deep/80 px-2 py-2">
-              <Sparkles size={12} className="shrink-0 text-amber-300" />
+              <Sparkles size={12} className="shrink-0 text-tangerine-deep" />
               {FILTERS.map((f) => (
                 <button
                   key={f.id}
                   onClick={() => setActiveFilter(f.id)}
                   className={`shrink-0 rounded px-2 py-1 text-[10px] transition-colors ${
                     activeFilter === f.id
-                      ? 'bg-amber-400/20 text-amber-300 ring-1 ring-amber-400'
+                      ? 'bg-tangerine/20 text-tangerine-deep ring-1 ring-amber-400'
                       : 'text-ink-muted hover:bg-cream-deep/50'
                   }`}
                 >
@@ -378,7 +378,7 @@ export function AlbumPanel() {
                   />
                   <button
                     onClick={() => handleSaveCaption(selected.id)}
-                    className="rounded bg-amber-500/20 px-2 py-1 text-[10px] text-amber-300 hover:bg-amber-500/30"
+                    className="rounded bg-amber-500/20 px-2 py-1 text-[10px] text-tangerine-deep hover:bg-amber-500/30"
                   >
                     保存
                   </button>

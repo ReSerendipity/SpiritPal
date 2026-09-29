@@ -75,7 +75,7 @@ export function AchievementPanel() {
         <button
           onClick={() => setTab('achievements')}
           className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm transition-colors ${
-            tab === 'achievements' ? 'bg-amber-400 text-gray-900' : 'bg-surface text-ink hover:bg-cream-deep'
+            tab === 'achievements' ? 'bg-tangerine text-white' : 'bg-surface text-ink hover:bg-cream-deep'
           }`}
         >
           <Trophy size={14} /> 成就
@@ -83,7 +83,7 @@ export function AchievementPanel() {
         <button
           onClick={() => setTab('ranking')}
           className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm transition-colors ${
-            tab === 'ranking' ? 'bg-amber-400 text-gray-900' : 'bg-surface text-ink hover:bg-cream-deep'
+            tab === 'ranking' ? 'bg-tangerine text-white' : 'bg-surface text-ink hover:bg-cream-deep'
           }`}
         >
           <TrendingUp size={14} /> 排行榜
@@ -95,7 +95,7 @@ export function AchievementPanel() {
           {/* 统计概览 */}
           <div className="grid grid-cols-3 gap-2">
             <div className="rounded-lg bg-amber-900/30 p-2 text-center">
-              <div className="text-xs text-amber-300">已解锁</div>
+              <div className="text-xs text-tangerine-deep">已解锁</div>
               <div className="text-lg font-bold text-amber-200">{unlocked.length}</div>
             </div>
             <div className="rounded-lg bg-cream-deep/40 p-2 text-center">
@@ -113,8 +113,8 @@ export function AchievementPanel() {
           {/* 徽章等级 */}
           <div className="rounded-lg bg-surface p-3">
             <div className="mb-2 flex items-center gap-2">
-              <Award size={14} className="text-amber-400" />
-              <span className="text-xs font-semibold text-amber-300">徽章等级</span>
+              <Award size={14} className="text-tangerine-deep" />
+              <span className="text-xs font-semibold text-tangerine-deep">徽章等级</span>
             </div>
             <div className="flex justify-around">
               {(['none', 'star', 'moon', 'sun', 'crown'] as const).map((tier) => (
@@ -158,14 +158,14 @@ export function AchievementPanel() {
                               {ach.name}
                             </span>
                             {ach.reward && (
-                              <span className="text-[10px] text-amber-400">+{ach.reward}🪙</span>
+                              <span className="text-[10px] text-tangerine-deep">+{ach.reward}🪙</span>
                             )}
                           </div>
                           <div className="text-[11px] text-ink-muted">{ach.description}</div>
                           {!isUnlocked && progress > 0 && (
                             <div className="mt-1 h-1 overflow-hidden rounded-full bg-cream-deep">
                               <div
-                                className="h-full rounded-full bg-amber-400 transition-all"
+                                className="h-full rounded-full bg-tangerine transition-all"
                                 style={{ width: `${progress * 100}%` }}
                               />
                             </div>
@@ -190,14 +190,14 @@ export function AchievementPanel() {
         <div className="space-y-3">
           <div className="rounded-lg bg-surface p-3">
             <div className="mb-3 flex items-center gap-2">
-              <TrendingUp size={16} className="text-amber-400" />
+              <TrendingUp size={16} className="text-tangerine-deep" />
               <span className="text-sm font-semibold">个人数据统计</span>
             </div>
             <div className="space-y-2">
               {rankingData.map((item, i) => (
                 <div key={i} className="flex items-center justify-between rounded-lg bg-cream-deep/50 px-3 py-2">
                   <span className="text-xs text-ink">{item.name}</span>
-                  <span className="text-sm font-bold text-amber-300 tabular-nums">
+                  <span className="text-sm font-bold text-tangerine-deep tabular-nums">
                     {item.value.toLocaleString()} {item.unit}
                   </span>
                 </div>
@@ -212,7 +212,7 @@ export function AchievementPanel() {
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded bg-cream-deep/50 px-2 py-1 text-center">
                   <div className="text-[10px] text-ink-muted">等级</div>
-                  <div className="text-sm font-bold text-amber-300">Lv.{stats.level}</div>
+                  <div className="text-sm font-bold text-tangerine-deep">Lv.{stats.level}</div>
                 </div>
                 <div className="rounded bg-cream-deep/50 px-2 py-1 text-center">
                   <div className="text-[10px] text-ink-muted">亲密度</div>

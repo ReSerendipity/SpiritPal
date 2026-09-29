@@ -74,8 +74,8 @@ export function DecorationEditor() {
   return (
     <div className="space-y-3 rounded-lg bg-surface/50 p-3">
       <div className="flex items-center gap-2">
-        <Shirt size={14} className="text-amber-400" />
-        <span className="text-xs font-semibold text-amber-300">装扮管理</span>
+        <Shirt size={14} className="text-tangerine-deep" />
+        <span className="text-xs font-semibold text-tangerine-deep">装扮管理</span>
       </div>
 
       {/* 已穿戴的装饰品 */}
@@ -115,7 +115,7 @@ export function DecorationEditor() {
               onClick={() => setSelectedAnchor(anchor)}
               className={`rounded-md px-2 py-0.5 text-[10px] transition-colors ${
                 selectedAnchor === anchor
-                  ? 'bg-amber-400 text-gray-900'
+                  ? 'bg-tangerine text-white'
                   : 'bg-cream-deep text-ink hover:bg-blush-soft'
               }`}
             >
@@ -144,7 +144,7 @@ export function DecorationEditor() {
                   onClick={() => (isWorn ? handleRemove(selectedAnchor) : handleWear(item))}
                   className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] transition-all ${
                     isWorn
-                      ? 'border-amber-400/60 bg-amber-400/10 text-amber-200'
+                      ? 'border-amber-400/60 bg-tangerine/10 text-amber-200'
                       : 'border-ink/10 bg-surface text-ink hover:border-ink/30'
                   }`}
                   title={item.description}

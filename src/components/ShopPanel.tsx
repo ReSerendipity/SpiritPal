@@ -142,7 +142,7 @@ export function ShopPanel() {
       {/* 顶部栏：标题 + 金币 */}
       <div className="mb-3 flex items-center justify-between">
         <span className="text-sm font-semibold">🛒 商店</span>
-        <span className="flex items-center gap-1 text-sm text-amber-300">
+        <span className="flex items-center gap-1 text-sm text-tangerine-deep">
           🪙 <span className="tabular-nums">{sharedCoins}</span>
         </span>
       </div>
@@ -163,7 +163,7 @@ export function ShopPanel() {
             key={k}
             onClick={() => setTab(k)}
             className={`flex-shrink-0 rounded-md px-2 py-1 text-xs transition-colors ${
-              tab === k ? 'bg-amber-400 text-gray-900' : 'text-ink hover:bg-blush-soft'
+              tab === k ? 'bg-tangerine text-white' : 'text-ink hover:bg-blush-soft'
             }`}
           >
             {TAB_LABELS[k]}
@@ -230,7 +230,7 @@ export function ShopPanel() {
                 </div>
               </div>
               <div className="flex flex-col items-end gap-1">
-                <span className="text-xs text-amber-300">🪙 {item.price}</span>
+                <span className="text-xs text-tangerine-deep">🪙 {item.price}</span>
                 <div className="flex gap-1">
                   <button
                     onClick={() => handleBuy(item)}

@@ -218,16 +218,16 @@ export const CoinDisplay: React.FC<CoinDisplayProps> = ({
         {formatNumber(displayValue)}
       </span>
       {showName && (
-        <span className="text-xs text-gray-500 dark:text-gray-400">
+        <span className="text-xs text-ink-muted">
           {t('coins.name', config.name)}
         </span>
       )}
       {/* 变化指示器 */}
       {isIncreasing && (
-        <span className="text-xs text-green-500 animate-pulse">+▲</span>
+        <span className="text-xs text-success-deep animate-pulse">+▲</span>
       )}
       {isDecreasing && (
-        <span className="text-xs text-red-500 animate-pulse">-▼</span>
+        <span className="text-xs text-error animate-pulse">-▼</span>
       )}
     </div>
   )

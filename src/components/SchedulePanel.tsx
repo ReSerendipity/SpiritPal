@@ -145,7 +145,7 @@ export function SchedulePanel() {
           />
           <button
             onClick={() => setShowAdd(!showAdd)}
-            className="flex items-center gap-1 rounded-lg bg-amber-500 px-2 py-1 text-xs text-gray-900 hover:bg-amber-400"
+            className="flex items-center gap-1 rounded-lg bg-tangerine px-2 py-1 text-xs text-white hover:bg-tangerine-deep"
           >
             <Plus size={12} /> 添加
           </button>
@@ -190,7 +190,7 @@ export function SchedulePanel() {
           <div className="space-y-1.5">
             {pending.map((e) => (
               <div key={e.id} className="flex items-center gap-2 rounded-lg bg-surface p-2">
-                <Clock size={14} className="flex-shrink-0 text-amber-400" />
+                <Clock size={14} className="flex-shrink-0 text-tangerine-deep" />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm text-ink">{e.title}</div>
                   <div className="text-[10px] text-ink-muted">

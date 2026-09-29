@@ -522,7 +522,7 @@ export function DataPanel() {
       {/* 备份导出 */}
       <div className="rounded-xl bg-surface/60 p-4">
         <div className="mb-2 flex items-center gap-2">
-          <Database size={16} className="text-amber-300" />
+          <Database size={16} className="text-tangerine-deep" />
           <h3 className="text-sm font-semibold">数据备份</h3>
         </div>
         <p className="mb-3 text-[11px] text-ink-muted">
@@ -530,7 +530,7 @@ export function DataPanel() {
         </p>
         <button
           onClick={handleExport}
-          className="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-amber-400"
+          className="flex items-center gap-2 rounded-lg bg-tangerine px-4 py-2 text-sm font-medium text-white hover:bg-tangerine-deep"
         >
           <Download size={16} /> 导出全部数据
         </button>

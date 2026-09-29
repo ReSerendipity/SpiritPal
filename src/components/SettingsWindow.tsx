@@ -1030,18 +1030,18 @@ const [showImporter, setShowImporter] = useState(false)
           <div className="max-w-md">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold">记忆管理</h2>
-              <div className="flex overflow-hidden rounded-lg border border-pet-outline">
+              <div className="flex overflow-hidden rounded-lg border border-ink/15">
                 <button
                   type="button"
                   onClick={() => setMemoryView('compact')}
-                  className={`px-3 py-1 text-sm ${memoryView === 'compact' ? 'bg-pet-primary text-pet-on-primary' : 'text-pet-muted hover:bg-pet-surface'}`}
+                  className={`px-3 py-1 text-sm ${memoryView === 'compact' ? 'bg-tangerine text-white' : 'text-ink-muted hover:bg-cream-deep'}`}
                 >
                   精简
                 </button>
                 <button
                   type="button"
                   onClick={() => setMemoryView('visual')}
-                  className={`px-3 py-1 text-sm ${memoryView === 'visual' ? 'bg-pet-primary text-pet-on-primary' : 'text-pet-muted hover:bg-pet-surface'}`}
+                  className={`px-3 py-1 text-sm ${memoryView === 'visual' ? 'bg-tangerine text-white' : 'text-ink-muted hover:bg-cream-deep'}`}
                 >
                   可视化
                 </button>

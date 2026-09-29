@@ -261,7 +261,7 @@ export function SpriteSheetPanel() {
                 />
                 <div className="flex flex-col">
                   <label className="mb-1 text-[10px] text-ink-muted">总槽位</label>
-                  <div className="flex h-9 items-center rounded-lg bg-surface px-3 text-sm text-amber-300">
+                  <div className="flex h-9 items-center rounded-lg bg-surface px-3 text-sm text-tangerine-deep">
                     {totalSlots}
                   </div>
                 </div>
@@ -275,11 +275,11 @@ export function SpriteSheetPanel() {
           {/* 提取中 */}
           {stage === 'extracting' && (
             <div className="flex flex-col items-center py-8">
-              <Loader2 size={32} className="mb-3 animate-spin text-amber-400" />
+              <Loader2 size={32} className="mb-3 animate-spin text-tangerine-deep" />
               <div className="text-sm text-ink">正在提取帧...</div>
               <div className="mt-2 h-2 w-48 overflow-hidden rounded-full bg-cream-deep">
                 <div
-                  className="h-full rounded-full bg-amber-400 transition-all"
+                  className="h-full rounded-full bg-tangerine transition-all"
                   style={{ width: `${progress * 100}%` }}
                 />
               </div>
@@ -297,7 +297,7 @@ export function SpriteSheetPanel() {
                   <Grid3x3 size={14} />
                   已提取 {frames.length} 帧
                   {frames.length > totalSlots && (
-                    <span className="text-amber-400">
+                    <span className="text-tangerine-deep">
                       （超出 {totalSlots} 槽位，仅取前 {totalSlots} 帧）
                     </span>
                   )}
@@ -335,7 +335,7 @@ export function SpriteSheetPanel() {
               {/* 生成按钮 */}
               <button
                 onClick={handleGenerate}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-medium text-gray-900 hover:bg-amber-400"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-tangerine px-4 py-2.5 text-sm font-medium text-white hover:bg-tangerine-deep"
               >
                 <Layers size={16} /> 生成精灵图集
               </button>
@@ -385,7 +385,7 @@ export function SpriteSheetPanel() {
                 />
                 <button
                   onClick={handleDownload}
-                  className="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-amber-400"
+                  className="flex items-center gap-2 rounded-lg bg-tangerine px-4 py-2 text-sm font-medium text-white hover:bg-tangerine-deep"
                 >
                   <Download size={16} /> 下载
                 </button>

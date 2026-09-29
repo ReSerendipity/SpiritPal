@@ -192,7 +192,7 @@ export const RARITY_NAMES: Record<number, string> = {
 
 /** 稀有度等级 → Tailwind 颜色类 */
 export const RARITY_COLORS: Record<number, { text: string; bg: string; border: string }> = {
-  0: { text: 'text-gray-400', bg: 'bg-gray-500/20', border: 'border-gray-500/30' },
+  0: { text: 'text-ink-muted', bg: 'bg-ink/10', border: 'border-ink/20' },
   1: { text: 'text-blue-400', bg: 'bg-blue-500/20', border: 'border-blue-500/30' },
   2: { text: 'text-purple-400', bg: 'bg-purple-500/20', border: 'border-purple-500/30' },
   3: { text: 'text-amber-400', bg: 'bg-amber-500/20', border: 'border-amber-500/30' },
