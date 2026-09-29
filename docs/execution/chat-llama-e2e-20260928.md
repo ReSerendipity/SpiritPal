@@ -175,6 +175,8 @@
 | `27-regression-chat-memory-recall-dark.png` | 回归：深色下聊天 + 记忆召回 |
 | `28-keychain-apikey-card.png` | P1-B：云端供应商 API Key 输入卡 |
 | `29-keychain-key-roundtrip.png` | P1-A：强杀重启后 Key 回读（安卓 keychain 全链路） |
+| `30-error-message-translated.png` | P3-3：停服错误文案已转译为用户语言（修复后实测） |
+| `31-final-sanity-recovered.png` | 最终确认：链路恢复、记忆召回（Mochi is lucky 47） |
 
 ## 8. 证据清单（第一阶段/第二阶段，assets/ 相对本报告）
 
