@@ -27,6 +27,7 @@ import { trackAppLaunch } from '@/lib/system/analytics'
 import { setLanguage as i18nSetLanguage } from '@/lib/system/i18n'
 import Logger from '@/lib/system/logger'
 import { runtimeMonitor } from '@/lib/system/runtimeMonitor'
+import { themeManager } from '@/lib/system/themeManager'
 import { initAllCharacters } from '@/stores/petStore'
 
 // =========================================================================
@@ -213,6 +214,24 @@ try {
   trackAppLaunch(platform, '0.1.0', false)
 } catch {
   // 忽略埋点错误
+}
+
+// ============================================================
+// 主题初始化：桌面端此前从未调用 themeManager.init()（只有移动端 MobileApp 调），
+// 导致 index.css 的 `html.dark` 令牌覆盖块在桌面端**不可达** —— 桌面实际只有浅色。
+// 在渲染前初始化，避免深色用户先看到浅色闪烁（FOUC）。
+// themeManager 无外部依赖（仅浏览器原生 API），可安全静态导入。
+// 移动端 MobileApp 也会调用 init()，其内部有 initialized 幂等保护。
+// ============================================================
+try {
+  themeManager.init()
+} catch (err) {
+  // 主题初始化失败不应阻断启动
+  try {
+    console.warn('[SpiritPal] themeManager.init failed (non-fatal)', err)
+  } catch {
+    // no-op
+  }
 }
 
 // ============================================================

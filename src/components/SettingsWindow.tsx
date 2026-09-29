@@ -81,6 +81,7 @@ import {
 } from '@/lib/system/diagnostics'
 import { setLanguage as i18nSetLanguage } from '@/lib/system/i18n'
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from '@/lib/system/legalDocuments'
+import { themeManager, type ThemeMode } from '@/lib/system/themeManager'
 import { validateUploadMagic } from '@/lib/system/uploadMagic'
 
 const selectUpdateSettings = (s: ReturnType<typeof useSettingsStore.getState>) => s.updateSettings
@@ -210,6 +211,13 @@ const [showImporter, setShowImporter] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   // 关于页版本号（单一来源：从应用运行时真实读取，禁止硬编码；任务书避坑指南 #1）
   const [appVersion, setAppVersion] = useState<string>('')
+  // 主题模式（浅色/深色/跟随系统）——桌面端此前无任何切换入口，html.dark 令牌块不可达
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => themeManager.getMode())
+  useEffect(() => {
+    // 权威状态由 themeManager.subscribe 回填（含 setMode 对相同值的 early-return 场景）
+    setThemeMode(themeManager.getMode())
+    return themeManager.subscribe((_effective, mode) => setThemeMode(mode))
+  }, [])
 
   // 跨窗口「打开指定标签页」请求（如宠物右键菜单「换装」直达外观页）
   useEffect(() => {
@@ -743,6 +751,31 @@ const [showImporter, setShowImporter] = useState(false)
         {tab === 'appearance' && (
           <div className="max-w-md space-y-6">
             <h2 className="text-lg font-semibold">外观</h2>
+
+            {/* 主题模式（浅色/深色/跟随系统）——桌面端此前无任何入口 */}
+            <div>
+              <label className="mb-1 block text-xs text-ink-faint">主题</label>
+              <div className="flex gap-1 rounded-lg bg-cream-deep p-1">
+                {([
+                  { mode: 'light', label: '浅色' },
+                  { mode: 'dark', label: '深色' },
+                  { mode: 'system', label: '跟随系统' },
+                ] as { mode: ThemeMode; label: string }[]).map((opt) => (
+                  <button
+                    key={opt.mode}
+                    onClick={() => themeManager.setMode(opt.mode)}
+                    aria-pressed={themeMode === opt.mode}
+                    className={`flex-1 rounded-md px-2 py-1 text-xs transition-colors ${
+                      themeMode === opt.mode
+                        ? 'bg-tangerine text-white'
+                        : 'text-ink-muted hover:bg-ink/20'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div>
               <label className="mb-1 block text-xs text-ink-faint">
