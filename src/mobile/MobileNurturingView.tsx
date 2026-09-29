@@ -36,11 +36,11 @@ const TIER_COLORS: Record<string, string> = {
 
 /** 徽章元信息映射 */
 const BADGE_META: Record<BadgeTier, { labelKey: string; emoji: string; color: string }> = {
-  none: { labelKey: 'badge.none', emoji: '⚪', color: 'text-ink-muted' },
-  star: { labelKey: 'badge.star', emoji: '⭐', color: 'text-stat-mid' },
-  moon: { labelKey: 'badge.moon', emoji: '🌙', color: 'text-indigo-300' },
-  sun: { labelKey: 'badge.sun', emoji: '☀️', color: 'text-warning' },
-  crown: { labelKey: 'badge.crown', emoji: '👑', color: 'text-tangerine-deep' },
+  none: { labelKey: 'badge.none', emoji: '⚪', color: 'text-badge-none' },
+  star: { labelKey: 'badge.star', emoji: '⭐', color: 'text-badge-star' },
+  moon: { labelKey: 'badge.moon', emoji: '🌙', color: 'text-badge-moon' },
+  sun: { labelKey: 'badge.sun', emoji: '☀️', color: 'text-badge-sun' },
+  crown: { labelKey: 'badge.crown', emoji: '👑', color: 'text-badge-crown' },
 }
 
 /**
