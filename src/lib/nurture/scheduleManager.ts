@@ -30,6 +30,7 @@ import {
   requestPermission,
 } from '@tauri-apps/plugin-notification'
 import { generateId } from '@/lib/data/commonUtils'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 // ============ 日程事件类型 ============
 
@@ -669,6 +670,14 @@ export class ScheduleManager {
    * @param body 通知内容
    */
   private async sendSystemNotification(title: string, body: string): Promise<void> {
+    // 尊重用户设置里的「通知」开关。
+    // 修复前该开关（settingsStore.notifications）两端都能改，但全仓无消费者 ——
+    // 关掉通知后日程提醒照发，开关形同虚设。
+    try {
+      if (!useSettingsStore.getState().notifications) return
+    } catch {
+      // store 尚未就绪（极端启动时序）：按开启处理，不阻断通知
+    }
     try {
       let granted = await isPermissionGranted()
       if (!granted) {
