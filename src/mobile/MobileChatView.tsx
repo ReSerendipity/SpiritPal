@@ -20,7 +20,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { Send, Square, Trash2, Bot, User } from 'lucide-react'
+import { Send, Square, Trash2, Bot, User, RefreshCw } from 'lucide-react'
 import Markdown from 'react-markdown'
 // SECURITY R-02 对齐：与桌面端 ChatWindow 使用同一套 rehype-sanitize 配置，
 // 阻断 AI 输出型 XSS（此前移动端直接渲染 Markdown，无任何消毒）
@@ -53,6 +53,10 @@ export function MobileChatView() {
   const activeSessionId = activeSessionByCharacter[currentCharacterId] ?? ''
   // eslint-disable-next-line react-hooks/exhaustive-deps -- messages 是 ?? [] 逻辑表达式，每次渲染可能产生新引用；用 useMemo 包裹会改变 useEffect 滚动触发时机，故保留原依赖数组
   const messages = messagesBySession[activeSessionId] ?? []
+
+  /** 末条助手消息内容为空 ⇒ 上一轮失败/被中断，可重试 */
+  const lastMessage = messages[messages.length - 1]
+  const canRetry = !!lastMessage && lastMessage.role === 'assistant' && !lastMessage.content.trim()
 
   const [input, setInput] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -94,6 +98,32 @@ export function MobileChatView() {
     }
 
     const assistantId = sendMessage(text)
+    await runCompletion(text, assistantId)
+  }
+
+  /**
+   * 重试上一条失败的回复（对齐桌面端 ChatWindow 的「重新生成」）
+   *
+   * 复用同一条助手消息：失败后该消息内容为空，重试即重新填充它，
+   * 不向历史追加新的用户/助手轮次（避免历史里堆叠重复对话）。
+   */
+  function handleRetry() {
+    if (isLoading) return
+    const last = messages[messages.length - 1]
+    // 仅当末条是「内容为空的助手消息」时才允许重试（即上一轮确实失败/被中断）
+    if (!last || last.role !== 'assistant' || last.content.trim()) return
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user')
+    if (!lastUser) return
+    setError(null)
+    void runCompletion(lastUser.content, last.id)
+  }
+
+  /**
+   * 执行一次补全请求（发送与重试共用）
+   * @param text 本轮用户输入
+   * @param assistantId 承载回复的助手消息 ID
+   */
+  async function runCompletion(text: string, assistantId: string) {
     setLoading(true)
 
     try {
@@ -138,12 +168,16 @@ export function MobileChatView() {
 
       const personality = getEffectivePersonality(currentCharacterId, char.personality)
       const systemPrompt = composeFullSystemPrompt(char.systemPrompt, personality)
-      const history = messages.slice(-20).map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        timestamp: m.timestamp,
-      }))
+      // 重试场景下末条助手消息内容为空，不应进入上下文
+      const history = messages
+        .filter((m) => m.content.trim())
+        .slice(-20)
+        .map((m) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp,
+        }))
 
       // D8：移动端注入记忆上下文
       let memCtx = ''
@@ -304,7 +338,23 @@ export function MobileChatView() {
 
         {error && (
           <div className="mb-3 rounded-lg border border-ink/10 bg-surface px-3 py-2 text-xs text-error ring-1 ring-error/40">
-            {error}
+            <div className="flex items-start gap-2">
+              <span className="flex-1">{error}</span>
+              {/* 重试：仅当末条助手消息为空（上一轮确实失败）时可用 */}
+              {canRetry && (
+                <button
+                  type="button"
+                  onClick={handleRetry}
+                  disabled={isLoading}
+                  className={`flex flex-shrink-0 items-center gap-1 rounded-md border border-ink/15 px-2 py-0.5 text-[11px] text-ink ${
+                    isLoading ? 'opacity-50' : 'hover:bg-ink/5'
+                  }`}
+                >
+                  <RefreshCw size={11} />
+                  重试
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
