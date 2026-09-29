@@ -17,6 +17,11 @@ html.dark {
   --color-ink-muted: #b3a18e;
   --color-ink-faint: #8f7f6c;
   --color-hairline: rgba(240, 230, 218, 0.14);
+  --color-badge-none: #c4b4a0;
+  --color-badge-star: #facc15;
+  --color-badge-moon: #a5b4fc;
+  --color-badge-sun: #fdba74;
+  --color-badge-crown: #fcd34d;
   --color-tangerine: #f0925a;
   --color-tangerine-deep: #e8874a;
   --color-tangerine-soft: #3d2c1e;
@@ -49,6 +54,16 @@ html.dark {
   /* 细分隔线 / 1px 边框。Tailwind 侧通常直接用 border-ink/10；
    * 此处提供给**内联样式**（无法写 Tailwind 类）使用，见 MemoryVisualizer。 */
   --color-hairline: rgba(74, 54, 38, 0.14);
+
+  /* 徽章等级色（星辰/皓月/骄阳/皇冠）。
+   * 2026-09-29 新增：原先直接复用 stat-mid / warning / indigo-300 等**填充色**当文字色，
+   * 在浅色底上对比度仅 1.79–2.00:1（不可读）。此系列按「可作文字色」选值，
+   * 浅深两套均满足 WCAG AA（≥4.5:1）。 */
+  --color-badge-none: #7d6a56;
+  --color-badge-star: #a16207;
+  --color-badge-moon: #4f46e5;
+  --color-badge-sun: #c2410c;
+  --color-badge-crown: #b45309;
   --color-tangerine: #e8874a;
   --color-tangerine-deep: #d06a2f;
   --color-tangerine-soft: #fbe9dc;
