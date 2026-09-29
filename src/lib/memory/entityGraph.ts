@@ -148,7 +148,6 @@ export async function personalizedPageRank(
   if (seeds.length === 0) return scores
 
   // 初始化种子节点分数
-  const seedSet = new Set(seeds)
   seeds.forEach(s => scores.set(s, 1 / seeds.length))
 
   // 幂迭代

@@ -13,11 +13,10 @@
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { useEnhancedMemory } from '@/hooks/useEnhancedMemory'
-import { type WorkStateInfo } from '@/lib/ai/contextAwareness'
 // A-10：情绪分布改用 emotionEngine 的真实今日统计（此前是 Math.random() 假数据）
 import { getEmotionStateManager } from '@/lib/ai/emotionEngine'
 import type { MemoryEntry } from '@/lib/data/types'
-import { getKeyframeMemory, type Keyframe, KeyframeLevel } from '@/lib/memory/keyframeMemory'
+import { getKeyframeMemory, KeyframeLevel } from '@/lib/memory/keyframeMemory'
 import { usePetStore } from '@/stores/petStore'
 
 /** 情绪中文标签（覆盖 emotionEngine 的全部 9 类基础情绪） */

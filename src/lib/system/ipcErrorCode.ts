@@ -65,9 +65,6 @@ export interface IpcError {
 
 // ============ 解析器 ============
 
-/** 错误码前缀（与 Rust 端约定一致） */
-const IPC_ERROR_PREFIX = '[IPC_ERROR:'
-
 /**
  * 从 Tauri invoke 抛出的错误解析为结构化 IpcError。
  *

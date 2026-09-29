@@ -126,7 +126,7 @@ export class TimezoneManager {
       this.rescheduleAllTasks()
 
       return true
-    } catch (error) {
+    } catch {
       console.error('[Timezone] Invalid timezone ID:', timeZoneId)
       return false
     }
@@ -155,10 +155,11 @@ export class TimezoneManager {
         second: '2-digit',
       })
 
-      const targetString = targetFormatter.format(targetDate)
+      // 构造/格式化本身即是一次时区有效性探测（无效时区会抛 RangeError → 下面的 catch 告警）
+      targetFormatter.format(targetDate)
       // Note: This is a simplified conversion
       // Real implementation would require proper date-fns-tz or moment-timezone library
-    } catch (error) {
+    } catch {
       console.warn('[Timezone] Conversion failed, using fallback')
     }
 

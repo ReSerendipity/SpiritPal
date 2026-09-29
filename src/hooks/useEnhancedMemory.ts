@@ -22,7 +22,7 @@ export function useEnhancedMemory(characterId?: string) {
 
     // 从关键帧中查找（模拟记忆搜索）
     const allFrames = keyframeMem.getAllFrames()
-    return allFrames.slice(0, 10).map((frame: Keyframe, idx: number) => ({
+    return allFrames.slice(0, 10).map((frame: Keyframe, _idx: number) => ({
       created_at: new Date(frame.timestamp).toISOString(),
       user: frame.label || '未知输入',
       assistant: frame.windowInfo || '暂无回复',

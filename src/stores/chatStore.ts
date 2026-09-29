@@ -217,6 +217,7 @@ export const useChatStore = create<ChatStoreState>()(
               if (oldest) {
                 updatedSessions = updatedSessions.filter((s) => s.id !== oldest.id)
                 // 同时清理其消息
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars -- omit 惯用法：_removed 是刻意丢弃的占位，靠 rest 拿到去掉该键的副本
                 const { [oldest.id]: _removed, ...restMsgs } = state.messagesBySession
                 return {
                   sessions: { ...state.sessions, [charId]: updatedSessions },
@@ -246,6 +247,7 @@ export const useChatStore = create<ChatStoreState>()(
         const charId = getCurrentCharacterId()
         set((state) => {
           const charSessions = (state.sessions[charId] ?? []).filter((s) => s.id !== sessionId)
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars -- omit 惯用法：_removed 是刻意丢弃的占位，靠 rest 拿到去掉该键的副本
           const { [sessionId]: _removed, ...restMsgs } = state.messagesBySession
           let activeId = state.activeSessionByCharacter[charId]
           // 如果删除的是当前活跃会话，切换到下一个

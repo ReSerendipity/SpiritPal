@@ -1049,6 +1049,8 @@ export async function getOverdueCommitments(characterId: string, now: number, be
   return invoke<CommitmentRow[]>('sp_commitments_overdue', { characterId, now, before })
 }
 
+// 该数组是约定状态的单一事实来源：值本身不读，仅通过下一行的 typeof 派生联合类型。
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- type-only 用法（typeof 派生），非死代码
 const COMMITMENT_STATUSES = ['open', 'fulfilled', 'lapsed', 'cancelled'] as const
 export type CommitmentStatus = (typeof COMMITMENT_STATUSES)[number]
 

@@ -104,7 +104,7 @@ export class PhysicsSimulator {
   /**
    * 执行一步模拟
    */
-  simulate(deltaTime: number, externalForce: { x: number; y: number }): number {
+  simulate(_deltaTime: number, _externalForce: { x: number; y: number }): number {
     throw new Error('Must be implemented by subclass')
   }
 
