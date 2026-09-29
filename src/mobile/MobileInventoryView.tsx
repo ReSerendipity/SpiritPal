@@ -172,7 +172,7 @@ export function MobileInventoryView() {
                         {wornAnchor && (
                           <button
                             onClick={() => handleRemove(item.id, item.name)}
-                            className="rounded-lg bg-red-500/15 px-1.5 py-0.5 text-[10px] text-red-500"
+                            className="rounded-lg bg-error/15 px-1.5 py-0.5 text-[10px] text-error"
                           >
                             取下
                           </button>

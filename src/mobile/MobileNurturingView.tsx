@@ -26,19 +26,19 @@ type SubTab = 'stats' | 'shop' | 'inventory' | 'achievement'
 
 /** 属性颜色等级映射 */
 const TIER_COLORS: Record<string, string> = {
-  green: 'bg-green-500',
-  yellow: 'bg-yellow-400',
-  orange: 'bg-orange-400',
-  red: 'bg-red-500',
+  green: 'bg-stat-good',
+  yellow: 'bg-stat-mid',
+  orange: 'bg-warning',
+  red: 'bg-error',
 }
 
 /** 徽章元信息映射 */
 const BADGE_META: Record<BadgeTier, { label: string; emoji: string; color: string }> = {
   none: { label: '无', emoji: '⚪', color: 'text-ink-muted' },
-  star: { label: '星辰', emoji: '⭐', color: 'text-yellow-400' },
+  star: { label: '星辰', emoji: '⭐', color: 'text-stat-mid' },
   moon: { label: '皓月', emoji: '🌙', color: 'text-indigo-300' },
-  sun: { label: '骄阳', emoji: '☀️', color: 'text-orange-400' },
-  crown: { label: '皇冠', emoji: '👑', color: 'text-amber-300' },
+  sun: { label: '骄阳', emoji: '☀️', color: 'text-warning' },
+  crown: { label: '皇冠', emoji: '👑', color: 'text-tangerine-deep' },
 }
 
 /**
@@ -100,7 +100,7 @@ export function MobileNurturingView() {
             {badgeMeta.emoji} Lv.{stats.level}
           </span>
         </div>
-        <div className="flex items-center gap-1 text-sm text-amber-300">
+        <div className="flex items-center gap-1 text-sm text-tangerine-deep">
           <Coins size={14} />
           <span className="tabular-nums">{sharedCoins}</span>
         </div>
