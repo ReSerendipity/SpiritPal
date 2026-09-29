@@ -346,7 +346,7 @@ export function ModPanel() {
 
       {/* SHA-256 校验结果显示 */}
       {sha256Display && (
-        <div className="flex items-center gap-2 rounded-lg bg-blue-900/30 px-3 py-2 text-xs text-blue-300">
+        <div className="flex items-center gap-2 rounded-lg bg-info/15 px-3 py-2 text-xs text-info">
           <Shield size={14} />
           <span>SHA-256: {sha256Display}</span>
         </div>
@@ -374,12 +374,12 @@ export function ModPanel() {
 
       {/* 错误/成功提示 */}
       {error && (
-        <div className="flex items-center gap-2 rounded-lg bg-red-900/30 px-3 py-2 text-xs text-red-300">
+        <div className="flex items-center gap-2 rounded-lg bg-error/15 px-3 py-2 text-xs text-error">
           <AlertCircle size={14} /> {error}
         </div>
       )}
       {success && (
-        <div className="flex items-center gap-2 rounded-lg bg-green-900/30 px-3 py-2 text-xs text-green-300">
+        <div className="flex items-center gap-2 rounded-lg bg-success/15 px-3 py-2 text-xs text-success">
           <Check size={14} /> {success}
         </div>
       )}
@@ -399,7 +399,7 @@ export function ModPanel() {
               key={mod.id}
               className={`rounded-lg border p-3 transition-colors ${
                 selectedMod?.id === mod.id
-                  ? 'border-tangerine bg-amber-400/5'
+                  ? 'border-tangerine bg-tangerine/5'
                   : 'border-ink/10 bg-surface/50'
               } ${mod.enabled ? '' : 'opacity-50'}`}
             >
@@ -410,7 +410,7 @@ export function ModPanel() {
                     <Package size={14} className="text-tangerine-deep" />
                     <span className="text-sm font-medium">{mod.displayName}</span>
                     {mod.isBuiltIn && (
-                      <span className="rounded bg-blue-600/30 px-1.5 py-0.5 text-[10px] text-blue-300">内置</span>
+                      <span className="rounded bg-info/30 px-1.5 py-0.5 text-[10px] text-info">内置</span>
                     )}
                   </div>
                   <div className="mt-0.5 text-[11px] text-ink-muted">
@@ -420,7 +420,7 @@ export function ModPanel() {
                     安装于 {new Date(mod.installedAt).toLocaleString('zh-CN')}
                   </div>
                   {mod.sha256 && (
-                    <div className="mt-0.5 flex items-center gap-1 text-[10px] text-emerald-600">
+                    <div className="mt-0.5 flex items-center gap-1 text-[10px] text-success">
                       <Shield size={10} />
                       <span className="truncate" title={mod.sha256}>
                         SHA-256: {mod.sha256.slice(0, 24)}...
@@ -433,7 +433,7 @@ export function ModPanel() {
                     onClick={() => handleToggle(mod.id, !mod.enabled)}
                     className={`rounded p-1.5 transition-colors ${
                       mod.enabled
-                        ? 'text-green-400 hover:bg-green-600/20'
+                        ? 'text-success hover:bg-success/20'
                         : 'text-ink-muted hover:bg-blush-soft/20'
                     }`}
                     title={mod.enabled ? '禁用' : '启用'}
@@ -443,7 +443,7 @@ export function ModPanel() {
                   {mod.sha256 && (
                     <button
                       onClick={() => handleVerifySignature(mod.id)}
-                      className="rounded p-1.5 text-emerald-500 hover:bg-emerald-600/20"
+                      className="rounded p-1.5 text-success hover:bg-success/20"
                       title="校验 SHA-256 签名"
                     >
                       <Shield size={14} />
@@ -451,14 +451,14 @@ export function ModPanel() {
                   )}
                   <button
                     onClick={() => handleExport(mod.id)}
-                    className="rounded p-1.5 text-ink-muted hover:bg-cream-deep/60 hover:text-blue-300"
+                    className="rounded p-1.5 text-ink-muted hover:bg-cream-deep/60 hover:text-info"
                     title="导出"
                   >
                     <Download size={14} />
                   </button>
                   <button
                     onClick={() => handleCopyJSON(mod.id)}
-                    className="rounded p-1.5 text-ink-muted hover:bg-cream-deep/60 hover:text-amber-300"
+                    className="rounded p-1.5 text-ink-muted hover:bg-cream-deep/60 hover:text-tangerine-deep"
                     title="复制 JSON"
                   >
                     {copiedId ? <Check size={14} /> : <Copy size={14} />}
@@ -466,7 +466,7 @@ export function ModPanel() {
                   {!mod.isBuiltIn && (
                     <button
                       onClick={() => handleUninstall(mod.id)}
-                      className="rounded p-1.5 text-ink-muted hover:bg-red-600/20 hover:text-red-400"
+                      className="rounded p-1.5 text-ink-muted hover:bg-error/20 hover:text-error"
                       title="卸载"
                     >
                       <Trash2 size={14} />
@@ -515,7 +515,7 @@ export function ModPanel() {
               onChange={(e) => setJsonInput(e.target.value)}
               placeholder='粘贴模组 JSON，或点击「创建新模组」从模板开始...'
               rows={16}
-              className="w-full resize-none rounded-lg bg-surface p-3 font-mono text-xs text-green-300 placeholder-ink-muted focus:outline-none focus:ring-1 focus:ring-amber-400"
+              className="w-full resize-none rounded-lg bg-surface p-3 font-mono text-xs text-success placeholder-ink-muted focus:outline-none focus:ring-1 focus:ring-tangerine"
             />
             <div className="mt-3 flex justify-end gap-2">
               <button
@@ -551,7 +551,7 @@ export function ModPanel() {
             <div className="space-y-2">
               <button
                 onClick={handleCreateFromTemplate}
-                className="w-full rounded-lg border border-ink/10 bg-surface p-3 text-left hover:border-amber-400"
+                className="w-full rounded-lg border border-ink/10 bg-surface p-3 text-left hover:border-tangerine"
               >
                 <div className="flex items-center gap-2 text-sm">
                   <Plus size={16} className="text-tangerine-deep" />
@@ -563,7 +563,7 @@ export function ModPanel() {
               </button>
               <div className="rounded-lg border border-ink/10 bg-surface p-3 text-left">
                 <div className="flex items-center gap-2 text-sm">
-                  <Package size={16} className="text-blue-300" />
+                  <Package size={16} className="text-info" />
                   基于内置角色创建
                 </div>
                 <div className="mt-1 text-[11px] text-ink-muted">
@@ -577,7 +577,7 @@ export function ModPanel() {
                         handleExportBuiltin(c)
                         setShowCreate(false)
                       }}
-                      className="rounded border border-ink/10 px-2 py-1 text-[11px] hover:border-amber-400"
+                      className="rounded border border-ink/10 px-2 py-1 text-[11px] hover:border-tangerine"
                     >
                       {c.displayName}
                     </button>

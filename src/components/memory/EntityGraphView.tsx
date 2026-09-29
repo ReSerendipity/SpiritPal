@@ -381,7 +381,7 @@ export function EntityGraphView({ entities, edges }: EntityGraphViewProps) {
           </div>
         )}
         {error && (
-          <div className="absolute inset-0 flex items-center justify-center text-sm text-red-500">
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-error">
             图谱加载失败：{error}
           </div>
         )}

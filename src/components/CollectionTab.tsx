@@ -38,11 +38,11 @@ export function CollectionTab() {
                 <div className="text-right">
                   {set.completed ? (
                     set.rewardClaimed ? (
-                      <span className="rounded bg-emerald-600/70 px-2 py-1 text-[10px]">已领取</span>
+                      <span className="rounded bg-success/70 px-2 py-1 text-[10px]">已领取</span>
                     ) : (
                       <button
                         onClick={() => claimReward(set.setId)}
-                        className="rounded bg-amber-500 px-2 py-1 text-[11px] font-semibold hover:bg-amber-400"
+                        className="rounded bg-tangerine px-2 py-1 text-[11px] font-semibold text-white hover:bg-tangerine-deep"
                       >
                         领取奖励
                       </button>

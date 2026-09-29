@@ -199,7 +199,7 @@ export function SessionList({ onClose }: SessionListProps) {
                       </button>
                       <button
                         onClick={() => handleDelete(session.id)}
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-red-500 hover:bg-red-50"
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-error hover:bg-error/15"
                       >
                         <Trash2 size={11} />
                         删除

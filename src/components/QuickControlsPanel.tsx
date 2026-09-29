@@ -88,11 +88,11 @@ export function QuickControlsPanel() {
       <div className="rounded-xl bg-surface/60 p-4">
         <div className="mb-3 flex items-center gap-2">
           {volume === 0 ? (
-            <VolumeX size={16} className="text-red-400" />
+            <VolumeX size={16} className="text-error" />
           ) : volume < 50 ? (
-            <Volume1 size={16} className="text-amber-300" />
+            <Volume1 size={16} className="text-tangerine-deep" />
           ) : (
-            <Volume2 size={16} className="text-green-400" />
+            <Volume2 size={16} className="text-success" />
           )}
           <h3 className="text-sm font-semibold">音量控制</h3>
           <span className="ml-auto text-sm tabular-nums text-ink-muted">{volume}%</span>
@@ -111,7 +111,7 @@ export function QuickControlsPanel() {
             max={100}
             value={volume}
             onChange={(e) => void sysControls.setVolume(parseInt(e.target.value))}
-            className="flex-1 accent-amber-400"
+            className="flex-1 accent-tangerine"
           />
           <button
             onClick={() => void sysControls.volumeUp()}
@@ -122,7 +122,7 @@ export function QuickControlsPanel() {
           </button>
           <button
             onClick={() => void sysControls.toggleMute()}
-            className={`rounded-lg p-2 ${volume === 0 ? 'bg-red-600/30 text-red-400' : 'bg-cream-deep hover:bg-blush-soft'}`}
+            className={`rounded-lg p-2 ${volume === 0 ? 'bg-error/30 text-error' : 'bg-cream-deep hover:bg-blush-soft'}`}
             title="静音/取消"
           >
             {volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
@@ -134,9 +134,9 @@ export function QuickControlsPanel() {
       <div className="rounded-xl bg-surface/60 p-4">
         <div className="mb-3 flex items-center gap-2">
           {brightness < 50 ? (
-            <Moon size={16} className="text-blue-300" />
+            <Moon size={16} className="text-info" />
           ) : (
-            <Sun size={16} className="text-amber-300" />
+            <Sun size={16} className="text-tangerine-deep" />
           )}
           <h3 className="text-sm font-semibold">亮度控制</h3>
           <span className="ml-auto text-sm tabular-nums text-ink-muted">{brightness}%</span>
@@ -155,7 +155,7 @@ export function QuickControlsPanel() {
             max={100}
             value={brightness}
             onChange={(e) => void sysControls.setBrightness(parseInt(e.target.value))}
-            className="flex-1 accent-amber-400"
+            className="flex-1 accent-tangerine"
           />
           <button
             onClick={() => void sysControls.brightnessUp()}
@@ -170,7 +170,7 @@ export function QuickControlsPanel() {
       {/* ===== 剪贴板历史 ===== */}
       <div className="rounded-xl bg-surface/60 p-4">
         <div className="mb-3 flex items-center gap-2">
-          <Clipboard size={16} className="text-purple-300" />
+          <Clipboard size={16} className="text-info" />
           <h3 className="text-sm font-semibold">剪贴板历史</h3>
           <span className="text-[11px] text-ink-muted">({clipboardHistory.length})</span>
           {clipboardHistory.length > 0 && (
@@ -181,7 +181,7 @@ export function QuickControlsPanel() {
                   refreshClipboard()
                 }
               }}
-              className="ml-auto flex items-center gap-1 text-[11px] text-red-300 hover:text-red-200"
+              className="ml-auto flex items-center gap-1 text-[11px] text-error hover:text-error"
             >
               <Trash2 size={12} /> 清空
             </button>
@@ -195,7 +195,7 @@ export function QuickControlsPanel() {
             value={clipSearch}
             onChange={(e) => setClipSearch(e.target.value)}
             placeholder="搜索剪贴板…"
-            className="w-full rounded-lg bg-cream-deep py-1.5 pl-7 pr-2 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+            className="w-full rounded-lg bg-cream-deep py-1.5 pl-7 pr-2 text-xs focus:outline-none focus:ring-1 focus:ring-tangerine"
           />
         </div>
 
@@ -211,7 +211,7 @@ export function QuickControlsPanel() {
               <div
                 key={entry.id}
                 className={`group flex items-start gap-2 rounded-lg p-2 ${
-                  entry.pinned ? 'bg-amber-400/10 border border-amber-400/20' : 'bg-cream-deep/40'
+                  entry.pinned ? 'bg-tangerine/10 border border-tangerine/20' : 'bg-cream-deep/40'
                 }`}
               >
                 <div className="min-w-0 flex-1">
@@ -223,21 +223,21 @@ export function QuickControlsPanel() {
                 <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                   <button
                     onClick={() => handleCopyClip(entry)}
-                    className="rounded p-1 text-ink-muted hover:bg-cream-deep/60 hover:text-blue-300"
+                    className="rounded p-1 text-ink-muted hover:bg-cream-deep/60 hover:text-info"
                     title="复制"
                   >
-                    {copiedId === entry.id ? <span className="text-green-400 text-[10px]">✓</span> : <Copy size={12} />}
+                    {copiedId === entry.id ? <span className="text-success text-[10px]">✓</span> : <Copy size={12} />}
                   </button>
                   <button
                     onClick={() => clipMgr.togglePin(entry.id)}
-                    className={`rounded p-1 ${entry.pinned ? 'text-amber-300' : 'text-ink-muted hover:bg-cream-deep/60'}`}
+                    className={`rounded p-1 ${entry.pinned ? 'text-tangerine-deep' : 'text-ink-muted hover:bg-cream-deep/60'}`}
                     title={entry.pinned ? '取消固定' : '固定'}
                   >
                     <Pin size={12} />
                   </button>
                   <button
                     onClick={() => { clipMgr.deleteEntry(entry.id); refreshClipboard() }}
-                    className="rounded p-1 text-ink-muted hover:bg-red-600/20 hover:text-red-400"
+                    className="rounded p-1 text-ink-muted hover:bg-error/20 hover:text-error"
                     title="删除"
                   >
                     <Trash2 size={12} />

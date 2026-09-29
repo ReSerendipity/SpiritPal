@@ -28,10 +28,10 @@ const TIER_COLORS: Record<string, string> = {
 
 const BADGE_META: Record<BadgeTier, { label: string; emoji: string; color: string }> = {
   none: { label: '无', emoji: '⚪', color: 'text-ink-muted' },
-  star: { label: '星辰', emoji: '⭐', color: 'text-yellow-400' },
-  moon: { label: '皓月', emoji: '🌙', color: 'text-indigo-300' },
-  sun: { label: '骄阳', emoji: '☀️', color: 'text-orange-400' },
-  crown: { label: '皇冠', emoji: '👑', color: 'text-amber-300' },
+  star: { label: '星辰', emoji: '⭐', color: 'text-warning' },
+  moon: { label: '皓月', emoji: '🌙', color: 'text-info' },
+  sun: { label: '骄阳', emoji: '☀️', color: 'text-warning' },
+  crown: { label: '皇冠', emoji: '👑', color: 'text-badge-crown' },
 }
 
 /**
@@ -106,7 +106,7 @@ export function NurturingPanel() {
             {badgeMeta.emoji} Lv.{stats.level}
           </span>
         </div>
-        <div className="flex items-center gap-1 text-sm text-amber-300">
+        <div className="flex items-center gap-1 text-sm text-tangerine-deep">
           🪙 <span className="tabular-nums">{sharedCoins}</span>
         </div>
       </div>

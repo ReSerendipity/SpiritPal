@@ -94,17 +94,17 @@ export function AchievementPanel() {
         <>
           {/* 统计概览 */}
           <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-lg bg-amber-900/30 p-2 text-center">
+            <div className="rounded-lg bg-tangerine/15 p-2 text-center">
               <div className="text-xs text-tangerine-deep">已解锁</div>
-              <div className="text-lg font-bold text-amber-200">{unlocked.length}</div>
+              <div className="text-lg font-bold text-tangerine-deep">{unlocked.length}</div>
             </div>
             <div className="rounded-lg bg-cream-deep/40 p-2 text-center">
               <div className="text-xs text-ink-muted">总数</div>
               <div className="text-lg font-bold text-ink">{ACHIEVEMENTS.length}</div>
             </div>
-            <div className="rounded-lg bg-green-900/30 p-2 text-center">
-              <div className="text-xs text-green-300">完成率</div>
-              <div className="text-lg font-bold text-green-200">
+            <div className="rounded-lg bg-success/15 p-2 text-center">
+              <div className="text-xs text-success">完成率</div>
+              <div className="text-lg font-bold text-success">
                 {Math.round((unlocked.length / ACHIEVEMENTS.length) * 100)}%
               </div>
             </div>
@@ -146,7 +146,7 @@ export function AchievementPanel() {
                       <div
                         key={ach.id}
                         className={`flex items-center gap-2 rounded-lg p-2 ${
-                          isUnlocked ? 'bg-amber-900/20 border border-amber-500/20' : 'bg-surface/60'
+                          isUnlocked ? 'bg-tangerine/10 border border-tangerine/30' : 'bg-surface/60'
                         }`}
                       >
                         <div className={`text-xl ${isUnlocked ? '' : 'opacity-30 grayscale'}`}>
@@ -154,7 +154,7 @@ export function AchievementPanel() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1">
-                            <span className={`text-sm font-medium ${isUnlocked ? 'text-amber-200' : 'text-ink-muted'}`}>
+                            <span className={`text-sm font-medium ${isUnlocked ? 'text-tangerine-deep' : 'text-ink-muted'}`}>
                               {ach.name}
                             </span>
                             {ach.reward && (
@@ -220,11 +220,11 @@ export function AchievementPanel() {
                 </div>
                 <div className="rounded bg-cream-deep/50 px-2 py-1 text-center">
                   <div className="text-[10px] text-ink-muted">饱食度</div>
-                  <div className="text-sm font-bold text-green-300">{Math.round(stats.hunger)}</div>
+                  <div className="text-sm font-bold text-success">{Math.round(stats.hunger)}</div>
                 </div>
                 <div className="rounded bg-cream-deep/50 px-2 py-1 text-center">
                   <div className="text-[10px] text-ink-muted">心情</div>
-                  <div className="text-sm font-bold text-blue-300">{Math.round(stats.mood)}</div>
+                  <div className="text-sm font-bold text-info">{Math.round(stats.mood)}</div>
                 </div>
               </div>
             )}

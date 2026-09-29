@@ -132,7 +132,7 @@ export function PersonalityPanel() {
                   step={0.1}
                   value={val}
                   onChange={(e) => handleSlider(key, parseFloat(e.target.value))}
-                  className="flex-1 accent-amber-400"
+                  className="flex-1 accent-tangerine"
                 />
                 <span className="w-10 text-[10px] text-ink-muted">{info.max}</span>
               </div>

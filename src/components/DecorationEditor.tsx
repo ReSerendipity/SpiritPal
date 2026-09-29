@@ -91,7 +91,7 @@ export function DecorationEditor() {
                   <span>{item.icon} {item.name}</span>
                   <button
                     onClick={() => handleRemove(anchor)}
-                    className="rounded p-0.5 text-ink-muted hover:bg-red-900/40 hover:text-red-400"
+                    className="rounded p-0.5 text-ink-muted hover:bg-error/15 hover:text-error"
                     aria-label={`移除 ${ANCHOR_LABELS[anchor]} 的装饰品`}
                   >
                     <X size={10} />
@@ -144,7 +144,7 @@ export function DecorationEditor() {
                   onClick={() => (isWorn ? handleRemove(selectedAnchor) : handleWear(item))}
                   className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] transition-all ${
                     isWorn
-                      ? 'border-amber-400/60 bg-tangerine/10 text-amber-200'
+                      ? 'border-tangerine/60 bg-tangerine/10 text-tangerine-deep'
                       : 'border-ink/10 bg-surface text-ink hover:border-ink/30'
                   }`}
                   title={item.description}

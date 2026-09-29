@@ -108,7 +108,8 @@ describe('TagCloud', () => {
     const tagButtons = screen.getAllByRole('button')
     const happyButton = tagButtons.find((btn) => btn.textContent?.includes('开心'))
     expect(happyButton).toBeTruthy()
-    expect(happyButton?.className).toContain('bg-amber-400/20')
+    // 高亮色走语义令牌（bg-tangerine/20）而非硬编码 amber，便于深色主题自动换色
+    expect(happyButton?.className).toContain('bg-tangerine/20')
   })
 
   it('最多显示 30 个标签', () => {
@@ -313,7 +314,7 @@ describe('MemoryPanel 可视化模式集成', () => {
     const happyBtn = screen.getAllByRole('button').find(
       (b) => b.textContent?.includes('开心')
     )
-    expect(happyBtn?.className).toContain('bg-amber-400/20')
+    expect(happyBtn?.className).toContain('bg-tangerine/20')
 
     // 情感曲线和密度图都基于 sampleMemories 渲染
     const svgs = container.querySelectorAll('svg')

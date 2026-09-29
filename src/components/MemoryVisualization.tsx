@@ -93,7 +93,7 @@ export function TagCloud({ memories, onSelectTag, selectedTag }: TagCloudProps) 
             onClick={() => onSelectTag?.(tag)}
             className={`rounded px-1.5 py-0.5 transition-colors ${getTagSize(freq)} ${getTagColor(freq)} ${
               selectedTag === tag
-                ? 'bg-amber-400/20 ring-1 ring-amber-400'
+                ? 'bg-tangerine/20 ring-1 ring-tangerine'
                 : 'hover:bg-ink/5'
             }`}
             title={`${tag}: ${freq} 条记忆`}

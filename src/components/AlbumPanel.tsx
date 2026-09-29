@@ -216,7 +216,7 @@ export function AlbumPanel() {
         {screenshots.length > 0 && (
           <button
             onClick={handleClearAll}
-            className="flex items-center gap-1 rounded-lg bg-red-600/20 px-2 py-1 text-[11px] text-red-300 hover:bg-red-600/30"
+            className="flex items-center gap-1 rounded-lg bg-error/20 px-2 py-1 text-[11px] text-error hover:bg-error/30"
           >
             <Trash2 size={12} /> 清空
           </button>
@@ -297,7 +297,7 @@ export function AlbumPanel() {
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDelete(ss.id) }}
-                  className="rounded bg-red-600/40 p-1.5 text-white hover:bg-red-600/60"
+                  className="rounded bg-error/40 p-1.5 text-white hover:bg-error/60"
                   title="删除"
                 >
                   <Trash2 size={12} />
@@ -316,7 +316,7 @@ export function AlbumPanel() {
 
       {/* 分享提示 */}
       {shareTip && (
-        <div className="flex items-center gap-2 rounded-lg bg-green-900/30 px-3 py-2 text-xs text-green-300">
+        <div className="flex items-center gap-2 rounded-lg bg-success/15 px-3 py-2 text-xs text-success">
           <Check size={14} /> {shareTip}
         </div>
       )}
@@ -351,7 +351,7 @@ export function AlbumPanel() {
                   onClick={() => setActiveFilter(f.id)}
                   className={`shrink-0 rounded px-2 py-1 text-[10px] transition-colors ${
                     activeFilter === f.id
-                      ? 'bg-tangerine/20 text-tangerine-deep ring-1 ring-amber-400'
+                      ? 'bg-tangerine/20 text-tangerine-deep ring-1 ring-tangerine'
                       : 'text-ink-muted hover:bg-cream-deep/50'
                   }`}
                 >
@@ -369,7 +369,7 @@ export function AlbumPanel() {
                     value={captionText}
                     onChange={(e) => setCaptionText(e.target.value)}
                     placeholder="添加说明…"
-                    className="flex-1 rounded bg-cream-deep/50 px-2 py-1 text-xs text-white placeholder-ink-muted focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    className="flex-1 rounded bg-cream-deep/50 px-2 py-1 text-xs text-white placeholder-ink-muted focus:outline-none focus:ring-1 focus:ring-tangerine"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleSaveCaption(selected.id)
                       if (e.key === 'Escape') setEditCaptionId(null)
@@ -378,7 +378,7 @@ export function AlbumPanel() {
                   />
                   <button
                     onClick={() => handleSaveCaption(selected.id)}
-                    className="rounded bg-amber-500/20 px-2 py-1 text-[10px] text-tangerine-deep hover:bg-amber-500/30"
+                    className="rounded bg-tangerine/20 px-2 py-1 text-[10px] text-tangerine-deep hover:bg-tangerine/30"
                   >
                     保存
                   </button>
@@ -410,7 +410,7 @@ export function AlbumPanel() {
               <div className="flex gap-1">
                 <button
                   onClick={() => handleShare(selected)}
-                  className="rounded bg-indigo-500/20 p-1.5 text-indigo-300 hover:bg-indigo-500/30"
+                  className="rounded bg-info/20 p-1.5 text-info hover:bg-info/30"
                   title="分享（复制到剪贴板）"
                 >
                   <Share2 size={14} />
@@ -431,7 +431,7 @@ export function AlbumPanel() {
                 </button>
                 <button
                   onClick={() => handleDelete(selected.id)}
-                  className="rounded bg-red-600/30 p-1.5 text-white hover:bg-red-600/50"
+                  className="rounded bg-error/30 p-1.5 text-white hover:bg-error/50"
                   title="删除"
                 >
                   <Trash2 size={14} />

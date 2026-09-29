@@ -221,7 +221,7 @@ export function McpSettingsPanel() {
                     <span className="text-sm font-medium">{tool.label}</span>
                     <span className="truncate font-mono text-[10px] text-ink-muted">{tool.name}</span>
                     {sensitive && allowed && (
-                      <span className="flex items-center gap-0.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">
+                      <span className="flex items-center gap-0.5 rounded bg-warning/15 px-1.5 py-0.5 text-[10px] text-warning">
                         <ShieldAlert className="h-3 w-3" /> 写入型
                       </span>
                     )}
@@ -232,7 +232,7 @@ export function McpSettingsPanel() {
                   type="checkbox"
                   checked={allowed}
                   onChange={(e) => toggleTool(tool.name, e.target.checked)}
-                  className="ml-3 h-4 w-4 flex-shrink-0 accent-amber-500"
+                  className="ml-3 h-4 w-4 flex-shrink-0 accent-tangerine"
                 />
               </label>
             )
@@ -255,7 +255,7 @@ export function McpSettingsPanel() {
         </p>
 
         {showAddForm && (
-          <div className="mb-3 space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+          <div className="mb-3 space-y-2 rounded-lg border border-warning/30 bg-warning/10 p-3">
             <BrandInput
               placeholder="名称（如：天气服务）"
               value={form.name}
@@ -319,7 +319,7 @@ export function McpSettingsPanel() {
                       onClick={() => toggleServer(record.id)}
                     >
                       {record.enabled
-                        ? <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                        ? <ShieldCheck className="h-4 w-4 text-success" />
                         : <ShieldAlert className="h-4 w-4 text-ink-faint" />}
                     </button>
                     <button
@@ -330,15 +330,15 @@ export function McpSettingsPanel() {
                       {probing ? (
                         <Wifi className="h-4 w-4 animate-pulse" />
                       ) : result?.reachable ? (
-                        <Wifi className="h-4 w-4 text-emerald-500" />
+                        <Wifi className="h-4 w-4 text-success" />
                       ) : result && !result.reachable ? (
-                        <WifiOff className="h-4 w-4 text-red-400" />
+                        <WifiOff className="h-4 w-4 text-error" />
                       ) : (
                         <Wifi className="h-4 w-4" />
                       )}
                     </button>
                     <button
-                      className="rounded p-1.5 text-ink-muted hover:bg-red-50 hover:text-red-500"
+                      className="rounded p-1.5 text-ink-muted hover:bg-error/15 hover:text-error"
                       title="删除"
                       onClick={() => removeServer(record.id)}
                     >
@@ -356,7 +356,7 @@ export function McpSettingsPanel() {
                   <p className="mt-1 text-[11px] text-error">{result.error}</p>
                 )}
                 {result?.reachable && !result.error && (
-                  <p className="mt-1 text-[11px] text-emerald-600">MCP 握手成功，端点可用</p>
+                  <p className="mt-1 text-[11px] text-success">MCP 握手成功，端点可用</p>
                 )}
               </div>
             )
