@@ -2,13 +2,14 @@
  * 移动端收藏子视图组件
  * @module mobile/MobileCollectionView
  * @description
- * 移动端收藏界面：展示收藏套件收集进度，支持装备/卸下收藏物品、
+ * 移动端收藏界面：展示收藏套件收集进度，支持{t('inventory.equip')}/{t('inventory.unequip')}收藏物品、
  * 领取完成奖励。数据与桌面端同源（useCollections / collectionManager），
  * 视觉沿用语义 Token。
  *
  * @see {@link ./MobileInventoryView} 移动端背包视图（宿主）
  * @see {@link ../hooks/useCollections} 收藏系统 Hook
  */
+import { useTranslation } from 'react-i18next'
 import { useCollections } from '@/hooks/useCollections'
 import { ITEM_DATABASE } from '@/lib/nurture/items'
 
@@ -17,6 +18,7 @@ import { ITEM_DATABASE } from '@/lib/nurture/items'
  * @returns 收藏界面组件
  */
 export function MobileCollectionView() {
+  const { t } = useTranslation()
   const { sets, overallPercentage, equip, unequip, claimReward } = useCollections()
 
   const itemMeta = (itemId: string) => {
@@ -32,7 +34,7 @@ export function MobileCollectionView() {
   return (
     <div className="space-y-2">
       {sets.length === 0 ? (
-        <div className="py-12 text-center text-sm text-ink-faint">暂无收藏套件</div>
+        <div className="py-12 text-center text-sm text-ink-faint">{t('collection.empty')}</div>
       ) : (
         sets.map((set) => (
           <div key={set.setId} className={`rounded-xl border ${cardBorderClass} ${cardBgClass} p-3`}>
@@ -51,14 +53,14 @@ export function MobileCollectionView() {
                 {set.completed ? (
                   set.rewardClaimed ? (
                     <span className="rounded-lg bg-success/20 px-2 py-1 text-[10px] text-success-deep">
-                      已领取
+                      {t('collection.claimed')}
                     </span>
                   ) : (
                     <button
                       onClick={() => claimReward(set.setId)}
                       className="rounded-lg bg-tangerine px-2.5 py-1 text-[11px] font-medium text-white"
                     >
-                      领取奖励
+                      {t('collection.claim')}
                     </button>
                   )
                 ) : (
@@ -91,14 +93,14 @@ export function MobileCollectionView() {
                           onClick={() => unequip(item.itemId)}
                           className="ml-0.5 rounded bg-tangerine-deep/20 px-1 text-[10px] text-tangerine-deep"
                         >
-                          卸下
+                          {t('inventory.unequip')}
                         </button>
                       ) : (
                         <button
                           onClick={() => equip(item.itemId)}
                           className="ml-0.5 rounded bg-tangerine px-1 text-[10px] text-white"
                         >
-                          装备
+                          {t('inventory.equip')}
                         </button>
                       ))}
                   </div>
@@ -113,7 +115,7 @@ export function MobileCollectionView() {
       {sets.length > 0 && (
         <div className={`rounded-xl border ${cardBorderClass} ${cardBgClass} p-3`}>
           <div className="mb-1.5 flex items-center justify-between text-xs">
-            <span className="text-ink">收藏总进度</span>
+            <span className="text-ink">{t('collection.progress')}</span>
             <span className="font-semibold text-tangerine tabular-nums">{overallPercentage}%</span>
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-cream-deep">

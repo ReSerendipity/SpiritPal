@@ -16,6 +16,7 @@
  */
 import { useEffect, useState } from 'react'
 import { BarChart3, List } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { MemoryPanel } from '@/components/MemoryPanel'
 import { TagCloud, EmotionCurve, TimeDensityChart } from '@/components/MemoryVisualization'
 import { getEnhancedMemoryManager, type EnhancedMemory } from '@/lib/memory/enhancedMemory'
@@ -29,6 +30,7 @@ type SubView = 'viz' | 'list'
  * @returns 记忆界面组件
  */
 export function MobileMemoryView() {
+  const { t } = useTranslation()
   const currentCharacterId = usePetStore((s) => s.currentCharacterId)
   const [subView, setSubView] = useState<SubView>('viz')
   const [memories, setMemories] = useState<EnhancedMemory[]>([])
@@ -58,21 +60,21 @@ export function MobileMemoryView() {
       {/* 子页面切换 */}
       <div className="flex gap-1 p-2">
         {([
-          { id: 'viz', label: '可视化', icon: BarChart3 },
-          { id: 'list', label: '记忆列表', icon: List },
-        ] as const).map((t) => {
-          const Icon = t.icon
-          const isActive = subView === t.id
+          { id: 'viz', labelKey: 'memory.visual', icon: BarChart3 },
+          { id: 'list', labelKey: 'memory.list', icon: List },
+        ] as const).map((tabDef) => {
+          const Icon = tabDef.icon
+          const isActive = subView === tabDef.id
           return (
             <button
-              key={t.id}
-              onClick={() => setSubView(t.id)}
+              key={tabDef.id}
+              onClick={() => setSubView(tabDef.id)}
               className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-1.5 text-xs transition-colors ${
                 isActive ? subTabActiveClass : subTabInactiveClass
               }`}
             >
               <Icon size={14} />
-              {t.label}
+              {t(tabDef.labelKey)}
             </button>
           )
         })}

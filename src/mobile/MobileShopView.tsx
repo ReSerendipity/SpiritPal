@@ -2,7 +2,7 @@
  * 移动端商店子视图组件
  * @module mobile/MobileShopView
  * @description
- * 移动端商店界面：七分类标签页 + 搜索过滤 + 购买/出售 +
+ * 移动端商店界面：七分类标签页 + 搜索过滤 + {t('app.buy')}/{t('shop.sell')} +
  * 锁状态（亲密度不足/其他角色专属）+ 装饰品穿戴（5 锚点）。
  *
  * 数据与桌面端同源（shopManager / petStore），视觉沿用语义 Token。
@@ -12,36 +12,37 @@
  */
 import { useMemo, useState } from 'react'
 import { Coins, Search } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { AnchorPoint, InventoryItem, WornDecoration } from '@/lib/data/types'
 import { getRarityDisplay } from '@/lib/nurture/foodEffectContract'
 import { getShopManager, ShopLockState, type ShopCategory } from '@/lib/nurture/shopManager'
 import { usePetStore } from '@/stores/petStore'
 
 /** 商店七分类配置 */
-const CATEGORIES: { id: ShopCategory; label: string; icon: string }[] = [
-  { id: 'food', label: '食物', icon: '🍖' },
-  { id: 'toy', label: '玩具', icon: '🧸' },
-  { id: 'medicine', label: '药品', icon: '💊' },
-  { id: 'accessory', label: '装饰', icon: '🎀' },
-  { id: 'collection', label: '收藏', icon: '🏆' },
-  { id: 'dialogue', label: '对话', icon: '💬' },
-  { id: 'subpet', label: '副宠', icon: '🐾' },
+const CATEGORIES: { id: ShopCategory; labelKey: string; icon: string }[] = [
+  { id: 'food', labelKey: 'shop.food', icon: '🍖' },
+  { id: 'toy', labelKey: 'shop.toy', icon: '🧸' },
+  { id: 'medicine', labelKey: 'shop.medicine', icon: '💊' },
+  { id: 'accessory', labelKey: 'shop.decoration', icon: '🎀' },
+  { id: 'collection', labelKey: 'shop.collection', icon: '🏆' },
+  { id: 'dialogue', labelKey: 'shop.dialogue', icon: '💬' },
+  { id: 'subpet', labelKey: 'shop.subpet', icon: '🐾' },
 ]
 
 /** 装饰品穿戴锚点 */
-const ANCHOR_OPTIONS: { value: AnchorPoint; label: string }[] = [
-  { value: 'head', label: '头部' },
-  { value: 'body', label: '身体' },
-  { value: 'hand_left', label: '左手' },
-  { value: 'hand_right', label: '右手' },
-  { value: 'back', label: '背部' },
+const ANCHOR_OPTIONS: { value: AnchorPoint; labelKey: string }[] = [
+  { value: 'head', labelKey: 'anchor.head' },
+  { value: 'body', labelKey: 'anchor.body' },
+  { value: 'hand_left', labelKey: 'anchor.handLeft' },
+  { value: 'hand_right', labelKey: 'anchor.handRight' },
+  { value: 'back', labelKey: 'anchor.back' },
 ]
 
 /** 锁状态视觉指示 */
-const LOCK_META: Record<ShopLockState, { icon: string; label: string; color: string }> = {
-  [ShopLockState.NONE]: { icon: '', label: '', color: '' },
-  [ShopLockState.FVLOCK]: { icon: '🔒', label: '亲密度不足', color: 'text-tangerine-deep' },
-  [ShopLockState.PETLIMIT]: { icon: '🚫', label: '其他角色专属', color: 'text-error' },
+const LOCK_META: Record<ShopLockState, { icon: string; labelKey: string; color: string }> = {
+  [ShopLockState.NONE]: { icon: '', labelKey: '', color: '' },
+  [ShopLockState.FVLOCK]: { icon: '🔒', labelKey: 'shop.affectionNotEnough', color: 'text-tangerine-deep' },
+  [ShopLockState.PETLIMIT]: { icon: '🚫', labelKey: 'shop.characterExclusive', color: 'text-error' },
 }
 
 const EMPTY_DECORATIONS: WornDecoration[] = []
@@ -51,6 +52,7 @@ const EMPTY_DECORATIONS: WornDecoration[] = []
  * @returns 商店界面组件
  */
 export function MobileShopView() {
+  const { t } = useTranslation()
   const currentCharacterId = usePetStore((s) => s.currentCharacterId)
   const sharedCoins = usePetStore((s) => s.sharedCoins)
   const inventory = usePetStore((s) => s.inventory)
@@ -95,32 +97,37 @@ export function MobileShopView() {
   function handleBuy(item: InventoryItem) {
     const ok = shop.buyItem(item.id)
     if (ok) {
-      showToast(`已购买 ${item.name}`)
+      showToast(t('shop.purchased', { name: item.name }))
     } else if (shop.getLockState(item.id) !== ShopLockState.NONE) {
-      showToast('该物品尚未解锁')
+      showToast(t('shop.locked'))
     } else {
-      showToast('金币不足')
+      showToast(t('shop.coinsNotEnough'))
     }
   }
 
   function handleSell(item: InventoryItem) {
     const ok = shop.sellItem(item.id)
     if (!ok) {
-      showToast('没有可出售的该物品')
+      showToast(t('shop.notOwned'))
       return
     }
     const entry = catalog.find((e) => e.item.id === item.id)
-    showToast(`出售 ${item.name} +${entry?.sellPrice ?? 0} 金币`)
+    showToast(t('shop.sold', { name: item.name, price: entry?.sellPrice ?? 0 }))
   }
 
   function handleWear(itemId: string, anchor: AnchorPoint, name: string) {
     wearDecoration(itemId, anchor)
-    showToast(`已穿戴 ${name} 到${ANCHOR_OPTIONS.find((a) => a.value === anchor)?.label}`)
+    showToast(
+      t('inventory.worn', {
+        name,
+        anchor: t(ANCHOR_OPTIONS.find((a) => a.value === anchor)?.labelKey ?? ''),
+      }),
+    )
   }
 
   function handleRemove(itemId: string, name: string) {
     removeDecoration(itemId)
-    showToast(`已取下 ${name}`)
+    showToast(t('shop.unequipped', { name }))
   }
 
   function getWornAnchor(itemId: string): AnchorPoint | undefined {
@@ -139,7 +146,7 @@ export function MobileShopView() {
         <Search size={14} className="flex-shrink-0 text-ink-faint" />
         <input
           type="text"
-          placeholder="搜索物品名称/描述…"
+          placeholder={t('shop.searchPlaceholder')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="w-full bg-transparent py-2 text-sm text-ink outline-none placeholder:text-ink-faint"
@@ -157,7 +164,7 @@ export function MobileShopView() {
             }`}
           >
             <span>{c.icon}</span>
-            {c.label}
+            {t(c.labelKey)}
           </button>
         ))}
       </div>
@@ -166,7 +173,7 @@ export function MobileShopView() {
       <div className="space-y-2">
         {visibleItems.length === 0 && (
           <div className="py-10 text-center text-sm text-ink-faint">
-            {query ? '未找到匹配的物品' : '暂无物品'}
+            {query ? t('shop.noMatch') : t('shop.empty')}
           </div>
         )}
         {visibleItems.map((entry) => {
@@ -199,17 +206,17 @@ export function MobileShopView() {
                   )}
                 </div>
                 <div className={`mt-0.5 truncate text-[11px] ${subTextClass}`}>
-                  {item.hungerRestore ? `饱食+${item.hungerRestore} ` : ''}
-                  {item.moodRestore ? `心情+${item.moodRestore} ` : ''}
-                  {item.healthRestore ? `健康+${item.healthRestore}` : ''}
-                  {item.fvReward ? ` 亲密度+${item.fvReward}` : ''}
-                  {item.dialogueTrigger ? ' 触发对话' : ''}
-                  {item.subpetConfig ? ` 召唤${item.subpetConfig.name}` : ''}
-                  {isAccessory && ownedCount > 0 ? ` 已拥有×${ownedCount}` : ''}
+                  {item.hungerRestore ? `${t('stat.hunger')}+${item.hungerRestore} ` : ''}
+                  {item.moodRestore ? `${t('stat.mood')}+${item.moodRestore} ` : ''}
+                  {item.healthRestore ? `${t('stat.health')}+${item.healthRestore}` : ''}
+                  {item.fvReward ? ` ${t('stat.affection')}+${item.fvReward}` : ''}
+                  {item.dialogueTrigger ? ` ${t('shop.effectDialogue')}` : ''}
+                  {item.subpetConfig ? ` ${t('shop.effectSummon', { name: item.subpetConfig.name })}` : ''}
+                  {isAccessory && ownedCount > 0 ? ` ${t('shop.owned', { count: ownedCount })}` : ''}
                   {isLocked ? (
-                    <span className={lockConfig.color}> {lockConfig.label}</span>
+                    <span className={lockConfig.color}> {t(lockConfig.labelKey)}</span>
                   ) : (
-                    entry.sellPrice > 0 && ` 出售🪙${entry.sellPrice}`
+                    entry.sellPrice > 0 && ` ${t('shop.sell')}🪙${entry.sellPrice}`
                   )}
                 </div>
               </div>
@@ -223,17 +230,17 @@ export function MobileShopView() {
                     disabled={!canBuy}
                     className="rounded-lg bg-tangerine px-2.5 py-1 text-[11px] text-white disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    购买
+                    {t('app.buy')}
                   </button>
                   <button
                     onClick={() => handleSell(item)}
                     disabled={ownedCount < 1}
                     className="rounded-lg bg-ink/10 px-2.5 py-1 text-[11px] text-ink-muted disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    出售
+                    {t('shop.sell')}
                   </button>
                 </div>
-                {/* 装饰品穿戴/取下（仅已拥有） */}
+                {/* 装饰品穿戴/{t('inventory.remove')}（仅已拥有） */}
                 {isAccessory && ownedCount > 0 && (
                   <div className="flex items-center gap-1">
                     <select
@@ -245,11 +252,11 @@ export function MobileShopView() {
                       className="rounded-lg border border-ink/15 bg-surface px-1.5 py-0.5 text-[10px] text-ink focus:outline-none"
                     >
                       <option value="" disabled>
-                        穿戴到…
+                        {t('inventory.wearTo')}
                       </option>
                       {ANCHOR_OPTIONS.map((a) => (
                         <option key={a.value} value={a.value}>
-                          {a.label}
+                          {t(a.labelKey)}
                         </option>
                       ))}
                     </select>
@@ -258,7 +265,7 @@ export function MobileShopView() {
                         onClick={() => handleRemove(item.id, item.name)}
                         className="rounded-lg bg-error/15 px-1.5 py-0.5 text-[10px] text-error"
                       >
-                        取下
+                        {t('inventory.remove')}
                       </button>
                     )}
                   </div>

@@ -12,6 +12,7 @@
  */
 import { useEffect, useState } from 'react'
 import { Trophy, TrendingUp, Award, Lock } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import {
   getAchievementManager,
   ACHIEVEMENTS,
@@ -22,12 +23,12 @@ import {
 import { usePetStore } from '@/stores/petStore'
 
 /** 成就类别元信息 */
-const CATEGORIES: Record<string, { label: string; icon: string }> = {
-  interaction: { label: '互动', icon: '👆' },
-  nurturing: { label: '养成', icon: '💛' },
-  focus: { label: '专注', icon: '🍅' },
-  collection: { label: '收集', icon: '🛒' },
-  special: { label: '特殊', icon: '🌟' },
+const CATEGORIES: Record<string, { labelKey: string; icon: string }> = {
+  interaction: { labelKey: 'achievement.category.interaction', icon: '👆' },
+  nurturing: { labelKey: 'achievement.category.nurture', icon: '💛' },
+  focus: { labelKey: 'achievement.category.focus', icon: '🍅' },
+  collection: { labelKey: 'achievement.category.collection', icon: '🛒' },
+  special: { labelKey: 'achievement.category.special', icon: '🌟' },
 }
 
 const selectStats = (s: ReturnType<typeof usePetStore.getState>) => s.stats[s.currentCharacterId]
@@ -37,6 +38,7 @@ const selectStats = (s: ReturnType<typeof usePetStore.getState>) => s.stats[s.cu
  * @returns 成就界面组件
  */
 export function MobileAchievementView() {
+  const { t } = useTranslation()
   const stats = usePetStore(selectStats)
   const [tab, setTab] = useState<'achievements' | 'ranking'>('achievements')
   const [, forceUpdate] = useState({})
@@ -114,21 +116,21 @@ export function MobileAchievementView() {
       {/* 子页切换 */}
       <div className="flex gap-1">
         {([
-          { id: 'achievements', label: '成就', icon: Trophy },
-          { id: 'ranking', label: '排行榜', icon: TrendingUp },
-        ] as const).map((t) => {
-          const Icon = t.icon
-          const isActive = tab === t.id
+          { id: 'achievements', labelKey: 'tab.achievement', icon: Trophy },
+          { id: 'ranking', labelKey: 'achievement.ranking', icon: TrendingUp },
+        ] as const).map((tabDef) => {
+          const Icon = tabDef.icon
+          const isActive = tab === tabDef.id
           return (
             <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
+              key={tabDef.id}
+              onClick={() => setTab(tabDef.id)}
               className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-1.5 text-xs transition-colors ${
                 isActive ? subTabActiveClass : subTabInactiveClass
               }`}
             >
               <Icon size={14} />
-              {t.label}
+              {t(tabDef.labelKey)}
             </button>
           )
         })}
@@ -139,15 +141,15 @@ export function MobileAchievementView() {
           {/* 统计概览 */}
           <div className="grid grid-cols-3 gap-2">
             <div className={`rounded-xl border ${cardBorderClass} ${cardBgClass} p-2 text-center`}>
-              <div className={`text-[11px] ${subTextClass}`}>已解锁</div>
+              <div className={`text-[11px] ${subTextClass}`}>{t('achievement.unlocked')}</div>
               <div className="text-lg font-bold text-tangerine">{unlocked.length}</div>
             </div>
             <div className={`rounded-xl border ${cardBorderClass} ${cardBgClass} p-2 text-center`}>
-              <div className={`text-[11px] ${subTextClass}`}>总数</div>
+              <div className={`text-[11px] ${subTextClass}`}>{t('achievement.total')}</div>
               <div className="text-lg font-bold text-ink">{ACHIEVEMENTS.length}</div>
             </div>
             <div className={`rounded-xl border ${cardBorderClass} ${cardBgClass} p-2 text-center`}>
-              <div className={`text-[11px] ${subTextClass}`}>完成率</div>
+              <div className={`text-[11px] ${subTextClass}`}>{t('achievement.completionRate')}</div>
               <div className="text-lg font-bold text-ink">
                 {Math.round((unlocked.length / Math.max(1, ACHIEVEMENTS.length)) * 100)}%
               </div>
@@ -158,7 +160,7 @@ export function MobileAchievementView() {
           <div className={`rounded-xl border ${cardBorderClass} ${cardBgClass} p-3`}>
             <div className="mb-2 flex items-center gap-2">
               <Award size={14} className="text-tangerine" />
-              <span className="text-xs font-semibold text-ink">徽章等级</span>
+              <span className="text-xs font-semibold text-ink">{t('achievement.badgeLevel')}</span>
             </div>
             <div className="flex justify-around">
               {(['none', 'star', 'moon', 'sun', 'crown'] as const).map((tier) => (
@@ -167,7 +169,7 @@ export function MobileAchievementView() {
                     className="mx-auto mb-1 h-6 w-6 rounded-full"
                     style={{ background: BADGE_COLORS[tier] }}
                   />
-                  <span className={`text-[10px] ${subTextClass}`}>{BADGE_NAMES[tier]}</span>
+                  <span className={`text-[10px] ${subTextClass}`}>{t(`badge.${tier}`)}</span>
                 </div>
               ))}
             </div>
@@ -180,7 +182,7 @@ export function MobileAchievementView() {
             return (
               <div key={catKey}>
                 <div className={`mb-1.5 text-xs font-semibold ${subTextClass}`}>
-                  {catInfo.icon} {catInfo.label}
+                  {catInfo.icon} {t(catInfo.labelKey)}
                 </div>
                 <div className="space-y-1.5">
                   {catAchievements.map((ach) => (
@@ -199,7 +201,7 @@ export function MobileAchievementView() {
           <div className={`rounded-xl border ${cardBorderClass} ${cardBgClass} p-3`}>
             <div className="mb-2 flex items-center gap-2">
               <TrendingUp size={14} className="text-tangerine" />
-              <span className="text-sm font-semibold text-ink">个人数据统计</span>
+              <span className="text-sm font-semibold text-ink">{t('achievement.personalStats')}</span>
             </div>
             <div className="space-y-1.5">
               {rankingData.map((item, i) => (
@@ -215,23 +217,23 @@ export function MobileAchievementView() {
 
           {/* 当前角色状态 */}
           <div className={`rounded-xl border ${cardBorderClass} ${cardBgClass} p-3`}>
-            <div className={`mb-2 text-xs font-semibold ${subTextClass}`}>当前角色状态</div>
+            <div className={`mb-2 text-xs font-semibold ${subTextClass}`}>{t('achievement.currentStatus')}</div>
             {stats && (
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-lg bg-cream-deep px-2 py-1.5 text-center">
-                  <div className={`text-[10px] ${subTextClass}`}>等级</div>
+                  <div className={`text-[10px] ${subTextClass}`}>{t('stat.level')}</div>
                   <div className="text-sm font-bold text-tangerine">Lv.{stats.level}</div>
                 </div>
                 <div className="rounded-lg bg-cream-deep px-2 py-1.5 text-center">
-                  <div className={`text-[10px] ${subTextClass}`}>亲密度</div>
+                  <div className={`text-[10px] ${subTextClass}`}>{t('stat.affection')}</div>
                   <div className="text-sm font-bold text-blush">{Math.floor(stats.affection)}</div>
                 </div>
                 <div className="rounded-lg bg-cream-deep px-2 py-1.5 text-center">
-                  <div className={`text-[10px] ${subTextClass}`}>饱食度</div>
+                  <div className={`text-[10px] ${subTextClass}`}>{t('stat.hunger')}</div>
                   <div className="text-sm font-bold text-success-deep">{Math.round(stats.hunger)}</div>
                 </div>
                 <div className="rounded-lg bg-cream-deep px-2 py-1.5 text-center">
-                  <div className={`text-[10px] ${subTextClass}`}>心情</div>
+                  <div className={`text-[10px] ${subTextClass}`}>{t('stat.mood')}</div>
                   <div className="text-sm font-bold text-tangerine-deep">{Math.round(stats.mood)}</div>
                 </div>
               </div>

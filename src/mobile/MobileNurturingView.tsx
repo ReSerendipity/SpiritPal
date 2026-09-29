@@ -14,8 +14,10 @@
  */
 import { useState } from 'react'
 import { Heart, ShoppingBag, Backpack, Trophy, Coins, Sparkles } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { getCharacter } from '@/lib/data/characters'
 import type { BadgeTier } from '@/lib/data/types'
+import { formatRelativeTime } from '@/lib/system/i18n'
 import { MobileAchievementView } from '@/mobile/MobileAchievementView'
 import { MobileInventoryView } from '@/mobile/MobileInventoryView'
 import { MobileShopView } from '@/mobile/MobileShopView'
@@ -33,27 +35,21 @@ const TIER_COLORS: Record<string, string> = {
 }
 
 /** 徽章元信息映射 */
-const BADGE_META: Record<BadgeTier, { label: string; emoji: string; color: string }> = {
-  none: { label: '无', emoji: '⚪', color: 'text-ink-muted' },
-  star: { label: '星辰', emoji: '⭐', color: 'text-stat-mid' },
-  moon: { label: '皓月', emoji: '🌙', color: 'text-indigo-300' },
-  sun: { label: '骄阳', emoji: '☀️', color: 'text-warning' },
-  crown: { label: '皇冠', emoji: '👑', color: 'text-tangerine-deep' },
+const BADGE_META: Record<BadgeTier, { labelKey: string; emoji: string; color: string }> = {
+  none: { labelKey: 'badge.none', emoji: '⚪', color: 'text-ink-muted' },
+  star: { labelKey: 'badge.star', emoji: '⭐', color: 'text-stat-mid' },
+  moon: { labelKey: 'badge.moon', emoji: '🌙', color: 'text-indigo-300' },
+  sun: { labelKey: 'badge.sun', emoji: '☀️', color: 'text-warning' },
+  crown: { labelKey: 'badge.crown', emoji: '👑', color: 'text-tangerine-deep' },
 }
 
 /**
- * 格式化相对时间
+ * 格式化相对时间（委托 i18n 的 Intl.RelativeTimeFormat，随语言本地化）
  * @param ts 时间戳（毫秒）
- * @returns 相对时间字符串（如 "刚刚"、"5 分钟前"）
+ * @returns 相对时间字符串（如 "5 分钟前"）
  */
 function formatRelative(ts: number): string {
-  const diff = Date.now() - ts
-  const min = Math.floor(diff / 60000)
-  if (min < 1) return '刚刚'
-  if (min < 60) return `${min} 分钟前`
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr} 小时前`
-  return `${Math.floor(hr / 24)} 天前`
+  return formatRelativeTime(new Date(ts))
 }
 
 /**
@@ -61,6 +57,7 @@ function formatRelative(ts: number): string {
  * @returns 养成界面组件
  */
 export function MobileNurturingView() {
+  const { t } = useTranslation()
   const stats = usePetStore((s) => s.getCurrentStats())
   const sharedCoins = usePetStore((s) => s.sharedCoins)
   const currentCharacterId = usePetStore((s) => s.currentCharacterId)
@@ -85,9 +82,9 @@ export function MobileNurturingView() {
 
   // 属性条配置
   const statBars = [
-    { label: '饱食度', value: stats.hunger, icon: '🍖' },
-    { label: '心情', value: stats.mood, icon: '😊' },
-    { label: '健康', value: stats.health, icon: '💚' },
+    { labelKey: 'stat.hunger', value: stats.hunger, icon: '🍖' },
+    { labelKey: 'stat.mood', value: stats.mood, icon: '😊' },
+    { labelKey: 'stat.health', value: stats.health, icon: '💚' },
   ]
 
   return (
@@ -95,8 +92,8 @@ export function MobileNurturingView() {
       {/* 顶部：角色 + 等级 + 金币 */}
       <header className={`flex items-center justify-between border-b ${cardBorderClass} px-4 py-3`}>
         <div className="flex items-center gap-2">
-          <span className="text-base font-semibold">{character?.displayName ?? '宠物'}</span>
-          <span className={`text-sm ${badgeMeta.color}`} title={badgeMeta.label}>
+          <span className="text-base font-semibold">{character?.displayName ?? t('tab.pet')}</span>
+          <span className={`text-sm ${badgeMeta.color}`} title={t(badgeMeta.labelKey)}>
             {badgeMeta.emoji} Lv.{stats.level}
           </span>
         </div>
@@ -109,7 +106,7 @@ export function MobileNurturingView() {
       {/* 经验条 */}
       <div className={`px-4 py-2 ${cardBgClass} border-b ${cardBorderClass}`}>
         <div className="mb-1 flex items-center justify-between text-xs text-ink-muted">
-          <span>经验</span>
+          <span>{t('stat.exp')}</span>
           <span className="tabular-nums">{Math.floor(stats.exp)} / {expNeed}</span>
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-cream-deep">
@@ -119,30 +116,30 @@ export function MobileNurturingView() {
           />
         </div>
         <div className="mt-1 text-xs text-ink-muted">
-          亲密度 {Math.floor(stats.affection)} · 上次互动 {formatRelative(stats.lastInteractionAt)}
+          {t('stat.affection')} {Math.floor(stats.affection)} · {t('nurture.lastInteraction')} {formatRelative(stats.lastInteractionAt)}
         </div>
       </div>
 
       {/* 子 Tab 切换 */}
       <div className="flex gap-1 p-2">
         {([
-          { id: 'stats', label: '属性', icon: Heart },
-          { id: 'shop', label: '商店', icon: ShoppingBag },
-          { id: 'inventory', label: '背包', icon: Backpack },
-          { id: 'achievement', label: '成就', icon: Trophy },
-        ] as const).map((t) => {
-          const Icon = t.icon
-          const isActive = subTab === t.id
+          { id: 'stats', labelKey: 'tab.stats', icon: Heart },
+          { id: 'shop', labelKey: 'action.shop', icon: ShoppingBag },
+          { id: 'inventory', labelKey: 'tab.inventory', icon: Backpack },
+          { id: 'achievement', labelKey: 'tab.achievement', icon: Trophy },
+        ] as const).map((tabDef) => {
+          const Icon = tabDef.icon
+          const isActive = subTab === tabDef.id
           return (
             <button
-              key={t.id}
-              onClick={() => setSubTab(t.id)}
+              key={tabDef.id}
+              onClick={() => setSubTab(tabDef.id)}
               className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-1.5 text-xs transition-colors ${
                 isActive ? subTabActiveClass : subTabInactiveClass
               }`}
             >
               <Icon size={14} />
-              {t.label}
+              {t(tabDef.labelKey)}
             </button>
           )
         })}
@@ -157,11 +154,11 @@ export function MobileNurturingView() {
               const tier = getColorTier(stat.value)
               const pct = Math.max(0, Math.min(100, stat.value))
               return (
-                <div key={stat.label} className={`rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
+                <div key={stat.labelKey} className={`rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
                   <div className="mb-1.5 flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <span className="text-lg">{stat.icon}</span>
-                      <span className="text-sm font-medium">{stat.label}</span>
+                      <span className="text-sm font-medium">{t(stat.labelKey)}</span>
                     </div>
                     <span className="text-sm tabular-nums text-ink-muted">{Math.round(stat.value)} / 100</span>
                   </div>
@@ -177,22 +174,22 @@ export function MobileNurturingView() {
 
             {/* 互动统计 */}
             <div className={`rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
-              <h3 className="mb-2 text-sm font-medium">养成信息</h3>
+              <h3 className="mb-2 text-sm font-medium">{t('nurture.info')}</h3>
               <div className="space-y-1 text-xs text-ink-muted">
                 <div className="flex justify-between">
-                  <span>当前等级</span>
+                  <span>{t('nurture.currentLevel')}</span>
                   <span>Lv.{stats.level}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>亲密度</span>
+                  <span>{t('stat.affection')}</span>
                   <span>{Math.floor(stats.affection)} / 9999</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>徽章</span>
-                  <span className={badgeMeta.color}>{badgeMeta.emoji} {badgeMeta.label}</span>
+                  <span>{t('nurture.badge')}</span>
+                  <span className={badgeMeta.color}>{badgeMeta.emoji} {t(badgeMeta.labelKey)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>上次互动</span>
+                  <span>{t('nurture.lastInteraction')}</span>
                   <span>{formatRelative(stats.lastInteractionAt)}</span>
                 </div>
               </div>
@@ -205,7 +202,7 @@ export function MobileNurturingView() {
           <div className="space-y-2">
             <div className="mb-1 flex items-center gap-1 text-xs text-ink-muted">
               <Sparkles size={12} />
-              <span>购买物品后可在背包中使用</span>
+              <span>{t('nurture.buyHint')}</span>
             </div>
             <MobileShopView />
           </div>

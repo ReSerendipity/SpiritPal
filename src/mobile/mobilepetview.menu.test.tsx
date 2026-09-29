@@ -3,6 +3,8 @@
 // 这两项此前移动端都没有：喂食只能自动取背包第一项，角色切换只能进设置页。
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+// 初始化 i18next（组件文案改由 t() 解析，测试需显式引入）
+import '@/lib/system/i18n'
 import { usePetStore } from '../stores/petStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { MobilePetView } from './MobilePetView'

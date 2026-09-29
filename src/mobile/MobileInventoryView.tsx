@@ -2,8 +2,8 @@
  * 移动端背包子视图组件
  * @module mobile/MobileInventoryView
  * @description
- * 移动端背包界面：已拥有物品列表，消耗品一键使用，
- * 装饰品按 5 锚点穿戴/取下，显示稀有度与数量。
+ * 移动端背包界面：已拥有物品列表，消耗品一键{t('app.use')}，
+ * 装饰品按 5 锚点穿戴/{t('inventory.remove')}，显示稀有度与数量。
  *
  * 数据与桌面端同源（petStore / foodEffectContract），视觉沿用语义 Token。
  *
@@ -12,18 +12,19 @@
  */
 import { useState } from 'react'
 import { Backpack, Trophy } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { AnchorPoint, WornDecoration } from '@/lib/data/types'
 import { getRarityDisplay } from '@/lib/nurture/foodEffectContract'
 import { MobileCollectionView } from '@/mobile/MobileCollectionView'
 import { usePetStore } from '@/stores/petStore'
 
 /** 装饰品穿戴锚点 */
-const ANCHOR_OPTIONS: { value: AnchorPoint; label: string }[] = [
-  { value: 'head', label: '头部' },
-  { value: 'body', label: '身体' },
-  { value: 'hand_left', label: '左手' },
-  { value: 'hand_right', label: '右手' },
-  { value: 'back', label: '背部' },
+const ANCHOR_OPTIONS: { value: AnchorPoint; labelKey: string }[] = [
+  { value: 'head', labelKey: 'anchor.head' },
+  { value: 'body', labelKey: 'anchor.body' },
+  { value: 'hand_left', labelKey: 'anchor.handLeft' },
+  { value: 'hand_right', labelKey: 'anchor.handRight' },
+  { value: 'back', labelKey: 'anchor.back' },
 ]
 
 const EMPTY_DECORATIONS: WornDecoration[] = []
@@ -36,6 +37,7 @@ type SubTab = 'inventory' | 'collection'
  * @returns 背包界面组件
  */
 export function MobileInventoryView() {
+  const { t } = useTranslation()
   const inventory = usePetStore((s) => s.inventory)
   const consumeItem = usePetStore((s) => s.useItem)
   const wornDecorations = usePetStore(
@@ -54,17 +56,22 @@ export function MobileInventoryView() {
 
   function handleUse(itemId: string, name: string) {
     consumeItem(itemId)
-    showToast(`使用了 ${name}`)
+    showToast(t('inventory.used', { name }))
   }
 
   function handleWear(itemId: string, anchor: AnchorPoint, name: string) {
     wearDecoration(itemId, anchor)
-    showToast(`已穿戴 ${name} 到${ANCHOR_OPTIONS.find((a) => a.value === anchor)?.label}`)
+    showToast(
+      t('inventory.worn', {
+        name,
+        anchor: t(ANCHOR_OPTIONS.find((a) => a.value === anchor)?.labelKey ?? ''),
+      }),
+    )
   }
 
   function handleRemove(itemId: string, name: string) {
     removeDecoration(itemId)
-    showToast(`已取下 ${name}`)
+    showToast(t('shop.unequipped', { name }))
   }
 
   function getWornAnchor(itemId: string): AnchorPoint | undefined {
@@ -83,21 +90,21 @@ export function MobileInventoryView() {
       {/* 子页切换 */}
       <div className="flex gap-1">
         {([
-          { id: 'inventory', label: '背包', icon: Backpack },
-          { id: 'collection', label: '收藏', icon: Trophy },
-        ] as const).map((t) => {
-          const Icon = t.icon
-          const isActive = subTab === t.id
+          { id: 'inventory', labelKey: 'tab.inventory', icon: Backpack },
+          { id: 'collection', labelKey: 'shop.collection', icon: Trophy },
+        ] as const).map((tabDef) => {
+          const Icon = tabDef.icon
+          const isActive = subTab === tabDef.id
           return (
             <button
-              key={t.id}
-              onClick={() => setSubTab(t.id)}
+              key={tabDef.id}
+              onClick={() => setSubTab(tabDef.id)}
               className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-1.5 text-xs transition-colors ${
                 isActive ? subTabActiveClass : subTabInactiveClass
               }`}
             >
               <Icon size={14} />
-              {t.label}
+              {t(tabDef.labelKey)}
             </button>
           )
         })}
@@ -112,8 +119,8 @@ export function MobileInventoryView() {
           {inventory.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Backpack size={48} className="mb-3 text-ink-faint opacity-40" />
-              <p className="text-sm text-ink-faint">背包是空的</p>
-              <p className={`mt-1 text-xs ${subTextClass}`}>去商店购买物品吧～</p>
+              <p className="text-sm text-ink-faint">{t('inventory.empty')}</p>
+              <p className={`mt-1 text-xs ${subTextClass}`}>{t('inventory.emptyHint')}</p>
             </div>
           ) : (
             inventory.map((item) => {
@@ -139,12 +146,12 @@ export function MobileInventoryView() {
                       <span className="text-[10px] text-ink-faint">×{item.count}</span>
                     </div>
                     <div className={`mt-0.5 truncate text-[11px] ${subTextClass}`}>
-                      {item.hungerRestore ? `饱食+${item.hungerRestore} ` : ''}
-                      {item.moodRestore ? `心情+${item.moodRestore} ` : ''}
-                      {item.healthRestore ? `健康+${item.healthRestore}` : ''}
+                      {item.hungerRestore ? `${t('stat.hunger')}+${item.hungerRestore} ` : ''}
+                      {item.moodRestore ? `${t('stat.mood')}+${item.moodRestore} ` : ''}
+                      {item.healthRestore ? `${t('stat.health')}+${item.healthRestore}` : ''}
                       {wornAnchor && (
                         <span className="text-tangerine">
-                          {' '}已穿戴在{ANCHOR_OPTIONS.find((a) => a.value === wornAnchor)?.label}
+                          {' '}{t('inventory.wornAt', { anchor: t(ANCHOR_OPTIONS.find((a) => a.value === wornAnchor)?.labelKey ?? '') })}
                         </span>
                       )}
                     </div>
@@ -161,11 +168,11 @@ export function MobileInventoryView() {
                           className="rounded-lg border border-ink/15 bg-surface px-1.5 py-0.5 text-[10px] text-ink focus:outline-none"
                         >
                           <option value="" disabled>
-                            穿戴到…
+                            {t('inventory.wearTo')}
                           </option>
                           {ANCHOR_OPTIONS.map((a) => (
                             <option key={a.value} value={a.value}>
-                              {a.label}
+                              {t(a.labelKey)}
                             </option>
                           ))}
                         </select>
@@ -174,7 +181,7 @@ export function MobileInventoryView() {
                             onClick={() => handleRemove(item.id, item.name)}
                             className="rounded-lg bg-error/15 px-1.5 py-0.5 text-[10px] text-error"
                           >
-                            取下
+                            {t('inventory.remove')}
                           </button>
                         )}
                       </div>
@@ -183,7 +190,7 @@ export function MobileInventoryView() {
                         onClick={() => handleUse(item.id, item.name)}
                         className="rounded-lg bg-tangerine px-3 py-1 text-xs text-white"
                       >
-                        使用
+                        {t('app.use')}
                       </button>
                     )}
                   </div>
