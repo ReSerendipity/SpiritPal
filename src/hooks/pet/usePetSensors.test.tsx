@@ -6,8 +6,10 @@ import { describe, it, expect, vi } from 'vitest'
 import { usePetSensors } from '@/hooks/pet/usePetSensors'
 
 const sensors = vi.hoisted(() => {
-  const cbs: Record<string, (...a: any[]) => void> = {}
-  const sub = (key: string) => (cb: (...a: any[]) => void) => {
+  // 异构回调注册表：各 manager 的订阅回调签名不同，故参数用 unknown[]，
+  // 由用例在调用点决定实际传入的形状。
+  const cbs: Record<string, (...a: unknown[]) => void> = {}
+  const sub = (key: string) => (cb: (...a: unknown[]) => void) => {
     cbs[key] = cb
     return vi.fn()
   }

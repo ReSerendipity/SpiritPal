@@ -34,12 +34,19 @@ vi.mock('@/lib/system/runtimeMonitor', () => {
   }
 })
 
+// _reset / _setMockLatencies 只存在于上方 vi.mock 的替身上，真实 RuntimeMonitor 类没有这两个方法。
+// 在此集中窄化一次，避免每条用例重复写 as any。
+type MonitorTestHooks = {
+  _reset(): void
+  _setMockLatencies: (latencies: number[]) => void
+}
+const monitor = runtimeMonitor as unknown as MonitorTestHooks
+
 describe('LatencySLOManager', () => {
   let manager: LatencySLOManager
-
   beforeEach(() => {
     resetLatencySLOManager()
-    ;(runtimeMonitor as any)._reset()
+    monitor._reset()
     manager = new LatencySLOManager({
       ...DEFAULT_SLO_CONFIG,
       p95ThresholdMs: 5000,
@@ -51,12 +58,12 @@ describe('LatencySLOManager', () => {
   })
 
   afterEach(() => {
-    ;(runtimeMonitor as any)._reset()
+    monitor._reset()
   })
 
   describe('evaluate', () => {
     it('should stay at level 0 when latency is normal', () => {
-      ;(runtimeMonitor as any)._setMockLatencies([1000, 1100, 1200, 1300, 1400])
+      monitor._setMockLatencies([1000, 1100, 1200, 1300, 1400])
       const state = manager.evaluate()
       expect(state.degradationLevel).toBe(0)
       expect(state.isDegraded).toBe(false)
@@ -64,7 +71,7 @@ describe('LatencySLOManager', () => {
     })
 
     it('should degrade to level 1 when P95 exceeds threshold', () => {
-      ;(runtimeMonitor as any)._setMockLatencies([6000, 6100, 6200, 6300, 6400])
+      monitor._setMockLatencies([6000, 6100, 6200, 6300, 6400])
       const state = manager.evaluate()
       expect(state.degradationLevel).toBe(1)
       expect(state.isDegraded).toBe(true)
@@ -72,7 +79,7 @@ describe('LatencySLOManager', () => {
     })
 
     it('should degrade to level 2 when P95 exceeds critical', () => {
-      ;(runtimeMonitor as any)._setMockLatencies([11000, 11100, 11200, 11300, 11400])
+      monitor._setMockLatencies([11000, 11100, 11200, 11300, 11400])
       const state = manager.evaluate()
       expect(state.degradationLevel).toBe(2)
       expect(state.isDegraded).toBe(true)
@@ -81,12 +88,12 @@ describe('LatencySLOManager', () => {
 
     it('should recover when latency drops below recovery threshold', () => {
       // 先降级
-      ;(runtimeMonitor as any)._setMockLatencies([6000, 6100, 6200, 6300, 6400])
+      monitor._setMockLatencies([6000, 6100, 6200, 6300, 6400])
       manager.evaluate()
       expect(manager.getState().degradationLevel).toBe(1)
 
       // 恢复
-      ;(runtimeMonitor as any)._setMockLatencies([1000, 1100, 1200, 1300, 1400])
+      monitor._setMockLatencies([1000, 1100, 1200, 1300, 1400])
       const state = manager.evaluate()
       expect(state.degradationLevel).toBe(0)
       expect(state.isDegraded).toBe(false)
@@ -94,7 +101,7 @@ describe('LatencySLOManager', () => {
     })
 
     it('should not evaluate with insufficient samples', () => {
-      ;(runtimeMonitor as any)._setMockLatencies([100, 200])
+      monitor._setMockLatencies([100, 200])
       const state = manager.evaluate()
       expect(state.degradationLevel).toBe(0)
       expect(state.currentP95).toBeGreaterThan(0) // still reads P95
@@ -113,12 +120,12 @@ describe('LatencySLOManager', () => {
       }, 'gpt-4')
 
       // 降级
-      ;(runtimeMonitor as any)._setMockLatencies([6000, 6100, 6200])
+      monitor._setMockLatencies([6000, 6100, 6200])
       mgr.evaluate()
       expect(mgr.getState().degradationLevel).toBe(1)
 
       // 延迟恢复但仍在保持期内 → 不切换
-      ;(runtimeMonitor as any)._setMockLatencies([1000, 1100, 1200])
+      monitor._setMockLatencies([1000, 1100, 1200])
       const state = mgr.evaluate()
       expect(state.degradationLevel).toBe(1) // 仍保持降级
     })
@@ -126,7 +133,7 @@ describe('LatencySLOManager', () => {
 
   describe('getActiveModel', () => {
     it('should return original model when not degraded', () => {
-      ;(runtimeMonitor as any)._setMockLatencies([1000, 1100, 1200, 1300, 1400])
+      monitor._setMockLatencies([1000, 1100, 1200, 1300, 1400])
       manager.evaluate()
       expect(manager.getActiveModel()).toBe('gpt-4')
     })
@@ -134,7 +141,7 @@ describe('LatencySLOManager', () => {
 
   describe('reset', () => {
     it('should reset to initial state', () => {
-      ;(runtimeMonitor as any)._setMockLatencies([6000, 6100, 6200, 6300, 6400])
+      monitor._setMockLatencies([6000, 6100, 6200, 6300, 6400])
       manager.evaluate()
       expect(manager.getState().isDegraded).toBe(true)
 

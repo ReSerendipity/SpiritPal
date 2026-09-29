@@ -71,9 +71,23 @@ vi.mock('@modelcontextprotocol/sdk/server/stdio.js', () => ({
   }),
 }))
 
+/**
+ * McpServer._registeredTools 的测试视角类型。
+ *
+ * 为什么不用 SDK 自带的 RegisteredTool：它的 handler 类型是
+ * AnyToolHandler = ToolCallback | ToolTaskHandler 的联合，而 ToolTaskHandler 没有调用签名，
+ * 直接套用会让本文件 20 处 `.handler({...})` 全部报 TS2349「This expression is not callable」。
+ * 本仓所有工具都是用普通回调注册的，故在此窄化为该实际形态。
+ */
+type ToolCallResult = { content: Array<{ type: string; text: string }>; isError?: boolean }
+type RegisteredToolEntry = {
+  handler: (args?: Record<string, unknown>) => Promise<ToolCallResult>
+  inputSchema?: { safeParse: (value: unknown) => { success: boolean; data?: Record<string, unknown> } }
+}
+
 /** 访问 McpServer 内部注册表（_registeredTools 为 SDK 内部字段） */
-function getRegisteredTools(server: McpServer): Record<string, { handler: (args?: any) => Promise<any> }> {
-  return (server as unknown as { _registeredTools: any })._registeredTools
+function getRegisteredTools(server: McpServer): Record<string, RegisteredToolEntry> {
+  return (server as unknown as { _registeredTools: Record<string, RegisteredToolEntry> })._registeredTools
 }
 
 const DEFAULT_STATS = {
@@ -242,7 +256,8 @@ describe('createMcpServer', () => {
   it('spiritpal_say 注册的 schema 拒绝非法输入（5 层校验）', () => {
     // SDK 将 raw shape 归一化为 zod object，需按 { message } 解析
     const tools = getRegisteredTools(server)
-    const saySchema = (tools as any)['spiritpal_say'].inputSchema
+    // 带参数 schema 注册的工具，inputSchema 必存在；下一条断言即验证这点
+    const saySchema = tools['spiritpal_say'].inputSchema!
     expect(typeof saySchema?.safeParse).toBe('function')
 
     // 正常消息通过
@@ -393,7 +408,7 @@ describe('createMcpServer', () => {
   it('spiritpal_memory_edit action schema 拒绝未知 action（zod enum）', () => {
     // raw handler 的 switch 无 default 分支，未知 action 由 SDK 的 zod enum 在前置校验拦截
     const tools = getRegisteredTools(server)
-    const editSchema = (tools as any)['spiritpal_memory_edit'].inputSchema
+    const editSchema = tools['spiritpal_memory_edit'].inputSchema!
     expect(typeof editSchema?.safeParse).toBe('function')
 
     expect(editSchema.safeParse({ action: 'purge' }).success).toBe(false)

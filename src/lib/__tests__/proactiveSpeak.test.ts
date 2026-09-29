@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import type { LLMClient } from '@/lib/ai/llmClient'
 import { ProactiveSpeakManager, getProactiveSpeakManager } from '@/lib/ai/proactiveSpeak'
 
 // Mock 依赖模块
@@ -147,7 +148,7 @@ describe('ProactiveSpeakManager', () => {
     const { getLLMClient } = await import('@/lib/ai/llmClient')
     vi.mocked(getLLMClient).mockReturnValueOnce({
       chatOnce: vi.fn().mockRejectedValue(new Error('LLM unavailable')),
-    } as any)
+    } as unknown as LLMClient)
 
     const callback = vi.fn()
     manager.onProactiveSpeak(callback)

@@ -5,6 +5,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { usePetWindows } from '@/hooks/pet/usePetWindows'
+import type { PetState } from '@/lib/data/types'
 
 const wins = vi.hoisted(() => {
   const appWindow = {
@@ -63,8 +64,8 @@ describe('usePetWindows', () => {
       setPetState: vi.fn(),
       setCurrentAnimId: vi.fn(),
       safeTimeout: vi.fn(),
-      petStateRef: { current: 'idle' as any },
-      petState: 'idle' as any,
+      petStateRef: { current: 'idle' as PetState },
+      petState: 'idle' as PetState,
       hunger: 80,
     }
     return renderHook(() => usePetWindows(opts))

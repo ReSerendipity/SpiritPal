@@ -1,9 +1,12 @@
 // 最终放置位置: src/hooks/pet/usePetLive2D.test.tsx
 // 覆盖: usePetLive2D —— 模型路径检测、useLive2D 标志、setLive2dFailed、motion 触发
 // Mock: ../../lib/commonUtils.fetchWithTimeout；animationConfig 为真实导入
+import type { MutableRefObject } from 'react'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Live2DRendererHandle } from '@/components/Live2DRenderer'
 import { usePetLive2D } from '@/hooks/pet/usePetLive2D'
+import type { UsePetLive2DOptions } from '@/hooks/pet/usePetLive2D'
 
 const live2d = vi.hoisted(() => ({
   fetchWithTimeout: vi.fn(),
@@ -92,9 +95,16 @@ describe('usePetLive2D', () => {
 
   it('检测到模型后触发对应 motion', async () => {
     const playMotion = vi.fn()
-    const live2dRef = { current: { playMotion } as any }
+    // 补齐 Live2DRendererHandle 的其余成员为 no-op，本用例只断言 playMotion 被调用
+    const handle: Live2DRendererHandle = {
+      playMotion,
+      setExpression: () => {},
+      focus: () => {},
+      isReady: () => true,
+    }
+    const live2dRef: MutableRefObject<Live2DRendererHandle | null> = { current: handle }
     const { result } = renderHook(
-      (props: any) => usePetLive2D(props),
+      (props: UsePetLive2DOptions) => usePetLive2D(props),
       {
         initialProps: {
           currentCharacterId: 'doro',

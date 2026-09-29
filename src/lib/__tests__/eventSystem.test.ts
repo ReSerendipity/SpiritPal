@@ -19,11 +19,11 @@ function mockDate(month: number, day: number) {
     static now() {
       return new _OriginalDate(2026, month - 1, day, 12, 0, 0).getTime()
     }
-  } as any
+  } as unknown as DateConstructor
 }
 
 function restoreDate() {
-  global.Date = _OriginalDate as any
+  global.Date = _OriginalDate
 }
 
 // ============ 测试 ============

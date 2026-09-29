@@ -202,7 +202,7 @@ describe('safeGet', () => {
 
   it('不存在的属性返回undefined', () => {
     const obj = { a: 1 }
-    expect(safeGet(obj, 'b' as any)).toBeUndefined()
+    expect(safeGet(obj, 'b')).toBeUndefined()
   })
 
   it('数组索引访问', () => {

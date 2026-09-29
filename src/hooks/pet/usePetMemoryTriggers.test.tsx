@@ -35,7 +35,10 @@ vi.mock('@/lib/system/stringSimilarity', () => ({
 }))
 
 describe('usePetMemoryTriggers', () => {
-  let respondHandler: ((event: any) => void) | undefined
+  // 与 usePetMemoryTriggers.ts 里 listen<{ characterId: string; text?: string }>('user-chat-responded') 的负载对齐
+  type ChatRespondedEvent = { payload: { characterId: string; text?: string } }
+  type RespondHandler = (event: ChatRespondedEvent) => void | Promise<void>
+  let respondHandler: RespondHandler | undefined
 
   beforeEach(() => {
     vi.useFakeTimers()
@@ -44,9 +47,9 @@ describe('usePetMemoryTriggers', () => {
     recall.mockReset().mockResolvedValue(null)
     sim.mockReset().mockReturnValue(0)
     respondHandler = undefined
-    vi.mocked(listen).mockImplementation((event: string, cb: any) => {
+    vi.mocked(listen).mockImplementation((event: string, cb: unknown) => {
       if (event === 'user-chat-responded') {
-        respondHandler = cb
+        respondHandler = cb as RespondHandler
       }
       return Promise.resolve(() => {})
     })

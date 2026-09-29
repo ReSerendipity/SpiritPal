@@ -73,7 +73,7 @@ describe('usePetBehavior', () => {
     const fn = vi.fn()
     const { result } = setup()
     act(() => {
-      result.current.setStartWalkAnimation(fn as any)
+      result.current.setStartWalkAnimation(fn)
     })
     expect(fn).not.toHaveBeenCalled() // 只设置不调用
   })
