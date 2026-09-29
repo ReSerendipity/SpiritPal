@@ -27,6 +27,7 @@
  * - ./multiMonitor: 多显示器工具函数（显示器枚举、位置检测）
  */
 
+import type { Store } from '@tauri-apps/plugin-store'
 import { getAvailableMonitors, isPositionOnScreen, type MonitorInfo, type WindowPosition } from './multiMonitor'
 
 // ============ 常量 ============
@@ -72,14 +73,14 @@ export interface SavedWindowPosition {
  * tauri-plugin-store 不可用时返回 null，后续操作会降级到 localStorage
  * @returns Store 实例，不可用时返回 null
  */
-let storeInstance: any = null
+let storeInstance: Store | null = null
 
 /**
  * 获取 tauri-plugin-store 实例（懒加载单例）
  * 首次调用时动态导入并加载 store 文件，失败时返回 null（降级到 localStorage）
  * @returns Store 实例，不可用时返回 null
  */
-async function getStore(): Promise<any> {
+async function getStore(): Promise<Store | null> {
   if (storeInstance) return storeInstance
 
   try {

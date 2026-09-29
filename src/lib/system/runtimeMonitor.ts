@@ -415,14 +415,14 @@ export const runtimeMonitor = new RuntimeMonitor()
  * const response = await monitoredChat(messages)
  * ```
  */
-export function withLLMMonitoring<T extends (...args: any[]) => Promise<any>>(
+export function withLLMMonitoring<T extends (...args: never[]) => Promise<unknown>>(
   provider: string,
   fn: T,
 ): (...args: Parameters<T>) => Promise<Awaited<ReturnType<T>>> {
   return async (...args: Parameters<T>): Promise<Awaited<ReturnType<T>>> => {
     const handle = runtimeMonitor.startLLMCall(provider)
     try {
-      const result = await fn(...args)
+      const result = (await fn(...args)) as Awaited<ReturnType<T>>
       runtimeMonitor.endLLMCall(handle, false)
       return result
     } catch (e) {

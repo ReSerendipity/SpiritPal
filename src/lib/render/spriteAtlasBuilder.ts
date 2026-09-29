@@ -104,9 +104,20 @@ export interface SpriteAtlasData {
 
 // ============ 矩形打包算法 ============
 
-class BinPacker {
-  private root: { x: number; y: number; width: number; height: number }
-  private items: Array<{ rect: { x: number; y: number; w: number; h: number }; item: any }> = []
+/** 打包树的节点：splitNode 会就地写入 used/down/right */
+interface PackNode {
+  x: number
+  y: number
+  width: number
+  height: number
+  used?: boolean
+  down?: PackNode
+  right?: PackNode
+}
+
+class BinPacker<T> {
+  private root: PackNode
+  private items: Array<{ rect: { x: number; y: number; w: number; h: number }; item: T }> = []
 
   constructor(width: number, height: number) {
     this.root = { x: 0, y: 0, width, height }
@@ -115,10 +126,10 @@ class BinPacker {
   /**
    * 尝试放置一个矩形
    */
-  fit(items: Array<{ w: number; h: number; data: any }>): Array<{ x: number; y: number; data: any }> | null {
+  fit(items: Array<{ w: number; h: number; data: T }>): Array<{ x: number; y: number; data: T }> | null {
     // 按高度降序排序（Best Fit Heuristic）
     const sorted = [...items].sort((a, b) => b.h - a.h)
-    const result: Array<{ x: number; y: number; data: any }> = []
+    const result: Array<{ x: number; y: number; data: T }> = []
 
     for (const item of sorted) {
       const node = this.findNode(this.root, item.w, item.h)
@@ -134,9 +145,9 @@ class BinPacker {
     return result
   }
 
-  private findNode(root: any, width: number, height: number): any {
+  private findNode(root: PackNode, width: number, height: number): PackNode | null {
     if (root.used) {
-      return this.findNode(root.right, width, height) || this.findNode(root.down, width, height)
+      return this.findNode(root.right!, width, height) || this.findNode(root.down!, width, height)
     }
 
     if (width <= root.width && height <= root.height) {
@@ -146,7 +157,7 @@ class BinPacker {
     return null
   }
 
-  private splitNode(node: any, width: number, height: number): any {
+  private splitNode(node: PackNode, width: number, height: number): PackNode {
     node.used = true
     node.down = { x: node.x, y: node.y + height, width: node.width, height: node.height - height }
     node.right = { x: node.x + width, y: node.y, width: node.width - width, height: height }
@@ -224,9 +235,9 @@ export class SpriteAtlasBuilder {
 
     // 矩形打包存在碎片，sqrt(面积) 只是下界：从下界起按 2 的幂逐步放大直到装下
     let atlasSize = Math.min(this.config.maxSize, Math.pow(2, Math.ceil(Math.log2(minSize))))
-    let positions: ReturnType<BinPacker['fit']> = null
+    let positions: ReturnType<BinPacker<SpriteItem>['fit']> = null
     while (atlasSize <= this.config.maxSize) {
-      positions = new BinPacker(atlasSize, atlasSize).fit(packedItems)
+      positions = new BinPacker<SpriteItem>(atlasSize, atlasSize).fit(packedItems)
       if (positions) break
       atlasSize *= 2
     }

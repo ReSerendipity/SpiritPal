@@ -263,12 +263,21 @@ export function validateToolParams(
 /**
  * 获取所有已注册工具的 schema 信息（用于诊断）
  */
+/**
+ * Zod 内部字段的只读窥视类型：v4 把定义放在未导出的 _def 上，
+ * 这里只声明本函数真正读到的两个键，避免动用 any。
+ */
+type ZodDefPeek = { _def?: { innerType?: unknown; optional?: boolean } }
+
+/**
+ * 获取所有已注册工具的 schema 信息（用于诊断）
+ */
 export function getToolSchemaSummary(): Array<{ tool: string; paramCount: number; requiredParams: string[] }> {
   const summary: Array<{ tool: string; paramCount: number; requiredParams: string[] }> = []
 
   for (const [toolName, schema] of Object.entries(TOOL_SCHEMAS)) {
     // 尝试获取 ZodObject 的 shape（.optional() 包装的需要 unwrap）
-    const innerSchema = (schema as any)._def?.innerType ?? schema
+    const innerSchema = (schema as ZodDefPeek)._def?.innerType ?? schema
     const shape = (innerSchema as z.ZodObject<z.ZodRawShape>)?.shape
 
     if (shape && typeof shape === 'object') {
@@ -276,7 +285,7 @@ export function getToolSchemaSummary(): Array<{ tool: string; paramCount: number
       const required = params.filter((p) => {
         const field = shape[p]
         // Zod v4: check if the field is optional via _def
-        return field && !(field as any)._def?.optional
+        return field && !(field as ZodDefPeek)._def?.optional
       })
 
       summary.push({
