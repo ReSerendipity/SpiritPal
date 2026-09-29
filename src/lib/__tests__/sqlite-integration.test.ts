@@ -1,11 +1,14 @@
 // T-06: 真实 SQLite 集成测试 — 使用 sql.js 进行真实数据库迁移测试
 // 不 Mock plugin-sql，使用纯 JS SQLite 引擎验证 schema 和迁移正确性
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
+import type { Database as SqlDatabase, InitSqlJsConfig, SqlJsStatic } from 'sql.js'
 
 // sql.js 是一个纯 JavaScript 实现的 SQLite，不需要原生编译
 // 通过 dynamic import 加载，避免影响其他测试
-let initSqlJs: any
-let Database: any
+type InitSqlJsFn = (config?: InitSqlJsConfig) => Promise<SqlJsStatic>
+// 兼容 ESM/CJS 两种导出形态，故为联合；下方用 typeof 收窄后再调用
+let initSqlJs: InitSqlJsFn | { initSqlJs?: InitSqlJsFn } | undefined
+let Database: SqlJsStatic['Database'] | undefined
 
 beforeAll(async () => {
   try {
@@ -22,7 +25,7 @@ beforeAll(async () => {
 
 describe('T-06: SQLite 集成测试', () => {
   describe.skipIf(!initSqlJs)('真实数据库操作', () => {
-    let db: any
+    let db!: SqlDatabase
 
     beforeEach(() => {
       if (!Database) return
@@ -198,7 +201,7 @@ describe('T-06: SQLite 集成测试', () => {
 
       // 验证索引存在
       const result = db.exec("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'memories'")
-      const indexNames = result[0].values.map((row: any[]) => row[0])
+      const indexNames = result[0].values.map((row) => row[0])
       expect(indexNames).toContain('idx_memories_category')
       expect(indexNames).toContain('idx_memories_importance')
     })

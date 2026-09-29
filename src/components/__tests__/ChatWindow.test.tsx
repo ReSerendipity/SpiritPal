@@ -2,12 +2,13 @@
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import ChatWindow from '@/components/ChatWindow'
+import type { ChatMessage, ChatSession } from '@/lib/data/types'
 
 // ============ Mock 所有依赖 ============
 
 const mockChatStore = {
-  sessions: { doro: [{ id: 'sess-1', characterId: 'doro', title: '测试会话', createdAt: Date.now(), updatedAt: Date.now(), messageCount: 0, totalPromptTokens: 0, totalCompletionTokens: 0, requestCount: 0 }] } as Record<string, any[]>,
-  messagesBySession: { 'sess-1': [] as any[] } as Record<string, any[]>,
+  sessions: { doro: [{ id: 'sess-1', characterId: 'doro', title: '测试会话', createdAt: Date.now(), updatedAt: Date.now(), messageCount: 0, totalPromptTokens: 0, totalCompletionTokens: 0, requestCount: 0 }] } as Record<string, ChatSession[]>,
+  messagesBySession: { 'sess-1': [] as ChatMessage[] } as Record<string, ChatMessage[]>,
   activeSessionByCharacter: { doro: 'sess-1' } as Record<string, string>,
   isLoading: false,
   sendMessage: vi.fn(() => 'msg-1'),

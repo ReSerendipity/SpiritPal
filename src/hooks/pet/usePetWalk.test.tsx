@@ -47,6 +47,9 @@ describe('usePetWalk', () => {
   it('startWalkAnimation 向右设置朝向与行走状态', () => {
     const { result, setFacing, setPetState, setCurrentAnimId } = setup()
     act(() => {
+      // 故意传入不属于 AnimationId 联合的 'walk'：本用例测的是 usePetWalk 把 animId
+      // 原样转发给 setCurrentAnimId，不依赖其取值合法（生产侧由 usePetBehavior 传真实动画 ID）
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 见上：刻意的非法定型入参，验证转发行为
       result.current.startWalkAnimation(150, 'walk' as any)
     })
     expect(setFacing).toHaveBeenCalledWith('right') // 150 > 100
@@ -60,6 +63,8 @@ describe('usePetWalk', () => {
   it('startWalkAnimation 向左设置 facing=left', () => {
     const { result, setFacing } = setup()
     act(() => {
+      // 同上：'walk' 不是 AnimationId 成员，本用例只关心向左朝向的判定
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 刻意的非法定型入参，验证转发
       result.current.startWalkAnimation(50, 'walk' as any)
     })
     expect(setFacing).toHaveBeenCalledWith('left')
@@ -68,6 +73,9 @@ describe('usePetWalk', () => {
   it('interruptWalk 中断行走并回调偏移归零', () => {
     const { result, onWalkOffsetChange } = setup()
     act(() => {
+      // 故意传入不属于 AnimationId 联合的 'walk'：本用例测的是 usePetWalk 把 animId
+      // 原样转发给 setCurrentAnimId，不依赖其取值合法（生产侧由 usePetBehavior 传真实动画 ID）
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 见上：刻意的非法定型入参，验证转发行为
       result.current.startWalkAnimation(150, 'walk' as any)
     })
     expect(result.current.walkStateRef.current.isWalking).toBe(true)

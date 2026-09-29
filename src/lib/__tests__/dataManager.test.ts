@@ -45,8 +45,8 @@ describe('DataManager', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.clearAllMocks()
-    // 重置单例
-    ;(DataManager as any).instance = null
+    // 重置单例（instance 是 private static，测试需直接清掉）
+    ;(DataManager as unknown as { instance: DataManager | null }).instance = null
     mgr = DataManager.getInstance()
   })
 

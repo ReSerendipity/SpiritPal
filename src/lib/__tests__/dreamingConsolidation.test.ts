@@ -30,6 +30,9 @@ vi.mock('@/lib/memory/enhancedMemory', () => ({
 describe('DreamingScheduler', () => {
   let memoryManager: EnhancedMemoryManager
   let scheduler: DreamingScheduler
+  // startDreaming 是 private：用例需绕过空闲检测直接触发一轮做梦
+  type DreamingTestHooks = { startDreaming: () => Promise<void> }
+  const runDreaming = (s: DreamingScheduler) => (s as unknown as DreamingTestHooks).startDreaming()
 
   beforeEach(() => {
     // Mock EnhancedMemoryManager instance
@@ -156,7 +159,7 @@ describe('DreamingScheduler', () => {
       await scheduler.addTask(task)
 
       // 手动触发执行（测试中不依赖空闲检测）
-      await (scheduler as any).startDreaming()
+      await runDreaming(scheduler)
 
       expect(memoryManager.applyConsolidation).toHaveBeenCalled()
     })
@@ -178,7 +181,7 @@ describe('DreamingScheduler', () => {
       }
 
       await scheduler.addTask(task)
-      await (scheduler as any).startDreaming()
+      await runDreaming(scheduler)
 
       expect(memoryManager.applyConsolidation).toHaveBeenCalled()
       const queue = scheduler.getTaskQueue()

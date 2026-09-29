@@ -4,6 +4,7 @@
 import { renderHook } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { usePetTimers } from '@/hooks/pet/usePetTimers'
+import type { PetState } from '@/lib/data/types'
 
 const timers = vi.hoisted(() => {
   const state = {
@@ -17,9 +18,12 @@ const timers = vi.hoisted(() => {
       level: 5,
     })),
   }
-  const usePetStore = ((selector?: (s: any) => any) =>
-    selector ? selector(state) : state) as any
-  usePetStore.getState = () => state
+  // 替身 store：只提供本用例需要的字段，因此 selector 的参数用本地 state 的形状，
+  // 而非真实 PetStoreState（真实 store 由 vi.mock 在运行时整体替换，类型只在本文件内自洽）。
+  const usePetStore = Object.assign(
+    (selector?: (s: typeof state) => unknown) => (selector ? selector(state) : state),
+    { getState: () => state },
+  )
   return { state, usePetStore }
 })
 
@@ -144,7 +148,7 @@ describe('usePetTimers', () => {
       setPetState: vi.fn(),
       setCurrentAnimId: vi.fn(),
       safeTimeout: vi.fn(),
-      petStateRef: { current: 'idle' as any },
+      petStateRef: { current: 'idle' as PetState },
     }
     return { ...renderHook(() => usePetTimers(opts)), scheduleNextBehavior }
   }

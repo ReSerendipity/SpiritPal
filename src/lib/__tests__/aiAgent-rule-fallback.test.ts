@@ -2,18 +2,20 @@
 import { invoke } from '@tauri-apps/api/core'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { processAgentRequest } from '@/lib/ai/aiAgent'
+import type { EnhancedScheduleEvent } from '@/lib/nurture/scheduleManager'
+import type { WeatherInfo } from '@/lib/system/weatherAwareness'
 
 // ============ Mock 依赖模块 ============
 // 使用 vi.hoisted 确保 mock 对象在 vi.mock 工厂执行前可用
 const mocks = vi.hoisted(() => ({
   schedMgr: {
     addFromChat: vi.fn(),
-    getPendingEvents: vi.fn(() => [] as any[]),
+    getPendingEvents: vi.fn((): EnhancedScheduleEvent[] => []),
     cancelEvent: vi.fn(),
   },
   weatherMgr: {
-    getCurrentWeather: vi.fn(() => null as any),
-    getWeather: vi.fn(() => Promise.resolve(null as any)),
+    getCurrentWeather: vi.fn((): WeatherInfo | null => null),
+    getWeather: vi.fn((): Promise<WeatherInfo | null> => Promise.resolve(null)),
     start: vi.fn(),
     stop: vi.fn(),
     onWeatherChange: vi.fn(() => () => {}),
@@ -101,6 +103,7 @@ describe('processAgentRequest（规则回退）', () => {
     mocks.weatherMgr.getCurrentWeather.mockReturnValue({
       description: '晴',
       temperature: 30,
+      weatherCode: 0,
     })
     const result = await processAgentRequest('今天天气怎么样')
     expect(result).toContain('晴')

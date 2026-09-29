@@ -2,18 +2,20 @@
 import { invoke } from '@tauri-apps/api/core'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { AGENT_TOOLS, detectAgentIntent } from '@/lib/ai/aiAgent'
+import type { EnhancedScheduleEvent } from '@/lib/nurture/scheduleManager'
+import type { WeatherInfo } from '@/lib/system/weatherAwareness'
 
 // ============ Mock 依赖模块 ============
 // 使用 vi.hoisted 确保 mock 对象在 vi.mock 工厂执行前可用
 const mocks = vi.hoisted(() => ({
   schedMgr: {
     addFromChat: vi.fn(),
-    getPendingEvents: vi.fn(() => [] as any[]),
+    getPendingEvents: vi.fn((): EnhancedScheduleEvent[] => []),
     cancelEvent: vi.fn(),
   },
   weatherMgr: {
-    getCurrentWeather: vi.fn(() => null as any),
-    getWeather: vi.fn(() => Promise.resolve(null as any)),
+    getCurrentWeather: vi.fn((): WeatherInfo | null => null),
+    getWeather: vi.fn((): Promise<WeatherInfo | null> => Promise.resolve(null)),
     start: vi.fn(),
     stop: vi.fn(),
     onWeatherChange: vi.fn(() => () => {}),
@@ -254,8 +256,8 @@ describe('工具 execute 函数', () => {
 
   it('manage_schedule list 返回日程列表', async () => {
     mocks.schedMgr.getPendingEvents.mockReturnValue([
-      { id: 'e1', title: '开会', triggerTime: Date.now() + 3600000, status: 'pending' },
-      { id: 'e2', title: '吃饭', triggerTime: Date.now() + 7200000, status: 'pending' },
+      { id: 'e1', title: '开会', triggerTime: Date.now() + 3600000, status: 'pending', reminderMinutes: [], source: 'manual' },
+      { id: 'e2', title: '吃饭', triggerTime: Date.now() + 7200000, status: 'pending', reminderMinutes: [], source: 'manual' },
     ])
     const tool = AGENT_TOOLS.find((t) => t.name === 'manage_schedule')!
     const result = await tool.execute({ action: 'list' })
@@ -266,7 +268,7 @@ describe('工具 execute 函数', () => {
 
   it('manage_schedule cancel 按标题匹配成功', async () => {
     mocks.schedMgr.getPendingEvents.mockReturnValue([
-      { id: 'e1', title: '开会讨论', triggerTime: Date.now() + 3600000, status: 'pending' },
+      { id: 'e1', title: '开会讨论', triggerTime: Date.now() + 3600000, status: 'pending', reminderMinutes: [], source: 'manual' },
     ])
     const tool = AGENT_TOOLS.find((t) => t.name === 'manage_schedule')!
     const result = await tool.execute({ action: 'cancel', title: '开会' })
@@ -276,7 +278,7 @@ describe('工具 execute 函数', () => {
 
   it('manage_schedule cancel 标题无匹配返回错误', async () => {
     mocks.schedMgr.getPendingEvents.mockReturnValue([
-      { id: 'e1', title: '开会', triggerTime: Date.now() + 3600000, status: 'pending' },
+      { id: 'e1', title: '开会', triggerTime: Date.now() + 3600000, status: 'pending', reminderMinutes: [], source: 'manual' },
     ])
     const tool = AGENT_TOOLS.find((t) => t.name === 'manage_schedule')!
     const result = await tool.execute({ action: 'cancel', title: '不存在' })
@@ -298,7 +300,7 @@ describe('工具 execute 函数', () => {
 
   it('manage_schedule 中文 action 删除', async () => {
     mocks.schedMgr.getPendingEvents.mockReturnValue([
-      { id: 'e1', title: '测试日程', triggerTime: Date.now() + 3600000, status: 'pending' },
+      { id: 'e1', title: '测试日程', triggerTime: Date.now() + 3600000, status: 'pending', reminderMinutes: [], source: 'manual' },
     ])
     const tool = AGENT_TOOLS.find((t) => t.name === 'manage_schedule')!
     const result = await tool.execute({ action: '删除', title: '测试' })
@@ -407,6 +409,7 @@ describe('工具 execute 函数', () => {
     mocks.weatherMgr.getCurrentWeather.mockReturnValue({
       description: '晴朗',
       temperature: 25,
+      weatherCode: 0,
     })
     const tool = AGENT_TOOLS.find((t) => t.name === 'get_weather')!
     const result = await tool.execute({})
@@ -419,6 +422,7 @@ describe('工具 execute 函数', () => {
     mocks.weatherMgr.getWeather.mockResolvedValue({
       description: '多云',
       temperature: 18,
+      weatherCode: 3,
     })
     const tool = AGENT_TOOLS.find((t) => t.name === 'get_weather')!
     const result = await tool.execute({})

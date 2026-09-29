@@ -1,5 +1,6 @@
 // achievementSystem 模块测试 — 成就/徽章系统
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { NurturingStats } from '@/lib/data/types'
 import {
   AchievementManager,
   getAchievementManager,
@@ -166,14 +167,28 @@ describe('AchievementManager', () => {
   })
 
   describe('updateMaxAffectionLevel', () => {
+    // 该方法只读 stats.affection，其余字段给合法的 NurturingStats 占位值即可
+    const statsWithAffection = (affection: number): NurturingStats => ({
+      hunger: 80,
+      mood: 70,
+      health: 100,
+      affection,
+      level: 1,
+      exp: 0,
+      coins: 0,
+      lastTickAt: 0,
+      lastInteractionAt: 0,
+      lastAffectionDecayAt: 0,
+    })
+
     it('更新最高亲密度等级', () => {
-      mgr.updateMaxAffectionLevel({ affection: 200 } as any)
+      mgr.updateMaxAffectionLevel(statsWithAffection(200))
       expect(mgr.getStats().maxAffectionLevel).toBe(3)
     })
 
     it('不降低最高等级', () => {
-      mgr.updateMaxAffectionLevel({ affection: 500 } as any)
-      mgr.updateMaxAffectionLevel({ affection: 100 } as any)
+      mgr.updateMaxAffectionLevel(statsWithAffection(500))
+      mgr.updateMaxAffectionLevel(statsWithAffection(100))
       expect(mgr.getStats().maxAffectionLevel).toBe(5)
     })
   })
