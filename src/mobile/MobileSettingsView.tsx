@@ -509,9 +509,9 @@ export function MobileSettingsView() {
   // ===== 主题设置 =====
   if (section === 'theme') {
     const themeOptions: Array<{ id: ThemeMode; label: string; icon: typeof Sun; desc: string }> = [
-      { id: 'light', label: '浅色', icon: Sun, desc: '明亮模式' },
-      { id: 'dark', label: '深色', icon: Moon, desc: '暗黑模式' },
-      { id: 'system', label: '跟随系统', icon: Monitor, desc: '自动跟随系统主题' },
+      { id: 'light', label: t('settings.mobile.appearanceLight'), icon: Sun, desc: t('settings.mobile.appearanceLightDesc') },
+      { id: 'dark', label: t('settings.mobile.appearanceDark'), icon: Moon, desc: t('settings.mobile.appearanceDarkDesc') },
+      { id: 'system', label: t('settings.mobile.appearanceFollow'), icon: Monitor, desc: t('settings.mobile.appearanceFollowDesc') },
     ]
     return (
       <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
@@ -566,10 +566,7 @@ export function MobileSettingsView() {
           <h2 className="text-base font-semibold">{t('settings.mobile.aiProvider')}</h2>
         </header>
         <div className="flex-1 overflow-y-auto px-3 py-3">
-          <p className={`mb-3 text-xs ${subtitleClass}`}>
-            选「端侧」走手机<strong>本地</strong>推理（需先在「端侧模型」里加载模型，
-            <strong>无需 API Key</strong>、对话不出网）；其余服务商为云端，需先在桌面端配置 API Key。
-          </p>
+          <p className={`mb-3 text-xs ${subtitleClass}`}>{t('settings.mobile.aiHint')}</p>
           {LLM_PROVIDERS.map((p) => (
             <button
               key={p.id}
@@ -584,23 +581,20 @@ export function MobileSettingsView() {
           ))}
           {provider === 'custom' && (
             <div className={`mb-2 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
-              <div className="mb-2 text-sm font-medium">连接配置</div>
+              <div className="mb-2 text-sm font-medium">{t('settings.mobile.connConfig')}</div>
               <input
                 value={endpointCfg.baseUrl}
                 onChange={(e) => updateEndpointCfg({ baseUrl: e.target.value })}
-                placeholder="API 地址，如 http://127.0.0.1:8081/v1"
+                placeholder={t('settings.mobile.apiBasePlaceholder')}
                 className={`mb-2 w-full rounded-lg border ${cardBorderClass} bg-cream px-3 py-2 text-sm`}
               />
               <input
                 value={endpointCfg.model}
                 onChange={(e) => updateEndpointCfg({ model: e.target.value })}
-                placeholder="模型名，如 qwen3.6-35b-a3b"
+                placeholder={t('settings.mobile.modelPlaceholder')}
                 className={`w-full rounded-lg border ${cardBorderClass} bg-cream px-3 py-2 text-sm`}
               />
-              <p className={`mt-2 text-xs ${subtitleClass}`}>
-                本地服务（llama.cpp / Ollama / LM Studio 等）无需 API Key，填地址与模型名即可；云端中转站（如 ModelScope）
-                可选填下方 API Key；改完即时生效，无需重启。
-              </p>
+              <p className={`mt-2 text-xs ${subtitleClass}`}>{t('settings.mobile.apiHint')}</p>
             </div>
           )}
           {provider !== 'ollama' && provider !== 'ondevice' && (
@@ -611,13 +605,11 @@ export function MobileSettingsView() {
                 value={apiKeyDraft}
                 onChange={(e) => setApiKeyDraft(e.target.value)}
                 onBlur={() => void handleApiKeyBlur()}
-                placeholder="粘贴服务商提供的 API Key"
+                placeholder={t('settings.mobile.apiKeyPlaceholder')}
                 autoComplete="off"
                 className={`w-full rounded-lg border ${cardBorderClass} bg-cream px-3 py-2 text-sm`}
               />
-              <p className={`mt-2 text-xs ${subtitleClass}`}>
-                Key 保存于系统安全存储（加密），失焦即保存，留空并失焦 = 删除。
-              </p>
+              <p className={`mt-2 text-xs ${subtitleClass}`}>{t('settings.mobile.apiKeyHint')}</p>
             </div>
           )}
         </div>
@@ -655,7 +647,7 @@ export function MobileSettingsView() {
           <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
             <div className="flex items-center gap-2">
               <RefreshCw size={16} className="text-ink-faint" />
-              <span className="text-sm font-medium">启用同步</span>
+              <span className="text-sm font-medium">{t('settings.mobile.enableSync')}</span>
               <label className="ml-auto flex items-center">
                 <input
                   type="checkbox"
@@ -665,9 +657,7 @@ export function MobileSettingsView() {
                 />
               </label>
             </div>
-            <p className={`mt-1 text-xs ${subtitleClass}`}>
-              启用后可在多设备间同步宠物数据
-            </p>
+            <p className={`mt-1 text-xs ${subtitleClass}`}>{t('settings.mobile.enableSyncHint')}</p>
           </div>
 
           {/* 传输方式（WebDAV 是唯一已实现的真实通道；cloud/lan 仍为占位，显式禁用而非静默失败） */}
@@ -790,17 +780,19 @@ export function MobileSettingsView() {
           {/* 自动同步间隔 */}
           <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-medium">自动同步间隔</span>
+              <span className="text-sm font-medium">{t('settings.mobile.syncInterval')}</span>
               <span className="text-xs text-ink-muted">
-                {syncConfig.autoSyncInterval === 0 ? '禁用' : `${syncConfig.autoSyncInterval / 60000} 分钟`}
+                {syncConfig.autoSyncInterval === 0
+                  ? t('settings.mobile.intervalDisabled')
+                  : t('settings.mobile.intervalMinutes', { n: syncConfig.autoSyncInterval / 60000 })}
               </span>
             </div>
             <div className="flex gap-2">
               {[
-                { val: 0, label: '禁用' },
-                { val: 60000, label: '1分' },
-                { val: 300000, label: '5分' },
-                { val: 1800000, label: '30分' },
+                { val: 0, labelKey: 'settings.mobile.intervalDisabled' },
+                { val: 60000, labelKey: 'settings.mobile.interval1' },
+                { val: 300000, labelKey: 'settings.mobile.interval5' },
+                { val: 1800000, labelKey: 'settings.mobile.interval30' },
               ].map((opt) => (
                 <button
                   key={opt.val}
@@ -811,7 +803,7 @@ export function MobileSettingsView() {
                       : 'bg-cream-deep text-ink-muted'
                   }`}
                 >
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </button>
               ))}
             </div>
@@ -827,32 +819,32 @@ export function MobileSettingsView() {
                 : 'bg-ink/10 text-ink-faint'
             }`}
           >
-            立即同步
+            {t('settings.mobile.syncNow')}
           </button>
 
           {/* 同步信息 */}
           <div className={`rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
-            <h3 className="mb-2 text-sm font-medium">同步信息</h3>
+            <h3 className="mb-2 text-sm font-medium">{t('settings.mobile.syncInfo')}</h3>
             <div className="space-y-1 text-xs text-ink-muted">
               <div className="flex justify-between">
-                <span>当前状态</span>
+                <span>{t('settings.mobile.syncStatusLabel')}</span>
                 <span>
                   {{
-                    idle: '未同步',
-                    syncing: '同步中…',
-                    success: '已同步',
-                    error: syncManager.getLastError() ?? '同步失败',
-                    offline: '离线',
+                    idle: t('settings.mobile.syncIdle'),
+                    syncing: t('settings.mobile.syncSyncing'),
+                    success: t('settings.mobile.syncDone'),
+                    error: syncManager.getLastError() ?? t('settings.mobile.syncFailed'),
+                    offline: t('settings.mobile.syncOffline'),
                   }[syncStatus] ?? syncStatus}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span>金币（共享）</span>
+                <span>{t('settings.mobile.syncCoins')}</span>
                 <span>{sharedCoins}</span>
               </div>
               <div className="flex justify-between">
-                <span>同步策略</span>
-                <span>最后写入优先 (LWW)</span>
+                <span>{t('settings.mobile.syncStrategy')}</span>
+                <span>{t('settings.mobile.syncStrategyLww')}</span>
               </div>
             </div>
           </div>
@@ -869,7 +861,7 @@ export function MobileSettingsView() {
           <button onClick={() => setSection('main')} className="text-sm text-tangerine">
             {t('settings.mobile.back')}
           </button>
-          <h2 className="text-base font-semibold">记忆</h2>
+          <h2 className="text-base font-semibold">{t('tab.memory')}</h2>
         </header>
         <div className="flex-1 overflow-hidden">
           <MobileMemoryView />
@@ -901,7 +893,7 @@ export function MobileSettingsView() {
     <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
       <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
         <button onClick={() => setSection('main')} className="text-sm text-tangerine">
-          ← 返回
+          ← {t('settings.mobile.back')}
         </button>
         <h2 className="text-base font-semibold">{t('settings.mobile.about')}</h2>
       </header>
@@ -910,19 +902,19 @@ export function MobileSettingsView() {
         <h1 className="mb-1 text-xl font-bold">SpiritPal</h1>
         <p className={`mb-4 text-sm ${subtitleClass}`}>v0.1.0</p>
         <p className={`mx-auto max-w-xs text-sm ${subtitleClass}`}>
-          SpiritPal 是一款跨平台桌宠应用，支持 Live2D 渲染、AI 对话、养成系统、情境感知等功能。
+          {t('settings.mobile.aboutDesc')}
         </p>
         <div className={`mx-auto mt-6 max-w-xs rounded-xl ${cardBgClass} border ${cardBorderClass} p-4 text-left`}>
-          <h3 className="mb-2 text-sm font-medium">功能特性</h3>
+          <h3 className="mb-2 text-sm font-medium">{t('settings.mobile.features')}</h3>
           <ul className="space-y-1 text-xs text-ink-muted">
-            <li>✓ 全屏 Live2D 宠物渲染</li>
-            <li>✓ 触摸手势交互（点击/拖拽/双击/长按/捏合）</li>
-            <li>✓ 深浅色主题切换</li>
-            <li>✓ 数据多端同步</li>
-            <li>✓ AI 聊天对话</li>
-            <li>✓ 四维养成系统</li>
-            <li>✓ Widget 桌面小组件</li>
-            <li>✓ 推送通知</li>
+            <li>✓ {t('settings.mobile.feature1')}</li>
+            <li>✓ {t('settings.mobile.feature2')}</li>
+            <li>✓ {t('settings.mobile.feature3')}</li>
+            <li>✓ {t('settings.mobile.feature4')}</li>
+            <li>✓ {t('settings.mobile.feature5')}</li>
+            <li>✓ {t('settings.mobile.feature6')}</li>
+            <li>✓ {t('settings.mobile.feature7')}</li>
+            <li>✓ {t('settings.mobile.feature8')}</li>
           </ul>
         </div>
         {/* 法律信息（P0 合规）：移动端此前完全没有隐私政策 / 用户协议入口 */}
@@ -949,7 +941,7 @@ export function MobileSettingsView() {
         </div>
 
         <div className={`mx-auto mt-4 max-w-xs rounded-xl ${cardBgClass} border ${cardBorderClass} p-4 text-left`}>
-          <h3 className="mb-2 text-sm font-medium">关注我们</h3>
+          <h3 className="mb-2 text-sm font-medium">{t('settings.mobile.followUs')}</h3>
           <div className="flex flex-wrap gap-2 text-xs">
             <a
               href="https://github.com/ReSerendipity/SpiritPal"
