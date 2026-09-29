@@ -17,3 +17,9 @@ overrides:
   # 依赖漏洞修复（2026-09-10 人工#2）：hono/qs 生产链（MCP SDK→express→qs、MCP SDK→hono）
   hono: ">=4.13.5"
   qs: ">=6.16.0"
+  # 依赖漏洞修复（2026-09-29 人工#3，GHSA-2vr4-cq9g-pvrc / CVE-2026-101910）：
+  # ip-address 未识别 NAT64 本地用段 64:ff9b:1::/48，可绕 SSRF/信任边界；首修 10.5.1。
+  # 引入链 @modelcontextprotocol/sdk → express-rate-limit → ip-address，仅 SDK 的 OAuth
+  # auth handler 用到；本仓只用 stdio/sse 传输，运行时不加载该路径。同包另 5 条公告
+  # 的漏洞上限均 <=10.5.0，故 >=10.5.1 一并清零。
+  ip-address: ">=10.5.1"
