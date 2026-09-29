@@ -188,7 +188,27 @@
 | `32-modelscope-config.png` | 云端实测：Custom 三项配置（ModelScope） |
 | `33-modelscope-cloud-reply.png` | 云端实测：多罗人设回复（本地服务已停，证明来自云端） |
 
-## 8. 证据清单（第一阶段/第二阶段，assets/ 相对本报告）
+## 9. 遗留项完成（2026-09-29，装机验证）
+
+三个 backlog 项全部实现并真机验证：
+
+| 项 | 实现 | 真机验证 |
+| --- | --- | --- |
+| **退出 SIGABRT** | MainActivity 注册 `OnBackPressedCallback`，返回键改 `moveTaskToBack(true)`（桌宠语义退后台而非销毁 Activity，根除 wry `no available activity` 断言） | ✅ 按返回键后进程存活、crash 缓冲无新增、前台切至他 app（已退后台） |
+| **P1-D 端侧模型目录** | Rust 侧新增 `nativeSetExternalModelsDir` JNI 桥；MainActivity 启动经 `getExternalFilesDir("models")` 取框架 provision 的外部专属目录回传；`model_dir()` 优先采用（修正裸路径 mkdir 被 FUSE/SELinux 拒→回退私有目录） | ✅ 面板目录显示 `/storage/emulated/0/Android/data/com.spiritpal.desktop_pet/files/models`；实测 `adb push` 可写入并读回（截图 36） |
+| **设置页 i18n** | MobileSettingsView 主页/分区标题/返回按钮接 `useTranslation`；`settings.mobile.*` 键补入 zh/en/ja/ko/zh-TW 五语字典（首次误插到 `translation` 块外，已修正） | ✅ 中文全标签正确解析（截图 34）；切 English 整页即时英文化（截图 35） |
+
+提交：`12b8f7b`（三修复）+ `4f3bc9d`（i18n 键位修正）。
+
+### 9.1 遗留项证据（assets/）
+
+| 文件 | 内容 |
+| --- | --- |
+| `34-i18n-zh-resolved.png` | i18n 修复后中文设置页全标签正确 |
+| `35-i18n-en-resolved.png` | 切 English 后整页即时英文化 |
+| `36-p1d-external-model-dir.png` | 端侧模型目录已指向 adb 可写的外部专属路径 |
+
+## 10. 证据清单（第一阶段/第二阶段，assets/ 相对本报告）
 
 | 文件 | 内容 |
 | --- | --- |
