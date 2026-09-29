@@ -175,7 +175,7 @@ export function MemoryPanel() {
           onClick={() => setViewMode('compact')}
           className={`rounded border px-2.5 py-1 text-xs transition-colors ${
             viewMode === 'compact'
-              ? 'border-pet-primary bg-pet-primary/10 text-pet-primary'
+              ? 'border-tangerine bg-tangerine/10 text-tangerine-deep'
               : 'border-ink/15 text-ink-muted hover:bg-ink/5 hover:text-ink'
           }`}
         >
@@ -185,7 +185,7 @@ export function MemoryPanel() {
           onClick={() => setViewMode('visual')}
           className={`rounded border px-2.5 py-1 text-xs transition-colors ${
             viewMode === 'visual'
-              ? 'border-pet-primary bg-pet-primary/10 text-pet-primary'
+              ? 'border-tangerine bg-tangerine/10 text-tangerine-deep'
               : 'border-ink/15 text-ink-muted hover:bg-ink/5 hover:text-ink'
           }`}
         >
@@ -195,7 +195,7 @@ export function MemoryPanel() {
           onClick={() => setViewMode('graph')}
           className={`rounded border px-2.5 py-1 text-xs transition-colors ${
             viewMode === 'graph'
-              ? 'border-pet-primary bg-pet-primary/10 text-pet-primary'
+              ? 'border-tangerine bg-tangerine/10 text-tangerine-deep'
               : 'border-ink/15 text-ink-muted hover:bg-ink/5 hover:text-ink'
           }`}
         >
@@ -377,7 +377,7 @@ export function MemoryPanel() {
                   <div className="flex items-center gap-2">
                     <span className={`h-2 w-2 rounded-full ${
                       exp.sentiment === 'positive' ? 'bg-green-400' :
-                      exp.sentiment === 'negative' ? 'bg-red-400' : 'bg-gray-400'
+                      exp.sentiment === 'negative' ? 'bg-red-400' : 'bg-ink/30'
                     }`} />
                     <span className="text-[10px] font-medium uppercase text-ink-faint">{exp.type}</span>
                     <span className="ml-auto text-[10px] text-ink-faint">

@@ -284,7 +284,7 @@ function SpeakingStyleEditor({
             {style.catchphrases.map((phrase, idx) => (
               <span
                 key={idx}
-                className="flex items-center gap-1 rounded-full bg-amber-400/20 px-3 py-1 text-xs text-amber-200"
+                className="flex items-center gap-1 rounded-full bg-tangerine/20 px-3 py-1 text-xs text-amber-200"
               >
                 {phrase}
                 <button
@@ -322,7 +322,7 @@ function InteractionPrefsEditor({
         <button
           onClick={() => onChange({ ...prefs, likeHeadPat: !prefs.likeHeadPat })}
           className={`relative h-6 w-11 rounded-full transition-colors ${
-            prefs.likeHeadPat ? 'bg-amber-400' : 'bg-ink-faint'
+            prefs.likeHeadPat ? 'bg-tangerine' : 'bg-ink-faint'
           }`}
         >
           <span
@@ -337,7 +337,7 @@ function InteractionPrefsEditor({
         <button
           onClick={() => onChange({ ...prefs, hateDrag: !prefs.hateDrag })}
           className={`relative h-6 w-11 rounded-full transition-colors ${
-            prefs.hateDrag ? 'bg-amber-400' : 'bg-ink-faint'
+            prefs.hateDrag ? 'bg-tangerine' : 'bg-ink-faint'
           }`}
         >
           <span
@@ -356,7 +356,7 @@ function InteractionPrefsEditor({
               onClick={() => onChange({ ...prefs, interactionFrequency: o.value })}
               className={`rounded-lg px-3 py-1.5 text-xs transition-colors ${
                 prefs.interactionFrequency === o.value
-                  ? 'bg-amber-400 text-gray-900'
+                  ? 'bg-tangerine text-white'
                   : 'bg-surface text-ink hover:bg-cream-deep'
               }`}
             >
@@ -394,11 +394,11 @@ function ScheduleEditor({
         {schedule.map((p) => {
           const leftPct = (p.start / 24) * 100
           const widthPct = ((p.end - p.start) / 24) * 100
-          const color = p.type === 'active' ? 'bg-amber-400/70' : 'bg-indigo-500/70'
+          const color = p.type === 'active' ? 'bg-tangerine/70' : 'bg-indigo-500/70'
           return (
             <div
               key={p.id}
-              className={`absolute top-0 h-full ${color} flex items-center justify-center text-[9px] text-gray-900`}
+              className={`absolute top-0 h-full ${color} flex items-center justify-center text-[9px] text-ink`}
               style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
               title={`${p.start}:00 - ${p.end}:00 (${p.type === 'active' ? '活跃' : '睡眠'})`}
             >
@@ -486,7 +486,7 @@ function TemplateButtons({ onApply }: { onApply: (templateId: string) => void })
 
   return (
     <div>
-      <div className="mb-2 flex items-center gap-1 text-xs font-semibold text-amber-300">
+      <div className="mb-2 flex items-center gap-1 text-xs font-semibold text-tangerine-deep">
         <Sparkles size={14} /> 一键应用性格模板
       </div>
       <div className="grid grid-cols-5 gap-2">
@@ -609,7 +609,7 @@ export function PersonalityEditor() {
               key={c.id}
               onClick={() => handleSwitchChar(c.id)}
               className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm transition-all ${
-                active ? 'border-amber-400 bg-amber-400/10' : 'border-ink/10 hover:border-ink/30'
+                active ? 'border-tangerine bg-tangerine/10' : 'border-ink/10 hover:border-ink/30'
               }`}
             >
               <div
@@ -630,7 +630,7 @@ export function PersonalityEditor() {
       {/* 雷达图 + 滑块 */}
       <div className="grid grid-cols-2 gap-4 rounded-xl bg-surface/50 p-4">
         <div>
-          <div className="mb-2 text-center text-xs font-semibold text-amber-300">五维性格雷达图</div>
+          <div className="mb-2 text-center text-xs font-semibold text-tangerine-deep">五维性格雷达图</div>
           <RadarChart personality={config.personality} />
         </div>
         <div className="flex flex-col justify-center">
@@ -640,19 +640,19 @@ export function PersonalityEditor() {
 
       {/* 说话风格 */}
       <div className="rounded-xl bg-surface/50 p-4">
-        <div className="mb-3 text-xs font-semibold text-amber-300">说话风格</div>
+        <div className="mb-3 text-xs font-semibold text-tangerine-deep">说话风格</div>
         <SpeakingStyleEditor style={config.speakingStyle} onChange={handleSpeakingStyle} />
       </div>
 
       {/* 互动偏好 */}
       <div className="rounded-xl bg-surface/50 p-4">
-        <div className="mb-3 text-xs font-semibold text-amber-300">互动偏好</div>
+        <div className="mb-3 text-xs font-semibold text-tangerine-deep">互动偏好</div>
         <InteractionPrefsEditor prefs={config.interactionPrefs} onChange={handleInteractionPrefs} />
       </div>
 
       {/* 作息时间 */}
       <div className="rounded-xl bg-surface/50 p-4">
-        <div className="mb-3 flex items-center gap-1 text-xs font-semibold text-amber-300">
+        <div className="mb-3 flex items-center gap-1 text-xs font-semibold text-tangerine-deep">
           <Clock size={14} /> 作息时间（0-24h）
         </div>
         <ScheduleEditor schedule={config.schedule} onChange={handleSchedule} />
@@ -660,7 +660,7 @@ export function PersonalityEditor() {
 
       {/* System Prompt 编辑 */}
       <div className="rounded-xl bg-surface/50 p-4">
-        <div className="mb-2 text-xs font-semibold text-amber-300">System Prompt</div>
+        <div className="mb-2 text-xs font-semibold text-tangerine-deep">System Prompt</div>
         <textarea
           value={config.systemPrompt}
           onChange={(e) => handleSystemPromptChange(e.target.value)}
@@ -673,7 +673,7 @@ export function PersonalityEditor() {
       <div className="flex gap-2">
         <button
           onClick={handleSave}
-          className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-amber-400"
+          className="rounded-lg bg-tangerine px-4 py-2 text-sm font-medium text-white hover:bg-tangerine-deep"
         >
           保存配置
         </button>
@@ -694,7 +694,7 @@ export function PersonalityEditor() {
       {/* 合成 Prompt 预览 */}
       {showPrompt && (
         <div className="rounded-xl bg-surface p-4">
-          <div className="mb-2 text-xs font-semibold text-amber-300">合成的性格 Prompt（由五维参数自动生成）</div>
+          <div className="mb-2 text-xs font-semibold text-tangerine-deep">合成的性格 Prompt（由五维参数自动生成）</div>
           <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap text-[11px] leading-relaxed text-ink">
             {composePersonalityPrompt(config.personality)}
           </pre>

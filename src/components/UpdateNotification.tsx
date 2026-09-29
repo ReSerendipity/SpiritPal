@@ -212,12 +212,12 @@ export function UpdateNotification({ autoCheck = true, autoCheckDelay = 30000, o
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={!isBusy ? handleClose : undefined} />
 
       {/* 弹窗主体 */}
-      <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 animate-in fade-in zoom-in-95">
+      <div className="relative bg-surface rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 animate-in fade-in zoom-in-95">
         {/* 关闭按钮 */}
         {!isBusy && view.phase !== 'up-to-date' && (
           <button
             onClick={handleClose}
-            className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            className="absolute top-3 right-3 text-ink-faint hover:text-ink transition-colors"
             aria-label="关闭"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -231,18 +231,18 @@ export function UpdateNotification({ autoCheck = true, autoCheckDelay = 30000, o
           <div
             className={`w-10 h-10 rounded-full flex items-center justify-center ${
               view.phase === 'error'
-                ? 'bg-red-100 dark:bg-red-900/30'
+                ? 'bg-error/15'
                 : view.phase === 'up-to-date'
-                  ? 'bg-green-100 dark:bg-green-900/30'
+                  ? 'bg-success/20'
                   : 'bg-blue-100 dark:bg-blue-900/30'
             }`}
           >
             <svg
               className={`w-5 h-5 ${
                 view.phase === 'error'
-                  ? 'text-red-500'
+                  ? 'text-error'
                   : view.phase === 'up-to-date'
-                    ? 'text-green-500'
+                    ? 'text-success-deep'
                     : 'text-blue-500'
               }`}
               fill="none"
@@ -272,36 +272,36 @@ export function UpdateNotification({ autoCheck = true, autoCheckDelay = 30000, o
             </svg>
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
+            <h3 className="text-lg font-semibold text-ink">{title}</h3>
             {view.phase === 'available' && (
-              <p className="text-sm text-gray-500 dark:text-gray-400">SpiritPal v{view.info.version}</p>
+              <p className="text-sm text-ink-muted">SpiritPal v{view.info.version}</p>
             )}
             {view.phase === 'up-to-date' && (
-              <p className="text-sm text-gray-500 dark:text-gray-400">当前已是最新版本</p>
+              <p className="text-sm text-ink-muted">当前已是最新版本</p>
             )}
           </div>
         </div>
 
         {/* 更新说明 */}
         {view.phase === 'available' && view.info.body && (
-          <div className="mb-4 text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 max-h-40 overflow-y-auto">
+          <div className="mb-4 text-sm text-ink-muted bg-cream-deep rounded-lg p-3 max-h-40 overflow-y-auto">
             <pre className="whitespace-pre-wrap font-sans">{view.info.body}</pre>
           </div>
         )}
 
         {/* 检查中提示 */}
         {view.phase === 'checking' && (
-          <div className="mb-4 text-sm text-gray-500 dark:text-gray-400">正在检查更新，请稍候...</div>
+          <div className="mb-4 text-sm text-ink-muted">正在检查更新，请稍候...</div>
         )}
 
         {/* 下载进度 */}
         {view.phase === 'downloading' && (
           <div className="mb-4">
-            <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
+            <div className="flex justify-between text-sm text-ink-muted mb-1">
               <span>正在下载更新...</span>
               <span>{progressPercent}%</span>
             </div>
-            <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div className="w-full h-2 bg-ink/15 rounded-full overflow-hidden">
               <div
                 className="h-full bg-blue-500 rounded-full transition-all duration-300"
                 style={{ width: `${progressPercent}%` }}
@@ -321,14 +321,14 @@ export function UpdateNotification({ autoCheck = true, autoCheckDelay = 30000, o
 
         {/* 已是最新提示 */}
         {view.phase === 'up-to-date' && (
-          <div className="mb-4 text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
+          <div className="mb-4 text-sm text-success-deep bg-success/10 rounded-lg p-3">
             当前已是最新版本。
           </div>
         )}
 
         {/* 错误提示（失败原因可见，不吞错误） */}
         {view.phase === 'error' && (
-          <div className="mb-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg p-3 break-all">
+          <div className="mb-4 text-sm text-error bg-error/10 rounded-lg p-3 break-all">
             {view.message}
             <div className="mt-1 text-xs opacity-80">请检查网络连接后重试；更新失败不影响当前版本正常运行。</div>
           </div>
@@ -347,7 +347,7 @@ export function UpdateNotification({ autoCheck = true, autoCheckDelay = 30000, o
             <>
               <button
                 onClick={handleLater}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-ink-muted hover:bg-ink/10 rounded-lg transition-colors"
               >
                 稍后提醒
               </button>
@@ -361,7 +361,7 @@ export function UpdateNotification({ autoCheck = true, autoCheckDelay = 30000, o
           ) : (
             <button
               disabled
-              className="px-4 py-2 text-sm font-medium text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-not-allowed"
+              className="px-4 py-2 text-sm font-medium text-ink-faint bg-ink/10 rounded-lg cursor-not-allowed"
             >
               {view.phase === 'checking' ? '检查中...' : '更新中...'}
             </button>

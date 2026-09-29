@@ -192,7 +192,7 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
               y1={chartHeight * (1 - ratio)}
               x2={chartData.length * 30}
               y2={chartHeight * (1 - ratio)}
-              stroke="rgba(74,54,38,0.08)"
+              className="stroke-ink/8"
               strokeWidth={1}
             />
           ))}
@@ -208,8 +208,7 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
                     return `${i === 0 ? 'M' : 'L'} ${x} ${y}`
                   })
                   .join(' ')}
-                fill="none"
-                stroke="rgba(232, 135, 74, 0.8)"
+                className="fill-none stroke-tangerine/80"
                 strokeWidth={2}
               />
               {/* 填充区域 */}
@@ -224,7 +223,7 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
                     .join(' ') +
                   ` L ${((chartData.length - 1) * 30 + 15)} ${chartHeight} L 15 ${chartHeight} Z`
                 }
-                fill="rgba(232, 135, 74, 0.12)"
+                className="fill-tangerine/12"
               />
             </>
           )}
@@ -239,8 +238,13 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
                 cx={x}
                 cy={y}
                 r={3}
-                fill={d.avgIntensity > 0.7 ? '#e8874a' : d.avgIntensity > 0.3 ? '#b3a18c' : '#d06a2f'}
-                stroke="rgba(74,54,38,0.3)"
+                className={`stroke-ink/30 ${
+                  d.avgIntensity > 0.7
+                    ? 'fill-tangerine'
+                    : d.avgIntensity > 0.3
+                      ? 'fill-ink-muted'
+                      : 'fill-tangerine-deep'
+                }`}
                 strokeWidth={1}
               />
             )
@@ -253,7 +257,7 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
               x={i * 30 + 15}
               y={chartHeight + 14}
               textAnchor="middle"
-              fill="rgba(74,54,38,0.4)"
+              className="fill-ink/40"
               fontSize={8}
             >
               {d.date}

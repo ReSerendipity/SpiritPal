@@ -309,7 +309,7 @@ export function McpSettingsPanel() {
                       {record.transport}
                     </span>
                     {!record.enabled && (
-                      <span className="rounded bg-gray-200 px-1.5 py-0.5 text-[10px] text-gray-500">已停用</span>
+                      <span className="rounded bg-ink/10 px-1.5 py-0.5 text-[10px] text-ink-muted">已停用</span>
                     )}
                   </div>
                   <div className="flex flex-shrink-0 items-center gap-1">
@@ -320,7 +320,7 @@ export function McpSettingsPanel() {
                     >
                       {record.enabled
                         ? <ShieldCheck className="h-4 w-4 text-emerald-500" />
-                        : <ShieldAlert className="h-4 w-4 text-gray-400" />}
+                        : <ShieldAlert className="h-4 w-4 text-ink-faint" />}
                     </button>
                     <button
                       className="flex items-center gap-1 rounded p-1.5 text-ink-muted hover:bg-cream-deep hover:text-ink"
@@ -353,7 +353,7 @@ export function McpSettingsPanel() {
                   <p className="mt-1 truncate font-mono text-[10px] text-ink-muted">{record.command}</p>
                 )}
                 {result?.error && (
-                  <p className="mt-1 text-[11px] text-red-500">{result.error}</p>
+                  <p className="mt-1 text-[11px] text-error">{result.error}</p>
                 )}
                 {result?.reachable && !result.error && (
                   <p className="mt-1 text-[11px] text-emerald-600">MCP 握手成功，端点可用</p>

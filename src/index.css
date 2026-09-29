@@ -16,6 +16,7 @@ html.dark {
   --color-ink: #f0e6da;
   --color-ink-muted: #b3a18e;
   --color-ink-faint: #8f7f6c;
+  --color-hairline: rgba(240, 230, 218, 0.14);
   --color-tangerine: #f0925a;
   --color-tangerine-deep: #e8874a;
   --color-tangerine-soft: #3d2c1e;
@@ -45,6 +46,9 @@ html.dark {
   --color-ink: #4a3626;
   --color-ink-muted: #8a7461;
   --color-ink-faint: #9d8a72;  /* H-7 WCAG AA 修复：对比度提升至 3:1（cream bg 下大文字标准） */
+  /* 细分隔线 / 1px 边框。Tailwind 侧通常直接用 border-ink/10；
+   * 此处提供给**内联样式**（无法写 Tailwind 类）使用，见 MemoryVisualizer。 */
+  --color-hairline: rgba(74, 54, 38, 0.14);
   --color-tangerine: #e8874a;
   --color-tangerine-deep: #d06a2f;
   --color-tangerine-soft: #fbe9dc;

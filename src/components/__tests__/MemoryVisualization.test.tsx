@@ -183,10 +183,23 @@ describe('EmotionCurve', () => {
     const highEmotionMem = createMemory({ emotionalIntensity: 0.9 })
     const { container } = render(<EmotionCurve memories={[highEmotionMem]} />)
     const circles = container.querySelectorAll('circle')
-    const highEmotionCircle = Array.from(circles).find(
-      (c) => c.getAttribute('fill') === '#e8874a'
+    // 颜色走语义令牌（fill-tangerine 等 Tailwind 工具类）而非硬编码 hex，
+    // 以便深色主题下自动换色
+    const highEmotionCircle = Array.from(circles).find((c) =>
+      c.classList.contains('fill-tangerine')
     )
     expect(highEmotionCircle).toBeTruthy()
+  })
+
+  it('数据点颜色使用语义令牌类而非硬编码色值', () => {
+    const mem = createMemory({ emotionalIntensity: 0.5 })
+    const { container } = render(<EmotionCurve memories={[mem]} />)
+    const circle = container.querySelector('circle')
+    expect(circle).toBeTruthy()
+    expect(circle?.getAttribute('fill')).toBeNull()
+    expect(circle?.getAttribute('stroke')).toBeNull()
+    // stroke 也走令牌（stroke-ink/30），保证深色下可见
+    expect(circle?.className.baseVal ?? '').toContain('stroke-ink')
   })
 })
 

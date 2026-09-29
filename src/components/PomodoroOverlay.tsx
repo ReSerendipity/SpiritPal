@@ -77,9 +77,9 @@ export function PomodoroOverlay({ duration, startedAt, onStop, onComplete }: Pom
   }
 
   return (
-    <div className="absolute left-1/2 bottom-full mb-2 w-44 -translate-x-1/2 rounded-2xl bg-gray-900/90 px-3 py-2 text-white shadow-lg">
+    <div className="absolute left-1/2 bottom-full mb-2 w-44 -translate-x-1/2 rounded-2xl bg-ink/90 px-3 py-2 text-cream shadow-lg">
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-xs text-amber-300">🍅 番茄钟</span>
+        <span className="text-xs text-tangerine-deep">🍅 番茄钟</span>
         <button
           onClick={onStop}
           className="flex items-center gap-1 rounded bg-red-500/80 px-1.5 py-0.5 text-[10px] hover:bg-red-500"
@@ -90,9 +90,9 @@ export function PomodoroOverlay({ duration, startedAt, onStop, onComplete }: Pom
       <div className="mb-1 text-center text-lg font-mono font-bold tabular-nums">
         {mm}:{ss}
       </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-700">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/20">
         <div
-          className="h-full rounded-full bg-amber-400 transition-all duration-500"
+          className="h-full rounded-full bg-tangerine transition-all duration-500"
           style={{ width: `${progress * 100}%` }}
         />
       </div>

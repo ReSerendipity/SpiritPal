@@ -36,7 +36,7 @@ export function PomodoroPanel({ active, onStart, onClose }: PomodoroPanelProps) 
   return (
     <div className="w-56 rounded-xl bg-surface/95 p-3 text-white shadow-xl">
       <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
-        <Timer size={16} className="text-amber-300" /> 番茄钟
+        <Timer size={16} className="text-tangerine-deep" /> 番茄钟
       </div>
 
       <div className="mb-3 text-xs text-ink-muted">选择专注时长（分钟）</div>
@@ -48,7 +48,7 @@ export function PomodoroPanel({ active, onStart, onClose }: PomodoroPanelProps) 
             onClick={() => setSelected(d)}
             className={`rounded-md py-1.5 text-xs transition-colors ${
               selected === d
-                ? 'bg-amber-400 text-gray-900'
+                ? 'bg-tangerine text-white'
                 : 'bg-cream-deep text-ink hover:bg-blush-soft'
             }`}
           >

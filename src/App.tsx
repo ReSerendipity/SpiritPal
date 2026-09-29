@@ -135,7 +135,7 @@ export default function App() {
 
   if (isMobile) {
     return (
-      <Suspense fallback={<div className="flex h-screen w-screen items-center justify-center bg-gray-900 text-white">Loading…</div>}>
+      <Suspense fallback={<div className="flex h-screen w-screen items-center justify-center bg-cream text-ink">Loading…</div>}>
         <ErrorBoundary>
           <MobileApp />
         </ErrorBoundary>
@@ -147,7 +147,7 @@ export default function App() {
   let content: ReactNode
   if (route.startsWith('/settings')) {
     content = (
-      <Suspense fallback={<div className="flex h-screen w-screen items-center justify-center bg-gray-900 text-white">Loading…</div>}>
+      <Suspense fallback={<div className="flex h-screen w-screen items-center justify-center bg-cream text-ink">Loading…</div>}>
         <ErrorBoundary>
           <SettingsWindow />
         </ErrorBoundary>
@@ -155,7 +155,7 @@ export default function App() {
     )
   } else if (route.startsWith('/chat')) {
     content = (
-      <Suspense fallback={<div className="flex h-screen w-screen items-center justify-center bg-gray-900 text-white">Loading…</div>}>
+      <Suspense fallback={<div className="flex h-screen w-screen items-center justify-center bg-cream text-ink">Loading…</div>}>
         <ErrorBoundary>
           <ChatWindow />
         </ErrorBoundary>

@@ -94,7 +94,7 @@ export function PersonalityPanel() {
               key={c.id}
               onClick={() => handleSwitchChar(c.id)}
               className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm transition-all ${
-                active ? 'border-amber-400 bg-amber-400/10' : 'border-ink/10 hover:border-ink/30'
+                active ? 'border-tangerine bg-tangerine/10' : 'border-ink/10 hover:border-ink/30'
               }`}
             >
               <div
@@ -145,7 +145,7 @@ export function PersonalityPanel() {
       <div className="flex gap-2">
         <button
           onClick={handleSave}
-          className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-amber-400"
+          className="rounded-lg bg-tangerine px-4 py-2 text-sm font-medium text-white hover:bg-tangerine-deep"
         >
           保存性格
         </button>
@@ -166,7 +166,7 @@ export function PersonalityPanel() {
       {/* System Prompt 预览 */}
       {showPreview && (
         <div className="rounded-xl bg-surface p-4">
-          <div className="mb-2 text-xs font-semibold text-amber-300">合成的性格 Prompt</div>
+          <div className="mb-2 text-xs font-semibold text-tangerine-deep">合成的性格 Prompt</div>
           <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap text-[11px] leading-relaxed text-ink">
             {composePersonalityPrompt(personality)}
           </pre>
