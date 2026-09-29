@@ -56,11 +56,11 @@ export function useDisposable() {
  * 管理一个 EventEmitter 风格的管理器，自动处理订阅和取消订阅
  */
 export function useEventListener<
-  T extends { on: (event: string, fn: (...args: any[]) => void) => void; off?: (event: string, fn: (...args: any[]) => void) => void; removeListener?: (event: string, fn: (...args: any[]) => void) => void }
+  T extends { on: (event: string, fn: (...args: unknown[]) => void) => void; off?: (event: string, fn: (...args: unknown[]) => void) => void; removeListener?: (event: string, fn: (...args: unknown[]) => void) => void }
 >(
   manager: T | (() => T),
   event: string,
-  handler: (...args: any[]) => void,
+  handler: (...args: unknown[]) => void,
   deps: React.DependencyList = [],
 ) {
   useEffect(() => {

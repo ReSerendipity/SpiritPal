@@ -48,8 +48,8 @@ export interface BatchOperation<T> {
   failureCount: number
   /** 错误信息（如有） */
   errors?: Array<{ itemId: string; error: string }>
-  /** 撤销操作所需的回滚数据 */
-  rollbackData?: any
+  /** 撤销操作所需的回滚数据（由调用方自解释，本模块不解析其结构） */
+  rollbackData?: unknown
 }
 
 export interface SelectionState<T> {
@@ -82,9 +82,9 @@ export interface BatchOperationResult {
 
 export class BatchOperationManager<T extends { id: string }> {
   private selection: SelectionState<T>
-  private operations: BatchOperation<any>[] = []
+  private operations: BatchOperation<unknown>[] = []
   private operationHistory: Array<{
-    operation: BatchOperation<any>
+    operation: BatchOperation<unknown>
     result: BatchOperationResult
   }> = []
   private maxHistorySize: number
@@ -347,7 +347,7 @@ export class BatchOperationManager<T extends { id: string }> {
     params: U,
   ): Promise<BatchOperationResult> {
     return this.executeBatchOperation({
-      type: 'custom' as any,
+      type: 'custom',
       itemIds: Array.from(this.selection.selectedIds),
       params: { type, customParams: params },
       execute: async (itemId) => {
@@ -484,7 +484,7 @@ export class BatchOperationManager<T extends { id: string }> {
    * 获取操作历史
    */
   getHistory(): Array<{
-    operation: BatchOperation<any>
+    operation: BatchOperation<unknown>
     result: BatchOperationResult
   }> {
     return [...this.operationHistory]
