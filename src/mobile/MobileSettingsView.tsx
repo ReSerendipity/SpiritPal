@@ -116,10 +116,11 @@ export function MobileSettingsView() {
     let cancelled = false
     getApiKey(provider)
       .then((k) => {
-        if (!cancelled && k) setApiKeyDraft(k)
+        // 切换供应商时无论有无已存 Key 都重置草稿，避免残留上一个供应商的 Key 文本
+        if (!cancelled) setApiKeyDraft(k ?? '')
       })
       .catch(() => {
-        /* 密钥读取失败按未配置处理 */
+        if (!cancelled) setApiKeyDraft('')
       })
     return () => {
       cancelled = true
@@ -483,11 +484,12 @@ export function MobileSettingsView() {
                 className={`w-full rounded-lg border ${cardBorderClass} bg-cream px-3 py-2 text-sm`}
               />
               <p className={`mt-2 text-xs ${subtitleClass}`}>
-                本地服务（llama.cpp / Ollama / LM Studio 等）无需 API Key，填地址与模型名即可；改完即时生效，无需重启。
+                本地服务（llama.cpp / Ollama / LM Studio 等）无需 API Key，填地址与模型名即可；云端中转站（如 ModelScope）
+                可选填下方 API Key；改完即时生效，无需重启。
               </p>
             </div>
           )}
-          {provider !== 'custom' && provider !== 'ollama' && provider !== 'ondevice' && (
+          {provider !== 'ollama' && provider !== 'ondevice' && (
             <div className={`mb-2 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
               <div className="mb-2 text-sm font-medium">API Key</div>
               <input
