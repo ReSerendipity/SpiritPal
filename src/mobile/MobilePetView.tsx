@@ -24,6 +24,7 @@
  * @see {@link ../lib/behaviorEngine} 行为引擎
  */
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import { DecorationLayer } from '@/components/DecorationLayer'
 import { Live2DRenderer, getMotionGroupForState } from '@/components/Live2DRenderer'
 import type { Live2DRendererHandle } from '@/components/Live2DRenderer'
 import { PetBubble } from '@/components/PetBubble'
@@ -31,7 +32,7 @@ import { SpriteRenderer } from '@/components/SpriteRenderer'
 import { pickPetReaction } from '@/lib/ai/behaviorEngine'
 import { getCharacter } from '@/lib/data/characters'
 import { getModManager } from '@/lib/data/modManager'
-import type { PetState, InventoryItem } from '@/lib/data/types'
+import type { PetState, InventoryItem, WornDecoration } from '@/lib/data/types'
 import { getAchievementManager } from '@/lib/nurture/achievementSystem'
 import { usePetStore } from '@/stores/petStore'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -56,6 +57,12 @@ const DRAG_THRESHOLD = 8
 const MIN_SCALE = 0.5
 /** 最大缩放比例 */
 const MAX_SCALE = 3.0
+
+/**
+ * 稳定的空装饰数组常量。
+ * 用字面量 `?? []` 会每次渲染产生新引用 → 触发无谓重渲染（与桌面端 PetWindow 同处理）。
+ */
+const EMPTY_DECORATIONS: WornDecoration[] = []
 
 /**
  * 互动菜单项接口
@@ -87,8 +94,14 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
   const sharedCoins = usePetStore((s) => s.sharedCoins)
   const inventory = usePetStore((s) => s.inventory)
   const getColorTier = usePetStore((s) => s.getColorTier)
+  // 已穿戴装饰品（此前移动端只做穿戴写入、从不渲染，等于穿上看不到）
+  const wornDecorations = usePetStore(
+    (s) => s.wornDecorations[s.currentCharacterId] ?? EMPTY_DECORATIONS,
+  )
 
   const petSize = useSettingsStore((s) => s.petSize)
+  // 宠物透明度（此前移动端固定 1，不跟随设置）
+  const petOpacity = useSettingsStore((s) => s.petOpacity)
   const updateSettings = useSettingsStore((s) => s.updateSettings)
 
   const character = getCharacter(currentCharacterId)
@@ -210,6 +223,10 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
   // 宠物显示尺寸：默认占屏幕宽度的 70%，乘以 petSize
   const displayW = Math.max(100, screenSize.w * 0.7 * petSize)
   const displayH = displayW * (208 / 192) // 保持精灵图比例
+
+  // 装饰品分前后两层：back 锚点在精灵之前渲染（层级低于精灵），其余在精灵之后
+  const backDecorations = wornDecorations.filter((d) => d.anchor === 'back')
+  const frontDecorations = wornDecorations.filter((d) => d.anchor !== 'back')
 
   // 居中初始位置（setState 延后到微任务，effect 主体不直接同步 setState）
   useEffect(() => {
@@ -510,16 +527,27 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
           </div>
         ))}
 
-        {/* 宠物本体 */}
+        {/* 宠物本体（含装饰图层） */}
         <div
           style={{
             width: displayW,
             height: displayH,
+            // 装饰锚点按百分比相对本容器定位，必须建立定位上下文
+            position: 'relative',
+            // 透明度由设置驱动（同时作用于精灵与装饰，避免分层淡出不一致）
+            opacity: petOpacity,
             transform: `scale(${clickScale})`,
             transformOrigin: 'center bottom',
             transition: 'transform 0.15s ease',
           }}
         >
+          <DecorationLayer
+            decorations={backDecorations}
+            spriteW={displayW}
+            spriteH={displayH}
+            facing="right"
+            clickScale={clickScale}
+          />
           {useLive2D && live2dModelPath ? (
             <Live2DRenderer
               ref={live2dRef}
@@ -538,6 +566,13 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
               size={petSize}
             />
           )}
+          <DecorationLayer
+            decorations={frontDecorations}
+            spriteW={displayW}
+            spriteH={displayH}
+            facing="right"
+            clickScale={clickScale}
+          />
         </div>
       </div>
 
