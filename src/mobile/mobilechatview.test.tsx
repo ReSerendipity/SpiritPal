@@ -12,7 +12,7 @@ describe('MobileChatView', () => {
   it('渲染消息列表与输入区（无消息时为空态）', () => {
     render(<MobileChatView />)
     // 输入框存在即可用
-    const input = screen.queryByPlaceholderText(/输入|消息/i) ?? screen.queryByRole('textbox')
+    const input = screen.queryByRole('textbox')
     expect(input).toBeTruthy()
   })
 })
