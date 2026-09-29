@@ -54,7 +54,7 @@ export interface ExportResult {
   /** 导出时间戳 */
   exportedAt: number
   /** 元数据 */
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 export interface BatchExportOptions extends ExportOptions {
@@ -180,7 +180,7 @@ export class MemoryExporter {
    * 导出为 JSON
    */
   private exportAsJson(memories: MemoryEntry[]): string {
-    const data: any = {
+    const data: Record<string, unknown> = {
       version: MemoryExporter.VERSION,
       summary: this.generateSummary(memories),
       entries: memories,
@@ -197,7 +197,7 @@ export class MemoryExporter {
     if (this.options.includeKeyframes) {
       const keyframeMem = getKeyframeMemory()
       const frames = keyframeMem.getAllFrames()
-      ;(data as any).keyframes = frames.map(f => ({
+      data.keyframes = frames.map(f => ({
         id: f.label || `frame_${f.timestamp}`,
         level: f.level,
         timestamp: f.timestamp,
@@ -297,8 +297,8 @@ export class MemoryExporter {
   /**
    * 生成元数据
    */
-  private generateMetadata(memories: MemoryEntry[]): Record<string, any> {
-    const meta: Record<string, any> = {
+  private generateMetadata(memories: MemoryEntry[]): Record<string, unknown> {
+    const meta: Record<string, unknown> = {
       format: this.options.format,
       version: MemoryExporter.VERSION,
       exportedAt: new Date().toISOString(),
@@ -387,7 +387,11 @@ export class BatchMemoryExporter {
 
     // 合并 JSON
     if (results.every(r => r.filename.endsWith('.json'))) {
-      const combined: any = {
+      const combined: {
+        version: string
+        summary: string
+        characters: Record<string, { entries: unknown; metadata?: Record<string, unknown> }>
+      } = {
         version: MemoryExporter.VERSION,
         summary: `合并导出：${results.length} 个角色的记忆`,
         characters: {},
@@ -396,7 +400,7 @@ export class BatchMemoryExporter {
       results.forEach(r => {
         try {
           const data = JSON.parse(r.content)
-          const charName = r.metadata?.characterName || 'unknown'
+          const charName = (r.metadata?.characterName as string | undefined) || 'unknown'
           combined.characters[charName] = {
             entries: data.entries,
             metadata: r.metadata,

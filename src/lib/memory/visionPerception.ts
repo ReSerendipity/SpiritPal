@@ -50,6 +50,11 @@ export interface ScreenshotResult {
   region: ScreenshotRegion
 }
 
+/** Vision LLM 的多模态内容块（OpenAI chat 风格：文本段或 base64 图片） */
+type VisionContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string; detail: 'auto' } }
+
 /** 视觉分析结果 */
 export interface VisualAnalysisResult {
   /** 屏幕内容总体描述 */
@@ -231,10 +236,10 @@ export class VisionPerceptionManager {
   /**
    * 构建 Vision LLM 提示词
    */
-  private buildVisionPrompt(screenshot: ScreenshotResult): Array<{ role: string; content: any[] }> {
+  private buildVisionPrompt(screenshot: ScreenshotResult): Array<{ role: string; content: VisionContentPart[] }> {
     const systemPrompt = getPrompt('vision.analyze_screen')
 
-    const userContent = [
+    const userContent: VisionContentPart[] = [
       {
         type: 'image_url',
         image_url: {

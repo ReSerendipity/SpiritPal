@@ -31,9 +31,11 @@ import { Application, Ticker } from 'pixi.js'
 import type { PetState } from '@/lib/data/types'
 import Logger from '@/lib/system/logger'
 import { getParamAutoMapper } from '@/lib/system/paramAutoMapper'
+import type { Live2DModel } from '@jannchie/pixi-live2d-display/cubism4'
 
 // @jannchie/pixi-live2d-display 动态加载 — 避免 Cubism Core 缺失时崩溃整个应用
-let _Live2DModel: any = null
+// 注：上面的 import type 会被擦除，不引入运行时依赖，动态加载策略不变。
+let _Live2DModel: typeof Live2DModel | null = null
 
 /**
  * 动态加载用户自装的 Cubism Core（社区方案：应用不随包分发 Core）。
@@ -177,7 +179,7 @@ export const Live2DRenderer = forwardRef<Live2DRendererHandle, Live2DRendererPro
   ) {
     const containerRef = useRef<HTMLDivElement>(null)
     const appRef = useRef<Application | null>(null)
-    const modelRef = useRef<any>(null)
+    const modelRef = useRef<Live2DModel | null>(null)
     const readyRef = useRef(false)
     // 缓存最新 props 供命令式调用读取
     const motionMapRef = useRef(motionMap)
@@ -224,7 +226,7 @@ export const Live2DRenderer = forwardRef<Live2DRendererHandle, Live2DRendererPro
           }
 
           // 4. 异步加载 Live2D 模型
-          return Live2DModel.from(modelPath, { ticker: Ticker.shared }).then((model: any) => {
+          return Live2DModel.from(modelPath, { ticker: Ticker.shared }).then((model) => {
             if (destroyed) {
               model.destroy()
               return
@@ -234,7 +236,13 @@ export const Live2DRenderer = forwardRef<Live2DRendererHandle, Live2DRendererPro
             // autoMapper 接线：用真实模型参数名扫描并建立标准参数映射（不伪造）
             try {
               const mapper = getParamAutoMapper()
-              const internal = model.internalModel
+              // 不同 Cubism 版本的 internalModel 暴露的参数枚举 API 不一致
+              // （有的只有 coreModel.getParameterIds），故按运行时守卫取值
+              type ParameterIdSource = {
+                getModelParameterIds?: () => unknown[]
+                coreModel?: { getParameterIds?: () => unknown[] }
+              }
+              const internal = model.internalModel as ParameterIdSource | undefined
               let ids: string[] = []
               if (internal) {
                 if (typeof internal.getModelParameterIds === 'function') {
