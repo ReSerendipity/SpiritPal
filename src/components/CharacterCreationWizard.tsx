@@ -192,16 +192,16 @@ export function CharacterCreationWizard({ onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="flex h-[85vh] w-[640px] max-w-[90vw] flex-col rounded-2xl bg-gray-900 text-white shadow-2xl">
+      <div className="flex h-[85vh] w-[640px] max-w-[90vw] flex-col rounded-2xl bg-surface text-ink shadow-2xl">
         {/* 头部 */}
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+        <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
           <div className="flex items-center gap-2">
-            <Sparkles size={18} className="text-amber-400" />
+            <Sparkles size={18} className="text-tangerine-deep" />
             <h2 className="text-base font-semibold">AI 对话式创建角色</h2>
           </div>
           <button
             onClick={onClose}
-            className="rounded-md p-1.5 text-gray-400 hover:bg-white/10"
+            className="rounded-md p-1.5 text-ink-faint hover:bg-ink/10"
             title="关闭"
           >
             <X size={18} />
@@ -212,10 +212,10 @@ export function CharacterCreationWizard({ onClose }: Props) {
         <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
           {/* Step 1: 描述角色 */}
           <div className="flex gap-2">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
-              <Bot size={14} className="text-amber-400" />
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-tangerine/20">
+              <Bot size={14} className="text-tangerine-deep" />
             </div>
-            <div className="max-w-[80%] rounded-2xl bg-gray-800 px-3 py-2 text-sm">
+            <div className="max-w-[80%] rounded-2xl bg-cream-deep px-3 py-2 text-sm">
               你想创建一个什么样的宠物？请描述它的性格、外观和背景。
             </div>
           </div>
@@ -233,10 +233,10 @@ export function CharacterCreationWizard({ onClose }: Props) {
           {/* Step 2: 口头禅 */}
           {(step === 'catchphrase' || step === 'archetype' || step === 'generating' || step === 'preview') && (
             <div className="flex gap-2">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
-                <Bot size={14} className="text-amber-400" />
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-tangerine/20">
+                <Bot size={14} className="text-tangerine-deep" />
               </div>
-              <div className="max-w-[80%] rounded-2xl bg-gray-800 px-3 py-2 text-sm">
+              <div className="max-w-[80%] rounded-2xl bg-cream-deep px-3 py-2 text-sm">
                 它有什么口头禅或标志性特征吗？
               </div>
             </div>
@@ -255,10 +255,10 @@ export function CharacterCreationWizard({ onClose }: Props) {
           {/* Step 3: 性格类型 */}
           {(step === 'archetype' || step === 'generating' || step === 'preview') && (
             <div className="flex gap-2">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
-                <Bot size={14} className="text-amber-400" />
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-tangerine/20">
+                <Bot size={14} className="text-tangerine-deep" />
               </div>
-              <div className="max-w-[80%] rounded-2xl bg-gray-800 px-3 py-2 text-sm">
+              <div className="max-w-[80%] rounded-2xl bg-cream-deep px-3 py-2 text-sm">
                 它的性格偏向哪种？软萌/元气/毒舌/知性/傲娇？
               </div>
             </div>
@@ -277,10 +277,10 @@ export function CharacterCreationWizard({ onClose }: Props) {
           {/* 生成中 */}
           {step === 'generating' && (
             <div className="flex gap-2">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
-                <Bot size={14} className="text-amber-400" />
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-tangerine/20">
+                <Bot size={14} className="text-tangerine-deep" />
               </div>
-              <div className="max-w-[80%] rounded-2xl bg-gray-800 px-3 py-2 text-sm">
+              <div className="max-w-[80%] rounded-2xl bg-cream-deep px-3 py-2 text-sm">
                 <span className="inline-flex items-center gap-2">
                   <Loader2 size={14} className="animate-spin" />
                   正在生成角色配置…
@@ -293,16 +293,16 @@ export function CharacterCreationWizard({ onClose }: Props) {
           {step === 'preview' && profile && (
             <div className="space-y-3">
               <div className="flex gap-2">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
-                  <Bot size={14} className="text-amber-400" />
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-tangerine/20">
+                  <Bot size={14} className="text-tangerine-deep" />
                 </div>
-                <div className="max-w-[80%] rounded-2xl bg-gray-800 px-3 py-2 text-sm">
+                <div className="max-w-[80%] rounded-2xl bg-cream-deep px-3 py-2 text-sm">
                   角色已生成！你可以微调五维参数后确认创建。
                 </div>
               </div>
 
               {/* 角色预览卡片 */}
-              <div className="rounded-xl border border-white/10 bg-gray-800/50 p-4">
+              <div className="rounded-xl border border-ink/10 bg-cream-deep/50 p-4">
                 <div className="mb-3 flex items-center gap-3">
                   <div
                     className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold"
@@ -314,25 +314,25 @@ export function CharacterCreationWizard({ onClose }: Props) {
                   </div>
                   <div>
                     <div className="text-sm font-semibold">{profile.displayName}</div>
-                    <div className="text-xs text-gray-400">{profile.signaturePhrase}</div>
+                    <div className="text-xs text-ink-faint">{profile.signaturePhrase}</div>
                   </div>
                 </div>
-                <div className="mb-2 text-xs text-gray-400">背景：{profile.birthBackground}</div>
-                <div className="mb-3 text-xs text-gray-400">
+                <div className="mb-2 text-xs text-ink-faint">背景：{profile.birthBackground}</div>
+                <div className="mb-3 text-xs text-ink-faint">
                   System Prompt：{profile.systemPrompt.slice(0, 100)}
                   {profile.systemPrompt.length > 100 ? '…' : ''}
                 </div>
 
                 {/* 五维参数滑块 */}
                 <div className="space-y-2">
-                  <div className="text-xs font-medium text-gray-300">五维性格参数（可微调）</div>
+                  <div className="text-xs font-medium text-ink-faint">五维性格参数（可微调）</div>
                   {(Object.keys(PERSONALITY_LABELS) as (keyof Personality)[]).map((key) => {
                     const label = PERSONALITY_LABELS[key]
                     const val = profile.personality[key]
                     return (
                       <div key={key} className="flex items-center gap-2">
-                        <span className="w-12 text-xs text-gray-400">{label.label}</span>
-                        <span className="w-10 text-[10px] text-gray-500">{label.min}</span>
+                        <span className="w-12 text-xs text-ink-faint">{label.label}</span>
+                        <span className="w-10 text-[10px] text-ink-muted">{label.min}</span>
                         <input
                           type="range"
                           min={-1}
@@ -340,10 +340,10 @@ export function CharacterCreationWizard({ onClose }: Props) {
                           step={0.1}
                           value={val}
                           onChange={(e) => updatePersonality(key, parseFloat(e.target.value))}
-                          className="flex-1 accent-amber-400"
+                          className="flex-1 accent-tangerine"
                         />
-                        <span className="w-10 text-[10px] text-gray-500">{label.max}</span>
-                        <span className="w-10 text-right text-xs text-amber-300">{val.toFixed(1)}</span>
+                        <span className="w-10 text-[10px] text-ink-muted">{label.max}</span>
+                        <span className="w-10 text-right text-xs text-tangerine-deep">{val.toFixed(1)}</span>
                       </div>
                     )
                   })}
@@ -353,12 +353,12 @@ export function CharacterCreationWizard({ onClose }: Props) {
           )}
 
           {error && (
-            <div className="rounded-lg bg-red-900/30 px-3 py-2 text-xs text-red-300">{error}</div>
+            <div className="rounded-lg bg-error/20 px-3 py-2 text-xs text-error">{error}</div>
           )}
         </div>
 
         {/* 输入区域 */}
-        <div className="border-t border-white/10 p-4">
+        <div className="border-t border-ink/10 p-4">
           {step === 'description' && (
             <div className="flex items-end gap-2">
               <textarea
@@ -367,13 +367,13 @@ export function CharacterCreationWizard({ onClose }: Props) {
                 onKeyDown={handleKeyDown}
                 placeholder="描述角色的性格、外观和背景…"
                 rows={2}
-                className="flex-1 resize-none rounded-lg bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                className="flex-1 resize-none rounded-lg bg-cream-deep px-3 py-2 text-sm text-ink placeholder-ink-faint focus:outline-none focus:ring-1 focus:ring-tangerine"
                 autoFocus
               />
               <button
                 onClick={handleSubmitCurrent}
                 disabled={!input.trim()}
-                className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500 text-gray-900 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-10 w-10 items-center justify-center rounded-lg bg-tangerine text-white hover:bg-tangerine-deep disabled:cursor-not-allowed disabled:opacity-40"
                 title="发送"
               >
                 <Send size={16} />
@@ -389,13 +389,13 @@ export function CharacterCreationWizard({ onClose }: Props) {
                 onKeyDown={handleKeyDown}
                 placeholder="输入口头禅或标志性特征…"
                 rows={2}
-                className="flex-1 resize-none rounded-lg bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                className="flex-1 resize-none rounded-lg bg-cream-deep px-3 py-2 text-sm text-ink placeholder-ink-faint focus:outline-none focus:ring-1 focus:ring-tangerine"
                 autoFocus
               />
               <button
                 onClick={handleSubmitCurrent}
                 disabled={!input.trim()}
-                className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500 text-gray-900 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-10 w-10 items-center justify-center rounded-lg bg-tangerine text-white hover:bg-tangerine-deep disabled:cursor-not-allowed disabled:opacity-40"
                 title="发送"
               >
                 <Send size={16} />
@@ -415,12 +415,12 @@ export function CharacterCreationWizard({ onClose }: Props) {
                     }}
                     className={`rounded-lg border-2 px-3 py-2 text-sm transition-all ${
                       archetype === opt.value
-                        ? 'border-amber-400 bg-amber-400/10'
-                        : 'border-white/10 hover:border-white/30'
+                        ? 'border-tangerine bg-tangerine/10'
+                        : 'border-ink/10 hover:border-ink/30'
                     }`}
                   >
                     <div className="font-medium">{opt.label}</div>
-                    <div className="text-[10px] text-gray-400">{opt.desc}</div>
+                    <div className="text-[10px] text-ink-faint">{opt.desc}</div>
                   </button>
                 ))}
               </div>
@@ -429,7 +429,7 @@ export function CharacterCreationWizard({ onClose }: Props) {
                   setArchetype('')
                   void handleGenerate('')
                 }}
-                className="text-xs text-gray-500 hover:text-amber-400"
+                className="text-xs text-ink-muted hover:text-tangerine-deep"
               >
                 跳过，让 AI 自由发挥 →
               </button>
@@ -437,7 +437,7 @@ export function CharacterCreationWizard({ onClose }: Props) {
           )}
 
           {step === 'generating' && (
-            <div className="flex items-center justify-center py-2 text-xs text-gray-500">
+            <div className="flex items-center justify-center py-2 text-xs text-ink-muted">
               <Loader2 size={14} className="mr-2 animate-spin" />
               AI 正在生成角色配置…
             </div>
@@ -447,19 +447,19 @@ export function CharacterCreationWizard({ onClose }: Props) {
             <div className="flex gap-2">
               <button
                 onClick={() => setStep('description')}
-                className="flex-1 rounded-lg bg-gray-700 px-4 py-2 text-sm text-gray-300 hover:bg-gray-600"
+                className="flex-1 rounded-lg bg-cream px-4 py-2 text-sm text-ink-faint hover:bg-ink/20"
               >
                 重新描述
               </button>
               <button
                 onClick={() => void handleGenerate()}
-                className="flex-1 rounded-lg bg-gray-700 px-4 py-2 text-sm text-gray-300 hover:bg-gray-600"
+                className="flex-1 rounded-lg bg-cream px-4 py-2 text-sm text-ink-faint hover:bg-ink/20"
               >
                 重新生成
               </button>
               <button
                 onClick={handleConfirm}
-                className="flex items-center justify-center gap-1 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-amber-400"
+                className="flex items-center justify-center gap-1 rounded-lg bg-tangerine px-4 py-2 text-sm font-medium text-white hover:bg-tangerine-deep"
               >
                 <Check size={16} /> 确认创建
               </button>

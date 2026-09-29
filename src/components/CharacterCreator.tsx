@@ -109,7 +109,7 @@ function RadarChart({ personality }: { personality: Personality }) {
           y={l.y}
           textAnchor={l.anchor as 'middle' | 'start' | 'end'}
           dominantBaseline="middle"
-          className="fill-gray-300 text-[10px]"
+          className="fill-ink-faint text-[10px]"
         >
           {l.label}
         </text>
@@ -161,7 +161,7 @@ function AppearancePreview({
         <path d="M 54 82 Q 60 88 66 82" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round" />
       </svg>
       <div className="text-2xl">{emoji}</div>
-      <div className="text-sm font-medium text-gray-200">{name || '未命名角色'}</div>
+      <div className="text-sm font-medium text-ink">{name || '未命名角色'}</div>
     </div>
   )
 }
@@ -377,29 +377,29 @@ export function CharacterCreator({ onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="flex h-[90vh] w-[860px] max-w-[95vw] flex-col rounded-2xl bg-gray-900 text-white shadow-2xl">
+      <div className="flex h-[90vh] w-[860px] max-w-[95vw] flex-col rounded-2xl bg-surface text-ink shadow-2xl">
         {/* 头部 */}
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
+        <div className="flex items-center justify-between border-b border-ink/10 px-5 py-3">
           <div className="flex items-center gap-2">
-            <Bot size={18} className="text-amber-400" />
+            <Bot size={18} className="text-tangerine-deep" />
             <h2 className="text-base font-semibold">可视化角色创作</h2>
           </div>
           <div className="flex items-center gap-1">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-400 hover:bg-white/10 hover:text-amber-300"
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-ink-faint hover:bg-ink/10 hover:text-tangerine"
               title="导入角色 JSON"
             >
               <Upload size={14} /> 导入
             </button>
             <button
               onClick={handleExport}
-              className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-400 hover:bg-white/10 hover:text-amber-300"
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-ink-faint hover:bg-ink/10 hover:text-tangerine"
               title="导出角色 JSON"
             >
               <Download size={14} /> 导出
             </button>
-            <button onClick={onClose} className="rounded-md p-1.5 text-gray-400 hover:bg-white/10" title="关闭">
+            <button onClick={onClose} className="rounded-md p-1.5 text-ink-faint hover:bg-ink/10" title="关闭">
               <X size={18} />
             </button>
           </div>
@@ -412,8 +412,8 @@ export function CharacterCreator({ onClose }: Props) {
             {/* ===== 左列：基本信息 + 外观预览 ===== */}
             <div className="space-y-4">
               {/* 外观预览 */}
-              <div className="rounded-xl bg-gray-800/50 p-4">
-                <div className="mb-2 text-xs font-semibold text-amber-300">外观预览</div>
+              <div className="rounded-xl bg-cream-deep/50 p-4">
+                <div className="mb-2 text-xs font-semibold text-tangerine-deep">外观预览</div>
                 <AppearancePreview
                   emoji={emoji}
                   name={profile.displayName || profile.name}
@@ -423,74 +423,74 @@ export function CharacterCreator({ onClose }: Props) {
                 {/* 主题色 */}
                 <div className="mt-3 flex gap-3">
                   <div className="flex items-center gap-2">
-                    <Palette size={14} className="text-gray-400" />
+                    <Palette size={14} className="text-ink-faint" />
                     <input
                       type="color"
                       value={profile.themeColor.primary}
                       onChange={(e) => updateThemeColor('primary', e.target.value)}
-                      className="h-8 w-10 cursor-pointer rounded border border-white/10 bg-transparent"
+                      className="h-8 w-10 cursor-pointer rounded border border-ink/10 bg-transparent"
                     />
-                    <span className="text-[10px] text-gray-400">主色</span>
+                    <span className="text-[10px] text-ink-faint">主色</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <input
                       type="color"
                       value={profile.themeColor.secondary}
                       onChange={(e) => updateThemeColor('secondary', e.target.value)}
-                      className="h-8 w-10 cursor-pointer rounded border border-white/10 bg-transparent"
+                      className="h-8 w-10 cursor-pointer rounded border border-ink/10 bg-transparent"
                     />
-                    <span className="text-[10px] text-gray-400">副色</span>
+                    <span className="text-[10px] text-ink-faint">副色</span>
                   </div>
                 </div>
               </div>
 
               {/* 基本信息 */}
-              <div className="rounded-xl bg-gray-800/50 p-4">
-                <div className="mb-3 text-xs font-semibold text-amber-300">基本信息</div>
+              <div className="rounded-xl bg-cream-deep/50 p-4">
+                <div className="mb-3 text-xs font-semibold text-tangerine-deep">基本信息</div>
                 <div className="space-y-3">
                   <div>
-                    <label className="mb-1 block text-xs text-gray-400">角色名称</label>
+                    <label className="mb-1 block text-xs text-ink-faint">角色名称</label>
                     <input
                       value={profile.displayName}
                       onChange={(e) => updateField('displayName', e.target.value)}
                       placeholder="例如：小花"
-                      className="w-full rounded-lg bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
+                      className="w-full rounded-lg bg-cream-deep px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs text-gray-400">角色 ID（英文，留空自动生成）</label>
+                    <label className="mb-1 block text-xs text-ink-faint">角色 ID（英文，留空自动生成）</label>
                     <input
                       value={profile.name}
                       onChange={(e) => updateField('name', e.target.value)}
                       placeholder="例如：xiaohua"
-                      className="w-full rounded-lg bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
+                      className="w-full rounded-lg bg-cream-deep px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs text-gray-400">描述 / 背景故事</label>
+                    <label className="mb-1 block text-xs text-ink-faint">描述 / 背景故事</label>
                     <textarea
                       value={profile.birthBackground}
                       onChange={(e) => updateField('birthBackground', e.target.value)}
                       placeholder="描述角色的来历、性格底色、世界观…"
                       rows={3}
-                      className="w-full resize-none rounded-lg bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
+                      className="w-full resize-none rounded-lg bg-cream-deep px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs text-gray-400">标志符号 / 口头禅核心</label>
+                    <label className="mb-1 block text-xs text-ink-faint">标志符号 / 口头禅核心</label>
                     <input
                       value={profile.signaturePhrase}
                       onChange={(e) => updateField('signaturePhrase', e.target.value)}
                       placeholder="例如：欧润吉！"
-                      className="w-full rounded-lg bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
+                      className="w-full rounded-lg bg-cream-deep px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
                     />
                   </div>
                 </div>
               </div>
 
               {/* 雷达图 */}
-              <div className="rounded-xl bg-gray-800/50 p-4">
-                <div className="mb-2 text-xs font-semibold text-amber-300">五维性格雷达图</div>
+              <div className="rounded-xl bg-cream-deep/50 p-4">
+                <div className="mb-2 text-xs font-semibold text-tangerine-deep">五维性格雷达图</div>
                 <RadarChart personality={profile.personality} />
               </div>
             </div>
@@ -498,8 +498,8 @@ export function CharacterCreator({ onClose }: Props) {
             {/* ===== 右列：性格参数 + Prompt + 物品 + 动画 ===== */}
             <div className="space-y-4">
               {/* 性格模板 + 滑块 */}
-              <div className="rounded-xl bg-gray-800/50 p-4">
-                <div className="mb-3 flex items-center gap-1 text-xs font-semibold text-amber-300">
+              <div className="rounded-xl bg-cream-deep/50 p-4">
+                <div className="mb-3 flex items-center gap-1 text-xs font-semibold text-tangerine-deep">
                   <Sparkles size={14} /> 五维性格参数
                 </div>
                 {/* 模板按钮 */}
@@ -509,10 +509,10 @@ export function CharacterCreator({ onClose }: Props) {
                       key={t.id}
                       onClick={() => applyTemplate(t.id)}
                       title={t.description}
-                      className="flex flex-col items-center rounded-lg border border-white/10 px-1 py-1.5 transition-all hover:border-amber-400/50 hover:bg-white/5"
+                      className="flex flex-col items-center rounded-lg border border-ink/10 px-1 py-1.5 transition-all hover:border-tangerine/50 hover:bg-ink/5"
                     >
                       <span className="text-base">{t.emoji}</span>
-                      <span className="text-[9px] text-gray-300">{t.name}</span>
+                      <span className="text-[9px] text-ink-faint">{t.name}</span>
                     </button>
                   ))}
                 </div>
@@ -524,14 +524,14 @@ export function CharacterCreator({ onClose }: Props) {
                     return (
                       <div key={key}>
                         <div className="mb-0.5 flex items-center justify-between">
-                          <label className="text-xs text-gray-400">{info.label}</label>
-                          <span className="text-[10px] text-gray-500">
+                          <label className="text-xs text-ink-faint">{info.label}</label>
+                          <span className="text-[10px] text-ink-muted">
                             {val < -0.1 ? info.min : val > 0.1 ? info.max : '中性'}
-                            <span className="ml-1.5 tabular-nums text-amber-300">{val.toFixed(1)}</span>
+                            <span className="ml-1.5 tabular-nums text-tangerine-deep">{val.toFixed(1)}</span>
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="w-8 text-right text-[9px] text-gray-500">{info.min}</span>
+                          <span className="w-8 text-right text-[9px] text-ink-muted">{info.min}</span>
                           <input
                             type="range"
                             min={-1}
@@ -539,9 +539,9 @@ export function CharacterCreator({ onClose }: Props) {
                             step={0.1}
                             value={val}
                             onChange={(e) => updatePersonality(key, parseFloat(e.target.value))}
-                            className="flex-1 accent-amber-400"
+                            className="flex-1 accent-tangerine"
                           />
-                          <span className="w-8 text-[9px] text-gray-500">{info.max}</span>
+                          <span className="w-8 text-[9px] text-ink-muted">{info.max}</span>
                         </div>
                       </div>
                     )
@@ -550,19 +550,19 @@ export function CharacterCreator({ onClose }: Props) {
               </div>
 
               {/* 口头禅列表 */}
-              <div className="rounded-xl bg-gray-800/50 p-4">
-                <div className="mb-2 text-xs font-semibold text-amber-300">口头禅 / 经典语录</div>
+              <div className="rounded-xl bg-cream-deep/50 p-4">
+                <div className="mb-2 text-xs font-semibold text-tangerine-deep">口头禅 / 经典语录</div>
                 <div className="flex gap-2">
                   <input
                     value={newPhrase}
                     onChange={(e) => setNewPhrase(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') addCatchphrase() }}
                     placeholder="输入口头禅后回车添加"
-                    className="flex-1 rounded-lg bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    className="flex-1 rounded-lg bg-cream-deep px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
                   />
                   <button
                     onClick={addCatchphrase}
-                    className="flex items-center gap-1 rounded-lg bg-gray-700 px-3 py-2 text-sm text-gray-200 hover:bg-gray-600"
+                    className="flex items-center gap-1 rounded-lg bg-cream px-3 py-2 text-sm text-ink hover:bg-ink/20"
                   >
                     <Plus size={14} />
                   </button>
@@ -572,12 +572,12 @@ export function CharacterCreator({ onClose }: Props) {
                     {profile.classicQuotes.map((q, idx) => (
                       <span
                         key={idx}
-                        className="flex items-center gap-1 rounded-full bg-amber-400/20 px-2.5 py-1 text-xs text-amber-200"
+                        className="flex items-center gap-1 rounded-full bg-tangerine/20 px-2.5 py-1 text-xs text-tangerine-deep"
                       >
                         {q}
                         <button
                           onClick={() => removeCatchphrase(idx)}
-                          className="text-amber-300/60 hover:text-red-400"
+                          className="text-tangerine-deep/60 hover:text-error"
                         >
                           <Trash2 size={11} />
                         </button>
@@ -588,12 +588,12 @@ export function CharacterCreator({ onClose }: Props) {
               </div>
 
               {/* System Prompt */}
-              <div className="rounded-xl bg-gray-800/50 p-4">
+              <div className="rounded-xl bg-cream-deep/50 p-4">
                 <div className="mb-2 flex items-center justify-between">
-                  <div className="text-xs font-semibold text-amber-300">System Prompt</div>
+                  <div className="text-xs font-semibold text-tangerine-deep">System Prompt</div>
                   <button
                     onClick={autoGeneratePrompt}
-                    className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-amber-300"
+                    className="flex items-center gap-1 text-[10px] text-ink-faint hover:text-tangerine"
                   >
                     <Sparkles size={11} /> 自动生成
                   </button>
@@ -603,21 +603,21 @@ export function CharacterCreator({ onClose }: Props) {
                   onChange={(e) => updateField('systemPrompt', e.target.value)}
                   rows={4}
                   placeholder="可手动输入或从模板选择后微调…"
-                  className="w-full resize-none rounded-lg bg-gray-800 px-3 py-2 text-xs leading-relaxed text-gray-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                  className="w-full resize-none rounded-lg bg-cream-deep px-3 py-2 text-xs leading-relaxed text-ink-faint focus:outline-none focus:ring-1 focus:ring-tangerine"
                 />
-                <div className="mt-1.5 text-[10px] text-gray-500">
+                <div className="mt-1.5 text-[10px] text-ink-muted">
                   字数：{profile.systemPrompt.length}
                 </div>
               </div>
 
               {/* 喜欢物品 / 讨厌物品 */}
-              <div className="rounded-xl bg-gray-800/50 p-4">
-                <div className="mb-2 text-xs font-semibold text-amber-300">喜欢 / 讨厌物品</div>
+              <div className="rounded-xl bg-cream-deep/50 p-4">
+                <div className="mb-2 text-xs font-semibold text-tangerine-deep">喜欢 / 讨厌物品</div>
                 <div className="mb-2 flex items-center gap-3 text-[10px]">
-                  <span className="flex items-center gap-1 text-green-400"><ThumbsUp size={11} /> 喜欢物品 ×2.0</span>
-                  <span className="flex items-center gap-1 text-red-400"><ThumbsDown size={11} /> 讨厌物品 ×0.5</span>
+                  <span className="flex items-center gap-1 text-success-deep"><ThumbsUp size={11} /> 喜欢物品 ×2.0</span>
+                  <span className="flex items-center gap-1 text-error"><ThumbsDown size={11} /> 讨厌物品 ×0.5</span>
                 </div>
-                <div className="max-h-32 overflow-y-auto rounded-lg bg-gray-900/50 p-2">
+                <div className="max-h-32 overflow-y-auto rounded-lg bg-surface/50 p-2">
                   <div className="flex flex-wrap gap-1">
                     {itemPool.map((item) => {
                       const isFav = profile.favoriteItems?.includes(item.id)
@@ -632,10 +632,10 @@ export function CharacterCreator({ onClose }: Props) {
                           }}
                           className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] transition-colors ${
                             isFav
-                              ? 'bg-green-500/30 text-green-200'
+                              ? 'bg-success/20 text-success-deep'
                               : isDis
-                                ? 'bg-red-500/30 text-red-200'
-                                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                                ? 'bg-error/20 text-error'
+                                : 'bg-cream-deep text-ink-faint hover:bg-cream'
                           }`}
                           title="左键=喜欢，右键=讨厌"
                         >
@@ -646,12 +646,12 @@ export function CharacterCreator({ onClose }: Props) {
                     })}
                   </div>
                 </div>
-                <div className="mt-1.5 text-[10px] text-gray-500">左键点击标记为喜欢，右键点击标记为讨厌，再次点击取消</div>
+                <div className="mt-1.5 text-[10px] text-ink-muted">左键点击标记为喜欢，右键点击标记为讨厌，再次点击取消</div>
               </div>
 
               {/* 动画配置 */}
-              <div className="rounded-xl bg-gray-800/50 p-4">
-                <div className="mb-2 flex items-center gap-1 text-xs font-semibold text-amber-300">
+              <div className="rounded-xl bg-cream-deep/50 p-4">
+                <div className="mb-2 flex items-center gap-1 text-xs font-semibold text-tangerine-deep">
                   <Film size={14} /> 动画配置
                 </div>
                 <div className="space-y-2">
@@ -661,12 +661,12 @@ export function CharacterCreator({ onClose }: Props) {
                       onClick={() => setAnimPreset(p.id as 'default' | 'simple' | 'custom')}
                       className={`block w-full rounded-lg border px-3 py-2 text-left transition-all ${
                         animPreset === p.id
-                          ? 'border-amber-400 bg-amber-400/10'
-                          : 'border-white/10 hover:border-white/30'
+                          ? 'border-tangerine bg-tangerine/10'
+                          : 'border-ink/10 hover:border-ink/30'
                       }`}
                     >
-                      <div className="text-xs font-medium text-gray-200">{p.label}</div>
-                      <div className="text-[10px] text-gray-500">{p.desc}</div>
+                      <div className="text-xs font-medium text-ink">{p.label}</div>
+                      <div className="text-[10px] text-ink-muted">{p.desc}</div>
                     </button>
                   ))}
                 </div>
@@ -678,12 +678,12 @@ export function CharacterCreator({ onClose }: Props) {
 
                 {/* 精灵图资源路径 */}
                 <div className="mt-3">
-                  <label className="mb-1 block text-xs text-gray-400">精灵图资源路径</label>
+                  <label className="mb-1 block text-xs text-ink-faint">精灵图资源路径</label>
                   <input
                     value={profile.spriteAsset}
                     onChange={(e) => updateField('spriteAsset', e.target.value)}
                     placeholder="/pets/xxx/spritesheet.webp"
-                    className="w-full rounded-lg bg-gray-800 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    className="w-full rounded-lg bg-cream-deep px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-tangerine"
                   />
                 </div>
               </div>
@@ -691,31 +691,31 @@ export function CharacterCreator({ onClose }: Props) {
           </div>
 
           {error && (
-            <div className="mt-3 rounded-lg bg-red-900/30 px-3 py-2 text-xs text-red-300">{error}</div>
+            <div className="mt-3 rounded-lg bg-error/20 px-3 py-2 text-xs text-error">{error}</div>
           )}
           {importOk && (
-            <div className="mt-3 flex items-center gap-2 rounded-lg bg-green-900/30 px-3 py-2 text-xs text-green-300">
+            <div className="mt-3 flex items-center gap-2 rounded-lg bg-success/20 px-3 py-2 text-xs text-success-deep">
               <Check size={14} /> JSON 导入成功
             </div>
           )}
         </div>
 
         {/* 底部按钮 */}
-        <div className="flex items-center justify-between border-t border-white/10 px-5 py-3">
-          <div className="flex items-center gap-1 text-[10px] text-gray-500">
+        <div className="flex items-center justify-between border-t border-ink/10 px-5 py-3">
+          <div className="flex items-center gap-1 text-[10px] text-ink-muted">
             <FileJson size={12} />
             ID: {profile.id}
           </div>
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="rounded-lg bg-gray-700 px-4 py-2 text-sm text-gray-300 hover:bg-gray-600"
+              className="rounded-lg bg-cream px-4 py-2 text-sm text-ink-faint hover:bg-ink/20"
             >
               取消
             </button>
             <button
               onClick={handleSave}
-              className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-5 py-2 text-sm font-medium text-gray-900 hover:bg-amber-400"
+              className="flex items-center gap-1.5 rounded-lg bg-tangerine px-5 py-2 text-sm font-medium text-white hover:bg-tangerine-deep"
             >
               <Save size={16} /> 保存角色
             </button>
@@ -723,7 +723,7 @@ export function CharacterCreator({ onClose }: Props) {
         </div>
 
         {savedTip && (
-          <div className="pointer-events-none absolute bottom-20 left-1/2 -translate-x-1/2 rounded-full bg-green-600 px-4 py-1.5 text-sm">
+          <div className="pointer-events-none absolute bottom-20 left-1/2 -translate-x-1/2 rounded-full bg-success-deep px-4 py-1.5 text-sm">
             已保存，正在切换到新角色… ✓
           </div>
         )}

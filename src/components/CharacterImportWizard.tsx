@@ -113,16 +113,16 @@ export function CharacterImportWizard({ onClose }: CharacterImportWizardProps): 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-gray-900 p-6 shadow-2xl"
+        className="relative w-full max-w-lg rounded-2xl border border-ink/10 bg-surface p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 标题栏 */}
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-100">
-            <Upload size={20} className="text-amber-400" />
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-ink">
+            <Upload size={20} className="text-tangerine-deep" />
             {t('settings.import_character', { defaultValue: '导入角色' })}
           </h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300">
+          <button onClick={onClose} className="text-ink-muted hover:text-ink">
             <X size={18} />
           </button>
         </div>
@@ -135,15 +135,15 @@ export function CharacterImportWizard({ onClose }: CharacterImportWizardProps): 
           onClick={() => fileInputRef.current?.click()}
           className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 transition-all ${
             dragOver
-              ? 'border-amber-400 bg-amber-400/10'
-              : 'border-white/10 hover:border-white/30'
+              ? 'border-tangerine bg-tangerine/10'
+              : 'border-ink/10 hover:border-ink/30'
           }`}
         >
-          <Upload size={32} className="mb-2 text-gray-500" />
-          <p className="text-sm text-gray-400">
+          <Upload size={32} className="mb-2 text-ink-muted" />
+          <p className="text-sm text-ink-faint">
             {t('settings.import_drag_hint', { defaultValue: '拖入 JSON / PNG 文件，或点击选择' })}
           </p>
-          <div className="mt-3 flex gap-3 text-xs text-gray-600">
+          <div className="mt-3 flex gap-3 text-xs text-ink-muted">
             <span className="flex items-center gap-1"><FileJson size={12} /> JSON</span>
             <span className="flex items-center gap-1"><ImageIcon size={12} /> PNG</span>
           </div>
@@ -158,16 +158,16 @@ export function CharacterImportWizard({ onClose }: CharacterImportWizardProps): 
 
         {/* 分隔线 */}
         <div className="my-4 flex items-center gap-3">
-          <div className="h-px flex-1 bg-white/10" />
-          <span className="text-xs text-gray-600">{t('settings.or', { defaultValue: '或' })}</span>
-          <div className="h-px flex-1 bg-white/10" />
+          <div className="h-px flex-1 bg-ink/10" />
+          <span className="text-xs text-ink-muted">{t('settings.or', { defaultValue: '或' })}</span>
+          <div className="h-px flex-1 bg-ink/10" />
         </div>
 
         {/* 目录选择 */}
         <button
           onClick={handleDirectorySelect}
           disabled={loading}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/20 px-4 py-3 text-sm text-gray-400 hover:border-white/40 hover:text-gray-200 disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-ink/20 px-4 py-3 text-sm text-ink-faint hover:border-ink/40 hover:text-ink disabled:opacity-50"
         >
           <FolderOpen size={16} />
           {t('settings.import_from_directory', { defaultValue: '从目录导入角色包' })}
@@ -175,7 +175,7 @@ export function CharacterImportWizard({ onClose }: CharacterImportWizardProps): 
 
         {/* 加载中 */}
         {loading && (
-          <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-400">
+          <div className="mt-4 flex items-center justify-center gap-2 text-sm text-ink-faint">
             <Loader2 size={16} className="animate-spin" />
             {t('settings.importing', { defaultValue: '正在导入...' })}
           </div>
@@ -185,8 +185,8 @@ export function CharacterImportWizard({ onClose }: CharacterImportWizardProps): 
         {result && !loading && (
           <div className="mt-4 space-y-3">
             {result.ok && result.profile ? (
-              <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4">
-                <div className="flex items-center gap-2 text-green-400">
+              <div className="rounded-lg border border-success/30 bg-success/10 p-4">
+                <div className="flex items-center gap-2 text-success-deep">
                   <CheckCircle2 size={18} />
                   <span className="text-sm font-medium">
                     {t('settings.import_success', { defaultValue: '导入成功' })}
@@ -202,10 +202,10 @@ export function CharacterImportWizard({ onClose }: CharacterImportWizardProps): 
                     {result.profile.displayName.charAt(0)}
                   </div>
                   <div className="flex-1">
-                    <div className="text-sm font-medium text-gray-200">
+                    <div className="text-sm font-medium text-ink">
                       {result.profile.displayName}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-ink-muted">
                       ID: {result.profile.id} · {result.profile.spriteType}
                     </div>
                   </div>
@@ -215,7 +215,7 @@ export function CharacterImportWizard({ onClose }: CharacterImportWizardProps): 
                 {result.warnings.length > 0 && (
                   <div className="mt-2 space-y-1">
                     {result.warnings.map((w, i) => (
-                      <div key={i} className="flex items-start gap-1 text-xs text-yellow-400">
+                      <div key={i} className="flex items-start gap-1 text-xs text-warning">
                         <AlertTriangle size={12} className="mt-0.5 shrink-0" />
                         <span>{w}</span>
                       </div>
@@ -226,14 +226,14 @@ export function CharacterImportWizard({ onClose }: CharacterImportWizardProps): 
                 {/* 立即使用按钮 */}
                 <button
                   onClick={handleUseCharacter}
-                  className="mt-3 w-full rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600"
+                  className="mt-3 w-full rounded-lg bg-tangerine px-4 py-2 text-sm font-medium text-white hover:bg-tangerine-deep"
                 >
                   {t('settings.use_now', { defaultValue: '立即使用' })}
                 </button>
               </div>
             ) : (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4">
-                <div className="flex items-center gap-2 text-red-400">
+              <div className="rounded-lg border border-error/30 bg-error/10 p-4">
+                <div className="flex items-center gap-2 text-error">
                   <AlertCircle size={18} />
                   <span className="text-sm font-medium">
                     {t('settings.import_failed', { defaultValue: '导入失败' })}
@@ -241,7 +241,7 @@ export function CharacterImportWizard({ onClose }: CharacterImportWizardProps): 
                 </div>
                 <div className="mt-2 space-y-1">
                   {result.errors.map((err, i) => (
-                    <div key={i} className="flex items-start gap-1 text-xs text-red-300">
+                    <div key={i} className="flex items-start gap-1 text-xs text-error">
                       <AlertCircle size={12} className="mt-0.5 shrink-0" />
                       <span>{err}</span>
                     </div>

@@ -486,14 +486,14 @@ export function GifToSpriteTool({ onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="flex h-[90vh] w-[860px] max-w-[95vw] flex-col rounded-2xl bg-gray-900 text-white shadow-2xl">
+      <div className="flex h-[90vh] w-[860px] max-w-[95vw] flex-col rounded-2xl bg-surface text-ink shadow-2xl">
         {/* 头部 */}
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
+        <div className="flex items-center justify-between border-b border-ink/10 px-5 py-3">
           <div className="flex items-center gap-2">
-            <Film size={18} className="text-amber-400" />
+            <Film size={18} className="text-tangerine-deep" />
             <h2 className="text-base font-semibold">GIF 转精灵图工具</h2>
           </div>
-          <button onClick={onClose} className="rounded-md p-1.5 text-gray-400 hover:bg-white/10" title="关闭">
+          <button onClick={onClose} className="rounded-md p-1.5 text-ink-faint hover:bg-ink/10" title="关闭">
             <X size={18} />
           </button>
         </div>
@@ -501,7 +501,7 @@ export function GifToSpriteTool({ onClose }: Props) {
         {/* 主体 */}
         <div className="flex-1 overflow-y-auto p-5">
           {error && (
-            <div className="mb-4 flex items-center gap-2 rounded-lg bg-red-900/30 px-3 py-2 text-xs text-red-300">
+            <div className="mb-4 flex items-center gap-2 rounded-lg bg-error/20 px-3 py-2 text-xs text-error">
               <AlertCircle size={14} /> {error}
             </div>
           )}
@@ -515,13 +515,13 @@ export function GifToSpriteTool({ onClose }: Props) {
               onDrop={handleDrop}
               className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-12 text-center transition-colors ${
                 isDragging
-                  ? 'border-amber-400 bg-amber-400/10'
-                  : 'border-white/15 bg-gray-800/30 hover:border-amber-400 hover:bg-amber-400/5'
+                  ? 'border-tangerine bg-tangerine/10'
+                  : 'border-ink/15 bg-cream-deep/30 hover:border-tangerine hover:bg-tangerine/5'
               }`}
             >
-              <Upload size={44} className="mb-3 text-gray-500" />
-              <div className="text-sm text-gray-300">点击选择 GIF 文件，或拖拽到此区域</div>
-              <div className="mt-1 text-xs text-gray-500">支持 GIF 动图（逐帧解析）和 PNG/JPG 静态图</div>
+              <Upload size={44} className="mb-3 text-ink-muted" />
+              <div className="text-sm text-ink-faint">点击选择 GIF 文件，或拖拽到此区域</div>
+              <div className="mt-1 text-xs text-ink-muted">支持 GIF 动图（逐帧解析）和 PNG/JPG 静态图</div>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -535,8 +535,8 @@ export function GifToSpriteTool({ onClose }: Props) {
           {/* 解析中 */}
           {stage === 'parsing' && (
             <div className="flex flex-col items-center py-12">
-              <Loader2 size={36} className="mb-3 animate-spin text-amber-400" />
-              <div className="text-sm text-gray-300">正在解析 GIF 帧数据...</div>
+              <Loader2 size={36} className="mb-3 animate-spin text-tangerine-deep" />
+              <div className="text-sm text-ink-faint">正在解析 GIF 帧数据...</div>
             </div>
           )}
 
@@ -544,21 +544,21 @@ export function GifToSpriteTool({ onClose }: Props) {
           {file && stage !== 'idle' && stage !== 'parsing' && (
             <>
               {/* 文件信息条 */}
-              <div className="mb-4 flex items-center justify-between rounded-lg bg-gray-800/50 px-3 py-2">
+              <div className="mb-4 flex items-center justify-between rounded-lg bg-cream-deep/50 px-3 py-2">
                 <div className="flex items-center gap-2">
-                  <ImageIcon size={16} className="text-green-300" />
-                  <span className="text-xs text-gray-300">{file.name}</span>
-                  <span className="text-[10px] text-gray-500">{(file.size / 1024).toFixed(1)} KB</span>
+                  <ImageIcon size={16} className="text-success-deep" />
+                  <span className="text-xs text-ink-faint">{file.name}</span>
+                  <span className="text-[10px] text-ink-muted">{(file.size / 1024).toFixed(1)} KB</span>
                 </div>
-                <button onClick={handleReset} className="text-xs text-gray-400 hover:text-amber-300">重新选择</button>
+                <button onClick={handleReset} className="text-xs text-ink-faint hover:text-tangerine">重新选择</button>
               </div>
 
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 {/* 左列：配置 */}
                 <div className="space-y-4">
                   {/* A-6：导出布局选择 */}
-                  <div className="rounded-xl bg-gray-800/50 p-4">
-                    <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-amber-300">
+                  <div className="rounded-xl bg-cream-deep/50 p-4">
+                    <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-tangerine-deep">
                       <Layers size={14} /> 导出布局
                     </div>
                     <div className="flex gap-2">
@@ -566,8 +566,8 @@ export function GifToSpriteTool({ onClose }: Props) {
                         onClick={() => changePackMode('grid')}
                         className={`flex-1 rounded-lg px-3 py-2 text-xs transition-colors ${
                           packMode === 'grid'
-                            ? 'bg-amber-500 font-medium text-gray-900'
-                            : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                            ? 'bg-tangerine font-medium text-white'
+                            : 'bg-cream-deep text-ink-faint hover:bg-cream'
                         }`}
                       >
                         固定网格
@@ -577,8 +577,8 @@ export function GifToSpriteTool({ onClose }: Props) {
                         onClick={() => changePackMode('packed')}
                         className={`flex-1 rounded-lg px-3 py-2 text-xs transition-colors ${
                           packMode === 'packed'
-                            ? 'bg-amber-500 font-medium text-gray-900'
-                            : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                            ? 'bg-tangerine font-medium text-white'
+                            : 'bg-cream-deep text-ink-faint hover:bg-cream'
                         }`}
                       >
                         紧凑打包
@@ -586,7 +586,7 @@ export function GifToSpriteTool({ onClose }: Props) {
                       </button>
                     </div>
                     {packMode === 'packed' && atlasData && (
-                      <div className="mt-2 text-[10px] text-gray-400">
+                      <div className="mt-2 text-[10px] text-ink-faint">
                         图集 {atlasData.totalWidth}×{atlasData.totalHeight}px · 空间利用率{' '}
                         {atlasData.efficiency.toFixed(1)}%
                       </div>
@@ -594,8 +594,8 @@ export function GifToSpriteTool({ onClose }: Props) {
                   </div>
 
                   {/* 网格配置 */}
-                  <div className="rounded-xl bg-gray-800/50 p-4">
-                    <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-amber-300">
+                  <div className="rounded-xl bg-cream-deep/50 p-4">
+                    <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-tangerine-deep">
                       <Settings2 size={14} /> 网格布局配置
                     </div>
                     <div className="grid grid-cols-2 gap-x-3 gap-y-3">
@@ -607,33 +607,33 @@ export function GifToSpriteTool({ onClose }: Props) {
                       <ConfigInput label="帧率 (fps)" value={config.fps} min={1} max={60} onChange={(v) => updateConfig('fps', v)} />
                     </div>
                     <div className="mt-3 flex items-center justify-between">
-                      <span className="text-[10px] text-gray-500">总槽位 {totalSlots} · 输出 {config.cols * config.frameWidth + (config.cols - 1) * config.spacing}×{config.rows * config.frameHeight + (config.rows - 1) * config.spacing}px</span>
+                      <span className="text-[10px] text-ink-muted">总槽位 {totalSlots} · 输出 {config.cols * config.frameWidth + (config.cols - 1) * config.spacing}×{config.rows * config.frameHeight + (config.rows - 1) * config.spacing}px</span>
                     </div>
                   </div>
 
                   {/* 背景配置 */}
-                  <div className="rounded-xl bg-gray-800/50 p-4">
-                    <div className="mb-3 text-xs font-semibold text-amber-300">背景设置</div>
+                  <div className="rounded-xl bg-cream-deep/50 p-4">
+                    <div className="mb-3 text-xs font-semibold text-tangerine-deep">背景设置</div>
                     <div className="space-y-2">
-                      <label className="flex items-center gap-2 text-xs text-gray-300">
+                      <label className="flex items-center gap-2 text-xs text-ink-faint">
                         <input
                           type="checkbox"
                           checked={config.transparent}
                           onChange={(e) => updateConfig('transparent', e.target.checked)}
-                          className="accent-amber-400"
+                          className="accent-tangerine"
                         />
                         透明背景（导出 PNG 带 alpha 通道）
                       </label>
                       {!config.transparent && (
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-400">背景色</span>
+                          <span className="text-xs text-ink-faint">背景色</span>
                           <input
                             type="color"
                             value={config.bgColor}
                             onChange={(e) => updateConfig('bgColor', e.target.value)}
-                            className="h-8 w-12 cursor-pointer rounded border border-white/10 bg-transparent"
+                            className="h-8 w-12 cursor-pointer rounded border border-ink/10 bg-transparent"
                           />
-                          <span className="text-xs text-gray-500">{config.bgColor}</span>
+                          <span className="text-xs text-ink-muted">{config.bgColor}</span>
                         </div>
                       )}
                     </div>
@@ -641,12 +641,12 @@ export function GifToSpriteTool({ onClose }: Props) {
 
                   {/* 动画行名称配置 */}
                   {frames.length > 0 && (
-                    <div className="rounded-xl bg-gray-800/50 p-4">
-                      <div className="mb-2 text-xs font-semibold text-amber-300">动画行名称（用于 act_conf.json）</div>
+                    <div className="rounded-xl bg-cream-deep/50 p-4">
+                      <div className="mb-2 text-xs font-semibold text-tangerine-deep">动画行名称（用于 act_conf.json）</div>
                       <div className="space-y-1.5">
                         {animNames.map((name, idx) => (
                           <div key={idx} className="flex items-center gap-2">
-                            <span className="w-8 text-[10px] text-gray-500">行{idx}</span>
+                            <span className="w-8 text-[10px] text-ink-muted">行{idx}</span>
                             <input
                               value={name}
                               onChange={(e) => {
@@ -654,9 +654,9 @@ export function GifToSpriteTool({ onClose }: Props) {
                                 next[idx] = e.target.value
                                 setAnimNames(next)
                               }}
-                              className="flex-1 rounded bg-gray-800 px-2 py-1 text-xs"
+                              className="flex-1 rounded bg-cream-deep px-2 py-1 text-xs"
                             />
-                            <span className="text-[9px] text-gray-500">
+                            <span className="text-[9px] text-ink-muted">
                               {Math.min(config.cols, Math.max(0, frames.length - idx * config.cols))} 帧
                             </span>
                           </div>
@@ -670,7 +670,7 @@ export function GifToSpriteTool({ onClose }: Props) {
                     <button
                       onClick={() => void handleGenerate()}
                       disabled={generating}
-                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-medium text-gray-900 hover:bg-amber-400 disabled:opacity-60"
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-tangerine px-4 py-2.5 text-sm font-medium text-white hover:bg-tangerine-deep disabled:opacity-60"
                     >
                       {generating ? (
                         <Loader2 size={16} className="animate-spin" />
@@ -685,24 +685,24 @@ export function GifToSpriteTool({ onClose }: Props) {
                 {/* 右列：帧预览 */}
                 <div className="space-y-4">
                   {frames.length > 0 && (
-                    <div className="rounded-xl bg-gray-800/50 p-4">
-                      <div className="mb-2 flex items-center gap-2 text-xs text-gray-400">
+                    <div className="rounded-xl bg-cream-deep/50 p-4">
+                      <div className="mb-2 flex items-center gap-2 text-xs text-ink-faint">
                         <Grid3x3 size={14} />
                         已提取 {frames.length} 帧
                         {frames.length > totalSlots && (
-                          <span className="text-amber-400">（仅取前 {totalSlots} 帧）</span>
+                          <span className="text-tangerine-deep">（仅取前 {totalSlots} 帧）</span>
                         )}
                       </div>
-                      <div className="max-h-64 overflow-y-auto rounded-lg border border-white/10 bg-gray-900/50 p-2">
+                      <div className="max-h-64 overflow-y-auto rounded-lg border border-ink/10 bg-surface/50 p-2">
                         <div className="flex flex-wrap gap-1">
                           {frames.slice(0, totalSlots).map((frame, i) => (
                             <div
                               key={i}
-                              className="relative overflow-hidden rounded border border-white/5"
+                              className="relative overflow-hidden rounded border border-ink/10"
                               style={{ width: 48, height: 48 }}
                             >
                               <img src={frame.toDataURL()} alt={`f${i}`} className="h-full w-full object-cover" />
-                              <span className="absolute bottom-0 right-0 bg-black/60 px-0.5 text-[8px] text-gray-300">{i}</span>
+                              <span className="absolute bottom-0 right-0 bg-black/60 px-0.5 text-[8px] text-ink-faint">{i}</span>
                             </div>
                           ))}
                         </div>
@@ -713,13 +713,13 @@ export function GifToSpriteTool({ onClose }: Props) {
                   {/* 生成结果 */}
                   {stage === 'done' && spriteDataUrl && actConf && (
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2 rounded-lg bg-green-900/30 px-3 py-2 text-xs text-green-300">
+                      <div className="flex items-center gap-2 rounded-lg bg-success/20 px-3 py-2 text-xs text-success-deep">
                         <Check size={14} />
                         精灵图生成成功！共 {actConf.totalFrames} 帧，{actConf.rows} 行 × {actConf.cols} 列
                       </div>
-                      <div className="rounded-xl border border-white/10 bg-gray-800/30 p-3">
-                        <div className="mb-2 text-xs text-gray-400">精灵图预览</div>
-                        <div className="overflow-auto rounded-lg bg-gray-900/50 p-2" style={{ maxHeight: '240px' }}>
+                      <div className="rounded-xl border border-ink/10 bg-cream-deep/30 p-3">
+                        <div className="mb-2 text-xs text-ink-faint">精灵图预览</div>
+                        <div className="overflow-auto rounded-lg bg-surface/50 p-2" style={{ maxHeight: '240px' }}>
                           <img
                             src={spriteDataUrl}
                             alt="sprite-sheet"
@@ -728,11 +728,11 @@ export function GifToSpriteTool({ onClose }: Props) {
                           />
                         </div>
                       </div>
-                      <div className="rounded-xl border border-white/10 bg-gray-800/30 p-3">
-                        <div className="mb-2 flex items-center gap-1 text-xs text-gray-400">
+                      <div className="rounded-xl border border-ink/10 bg-cream-deep/30 p-3">
+                        <div className="mb-2 flex items-center gap-1 text-xs text-ink-faint">
                           <FileJson size={12} /> act_conf.json
                         </div>
-                        <pre className="max-h-40 overflow-auto rounded-lg bg-gray-900 p-3 text-[10px] text-green-300">
+                        <pre className="max-h-40 overflow-auto rounded-lg bg-surface p-3 text-[10px] text-success-deep">
                           {JSON.stringify(actConf, null, 2)}
                         </pre>
                       </div>
@@ -746,26 +746,26 @@ export function GifToSpriteTool({ onClose }: Props) {
 
         {/* 底部 */}
         {stage === 'done' && (
-          <div className="flex items-center justify-between border-t border-white/10 px-5 py-3">
+          <div className="flex items-center justify-between border-t border-ink/10 px-5 py-3">
             <div className="flex items-center gap-2">
               <input
                 value={outputName}
                 onChange={(e) => setOutputName(e.target.value)}
                 placeholder="输出文件名"
-                className="w-48 rounded-lg bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
+                className="w-48 rounded-lg bg-cream-deep px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
               />
-              <span className="text-[10px] text-gray-500">.png + -act_conf.json</span>
+              <span className="text-[10px] text-ink-muted">.png + -act_conf.json</span>
             </div>
             <div className="flex gap-2">
               <button
                 onClick={handleReset}
-                className="rounded-lg bg-gray-700 px-4 py-2 text-sm text-gray-300 hover:bg-gray-600"
+                className="rounded-lg bg-cream px-4 py-2 text-sm text-ink-faint hover:bg-ink/15"
               >
                 重新制作
               </button>
               <button
                 onClick={handleDownload}
-                className="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-amber-400"
+                className="flex items-center gap-2 rounded-lg bg-tangerine px-4 py-2 text-sm font-medium text-white hover:bg-tangerine-deep"
               >
                 <Download size={16} /> 下载精灵图 + 配置
               </button>
@@ -798,7 +798,7 @@ function ConfigInput({
 }) {
   return (
     <div className="flex flex-col">
-      <label className="mb-1 text-[10px] text-gray-400">{label}</label>
+      <label className="mb-1 text-[10px] text-ink-faint">{label}</label>
       <input
         type="number"
         value={value}
@@ -808,7 +808,7 @@ function ConfigInput({
           const v = parseInt(e.target.value) || min
           onChange(Math.max(min, Math.min(max, v)))
         }}
-        className="h-9 rounded-lg bg-gray-800 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
+        className="h-9 rounded-lg bg-cream-deep px-3 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
       />
     </div>
   )
