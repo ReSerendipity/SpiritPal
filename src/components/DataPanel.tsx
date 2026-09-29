@@ -316,17 +316,17 @@ export function DataPanel() {
 
   const syncStatusColor: Record<SyncStatus, string> = {
     idle: 'text-ink-muted',
-    syncing: 'text-blue-400',
-    success: 'text-green-400',
-    error: 'text-red-400',
-    offline: 'text-yellow-400',
+    syncing: 'text-info',
+    success: 'text-success',
+    error: 'text-error',
+    offline: 'text-warning',
   }
 
   return (
     <div className="space-y-5">
       {message && (
         <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${
-          message.type === 'success' ? 'bg-green-900/30 text-green-300' : 'bg-red-900/30 text-red-300'
+          message.type === 'success' ? 'bg-success/15 text-success' : 'bg-error/15 text-error'
         }`}>
           {message.type === 'success' ? <Check size={14} /> : <AlertCircle size={14} />}
           {message.text}
@@ -334,7 +334,7 @@ export function DataPanel() {
       )}
 
       {/* 数据健康检查（P1：迁移失败 / 脏数据告警） */}
-      <div className={`rounded-xl p-4 ${health && (health.dirtyTotal > 0 || health.migrationFailed > 0) ? 'bg-yellow-900/20' : 'bg-surface/60'}`}>
+      <div className={`rounded-xl p-4 ${health && (health.dirtyTotal > 0 || health.migrationFailed > 0) ? 'bg-warning/15' : 'bg-surface/60'}`}>
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Database size={16} className="text-ink-muted" />
@@ -351,37 +351,37 @@ export function DataPanel() {
         </div>
 
         {health && health.migrationFailed === 0 && health.dirtyTotal === 0 && (
-          <p className="text-[11px] text-green-300">
+          <p className="text-[11px] text-success">
             数据库结构健康（Schema v{health.schemaVersion}），未发现脏数据。
           </p>
         )}
 
         {health && health.migrationFailed > 0 && (
-          <div className="mb-2 rounded-lg bg-red-900/25 px-3 py-2 text-[11px] text-red-300">
+          <div className="mb-2 rounded-lg bg-error/15 px-3 py-2 text-[11px] text-error">
             <div className="mb-1 flex items-center gap-1.5 font-semibold">
               <AlertCircle size={12} /> {migrationFailureText(health.migrationFailed, health.schemaVersion)}
             </div>
-            <div className="text-red-300/80">详情见数据库 schema_migration_log 表。</div>
+            <div className="text-error/80">详情见数据库 schema_migration_log 表。</div>
           </div>
         )}
 
         {health && health.dirtyTotal > 0 && (
-          <div className="rounded-lg bg-yellow-900/20 px-3 py-2">
-            <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-yellow-300">
+          <div className="rounded-lg bg-warning/15 px-3 py-2">
+            <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-warning">
               <AlertCircle size={12} />
               发现 {health.dirtyTotal} 条未解决脏数据（最高严重度：{health.highestSeverity ?? '无'}）
             </div>
             {health.topIssues.map((issue, idx) => (
-              <div key={`${issue.table}-${idx}`} className="flex items-start justify-between gap-2 py-0.5 text-[11px] text-yellow-200/80">
+              <div key={`${issue.table}-${idx}`} className="flex items-start justify-between gap-2 py-0.5 text-[11px] text-warning/80">
                 <span className="min-w-0 flex-1 truncate">
-                  <span className="font-mono text-yellow-500/90">[{issue.severity}]</span> {issue.description}
+                  <span className="font-mono text-warning/90">[{issue.severity}]</span> {issue.description}
                 </span>
                 {issue.id != null && (
                   <button
                     onClick={() => {
                       void resolveDirtyIssue(issue.id as number)
                     }}
-                    className="shrink-0 rounded bg-yellow-900/40 px-1.5 py-0.5 text-[10px] hover:bg-yellow-800/40"
+                    className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-[10px] hover:bg-warning/15"
                   >
                     已解决
                   </button>
@@ -400,7 +400,7 @@ export function DataPanel() {
       <div className="rounded-xl bg-surface/60 p-4">
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {webdavEnabled ? <Cloud size={16} className="text-indigo-300" /> : <CloudOff size={16} className="text-ink-muted" />}
+            {webdavEnabled ? <Cloud size={16} className="text-info" /> : <CloudOff size={16} className="text-ink-muted" />}
             <h3 className="text-sm font-semibold">WebDAV 云同步</h3>
           </div>
           <label className="flex cursor-pointer items-center gap-2">
@@ -409,7 +409,7 @@ export function DataPanel() {
               type="checkbox"
               checked={webdavEnabled}
               onChange={(e) => setWebdavEnabled(e.target.checked)}
-              className="h-4 w-4 rounded border-ink/20 bg-cream-deep text-indigo-500 focus:ring-indigo-500"
+              className="h-4 w-4 rounded border-ink/20 bg-cream-deep text-info focus:ring-info"
             />
           </label>
         </div>
@@ -427,7 +427,7 @@ export function DataPanel() {
                 value={webdavServerUrl}
                 onChange={(e) => setWebdavServerUrl(e.target.value)}
                 placeholder="https://dav.jianguoyun.com/dav/"
-                className="w-full rounded-lg border border-ink/20 bg-cream-deep/50 px-3 py-1.5 text-xs text-ink placeholder-ink-muted focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-ink/20 bg-cream-deep/50 px-3 py-1.5 text-xs text-ink placeholder-ink-muted focus:border-info focus:outline-none"
               />
               <div className="mt-1 flex flex-wrap gap-1">
                 {['https://dav.jianguoyun.com/dav/', 'https://webdav.pcloud.com/'].map((url) => (
@@ -450,7 +450,7 @@ export function DataPanel() {
                 value={webdavUsername}
                 onChange={(e) => setWebdavUsername(e.target.value)}
                 placeholder="your@email.com"
-                className="w-full rounded-lg border border-ink/20 bg-cream-deep/50 px-3 py-1.5 text-xs text-ink placeholder-ink-muted focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-ink/20 bg-cream-deep/50 px-3 py-1.5 text-xs text-ink placeholder-ink-muted focus:border-info focus:outline-none"
               />
             </div>
 
@@ -462,7 +462,7 @@ export function DataPanel() {
                 value={webdavPassword}
                 onChange={(e) => setWebdavPassword(e.target.value)}
                 placeholder="第三方应用专用密码"
-                className="w-full rounded-lg border border-ink/20 bg-cream-deep/50 px-3 py-1.5 text-xs text-ink placeholder-ink-muted focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-ink/20 bg-cream-deep/50 px-3 py-1.5 text-xs text-ink placeholder-ink-muted focus:border-info focus:outline-none"
               />
               <p className="mt-1 text-[10px] text-ink-muted">
                 坚果云用户请使用「设置 → 安全选项 → 第三方应用密码」生成的专用密码
@@ -473,8 +473,8 @@ export function DataPanel() {
             {webdavTestResult && (
               <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[11px] ${
                 webdavTestResult.success
-                  ? 'bg-green-900/30 text-green-300'
-                  : 'bg-red-900/30 text-red-300'
+                  ? 'bg-success/15 text-success'
+                  : 'bg-error/15 text-error'
               }`}>
                 {webdavTestResult.success ? <Check size={14} /> : <AlertCircle size={14} />}
                 {webdavTestResult.serverInfo || webdavTestResult.error}
@@ -536,7 +536,7 @@ export function DataPanel() {
         </button>
         <button
           onClick={handleEncryptedExport}
-          className="mt-2 flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-200 hover:bg-amber-500/20"
+          className="mt-2 flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2 text-sm font-medium text-warning hover:bg-warning/20"
         >
           <Database size={16} /> 导出加密备份 (.spiritpal)
         </button>
@@ -546,7 +546,7 @@ export function DataPanel() {
       <div className="rounded-xl bg-surface/60 p-4">
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Database size={16} className="text-indigo-300" />
+            <Database size={16} className="text-info" />
             <h3 className="text-sm font-semibold">本地自动备份</h3>
           </div>
           <button
@@ -574,13 +574,13 @@ export function DataPanel() {
                   <div className="flex shrink-0 gap-1">
                     <button
                       onClick={() => void handleRestoreBackup(b.name)}
-                      className="rounded bg-indigo-900/40 px-1.5 py-0.5 text-[10px] hover:bg-indigo-800/40"
+                      className="rounded bg-info/15 px-1.5 py-0.5 text-[10px] hover:bg-info/15"
                     >
                       恢复
                     </button>
                     <button
                       onClick={() => void handleDeleteBackup(b.name)}
-                      className="rounded bg-red-900/30 px-1.5 py-0.5 text-[10px] hover:bg-red-800/40"
+                      className="rounded bg-error/15 px-1.5 py-0.5 text-[10px] hover:bg-error/15"
                     >
                       删除
                     </button>
@@ -598,7 +598,7 @@ export function DataPanel() {
       {/* 数据导入 */}
       <div className="rounded-xl bg-surface/60 p-4">
         <div className="mb-2 flex items-center gap-2">
-          <Upload size={16} className="text-blue-300" />
+          <Upload size={16} className="text-info" />
           <h3 className="text-sm font-semibold">数据恢复</h3>
         </div>
         <p className="mb-3 text-[11px] text-ink-muted">
@@ -622,7 +622,7 @@ export function DataPanel() {
       {/* B-3: 数据治理 —— 迁移遗留数据清理 */}
       <div className="rounded-xl bg-surface/60 p-4">
         <div className="mb-2 flex items-center gap-2">
-          <Trash2 size={16} className="text-teal-300" />
+          <Trash2 size={16} className="text-info" />
           <h3 className="text-sm font-semibold">数据治理</h3>
         </div>
         <p className="mb-3 text-[11px] text-ink-muted">
@@ -638,7 +638,7 @@ export function DataPanel() {
             <li>孤立实体节点：{zombieReport.expiredEntityCount} 条</li>
           </ul>
         ) : (
-          <p className="mb-3 text-[11px] text-green-400">没有发现迁移遗留数据</p>
+          <p className="mb-3 text-[11px] text-success">没有发现迁移遗留数据</p>
         )}
         <button
           onClick={handleCleanupLegacy}
@@ -656,17 +656,17 @@ export function DataPanel() {
       </div>
 
       {/* 危险区域 */}
-      <div className="rounded-xl border border-red-600/30 bg-red-900/10 p-4">
+      <div className="rounded-xl border border-error/30 bg-error/15 p-4">
         <div className="mb-2 flex items-center gap-2">
-          <AlertCircle size={16} className="text-red-400" />
-          <h3 className="text-sm font-semibold text-red-300">危险操作</h3>
+          <AlertCircle size={16} className="text-error" />
+          <h3 className="text-sm font-semibold text-error">危险操作</h3>
         </div>
         <p className="mb-3 text-[11px] text-ink-muted">
           重置将清除所有 SpiritPal 数据，包括设置、记忆、养成数据、模组和截图。此操作不可撤销。
         </p>
         <button
           onClick={handleReset}
-          className="flex items-center gap-2 rounded-lg bg-red-600/30 px-4 py-2 text-sm text-red-300 hover:bg-red-600/50"
+          className="flex items-center gap-2 rounded-lg bg-error/30 px-4 py-2 text-sm text-error hover:bg-error/50"
         >
           <RotateCcw size={16} /> 重置所有数据
         </button>

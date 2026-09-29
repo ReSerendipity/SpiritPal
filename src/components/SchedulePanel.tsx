@@ -158,13 +158,13 @@ export function SchedulePanel() {
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             placeholder="日程标题"
-            className="w-full rounded-lg bg-cream-deep px-3 py-1.5 text-sm text-white placeholder-ink-muted focus:outline-none focus:ring-1 focus:ring-amber-400"
+            className="w-full rounded-lg bg-cream-deep px-3 py-1.5 text-sm text-white placeholder-ink-muted focus:outline-none focus:ring-1 focus:ring-tangerine"
           />
           <input
             type="datetime-local"
             value={newTime}
             onChange={(e) => setNewTime(e.target.value)}
-            className="w-full rounded-lg bg-cream-deep px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-amber-400"
+            className="w-full rounded-lg bg-cream-deep px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-tangerine"
           />
           <div className="flex gap-2">
             <button
@@ -195,19 +195,19 @@ export function SchedulePanel() {
                   <div className="truncate text-sm text-ink">{e.title}</div>
                   <div className="text-[10px] text-ink-muted">
                     {formatTime(e.triggerTime)}
-                    {e.source === 'chat' && <span className="ml-1 text-cyan-400">💬对话创建</span>}
+                    {e.source === 'chat' && <span className="ml-1 text-info">💬对话创建</span>}
                   </div>
                 </div>
                 <button
                   onClick={() => handleComplete(e.id)}
-                  className="flex-shrink-0 text-green-400 hover:text-green-300"
+                  className="flex-shrink-0 text-success hover:text-success"
                   title="完成"
                 >
                   <Check size={14} />
                 </button>
                 <button
                   onClick={() => handleDelete(e.id)}
-                  className="flex-shrink-0 text-ink-muted hover:text-red-400"
+                  className="flex-shrink-0 text-ink-muted hover:text-error"
                   title="删除"
                 >
                   <Trash2 size={14} />
@@ -232,7 +232,7 @@ export function SchedulePanel() {
                 </div>
                 <button
                   onClick={() => handleDelete(e.id)}
-                  className="flex-shrink-0 text-ink-muted hover:text-red-400"
+                  className="flex-shrink-0 text-ink-muted hover:text-error"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -249,12 +249,12 @@ export function SchedulePanel() {
           <div className="space-y-1.5">
             {calendarEvents.map((e) => (
               <div key={e.id} className="flex items-center gap-2 rounded-lg bg-surface/50 p-2">
-                <Calendar size={14} className="flex-shrink-0 text-sky-400" />
+                <Calendar size={14} className="flex-shrink-0 text-info" />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm text-ink">{e.title}</div>
                   <div className="text-[10px] text-ink-muted">
                     {formatDateTime(new Date(e.startTime))}
-                    <span className="ml-1 text-sky-400">{e.sourceLabel}</span>
+                    <span className="ml-1 text-info">{e.sourceLabel}</span>
                   </div>
                 </div>
               </div>

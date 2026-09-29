@@ -207,7 +207,7 @@ export function OnDeviceModelPanel() {
       )}
 
       {error && (
-        <div className="mb-3 flex items-start gap-2 rounded-lg bg-red-50 p-3 text-xs text-red-700">
+        <div className="mb-3 flex items-start gap-2 rounded-lg bg-error/15 p-3 text-xs text-error">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <span className="break-all">{error}</span>
         </div>
@@ -229,7 +229,7 @@ export function OnDeviceModelPanel() {
                 <div className="flex items-center gap-2">
                   <span className="truncate text-xs font-medium text-ink">{m.id}</span>
                   {m.loaded && (
-                    <span className="flex items-center gap-1 rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-800">
+                    <span className="flex items-center gap-1 rounded bg-success/15 px-1.5 py-0.5 text-[10px] text-success">
                       <CheckCircle2 size={10} />
                       已加载
                     </span>

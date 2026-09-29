@@ -621,7 +621,7 @@ const [showImporter, setShowImporter] = useState(false)
                   </div>
                 )}
                 {ollamaStatus === 'offline' && (
-                  <div className="text-xs text-red-400">
+                  <div className="text-xs text-error">
                     ● 未检测到 Ollama 服务，请确认已启动 ollama serve（默认端口 11434）
                   </div>
                 )}
@@ -1297,7 +1297,7 @@ const [showImporter, setShowImporter] = useState(false)
                   </div>
                 )}
                 {exportError && (
-                  <div className="mt-2 text-xs text-red-400">导出失败：{exportError}</div>
+                  <div className="mt-2 text-xs text-error">导出失败：{exportError}</div>
                 )}
               </div>
             </div>
@@ -1400,7 +1400,7 @@ const [showImporter, setShowImporter] = useState(false)
               <div className="mb-2 text-sm font-semibold text-tangerine-deep">Live2D</div>
               <div className="mb-2 text-xs">
                 {live2dCoreReady ? (
-                  <span className="text-green-600">● Cubism Core 已就绪，Live2D 可用</span>
+                  <span className="text-success">● Cubism Core 已就绪，Live2D 可用</span>
                 ) : (
                   <span className="text-amber-600">● Cubism Core 未安装，当前使用精灵图模式</span>
                 )}

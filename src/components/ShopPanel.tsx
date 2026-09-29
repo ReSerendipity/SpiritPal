@@ -153,7 +153,7 @@ export function ShopPanel() {
         placeholder="搜索物品名称/描述…"
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
-        className="mb-2 w-full rounded-lg bg-cream-deep/60 px-3 py-1.5 text-xs text-white placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-amber-400"
+        className="mb-2 w-full rounded-lg bg-cream-deep/60 px-3 py-1.5 text-xs text-white placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-tangerine"
       />
 
       {/* 标签页（可滚动） */}
@@ -188,8 +188,8 @@ export function ShopPanel() {
           // 锁状态视觉指示器
           const lockConfig = {
             [ShopLockState.NONE]: { icon: '', label: '', color: '' },
-            [ShopLockState.FVLOCK]: { icon: '🔒', label: '亲密度不足', color: 'text-orange-400' },
-            [ShopLockState.PETLIMIT]: { icon: '🚫', label: '其他角色专属', color: 'text-red-400' },
+            [ShopLockState.FVLOCK]: { icon: '🔒', label: '亲密度不足', color: 'text-warning' },
+            [ShopLockState.PETLIMIT]: { icon: '🚫', label: '其他角色专属', color: 'text-error' },
           }[entry.lockState]
           // 折价出售价指示
           const sellPriceDisplay = entry.sellPrice > 0 ? `出售🪙${entry.sellPrice}` : ''

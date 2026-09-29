@@ -250,7 +250,7 @@ export function MemoryPanel() {
             <button
               onClick={() => void handleBulkDelete()}
               disabled={!batch.hasSelection || deleting}
-              className="flex items-center gap-1 rounded border border-ink/15 px-2 py-1 text-xs text-ink-muted hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+              className="flex items-center gap-1 rounded border border-ink/15 px-2 py-1 text-xs text-ink-muted hover:bg-error/15 hover:text-error disabled:opacity-50"
             >
               <Trash2 size={14} />
               删除({batch.selectedCount})
@@ -309,7 +309,7 @@ export function MemoryPanel() {
                   </div>
                   <button
                     onClick={() => void handleDeleteFact(fact.key)}
-                    className="rounded p-1 text-ink-faint hover:bg-red-50 hover:text-red-500"
+                    className="rounded p-1 text-ink-faint hover:bg-error/15 hover:text-error"
                     title="删除"
                   >
                     <Trash2 size={14} />

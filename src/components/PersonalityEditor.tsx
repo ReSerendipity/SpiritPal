@@ -191,7 +191,7 @@ function PersonalitySliders({
                 step={0.1}
                 value={val}
                 onChange={(e) => onChange(key, parseFloat(e.target.value))}
-                className="flex-1 accent-amber-400"
+                className="flex-1 accent-tangerine"
               />
               <span className="w-10 text-[10px] text-ink-muted">{info.max}</span>
             </div>
@@ -242,7 +242,7 @@ function SpeakingStyleEditor({
           <select
             value={style.tone}
             onChange={(e) => onChange({ ...style, tone: e.target.value as Tone })}
-            className="w-full rounded-lg bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
+            className="w-full rounded-lg bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
           >
             {TONE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -254,7 +254,7 @@ function SpeakingStyleEditor({
           <select
             value={style.wordPreference}
             onChange={(e) => onChange({ ...style, wordPreference: e.target.value as WordPreference })}
-            className="w-full rounded-lg bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
+            className="w-full rounded-lg bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
           >
             {WORD_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -270,7 +270,7 @@ function SpeakingStyleEditor({
             onChange={(e) => setNewPhrase(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') addPhrase() }}
             placeholder="输入口头禅后回车添加"
-            className="flex-1 rounded-lg bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
+            className="flex-1 rounded-lg bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
           />
           <button
             onClick={addPhrase}
@@ -284,12 +284,12 @@ function SpeakingStyleEditor({
             {style.catchphrases.map((phrase, idx) => (
               <span
                 key={idx}
-                className="flex items-center gap-1 rounded-full bg-tangerine/20 px-3 py-1 text-xs text-amber-200"
+                className="flex items-center gap-1 rounded-full bg-tangerine/20 px-3 py-1 text-xs text-tangerine-deep"
               >
                 {phrase}
                 <button
                   onClick={() => removePhrase(idx)}
-                  className="text-amber-300/60 hover:text-red-400"
+                  className="text-ink-faint hover:text-error"
                 >
                   <Trash2 size={12} />
                 </button>
@@ -394,7 +394,7 @@ function ScheduleEditor({
         {schedule.map((p) => {
           const leftPct = (p.start / 24) * 100
           const widthPct = ((p.end - p.start) / 24) * 100
-          const color = p.type === 'active' ? 'bg-tangerine/70' : 'bg-indigo-500/70'
+          const color = p.type === 'active' ? 'bg-tangerine/70' : 'bg-info/70'
           return (
             <div
               key={p.id}
@@ -426,8 +426,8 @@ function ScheduleEditor({
               onClick={() => updatePeriod(p.id, { type: p.type === 'active' ? 'sleep' : 'active' })}
               className={`rounded px-2 py-1 text-[10px] font-medium ${
                 p.type === 'active'
-                  ? 'bg-amber-400/30 text-amber-200'
-                  : 'bg-indigo-500/30 text-indigo-200'
+                  ? 'bg-tangerine/30 text-tangerine-deep'
+                  : 'bg-info/30 text-info'
               }`}
             >
               {p.type === 'active' ? '活跃' : '睡眠'}
@@ -456,7 +456,7 @@ function ScheduleEditor({
             </div>
             <button
               onClick={() => removePeriod(p.id)}
-              className="text-ink-muted hover:text-red-400"
+              className="text-ink-muted hover:text-error"
             >
               <Trash2 size={14} />
             </button>
@@ -466,7 +466,7 @@ function ScheduleEditor({
 
       <button
         onClick={addPeriod}
-        className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-ink/20 py-2 text-xs text-ink-muted hover:border-amber-400/50 hover:text-amber-300"
+        className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-ink/20 py-2 text-xs text-ink-muted hover:border-tangerine/50 hover:text-tangerine-deep"
       >
         <Plus size={14} /> 添加时段
       </button>
@@ -497,8 +497,8 @@ function TemplateButtons({ onApply }: { onApply: (templateId: string) => void })
             title={t.description}
             className={`flex flex-col items-center rounded-lg border-2 px-1 py-2 transition-all ${
               appliedId === t.id
-                ? 'border-green-400 bg-green-400/10'
-                : 'border-ink/10 hover:border-amber-400/50 hover:bg-white/5'
+                ? 'border-success bg-success/10'
+                : 'border-ink/10 hover:border-tangerine/50 hover:bg-white/5'
             }`}
           >
             <span className="text-lg">{t.emoji}</span>
@@ -507,7 +507,7 @@ function TemplateButtons({ onApply }: { onApply: (templateId: string) => void })
         ))}
       </div>
       {appliedId && (
-        <div className="mt-1 text-center text-[10px] text-green-400">
+        <div className="mt-1 text-center text-[10px] text-success">
           已应用「{PERSONALITY_TEMPLATES.find((t) => t.id === appliedId)?.name}」模板，可继续微调
         </div>
       )}
@@ -665,7 +665,7 @@ export function PersonalityEditor() {
           value={config.systemPrompt}
           onChange={(e) => handleSystemPromptChange(e.target.value)}
           rows={4}
-          className="w-full rounded-lg bg-surface px-3 py-2 text-xs leading-relaxed text-ink focus:outline-none focus:ring-1 focus:ring-amber-400"
+          className="w-full rounded-lg bg-surface px-3 py-2 text-xs leading-relaxed text-ink focus:outline-none focus:ring-1 focus:ring-tangerine"
         />
       </div>
 

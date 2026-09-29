@@ -171,7 +171,7 @@ export function SpriteSheetPanel() {
     <div className="space-y-5">
       {/* 错误提示 */}
       {error && (
-        <div className="flex items-center gap-2 rounded-lg bg-red-900/30 px-3 py-2 text-xs text-red-300">
+        <div className="flex items-center gap-2 rounded-lg bg-error/15 px-3 py-2 text-xs text-error">
           <AlertCircle size={14} /> {error}
         </div>
       )}
@@ -180,7 +180,7 @@ export function SpriteSheetPanel() {
       {stage === 'idle' && (
         <div
           onClick={() => fileInputRef.current?.click()}
-          className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-ink/15 bg-surface/30 p-10 text-center transition-colors hover:border-amber-400 hover:bg-amber-400/5"
+          className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-ink/15 bg-surface/30 p-10 text-center transition-colors hover:border-tangerine hover:bg-tangerine/5"
         >
           <Upload size={40} className="mb-3 text-ink-muted" />
           <div className="text-sm text-ink">点击选择文件</div>
@@ -203,7 +203,7 @@ export function SpriteSheetPanel() {
           {/* 文件信息条 */}
           <div className="flex items-center justify-between rounded-lg bg-surface/50 px-3 py-2">
             <div className="flex items-center gap-2">
-              {fileType === 'video' ? <Film size={16} className="text-blue-300" /> : <ImageIcon size={16} className="text-green-300" />}
+              {fileType === 'video' ? <Film size={16} className="text-info" /> : <ImageIcon size={16} className="text-success" />}
               <span className="text-xs text-ink">{file.name}</span>
               <span className="text-[10px] text-ink-muted">
                 {(file.size / 1024 / 1024).toFixed(2)} MB
@@ -211,7 +211,7 @@ export function SpriteSheetPanel() {
             </div>
             <button
               onClick={handleReset}
-              className="text-xs text-ink-muted hover:text-amber-300"
+              className="text-xs text-ink-muted hover:text-tangerine-deep"
             >
               重新选择
             </button>
@@ -304,7 +304,7 @@ export function SpriteSheetPanel() {
                 </div>
                 <button
                   onClick={handleExtract}
-                  className="text-xs text-ink-muted hover:text-amber-300"
+                  className="text-xs text-ink-muted hover:text-tangerine-deep"
                 >
                   重新提取
                 </button>
@@ -346,7 +346,7 @@ export function SpriteSheetPanel() {
           {stage === 'done' && result && (
             <div className="space-y-4">
               {/* 成功提示 */}
-              <div className="flex items-center gap-2 rounded-lg bg-green-900/30 px-3 py-2 text-xs text-green-300">
+              <div className="flex items-center gap-2 rounded-lg bg-success/15 px-3 py-2 text-xs text-success">
                 <Check size={14} />
                 精灵图生成成功！共 {result.frameCount} 帧，{result.metadata.rows} 行 × {result.metadata.cols} 列
               </div>
@@ -370,7 +370,7 @@ export function SpriteSheetPanel() {
               {/* 元数据 JSON */}
               <div className="rounded-xl border border-ink/10 bg-surface/30 p-4">
                 <div className="mb-2 text-xs text-ink-muted">元数据 JSON</div>
-                <pre className="max-h-40 overflow-auto rounded-lg bg-cream-deep p-3 text-[11px] text-green-300">
+                <pre className="max-h-40 overflow-auto rounded-lg bg-cream-deep p-3 text-[11px] text-success">
                   {JSON.stringify(result.metadata, null, 2)}
                 </pre>
               </div>
@@ -381,7 +381,7 @@ export function SpriteSheetPanel() {
                   value={outputName}
                   onChange={(e) => setOutputName(e.target.value)}
                   placeholder="输出文件名"
-                  className="flex-1 rounded-lg bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
+                  className="flex-1 rounded-lg bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
                 />
                 <button
                   onClick={handleDownload}
@@ -431,7 +431,7 @@ function ConfigInput({
           const v = parseInt(e.target.value) || min
           onChange(Math.max(min, Math.min(max, v)))
         }}
-        className="h-9 rounded-lg bg-surface px-3 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
+        className="h-9 rounded-lg bg-surface px-3 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
       />
     </div>
   )

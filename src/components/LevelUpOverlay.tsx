@@ -99,7 +99,7 @@ export function LevelUpOverlay({ level, characterName, onComplete }: LevelUpOver
             animation: 'spiritpal-levelup-text 0.5s ease-out forwards',
           }}
         >
-          <div className="text-3xl font-bold text-amber-300" style={{ textShadow: '0 0 10px rgba(255,215,0,0.8)' }}>
+          <div className="text-3xl font-bold text-badge-crown" style={{ textShadow: '0 0 10px rgba(255,215,0,0.8)' }}>
             LEVEL UP!
           </div>
           <div className="mt-1 text-lg text-white" style={{ textShadow: '0 0 6px rgba(255,255,255,0.5)' }}>

@@ -82,7 +82,7 @@ export function PomodoroOverlay({ duration, startedAt, onStop, onComplete }: Pom
         <span className="text-xs text-tangerine-deep">🍅 番茄钟</span>
         <button
           onClick={onStop}
-          className="flex items-center gap-1 rounded bg-red-500/80 px-1.5 py-0.5 text-[10px] hover:bg-red-500"
+          className="flex items-center gap-1 rounded bg-error/80 px-1.5 py-0.5 text-[10px] hover:bg-red-500"
         >
           <Square size={10} /> 停止
         </button>

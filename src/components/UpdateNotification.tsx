@@ -234,7 +234,7 @@ export function UpdateNotification({ autoCheck = true, autoCheckDelay = 30000, o
                 ? 'bg-error/15'
                 : view.phase === 'up-to-date'
                   ? 'bg-success/20'
-                  : 'bg-blue-100 dark:bg-blue-900/30'
+                  : 'bg-info/15'
             }`}
           >
             <svg
@@ -243,7 +243,7 @@ export function UpdateNotification({ autoCheck = true, autoCheckDelay = 30000, o
                   ? 'text-error'
                   : view.phase === 'up-to-date'
                     ? 'text-success-deep'
-                    : 'text-blue-500'
+                    : 'text-info'
               }`}
               fill="none"
               viewBox="0 0 24 24"
@@ -312,7 +312,7 @@ export function UpdateNotification({ autoCheck = true, autoCheckDelay = 30000, o
 
         {/* 校验/安装/重启提示 */}
         {(view.phase === 'verifying' || view.phase === 'installing' || view.phase === 'restarting') && (
-          <div className="mb-4 text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+          <div className="mb-4 text-sm text-info bg-info/15 rounded-lg p-3">
             {view.phase === 'verifying' && '更新包下载完成，正在校验签名...'}
             {view.phase === 'installing' && '正在安装更新，请稍候...'}
             {view.phase === 'restarting' && '安装完成，应用即将重启...'}

@@ -1012,7 +1012,7 @@ export default function ChatWindow() {
           </button>
           <button
             onClick={clearHistory}
-            className="spiritpal-focusable rounded-md p-1.5 text-ink-faint hover:bg-ink/8 hover:text-red-500"
+            className="spiritpal-focusable rounded-md p-1.5 text-ink-faint hover:bg-ink/8 hover:text-error"
             aria-label="清空聊天记录"
           >
             <Trash2 size={16} aria-hidden="true" />
@@ -1135,7 +1135,7 @@ export default function ChatWindow() {
                     isUser
                       ? 'bg-tangerine text-white'
                       : isFlagged
-                        ? 'bg-surface text-ink ring-1 ring-red-400/40 border border-ink/10'
+                        ? 'bg-surface text-ink ring-1 ring-error/40 border border-ink/10'
                         : 'bg-surface text-ink border border-ink/10'
                   } ${isSearchMatch && !isCurrentResult ? 'ring-1 ring-tangerine/30' : ''}`}
                 >
@@ -1198,7 +1198,7 @@ export default function ChatWindow() {
                   </button>
                 )}
                 {isFlagged && (
-                  <span className="mt-1 flex items-center gap-1 px-2 py-0.5 text-[11px] text-red-500/70">
+                  <span className="mt-1 flex items-center gap-1 px-2 py-0.5 text-[11px] text-error/70">
                     <Flag size={11} /> 已标记
                   </span>
                 )}
@@ -1211,7 +1211,7 @@ export default function ChatWindow() {
           )
         })}
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{error}</div>
+          <div className="rounded-lg border border-error bg-error/15 px-3 py-2 text-xs text-error">{error}</div>
         )}
       </div>
 
