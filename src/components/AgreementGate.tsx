@@ -9,6 +9,10 @@
  */
 import { useState } from 'react'
 
+/* eslint-disable react-refresh/only-export-components -- 本模块刻意同时导出 AgreementGate
+   组件与 agreementAccepted() / markAgreementAccepted() 辅助函数：调用方（MobileApp、
+   main.tsx）需要直接读取确认状态，拆成两个文件只为满足 lint，收益为零。 */
+
 const AGREEMENT_KEY = 'spiritpal:agreement:v1'
 const AGREEMENT_VERSION = '2026-09-15'
 
