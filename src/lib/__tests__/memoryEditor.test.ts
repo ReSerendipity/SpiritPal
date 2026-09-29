@@ -11,7 +11,6 @@ import {
   createMemoryEditor,
   type MemorySearchOptions,
   type MemoryBatchOperation,
-  type MemoryEditResult,
 } from '@/lib/memory/memoryEditor'
 import { type EnhancedMemory } from '@/lib/memory/memoryTypes'
 

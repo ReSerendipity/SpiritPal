@@ -31,9 +31,6 @@ function msg(role: 'user' | 'assistant', content: string, offsetMs = 0): ChatMes
   } as ChatMessage
 }
 
-/** 捕获导出时的 Blob 文本与下载文件名 */
-const downloadSpy = vi.fn()
-
 beforeEach(() => {
   vi.clearAllMocks()
   messages = []

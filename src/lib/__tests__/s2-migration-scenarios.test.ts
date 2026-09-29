@@ -134,46 +134,6 @@ function makeLegacyBlobData(memories: { user: string; assistant: string; id: str
   })
 }
 
-/** 构造模拟 MemoryRow */
-function makeMemoryRow(overrides: Partial<{
-  id: number
-  character_id: string
-  memory_id: string
-  content: string
-  assistant: string
-  tier: string
-  importance: number
-  is_autobiographical: number
-  created_at: number
-  access_count: number
-  last_accessed: number
-}> = {}) {
-  return {
-    id: overrides.id ?? 1,
-    character_id: overrides.character_id ?? 'test-char',
-    type: 'short_term',
-    content: overrides.content ?? '测试记忆内容',
-    importance: overrides.importance ?? 50,
-    created_at: overrides.created_at ?? Date.now(),
-    last_accessed: overrides.last_accessed ?? Date.now(),
-    memory_id: overrides.memory_id ?? 'mem-001',
-    assistant: overrides.assistant ?? 'AI 回复',
-    category: '日常',
-    tags: '[]',
-    emotional_intensity: 0,
-    emotional_valence: 0,
-    emotional_arousal: 0.3,
-    strength: 1.0,
-    decay_factor: 1.0,
-    access_count: overrides.access_count ?? 0,
-    source_kind: 'exchange',
-    fact_text: null,
-    is_autobiographical: overrides.is_autobiographical ?? 0,
-    tier: overrides.tier ?? 'working',
-    embedding: null,
-  }
-}
-
 // ============ 测试用例 ============
 
 describe('S2: 迁移场景 — 4 种存量库场景', () => {

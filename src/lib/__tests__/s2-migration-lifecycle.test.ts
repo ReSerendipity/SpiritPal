@@ -103,37 +103,6 @@ vi.mock('@/lib/memory/entityLinking', () => ({
 
 // ============ 辅助函数 ============
 
-/** 构造模拟旧 blob 数据（明文 JSON） */
-function makeLegacyBlobData(memories: { user: string; assistant: string; id: string }[] = []) {
-  return JSON.stringify({
-    workingMemory: memories.map((m, i) => ({
-      id: m.id,
-      created_at: new Date(Date.now() - i * 1000).toISOString(),
-      user: m.user,
-      assistant: m.assistant,
-      importance: 50,
-      emotionalIntensity: 0.3,
-      category: '日常',
-      tags: ['test'],
-      accessCount: 0,
-      lastAccessed: Date.now(),
-      decayFactor: 1.0,
-      isAutobiographical: false,
-      emotionalValence: 0,
-      emotionalArousal: 0.3,
-      strength: 1.0,
-      sourceKind: 'exchange',
-    })),
-    episodicMemory: [],
-    semanticMemory: '测试摘要',
-    autobiographicalMemory: [],
-    triggerLog: [],
-    ignoreCount: {},
-    lastPeriodicFireDate: {},
-    lastChatDate: '2026-08-14',
-  })
-}
-
 /** 构造模拟 MemoryRow */
 function makeMemoryRow(overrides: Partial<{
   id: number
