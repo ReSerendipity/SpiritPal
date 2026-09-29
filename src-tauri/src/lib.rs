@@ -143,7 +143,6 @@ use http_proxy::http_proxy;
 
 #[cfg(desktop)]
 use device::{start_device_listening, stop_device_listening};
-#[cfg(desktop)]
 use keychain::{delete_secret, get_secret, set_secret};
 #[cfg(desktop)]
 use mcp_bridge::mcp_respond;
@@ -310,6 +309,13 @@ pub fn run() {
             // 故移动端在此显式创建根 WebView（等价于把窗口写回 app.windows）。
             #[cfg(not(desktop))]
             {
+                // P1-A：移动端秘密存储初始化（API Key 存应用沙箱内加密文件）
+                let secrets_dir = app
+                    .path()
+                    .app_data_dir()
+                    .map_err(|e| format!("获取应用数据目录失败: {}", e))?;
+                keychain::init_mobile_store(secrets_dir);
+
                 use tauri::{WebviewUrl, WebviewWindowBuilder};
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                     .title("SpiritPal")
@@ -511,6 +517,10 @@ pub fn run() {
             {
                 tauri::generate_handler![
                     greet,
+                    // Keychain（移动端：应用沙箱内加密文件存储，见 keychain.rs）
+                    set_secret,
+                    get_secret,
+                    delete_secret,
                     // 端侧推理：设备分档（决定推荐模型尺寸）
                     ondevice::detect_device_tier,
                     // 端侧推理：内嵌 MNN 引擎桥（进程内，仅移动端；见 ondevice/engine.rs）

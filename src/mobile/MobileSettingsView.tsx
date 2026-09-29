@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next'
 import { OnDeviceModelPanel } from '@/components/OnDeviceModelPanel'
 import { LLM_PROVIDERS, getProvider } from '@/lib/ai/llmProviders'
 import { getAllCharacters } from '@/lib/data/characters'
+import { deleteApiKey, getApiKey, setApiKey } from '@/lib/data/secureStorage'
 import { syncManager, type SyncConfig } from '@/lib/system/syncManager'
 import { themeManager, type ThemeMode } from '@/lib/system/themeManager'
 import { MobileMemoryView } from '@/mobile/MobileMemoryView'
@@ -108,6 +109,37 @@ export function MobileSettingsView() {
   const updateEndpointCfg = (patch: { baseUrl?: string; model?: string }) => {
     writeEndpointConfig(patch)
     setEndpointCfg((prev) => ({ ...prev, ...patch }))
+  }
+  // 云端供应商 API Key（存 secureStorage → Rust keychain；安卓为沙箱内加密文件）
+  const [apiKeyDraft, setApiKeyDraft] = useState('')
+  useEffect(() => {
+    let cancelled = false
+    getApiKey(provider)
+      .then((k) => {
+        if (!cancelled && k) setApiKeyDraft(k)
+      })
+      .catch(() => {
+        /* 密钥读取失败按未配置处理 */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [provider])
+
+  /** Key 输入失焦时保存（清空 = 删除已存 Key）；与已存值相同则跳过 */
+  async function handleApiKeyBlur() {
+    const current = await getApiKey(provider).catch(() => null)
+    const draft = apiKeyDraft.trim()
+    if (draft === (current ?? '')) return
+    try {
+      if (draft) {
+        await setApiKey(provider, draft)
+      } else if (current) {
+        await deleteApiKey(provider)
+      }
+    } catch {
+      /* 存储失败静默：下次发送时该供应商会因缺 Key 报 401 */
+    }
   }
   const switchPetChar = usePetStore((s) => s.switchCharacter)
   const sharedCoins = usePetStore((s) => s.sharedCoins)
@@ -452,6 +484,23 @@ export function MobileSettingsView() {
               />
               <p className={`mt-2 text-xs ${subtitleClass}`}>
                 本地服务（llama.cpp / Ollama / LM Studio 等）无需 API Key，填地址与模型名即可；改完即时生效，无需重启。
+              </p>
+            </div>
+          )}
+          {provider !== 'custom' && provider !== 'ollama' && provider !== 'ondevice' && (
+            <div className={`mb-2 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
+              <div className="mb-2 text-sm font-medium">API Key</div>
+              <input
+                type="password"
+                value={apiKeyDraft}
+                onChange={(e) => setApiKeyDraft(e.target.value)}
+                onBlur={() => void handleApiKeyBlur()}
+                placeholder="粘贴服务商提供的 API Key"
+                autoComplete="off"
+                className={`w-full rounded-lg border ${cardBorderClass} bg-cream px-3 py-2 text-sm`}
+              />
+              <p className={`mt-2 text-xs ${subtitleClass}`}>
+                Key 保存于系统安全存储（加密），失焦即保存，留空并失焦 = 删除。
               </p>
             </div>
           )}
