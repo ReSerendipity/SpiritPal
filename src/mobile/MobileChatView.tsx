@@ -22,6 +22,9 @@ import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { Send, Square, Trash2, Bot, User } from 'lucide-react'
 import Markdown from 'react-markdown'
+// SECURITY R-02 对齐：与桌面端 ChatWindow 使用同一套 rehype-sanitize 配置，
+// 阻断 AI 输出型 XSS（此前移动端直接渲染 Markdown，无任何消毒）
+import rehypeSanitize from 'rehype-sanitize'
 import { composeFullSystemPrompt, getEffectivePersonality } from '@/lib/ai/personalityEngine'
 import { getCharacter } from '@/lib/data/characters'
 import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
@@ -248,7 +251,7 @@ export function MobileChatView() {
         </div>
         <button
           onClick={handleClear}
-          className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-ink-faint hover:bg-ink/5 hover:text-red-500"
+          className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-ink-faint hover:bg-ink/5 hover:text-error"
           title="清空历史"
         >
           <Trash2 size={14} />
@@ -286,7 +289,7 @@ export function MobileChatView() {
               } ${msg.isStreaming ? 'opacity-90' : ''}`}
             >
               {msg.role === 'assistant' ? (
-                <Markdown>{msg.content || '...'}</Markdown>
+                <Markdown rehypePlugins={[rehypeSanitize]}>{msg.content || '...'}</Markdown>
               ) : (
                 <div className="whitespace-pre-wrap break-words">{msg.content}</div>
               )}
@@ -300,7 +303,7 @@ export function MobileChatView() {
         ))}
 
         {error && (
-          <div className="mb-3 rounded-lg border border-ink/10 bg-surface px-3 py-2 text-xs text-red-500 ring-1 ring-red-400/40">
+          <div className="mb-3 rounded-lg border border-ink/10 bg-surface px-3 py-2 text-xs text-error ring-1 ring-error/40">
             {error}
           </div>
         )}
@@ -324,7 +327,7 @@ export function MobileChatView() {
           {isLoading ? (
             <button
               onClick={handleStop}
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-red-500 text-white"
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-error text-white"
               aria-label="停止"
             >
               <Square size={16} />

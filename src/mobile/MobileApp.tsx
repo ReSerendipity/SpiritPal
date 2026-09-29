@@ -180,7 +180,7 @@ export default function MobileApp() {
             <span className="text-xs text-success-deep">已同步</span>
           )}
           {syncStatus === 'error' && (
-            <span className="text-xs text-red-500">同步失败</span>
+            <span className="text-xs text-error">同步失败</span>
           )}
         </div>
         <button

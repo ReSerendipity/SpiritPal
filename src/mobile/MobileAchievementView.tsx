@@ -87,7 +87,7 @@ export function MobileAchievementView() {
               {ach.name}
             </span>
             {ach.reward ? (
-              <span className="flex-shrink-0 text-[10px] text-amber-500">+{ach.reward}🪙</span>
+              <span className="flex-shrink-0 text-[10px] text-tangerine-deep">+{ach.reward}🪙</span>
             ) : null}
           </div>
           <div className={`truncate text-[11px] ${subTextClass}`}>{ach.description}</div>

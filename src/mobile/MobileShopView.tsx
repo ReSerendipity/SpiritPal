@@ -41,7 +41,7 @@ const ANCHOR_OPTIONS: { value: AnchorPoint; label: string }[] = [
 const LOCK_META: Record<ShopLockState, { icon: string; label: string; color: string }> = {
   [ShopLockState.NONE]: { icon: '', label: '', color: '' },
   [ShopLockState.FVLOCK]: { icon: '🔒', label: '亲密度不足', color: 'text-tangerine-deep' },
-  [ShopLockState.PETLIMIT]: { icon: '🚫', label: '其他角色专属', color: 'text-red-500' },
+  [ShopLockState.PETLIMIT]: { icon: '🚫', label: '其他角色专属', color: 'text-error' },
 }
 
 const EMPTY_DECORATIONS: WornDecoration[] = []
@@ -214,7 +214,7 @@ export function MobileShopView() {
                 </div>
               </div>
               <div className="flex flex-col items-end gap-1">
-                <span className="flex items-center gap-0.5 text-xs text-amber-500">
+                <span className="flex items-center gap-0.5 text-xs text-tangerine-deep">
                   <Coins size={12} /> {item.price}
                 </span>
                 <div className="flex gap-1">
@@ -256,7 +256,7 @@ export function MobileShopView() {
                     {wornAnchor && (
                       <button
                         onClick={() => handleRemove(item.id, item.name)}
-                        className="rounded-lg bg-red-500/15 px-1.5 py-0.5 text-[10px] text-red-500"
+                        className="rounded-lg bg-error/15 px-1.5 py-0.5 text-[10px] text-error"
                       >
                         取下
                       </button>

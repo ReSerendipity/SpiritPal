@@ -444,10 +444,10 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
   const moodTier = getColorTier(stats.mood)
   // 状态色与桌面端 NurturingPanel 的 TIER_COLORS 保持一致
   const tierColor: Record<string, string> = {
-    green: 'bg-green-500',
-    yellow: 'bg-yellow-400',
-    orange: 'bg-orange-400',
-    red: 'bg-red-500',
+    green: 'bg-stat-good',
+    yellow: 'bg-stat-mid',
+    orange: 'bg-warning',
+    red: 'bg-error',
   }
 
   // 状态浮层：暖棕半透明（与桌面端宠物窗口浮层风格一致）
@@ -474,7 +474,7 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
           <span className={`h-2 w-2 rounded-full ${tierColor[moodTier]}`} />
           <span>心情 {Math.round(stats.mood)}</span>
         </div>
-        <div className="flex items-center gap-1.5 text-amber-300">
+        <div className="flex items-center gap-1.5 text-tangerine-soft">
           🪙 <span className="tabular-nums">{sharedCoins}</span>
         </div>
         <div className="flex items-center gap-1.5 text-tangerine-soft">
