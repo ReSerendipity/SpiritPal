@@ -144,7 +144,18 @@
 | 聊天回归 | ✅ 深色下对话正常；跨进程重启记忆召回（幸运数 47 / 猫 Mochi）依旧准确 |
 | 设置复原 | ✅ 已恢复中文/浅色 |
 
-### 7.5 第三阶段回归证据（assets/）
+### 7.5 P1-A/B 装机验证（2026-09-29）：安卓 keychain 全链路 ✅
+
+`91d3806`（P1-A/B）构建装机后验证：
+
+1. 设置 → AI 服务商 → 选云端供应商（千问）→ **API Key 输入卡正确出现**（截图 28）。
+2. 输入测试 Key 失焦 → `set_secret`（Rust AES-256-GCM 加密写应用沙箱）落盘成功。
+3. **`am force-stop` 强杀重启** → 回到同一输入框 → **Key 完整回读显示**（截图 29）——`get_secret` 解密读取全链路证明，安卓上 secureStorage 自此可用。
+4. 验证后测试 Key 已清除（留空失焦 = deleteApiKey），provider 恢复 Custom。
+
+结论：**第一阶段阻断报告中的 P1-A/P1-B/P1-C 全部落地并验证**。安卓端自此可配置任何云端服务商（Key 走安全存储）与本地/自定义端点（免 Key 直连）。
+
+### 7.6 第三阶段证据（assets/）
 
 | 文件 | 内容 |
 | --- | --- |
@@ -154,10 +165,16 @@
 | `17-profileC-task-markdown.png` | 画像 C 任务协作（Markdown 列表） |
 | `18-profileD-chaotic.png` | 画像 D 混乱输入 |
 | `19-profileE-longterm-memory.png` | 画像 E 长程记忆双埋点召回 |
-| `20-bug-theme-selected-not-applied.png` | P2-1 主题选中未应用 |
-| `21-bug-language-not-applied.png` | P2-2 语言切换未生效 |
+| `20-bug-theme-selected-not-applied.png` | P2-1 主题选中未应用（修复前） |
+| `21-bug-language-not-applied.png` | P2-2 语言切换未生效（修复前） |
 | `22-robustness-server-down-error.png` | 停服错误 UX |
 | `23-persistence-after-restart.png` | 强杀重启后数据完整 |
+| `24-regression-dark-theme-applied.png` | 回归：深色主题即时切换（修复后） |
+| `25-regression-english-applied.png` | 回归：English 即时生效（修复后） |
+| `26-regression-memory-tabs-horizontal.png` | 回归：记忆 Tab 横排（修复后） |
+| `27-regression-chat-memory-recall-dark.png` | 回归：深色下聊天 + 记忆召回 |
+| `28-keychain-apikey-card.png` | P1-B：云端供应商 API Key 输入卡 |
+| `29-keychain-key-roundtrip.png` | P1-A：强杀重启后 Key 回读（安卓 keychain 全链路） |
 
 ## 8. 证据清单（第一阶段/第二阶段，assets/ 相对本报告）
 
