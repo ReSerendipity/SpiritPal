@@ -7,6 +7,7 @@
 //! - Windows: Credential Manager
 //! - macOS:   Keychain
 //! - Linux:   Secret Service (GNOME Keyring / KWallet)
+//! - 移动端:  应用沙箱内 AES-256-GCM 加密文件（keyring 不支持移动平台，详见下方 mobile_file_store 模块）
 //!
 //! # 存储约定
 //! - service name 统一为 `"SpiritPal"`
@@ -76,8 +77,163 @@ impl SecretStore for SystemKeychainStore {
 /// 全局 store（默认系统 Keychain；测试注入内存实现）
 static STORE: std::sync::OnceLock<Arc<dyn SecretStore>> = std::sync::OnceLock::new();
 
-fn store() -> Arc<dyn SecretStore> {
-    STORE.get_or_init(|| Arc::new(SystemKeychainStore)).clone()
+// ============ 移动端实现：应用沙箱内加密文件存储 ============
+// Android/iOS 无可供 Rust 直接使用的系统 Keychain（keyring crate 不支持移动平台）。
+// 此实现提供「沙箱等价保护」：秘密以 AES-256-GCM 加密存放于应用私有目录
+// （SELinux per-app 隔离，第三方无法读取），加密密钥为首启随机生成、
+// 同目录存放的 32 字节设备密钥。真正的 Android Keystore 硬件绑定集成留作增强。
+//
+// [SECURITY] 威胁模型说明：该方案防的是「其他应用/普通文件读取」，
+// 不防 root 后的全盘读取（Android Keystore 可补足，见上）。
+
+#[cfg(not(desktop))]
+mod mobile_file_store {
+    use super::SecretStore;
+    use aes_gcm::aead::{Aead, KeyInit};
+    use aes_gcm::{Aes256Gcm, Key, Nonce};
+    use base64::engine::general_purpose::STANDARD as B64;
+    use base64::Engine as _;
+    use std::path::PathBuf;
+    use std::sync::Mutex;
+
+    const KEY_FILE: &str = "secrets-device.key";
+    const DATA_FILE: &str = "secrets.json.enc";
+
+    pub struct MobileFileSecretStore {
+        dir: PathBuf,
+        /// 进程内串行化（读-改-写整个秘密表）
+        lock: Mutex<()>,
+    }
+
+    impl MobileFileSecretStore {
+        pub fn new(dir: PathBuf) -> Self {
+            Self {
+                dir,
+                lock: Mutex::new(()),
+            }
+        }
+
+        fn key_path(&self) -> PathBuf {
+            self.dir.join(KEY_FILE)
+        }
+
+        fn data_path(&self) -> PathBuf {
+            self.dir.join(DATA_FILE)
+        }
+
+        /// 首启生成 32 字节随机设备密钥（OS CSPRNG），已存在则复用
+        fn ensure_device_key(&self) -> Result<[u8; 32], String> {
+            let path = self.key_path();
+            if let Ok(bytes) = std::fs::read(&path) {
+                if bytes.len() == 32 {
+                    let mut key = [0u8; 32];
+                    key.copy_from_slice(&bytes);
+                    return Ok(key);
+                }
+            }
+            let mut key = [0u8; 32];
+            getrandom::getrandom(&mut key).map_err(|e| format!("生成设备密钥失败: {}", e))?;
+            std::fs::create_dir_all(&self.dir).map_err(|e| e.to_string())?;
+            std::fs::write(&path, &key).map_err(|e| e.to_string())?;
+            Ok(key)
+        }
+
+        fn cipher(&self) -> Result<Aes256Gcm, String> {
+            let key = self.ensure_device_key()?;
+            Ok(Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key)))
+        }
+
+        /// 读取并解密整个秘密表（文件不存在视为空表）
+        fn load_map(&self) -> Result<std::collections::HashMap<String, String>, String> {
+            let path = self.data_path();
+            let raw = match std::fs::read(&path) {
+                Ok(bytes) => bytes,
+                Err(ref e) if e.kind() == std::io::ErrorKind::NotFound => {
+                    return Ok(std::collections::HashMap::new())
+                }
+                Err(e) => return Err(format!("读取秘密文件失败: {}", e)),
+            };
+            let combined = B64
+                .decode(&raw)
+                .map_err(|e| format!("秘密文件解码失败: {}", e))?;
+            if combined.len() < 12 {
+                return Err("秘密文件损坏（长度异常）".to_string());
+            }
+            let (nonce_bytes, ciphertext) = combined.split_at(12);
+            let cipher = self.cipher()?;
+            let plain = cipher
+                .decrypt(Nonce::from_slice(nonce_bytes), ciphertext)
+                .map_err(|_| "秘密文件解密失败（密钥不匹配或数据被篡改）".to_string())?;
+            serde_json::from_slice(&plain).map_err(|e| format!("秘密表解析失败: {}", e))
+        }
+
+        /// 序列化并加密写回整个秘密表
+        fn save_map(
+            &self,
+            map: &std::collections::HashMap<String, String>,
+        ) -> Result<(), String> {
+            let plain = serde_json::to_vec(map).map_err(|e| e.to_string())?;
+            let cipher = self.cipher()?;
+            let mut nonce_bytes = [0u8; 12];
+            getrandom::getrandom(&mut nonce_bytes).map_err(|e| e.to_string())?;
+            let ciphertext = cipher
+                .encrypt(Nonce::from_slice(&nonce_bytes), plain.as_slice())
+                .map_err(|e| format!("加密失败: {}", e))?;
+            let mut combined = Vec::with_capacity(12 + ciphertext.len());
+            combined.extend_from_slice(&nonce_bytes);
+            combined.extend_from_slice(&ciphertext);
+            std::fs::create_dir_all(&self.dir).map_err(|e| e.to_string())?;
+            std::fs::write(self.data_path(), B64.encode(&combined))
+                .map_err(|e| format!("写入秘密文件失败: {}", e))
+        }
+    }
+
+    impl SecretStore for MobileFileSecretStore {
+        fn set_password(&self, key: &str, value: &str) -> Result<(), String> {
+            let _guard = self.lock.lock().unwrap();
+            let mut map = self.load_map()?;
+            map.insert(key.to_string(), value.to_string());
+            self.save_map(&map)
+        }
+
+        fn get_password(&self, key: &str) -> Result<Option<String>, String> {
+            let _guard = self.lock.lock().unwrap();
+            Ok(self.load_map()?.get(key).cloned())
+        }
+
+        fn delete_credential(&self, key: &str) -> Result<(), String> {
+            let _guard = self.lock.lock().unwrap();
+            let mut map = self.load_map()?;
+            map.remove(key);
+            self.save_map(&map)
+        }
+    }
+}
+
+#[cfg(not(desktop))]
+use mobile_file_store::MobileFileSecretStore;
+
+/// 移动端：在 setup 阶段以应用私有目录初始化秘密存储。
+/// 必须在任何 set/get/delete_secret 命令可被前端调用前执行（lib.rs setup）。
+#[cfg(not(desktop))]
+pub(crate) fn init_mobile_store(dir: std::path::PathBuf) {
+    let _ = STORE.set(Arc::new(MobileFileSecretStore::new(dir)));
+}
+
+#[cfg(desktop)]
+fn store() -> Result<Arc<dyn SecretStore>, String> {
+    Ok(STORE
+        .get_or_init(|| Arc::new(SystemKeychainStore) as Arc<dyn SecretStore>)
+        .clone())
+}
+
+/// 移动端：store 必须已在 setup 时初始化（见 init_mobile_store）
+#[cfg(not(desktop))]
+fn store() -> Result<Arc<dyn SecretStore>, String> {
+    match STORE.get() {
+        Some(s) => Ok(s.clone()),
+        None => Err("密钥存储尚未初始化（setup 阶段未调用 init_mobile_store）".to_string()),
+    }
 }
 
 // ============ 业务逻辑（可脱离 tauri 运行时单测） ============
@@ -112,12 +268,11 @@ fn delete_secret_inner(store: &dyn SecretStore, key: &str) -> Result<(), String>
 /// # Returns
 /// - `Ok(())` — 存储成功
 /// - `Err(String)` — Keychain 访问失败或任务执行失败
-#[cfg(desktop)]
 #[tauri::command]
 pub async fn set_secret(window: tauri::Window, key: String, value: String) -> Result<(), String> {
     // D-2: Keychain 写入仅允许应用窗口
     crate::window_gate::require_window(&window, crate::window_gate::APP_WINDOWS)?;
-    let store = store();
+    let store = store()?;
     tauri::async_runtime::spawn_blocking(move || set_secret_inner(&*store, &key, &value))
         .await
         .map_err(|e| format!("存储任务执行失败: {}", e))?
@@ -133,7 +288,6 @@ pub async fn set_secret(window: tauri::Window, key: String, value: String) -> Re
 /// - `Ok(Some(String))` — 读取到的敏感值
 /// - `Ok(None)` — 键不存在
 /// - `Err(String)` — Keychain 访问失败（非 NoEntry 错误）或任务执行失败
-#[cfg(desktop)]
 #[tauri::command]
 pub async fn get_secret(window: tauri::Window, key: String) -> Result<Option<String>, String> {
     // D-2: Keychain 读取仅允许应用窗口
@@ -142,7 +296,7 @@ pub async fn get_secret(window: tauri::Window, key: String) -> Result<Option<Str
     if crate::antidebug::is_debugger_detected() {
         return Err("安全模式（检测到调试器），拒绝读取密钥".to_string());
     }
-    let store = store();
+    let store = store()?;
     tauri::async_runtime::spawn_blocking(move || get_secret_inner(&*store, &key))
         .await
         .map_err(|e| format!("读取任务执行失败: {}", e))?
@@ -158,12 +312,11 @@ pub async fn get_secret(window: tauri::Window, key: String) -> Result<Option<Str
 /// # Returns
 /// - `Ok(())` — 删除成功（或键不存在）
 /// - `Err(String)` — Keychain 访问失败（非 NoEntry 错误）或任务执行失败
-#[cfg(desktop)]
 #[tauri::command]
 pub async fn delete_secret(window: tauri::Window, key: String) -> Result<(), String> {
     // D-2: Keychain 删除仅允许应用窗口
     crate::window_gate::require_window(&window, crate::window_gate::APP_WINDOWS)?;
-    let store = store();
+    let store = store()?;
     tauri::async_runtime::spawn_blocking(move || delete_secret_inner(&*store, &key))
         .await
         .map_err(|e| format!("删除任务执行失败: {}", e))?
