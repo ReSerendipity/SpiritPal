@@ -30,10 +30,11 @@ import type { Live2DRendererHandle } from '@/components/Live2DRenderer'
 import { PetBubble } from '@/components/PetBubble'
 import { SpriteRenderer } from '@/components/SpriteRenderer'
 import { pickPetReaction } from '@/lib/ai/behaviorEngine'
-import { getCharacter } from '@/lib/data/characters'
+import { getAllCharacters, getCharacter } from '@/lib/data/characters'
 import { getModManager } from '@/lib/data/modManager'
 import type { PetState, InventoryItem, WornDecoration } from '@/lib/data/types'
 import { getAchievementManager } from '@/lib/nurture/achievementSystem'
+import { getFoodsForCharacter } from '@/lib/nurture/items'
 import { usePetStore } from '@/stores/petStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 
@@ -76,6 +77,8 @@ interface MenuItem {
   emoji: string
   /** 点击执行的动作 */
   action: () => void
+  /** 若设置，点击后展开对应二级面板而不是关闭菜单 */
+  opensSub?: 'feed' | 'character'
 }
 
 /**
@@ -94,6 +97,9 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
   const sharedCoins = usePetStore((s) => s.sharedCoins)
   const inventory = usePetStore((s) => s.inventory)
   const getColorTier = usePetStore((s) => s.getColorTier)
+  // 角色切换需要 settingsStore（当前角色偏好）与 petStore（宠物数据）同时切换，
+  // 与 MobileSettingsView 的 handleSwitchCharacter 保持一致
+  const switchPetCharacter = usePetStore((s) => s.switchCharacter)
   // 已穿戴装饰品（此前移动端只做穿戴写入、从不渲染，等于穿上看不到）
   const wornDecorations = usePetStore(
     (s) => s.wornDecorations[s.currentCharacterId] ?? EMPTY_DECORATIONS,
@@ -102,6 +108,7 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
   const petSize = useSettingsStore((s) => s.petSize)
   // 宠物透明度（此前移动端固定 1，不跟随设置）
   const petOpacity = useSettingsStore((s) => s.petOpacity)
+  const switchSettingsCharacter = useSettingsStore((s) => s.switchCharacter)
   const updateSettings = useSettingsStore((s) => s.updateSettings)
 
   const character = getCharacter(currentCharacterId)
@@ -119,6 +126,8 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
   const [petState, setPetState] = useState<PetState>('idle')
   const [bubble, setBubble] = useState<string | null>(null)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  /** 长按菜单的二级面板（喂食选食物 / 切换角色） */
+  const [menuSub, setMenuSub] = useState<'feed' | 'character' | null>(null)
   const [hearts, setHearts] = useState<number[]>([])
   const [clickScale, setClickScale] = useState(1)
   const [pos, setPos] = useState({ x: 0, y: 0 })
@@ -155,7 +164,9 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
    */
   const pickBubble = useCallback(
     (cat: keyof NonNullable<typeof character>['bubbleMessages']): string => {
-      const arr = character?.bubbleMessages[cat]
+      // 注意：character 与 bubbleMessages 都要可选链 —— 只护住前者时，
+      // 缺少 bubbleMessages 的角色配置会在 `undefined[cat]` 处抛错
+      const arr = character?.bubbleMessages?.[cat]
       if (!arr || arr.length === 0) return ''
       return arr[Math.floor(Math.random() * arr.length)]
     },
@@ -259,20 +270,69 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
   /**
    * 触发喂食互动
    */
-  const triggerFeed = useCallback(() => {
-    // 优先使用背包中第一个食物
-    const food = inventory.find((i) => i.type === 'food') as InventoryItem | undefined
-    if (food) {
+  /**
+   * 用指定食物喂食
+   * @param food 目标食物
+   */
+  const feedWith = useCallback(
+    (food: InventoryItem) => {
       petStoreFeed(food)
       getAchievementManager().recordFeed()
       showBubble(pickBubble('feed'))
       setPetState('eat')
       window.setTimeout(() => setPetState('idle'), 1500)
+    },
+    [petStoreFeed, showBubble, pickBubble],
+  )
+
+  /**
+   * 可选食物列表
+   * 优先取角色食谱（与桌面端 PetWindow 的 getFoodsForCharacter 一致），
+   * 食谱为空时回退到背包里已有的食物 —— 此前移动端只能自动喂背包第一项，无法选择。
+   */
+  const feedOptions = useMemo(() => {
+    const catalog = getFoodsForCharacter(currentCharacterId)
+    if (catalog.length) return catalog
+    return inventory.filter((i) => i.type === 'food')
+  }, [currentCharacterId, inventory])
+
+  /** 可切换的角色列表（宠物页此前无角色切换入口，只能进设置页） */
+  const characterOptions = useMemo(
+    () => getAllCharacters(),
+    // 角色列表变更时 currentCharacterId 会变，用它做失效依据即可
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentCharacterId],
+  )
+
+  /**
+   * 切换当前角色（宠物页内直接切换，无需进设置页）
+   * @param id 目标角色 ID
+   */
+  const handleSwitchCharacter = useCallback(
+    (id: string) => {
+      if (id === currentCharacterId) return
+      switchSettingsCharacter(id)
+      switchPetCharacter(id)
+    },
+    [currentCharacterId, switchSettingsCharacter, switchPetCharacter],
+  )
+
+  /** 关闭长按菜单（含二级面板） */
+  const closeMenu = useCallback(() => {
+    setMenu(null)
+    setMenuSub(null)
+  }, [])
+
+  const triggerFeed = useCallback(() => {
+    // 默认喂第一个可选食物（双击手势走这条快捷路径）
+    const food = feedOptions[0]
+    if (food) {
+      feedWith(food)
     } else {
       // 背包空：提示
       showBubble('背包里没有食物啦～')
     }
-  }, [inventory, petStoreFeed, showBubble, pickBubble])
+  }, [feedOptions, feedWith, showBubble])
 
   /**
    * 触发玩耍互动
@@ -310,9 +370,16 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
   // ===== 互动菜单 =====
   const menuItems: MenuItem[] = [
     { id: 'pet', label: '摸头', emoji: '🤚', action: triggerPet },
-    { id: 'feed', label: '喂食', emoji: '🍎', action: triggerFeed },
+    { id: 'feed', label: '喂食', emoji: '🍎', action: () => setMenuSub('feed'), opensSub: 'feed' },
     { id: 'play', label: '玩耍', emoji: '🎮', action: triggerPlay },
     { id: 'bathe', label: '洗澡', emoji: '🛁', action: triggerBathe },
+    {
+      id: 'character',
+      label: '切换角色',
+      emoji: '🔄',
+      action: () => setMenuSub('character'),
+      opensSub: 'character',
+    },
   ]
 
   // ===== 触摸手势处理 =====
@@ -347,6 +414,7 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
       // 启动长按计时器
       longPressTimerRef.current = window.setTimeout(() => {
         if (!dragStartedRef.current && touchStartRef.current) {
+          setMenuSub(null) // 每次重新长按都从主菜单开始
           setMenu({ x: touchStartRef.current.x, y: touchStartRef.current.y })
         }
       }, LONG_PRESS_THRESHOLD)
@@ -585,25 +653,80 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
             top: Math.min(menu.y, window.innerHeight - 200),
           }}
         >
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                item.action()
-                setMenu(null)
-              }}
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-ink hover:bg-ink/5"
-            >
-              <span className="text-lg">{item.emoji}</span>
-              <span>{item.label}</span>
-            </button>
-          ))}
-          <button
-            onClick={() => setMenu(null)}
-            className="mt-1 rounded-lg bg-cream-deep px-3 py-1.5 text-xs text-ink-muted hover:bg-ink/10"
-          >
-            关闭
-          </button>
+          {menuSub === 'feed' ? (
+            <>
+              <button
+                onClick={() => setMenuSub(null)}
+                className="rounded-lg px-3 py-1 text-xs text-tangerine-deep hover:bg-ink/5"
+              >
+                ← 返回
+              </button>
+              {feedOptions.length === 0 ? (
+                <div className="px-3 py-2 text-xs text-ink-muted">背包里没有食物啦～</div>
+              ) : (
+                feedOptions.map((food) => (
+                  <button
+                    key={food.id}
+                    onClick={() => {
+                      feedWith(food)
+                      closeMenu()
+                    }}
+                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-ink hover:bg-ink/5"
+                  >
+                    <span className="text-lg">{food.icon}</span>
+                    <span>{food.name}</span>
+                  </button>
+                ))
+              )}
+            </>
+          ) : menuSub === 'character' ? (
+            <>
+              <button
+                onClick={() => setMenuSub(null)}
+                className="rounded-lg px-3 py-1 text-xs text-tangerine-deep hover:bg-ink/5"
+              >
+                ← 返回
+              </button>
+              {characterOptions.map((char) => (
+                <button
+                  key={char.id}
+                  onClick={() => {
+                    handleSwitchCharacter(char.id)
+                    closeMenu()
+                  }}
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-ink/5 ${
+                    char.id === currentCharacterId ? 'text-tangerine-deep' : 'text-ink'
+                  }`}
+                >
+                  <span className="text-lg">{char.id === currentCharacterId ? '✅' : '🐾'}</span>
+                  <span>{char.displayName}</span>
+                </button>
+              ))}
+            </>
+          ) : (
+            <>
+              {menuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    item.action()
+                    // 打开二级面板的项不关闭菜单
+                    if (!item.opensSub) closeMenu()
+                  }}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-ink hover:bg-ink/5"
+                >
+                  <span className="text-lg">{item.emoji}</span>
+                  <span>{item.label}</span>
+                </button>
+              ))}
+              <button
+                onClick={closeMenu}
+                className="mt-1 rounded-lg bg-cream-deep px-3 py-1.5 text-xs text-ink-muted hover:bg-ink/10"
+              >
+                关闭
+              </button>
+            </>
+          )}
         </div>
       )}
 
