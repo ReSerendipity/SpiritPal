@@ -168,10 +168,7 @@ mod mobile_file_store {
         }
 
         /// 序列化并加密写回整个秘密表
-        fn save_map(
-            &self,
-            map: &std::collections::HashMap<String, String>,
-        ) -> Result<(), String> {
+        fn save_map(&self, map: &std::collections::HashMap<String, String>) -> Result<(), String> {
             let plain = serde_json::to_vec(map).map_err(|e| e.to_string())?;
             let cipher = self.cipher()?;
             let mut nonce_bytes = [0u8; 12];
