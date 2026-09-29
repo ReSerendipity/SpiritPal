@@ -11,6 +11,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import {
+  ContextEpisodeManager,
+  getContextEpisodeManager,
+  type ContextEpisode,
+} from '@/lib/memory/contextEpisodeManager'
 
 // Mock db — mock context_episodes 的语义化封装函数（走 invoke 的 sp_ctx_*）
 const mocks = vi.hoisted(() => ({
@@ -20,12 +25,6 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/data/db', () => mocks)
-
-import {
-  ContextEpisodeManager,
-  getContextEpisodeManager,
-  type ContextEpisode,
-} from '@/lib/memory/contextEpisodeManager'
 
 describe('ContextEpisodeManager', () => {
   let manager: ContextEpisodeManager

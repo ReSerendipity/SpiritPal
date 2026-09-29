@@ -17,6 +17,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, it, expect, beforeAll, vi } from 'vitest'
+import { EnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 
 // ===== 存储层 mock（让检索路径不依赖真实 SQLite / 向量服务）=====
 vi.mock('@/lib/data/db', () => ({
@@ -70,8 +71,6 @@ vi.mock('@/lib/memory/entityLinking', () => ({
     getLinkedMemories: vi.fn(() => Promise.resolve([])),
   })),
 }))
-
-import { EnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 
 const MEMORY_COUNT = 300
 const QUERY_COUNT = 50

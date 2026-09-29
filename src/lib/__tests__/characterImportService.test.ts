@@ -5,7 +5,10 @@
  *
  * @module characterImportService.test
  */
+import { invoke } from '@tauri-apps/api/core'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { saveCustomCharacter } from '@/lib/data/characters'
+import { parseCharCardFromJSON, importCharacterCard, extractCharCardFromPNG } from '@/lib/nurture/characterCardImporter'
 import { importCharacter, type ImportSource } from '@/lib/nurture/characterImportService'
 
 // Mock saveCustomCharacter to avoid localStorage side effects
@@ -24,10 +27,6 @@ vi.mock('@/lib/nurture/characterCardImporter', () => ({
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
 }))
-
-import { saveCustomCharacter } from '@/lib/data/characters'
-import { parseCharCardFromJSON, importCharacterCard, extractCharCardFromPNG } from '@/lib/nurture/characterCardImporter'
-import { invoke } from '@tauri-apps/api/core'
 
 // ============ 测试数据 ============
 

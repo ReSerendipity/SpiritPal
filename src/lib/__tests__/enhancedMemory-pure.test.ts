@@ -1,6 +1,7 @@
 // enhancedMemory 纯函数测试 — stringSimilarity / tokenize / estimateTokens
 // 从 enhancedMemory.test.ts 拆分（审计 P1-6 God Test 拆分）
 import { describe, it, expect, vi } from 'vitest'
+import { stringSimilarity, tokenize, estimateTokens } from '@/lib/memory/enhancedMemory'
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn((cmd: string) => {
@@ -26,8 +27,6 @@ vi.mock('@/lib/system/vectorSearch', () => ({
   isVectorSearchAvailable: vi.fn(() => Promise.resolve(false)),
   searchSimilar: vi.fn(() => [{ id: 1, score: 0.8 }]),
 }))
-
-import { stringSimilarity, tokenize, estimateTokens } from '@/lib/memory/enhancedMemory'
 
 describe('enhancedMemory 纯函数', () => {
   describe('stringSimilarity', () => {

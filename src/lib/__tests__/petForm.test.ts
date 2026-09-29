@@ -3,6 +3,7 @@
  * switchPetForm 只同步 settingsStore.petForm，不做任何窗口尺寸/位置操作
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { switchPetForm, togglePetForm } from '@/lib/nurture/petForm'
 
 const { mockSettingsState } = vi.hoisted(() => ({
   mockSettingsState: {
@@ -14,8 +15,6 @@ const { mockSettingsState } = vi.hoisted(() => ({
 vi.mock('@/stores/settingsStore', () => ({
   useSettingsStore: { getState: () => mockSettingsState },
 }))
-
-import { switchPetForm, togglePetForm } from '@/lib/nurture/petForm'
 
 describe('switchPetForm（漫游 = 仅持久化形态，窗口移动由 PetWindow 漫游行走控制器驱动）', () => {
   beforeEach(() => {

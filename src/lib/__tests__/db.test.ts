@@ -1,5 +1,30 @@
 // db 模块测试 — SQLite 持久化层（D-1 收口：mock @tauri-apps/api/core 的 invoke 按 cmd 路由）
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import {
+  initDB,
+  closeDatabase,
+  getSetting,
+  setSetting,
+  removeSetting,
+  getCharacterStats,
+  saveCharacterStats,
+  getAllCharacters,
+  addMemory,
+  saveEmbedding,
+  updateMemoryLastAccessed,
+  getAllEmbeddings,
+  getMemories,
+  saveMod,
+  getMods,
+  deleteMod,
+  updateModEnabled,
+  saveInventoryItem,
+  getInventory,
+  saveSchedule,
+  getSchedules,
+  sqliteStorage,
+  migrateFromLocalStorage,
+} from '@/lib/data/db'
 
 // 使用 vi.hoisted 创建可配置的 invoke mock：按 cmd 返回 behavior map 中的值
 const { invokeMock } = vi.hoisted(() => {
@@ -30,32 +55,6 @@ vi.mock('@tauri-apps/api/event', () => ({
   emit: vi.fn(() => Promise.resolve()),
   listen: vi.fn(() => Promise.resolve(() => {})),
 }))
-
-import {
-  initDB,
-  closeDatabase,
-  getSetting,
-  setSetting,
-  removeSetting,
-  getCharacterStats,
-  saveCharacterStats,
-  getAllCharacters,
-  addMemory,
-  saveEmbedding,
-  updateMemoryLastAccessed,
-  getAllEmbeddings,
-  getMemories,
-  saveMod,
-  getMods,
-  deleteMod,
-  updateModEnabled,
-  saveInventoryItem,
-  getInventory,
-  saveSchedule,
-  getSchedules,
-  sqliteStorage,
-  migrateFromLocalStorage,
-} from '@/lib/data/db'
 
 describe('db', () => {
   beforeEach(async () => {

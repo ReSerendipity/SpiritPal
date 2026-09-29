@@ -1,12 +1,5 @@
 // modMaker 纯逻辑测试 — 表单状态构建、校验、导出结构与 ModManager 导入往返验证
 import { describe, it, expect, vi } from 'vitest'
-vi.mock('@/lib/data/db', () => ({
-  saveMod: vi.fn(() => Promise.resolve()),
-  getMods: vi.fn(() => Promise.resolve([])),
-  deleteMod: vi.fn(() => Promise.resolve()),
-  updateModEnabled: vi.fn(() => Promise.resolve()),
-}))
-
 import {
   BUBBLE_KEYS,
   buildCharacterMod,
@@ -15,6 +8,12 @@ import {
   validateEditorState,
 } from '@/lib/data/modMaker'
 import { ModManager } from '@/lib/data/modManager'
+vi.mock('@/lib/data/db', () => ({
+  saveMod: vi.fn(() => Promise.resolve()),
+  getMods: vi.fn(() => Promise.resolve([])),
+  deleteMod: vi.fn(() => Promise.resolve()),
+  updateModEnabled: vi.fn(() => Promise.resolve()),
+}))
 
 describe('createEmptyEditorState', () => {
   it('应返回可编辑的完整草稿结构', () => {

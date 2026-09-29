@@ -1,6 +1,7 @@
 // ChatWindow 组件测试 — 消息渲染、输入发送、搜索、清空
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import ChatWindow from '@/components/ChatWindow'
 
 // ============ Mock 所有依赖 ============
 
@@ -168,8 +169,6 @@ vi.mock('@/lib/ai/ttsPlayer', () => ({
 }))
 
 // ============ 测试 ============
-
-import ChatWindow from '@/components/ChatWindow'
 
 describe('ChatWindow', () => {
   beforeEach(() => {

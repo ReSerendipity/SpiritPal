@@ -10,7 +10,10 @@
  * - clear / dispose
  */
 
+import { invoke } from '@tauri-apps/api/core'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { getSetting, setSetting, upsertEntityNode, isEntityNodesMigrated, getEntityNodes, setEntityNodesMigrated } from '@/lib/data/db'
+import { EntityManager, getEntityManager, removeEntityManager } from '@/lib/memory/entityLinking'
 
 // Mock db
 vi.mock('@/lib/data/db', () => ({
@@ -32,10 +35,6 @@ vi.mock('@tauri-apps/api/core', () => ({
 vi.mock('@/lib/data/commonUtils', () => ({
   generateId: vi.fn((prefix: string) => `${prefix}_${Math.random().toString(36).slice(2, 10)}`),
 }))
-
-import { getSetting, setSetting, upsertEntityNode, isEntityNodesMigrated, getEntityNodes, setEntityNodesMigrated } from '@/lib/data/db'
-import { EntityManager, getEntityManager, removeEntityManager } from '@/lib/memory/entityLinking'
-import { invoke } from '@tauri-apps/api/core'
 
 describe('EntityManager', () => {
   let manager: EntityManager

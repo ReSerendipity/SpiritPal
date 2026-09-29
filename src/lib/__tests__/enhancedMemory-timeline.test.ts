@@ -1,5 +1,6 @@
 // 2.2: 记忆时间线索引 — 时间范围过滤 & 聚合查询测试
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { EnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn((cmd: string) => {
@@ -26,8 +27,6 @@ vi.mock('@/lib/system/vectorSearch', () => ({
   searchSimilar: vi.fn(() => []),
   terminateVectorSearch: vi.fn(),
 }))
-
-import { EnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 
 describe('2.2: 记忆时间线索引', () => {
   let mgr: EnhancedMemoryManager

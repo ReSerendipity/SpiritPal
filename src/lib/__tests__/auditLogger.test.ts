@@ -12,6 +12,7 @@
  * 没有 isTauri，因此本文件重新 mock 该模块补充 isTauri。
  */
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+import { auditLog, AuditEventType } from '@/lib/system/auditLogger'
 
 // ============ Mock @tauri-apps/api/core（补充 isTauri）============
 const mocks = vi.hoisted(() => ({
@@ -24,8 +25,6 @@ vi.mock('@tauri-apps/api/core', () => ({
   convertFileSrc: vi.fn((p: string) => p),
   isTauri: mocks.isTauri,
 }))
-
-import { auditLog, AuditEventType } from '@/lib/system/auditLogger'
 
 beforeEach(() => {
   vi.clearAllMocks()

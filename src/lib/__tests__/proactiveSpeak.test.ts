@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { ProactiveSpeakManager, getProactiveSpeakManager } from '@/lib/ai/proactiveSpeak'
 
 // Mock 依赖模块
 vi.mock('@/lib/ai/llmClient', () => ({
@@ -80,8 +81,6 @@ vi.mock('@/stores/petStore', () => ({
     }),
   },
 }))
-
-import { ProactiveSpeakManager, getProactiveSpeakManager } from '@/lib/ai/proactiveSpeak'
 
 describe('ProactiveSpeakManager', () => {
   let manager: ProactiveSpeakManager

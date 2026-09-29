@@ -11,6 +11,14 @@
  * SentenceDivider / ThinkTagParser 被 mock，聚焦管道编排本身，不测试句子/标签算法。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import {
+  streamPipeline,
+  createPipelineWithStats,
+  collectPipelineEvents,
+  StreamEventType,
+  type StreamEvent,
+  type PipelineOptions,
+} from '@/lib/ai/streamPipeline'
 
 // ============ Mock 依赖（必须先于 import 源模块）============
 
@@ -41,15 +49,6 @@ vi.mock('@/lib/render/thinkTagParser', () => ({
   ThinkTagState: { Inside: 'inside', Outside: 'outside' },
   THINK_TAG_PROMPT_FRAGMENT: '',
 }))
-
-import {
-  streamPipeline,
-  createPipelineWithStats,
-  collectPipelineEvents,
-  StreamEventType,
-  type StreamEvent,
-  type PipelineOptions,
-} from '@/lib/ai/streamPipeline'
 
 /** 把 chunk 数组做成 async iterable */
 async function* arraySource(chunks: string[]): AsyncIterable<string> {

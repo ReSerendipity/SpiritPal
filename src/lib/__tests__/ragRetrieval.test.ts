@@ -1,6 +1,9 @@
 // ragRetrieval 模块测试 — RAG 混合检索（BM25 + 向量 + RRF 融合）
 // 第五轮评估补测：该文件此前无专属测试，且 F9 修改了向量检索路径（全量排序 → Top-K 堆）
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { EnhancedMemory } from '@/lib/memory/memoryTypes'
+import { RAGRetriever, computeDynamicAlpha, getRAGRetriever } from '@/lib/memory/ragRetrieval'
+import { isVectorSearchAvailable, searchSimilar } from '@/lib/system/vectorSearch'
 
 vi.mock('@/lib/system/vectorSearch', () => ({
   embed: vi.fn(() => Promise.resolve(new Float32Array([0.1, 0.2, 0.3]))),
@@ -8,10 +11,6 @@ vi.mock('@/lib/system/vectorSearch', () => ({
   isVectorSearchAvailable: vi.fn(() => Promise.resolve(false)),
   searchSimilar: vi.fn(() => [{ id: 1, score: 0.9 }]),
 }))
-
-import type { EnhancedMemory } from '@/lib/memory/memoryTypes'
-import { RAGRetriever, computeDynamicAlpha, getRAGRetriever } from '@/lib/memory/ragRetrieval'
-import { isVectorSearchAvailable, searchSimilar } from '@/lib/system/vectorSearch'
 
 /** 构造最小 EnhancedMemory 测试对象 */
 function makeMemory(id: string, text: string, dbId?: number): EnhancedMemory {

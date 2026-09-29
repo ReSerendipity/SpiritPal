@@ -1,5 +1,8 @@
 // enhancedMemory 测试（拆分自 enhancedMemory.test.ts，审计 P1-6 God Test 拆分）
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { getSetting, setSetting } from '@/lib/data/db'
+import { EnhancedMemoryManager, getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
+import { isVectorSearchAvailable, embed, searchSimilar } from '@/lib/system/vectorSearch'
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn((cmd: string) => {
@@ -25,10 +28,6 @@ vi.mock('@/lib/system/vectorSearch', () => ({
   isVectorSearchAvailable: vi.fn(() => Promise.resolve(false)),
   searchSimilar: vi.fn(() => [{ id: 1, score: 0.8 }]),
 }))
-
-import { getSetting, setSetting } from '@/lib/data/db'
-import { EnhancedMemoryManager, getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
-import { isVectorSearchAvailable, embed, searchSimilar } from '@/lib/system/vectorSearch'
 
 describe('EnhancedMemoryManager', () => {
   let mgr: EnhancedMemoryManager

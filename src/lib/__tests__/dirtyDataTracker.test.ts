@@ -9,6 +9,14 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import {
+  runDirtyDataChecks,
+  getDirtyDataSummary,
+  markDirtyDataResolved,
+  markTableResolved,
+  getIssuesForTable,
+  cleanupResolvedDirtyData,
+} from '@/lib/data/dirtyDataTracker'
 
 // Mock db 模块（干净数据注册表的语义化封装，走 invoke 的 sp_dirty_*）
 const mocks = vi.hoisted(() => ({
@@ -27,15 +35,6 @@ vi.mock('@/lib/system/auditLogger', () => ({
   auditLog: vi.fn(() => Promise.resolve()),
   AuditEventType: { SECURITY_EVENT: 'security_event' },
 }))
-
-import {
-  runDirtyDataChecks,
-  getDirtyDataSummary,
-  markDirtyDataResolved,
-  markTableResolved,
-  getIssuesForTable,
-  cleanupResolvedDirtyData,
-} from '@/lib/data/dirtyDataTracker'
 
 /** 构造一条 dirty_data_registry 行（DirtyRegistryRow 映射） */
 function makeRow(overrides: Record<string, unknown> = {}) {

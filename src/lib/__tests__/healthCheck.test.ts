@@ -9,6 +9,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { dbIntegrityCheck } from '@/lib/data/db'
+import { runHealthCheck } from '@/lib/system/healthCheck'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 
 // Mock dbIntegrityCheck（healthCheck.ts 由此验证数据库连接）
 vi.mock('@/lib/data/db', () => ({
@@ -35,10 +38,6 @@ vi.mock('@tauri-apps/api/event', () => ({
   emit: vi.fn(() => Promise.resolve()),
   listen: vi.fn(() => Promise.resolve(() => {})),
 }))
-
-import { dbIntegrityCheck } from '@/lib/data/db'
-import { runHealthCheck } from '@/lib/system/healthCheck'
-import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 
 const mockDbIntegrity = vi.mocked(dbIntegrityCheck)
 const mockInvoke = vi.mocked(tauriInvokeNoRetry)

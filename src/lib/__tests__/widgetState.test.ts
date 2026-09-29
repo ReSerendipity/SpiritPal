@@ -1,6 +1,7 @@
 // Widget Deep Link 处理器单元测试 — 四动作分发（feed/pet/open_chat/open_settings）
 // 背景：修复 handleWidgetDeepLink 调用不存在 Rust 命令的断链（Gotcha #46），改为复用前端既有能力
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { handleWidgetDeepLink, parseWidgetDeepLink } from '@/lib/system/widgetState'
 
 const { mockUseItem, mockEmit, mockEnsureAppWindow, mockInvoke } = vi.hoisted(() => ({
   mockUseItem: vi.fn(),
@@ -28,8 +29,6 @@ vi.mock('@/lib/system/windowEventBus', () => ({
 vi.mock('@/lib/system/appWindows', () => ({
   ensureAppWindow: (...args: unknown[]) => mockEnsureAppWindow(...args),
 }))
-
-import { handleWidgetDeepLink, parseWidgetDeepLink } from '@/lib/system/widgetState'
 
 function setUA(ua: string): void {
   Object.defineProperty(window.navigator, 'userAgent', { value: ua, configurable: true })

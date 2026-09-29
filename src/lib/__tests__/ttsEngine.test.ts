@@ -1,6 +1,7 @@
 // TTS 引擎适配器单元测试 — 浏览器原生 + API TTS
 // P3-23: 语音交互（TTS/ASR）
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { safeFetch } from '@/lib/system/ssrfProtection'
 import {
   createBrowserTTSGenerate,
   createBrowserTTSPlay,
@@ -20,7 +21,6 @@ vi.mock('@/lib/system/ssrfProtection', () => ({
   resetSSRFProtector: vi.fn(),
 }))
 
-import { safeFetch } from '@/lib/system/ssrfProtection'
 const mockSafeFetch = vi.mocked(safeFetch)
 
 // ============ Mock SpeechSynthesis ============

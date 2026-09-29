@@ -1,4 +1,5 @@
 // uploadMagic 单元测试 — 上传文件魔数校验前端助手
+import { invoke } from '@tauri-apps/api/core'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { getFileExtension, validateUploadMagic } from '@/lib/system/uploadMagic'
 
@@ -6,8 +7,6 @@ import { getFileExtension, validateUploadMagic } from '@/lib/system/uploadMagic'
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
 }))
-
-import { invoke } from '@tauri-apps/api/core'
 
 const mockInvoke = vi.mocked(invoke)
 

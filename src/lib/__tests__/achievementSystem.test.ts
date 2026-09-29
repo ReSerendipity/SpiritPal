@@ -1,5 +1,13 @@
 // achievementSystem 模块测试 — 成就/徽章系统
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import {
+  AchievementManager,
+  getAchievementManager,
+  ACHIEVEMENTS,
+  getBadgeTier,
+  BADGE_NAMES,
+  BADGE_COLORS,
+} from '@/lib/nurture/achievementSystem'
 
 vi.mock('@/lib/ai/behaviorEngine', () => ({
   getAffectionLevel: vi.fn((affection: number) => {
@@ -11,15 +19,6 @@ vi.mock('@/lib/ai/behaviorEngine', () => ({
     return 0
   }),
 }))
-
-import {
-  AchievementManager,
-  getAchievementManager,
-  ACHIEVEMENTS,
-  getBadgeTier,
-  BADGE_NAMES,
-  BADGE_COLORS,
-} from '@/lib/nurture/achievementSystem'
 
 describe('achievementSystem 纯函数', () => {
   describe('getBadgeTier', () => {

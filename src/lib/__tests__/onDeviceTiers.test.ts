@@ -1,15 +1,14 @@
 import { invoke } from '@tauri-apps/api/core'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-
-// 自动 mock @tauri-apps/api/core，使 invoke 成为可控 mock
-vi.mock('@tauri-apps/api/core')
-
 import {
   detectDeviceTier,
   recommendOnDeviceDetected,
   getOnDeviceTier,
   recommendOnDevice,
 } from '@/lib/ai/onDeviceTiers'
+
+// 自动 mock @tauri-apps/api/core，使 invoke 成为可控 mock
+vi.mock('@tauri-apps/api/core')
 
 beforeEach(() => {
   vi.mocked(invoke).mockReset()

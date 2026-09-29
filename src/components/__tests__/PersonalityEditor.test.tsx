@@ -1,6 +1,8 @@
 // PersonalityEditor 组件测试 — 雷达图、滑块、模板、保存
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { PersonalityEditor } from '@/components/PersonalityEditor'
+import { savePersonalityConfigOverride, removePersonalityConfigOverride } from '@/lib/ai/personalityEngine'
 
 // ============ 使用 vi.hoisted 定义 mock state ============
 const { mockSettings, mockChar, mockDefaultCfg, mockLabels, mockTemplates } = vi.hoisted(() => {
@@ -82,9 +84,6 @@ vi.mock('@/lib/ai/personalityEngine', () => ({
 vi.mock('@/lib/ai/personalityTemplates', () => ({
   PERSONALITY_TEMPLATES: mockTemplates,
 }))
-
-import { PersonalityEditor } from '@/components/PersonalityEditor'
-import { savePersonalityConfigOverride, removePersonalityConfigOverride } from '@/lib/ai/personalityEngine'
 
 describe('PersonalityEditor', () => {
   beforeEach(() => {
