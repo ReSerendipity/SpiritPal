@@ -23,7 +23,7 @@
 
 import { encryptBlob, decryptBlob } from '@/lib/data/blobCrypto'
 import { generateId } from '@/lib/data/commonUtils'
-import { getSetting, setSetting, getOwnerFacts, getOwnerFactsAsOf, getOwnerFactsHistory, upsertOwnerFact, deleteOwnerFact, clearOwnerFacts, isOwnerFactsMigrated, setOwnerFactsMigrated } from '@/lib/data/db'
+import { getSetting, setSetting, getOwnerFacts, upsertOwnerFact, deleteOwnerFact, clearOwnerFacts, isOwnerFactsMigrated, setOwnerFactsMigrated } from '@/lib/data/db'
 import { estimateTokens } from '@/lib/system/stringSimilarity'
 
 // ============ 类型定义 ============

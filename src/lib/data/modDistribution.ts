@@ -28,9 +28,9 @@
  * 6. 依赖解析：自动下载依赖模组
  */
 
+import { safeFetch } from '@/lib/system/ssrfProtection'
 import type { PetmodManifest } from './modManager'
 // P0: 统一网络出口 — 模组仓库不在 CSP 白名单，Tauri 下经 Rust 代理出网
-import { safeFetch } from '@/lib/system/ssrfProtection'
 
 // ============ 类型定义 ============
 

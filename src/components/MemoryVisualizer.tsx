@@ -13,7 +13,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { useEnhancedMemory } from '@/hooks/useEnhancedMemory'
-import { getContextAwarenessManager, type WorkStateInfo } from '@/lib/ai/contextAwareness'
+import { type WorkStateInfo } from '@/lib/ai/contextAwareness'
 // A-10：情绪分布改用 emotionEngine 的真实今日统计（此前是 Math.random() 假数据）
 import { getEmotionStateManager } from '@/lib/ai/emotionEngine'
 import type { MemoryEntry } from '@/lib/data/types'

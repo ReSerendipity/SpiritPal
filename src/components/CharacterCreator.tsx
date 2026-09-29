@@ -29,7 +29,6 @@ import {
 } from 'lucide-react'
 import { PERSONALITY_LABELS } from '@/lib/ai/personalityEngine'
 import { PERSONALITY_TEMPLATES } from '@/lib/ai/personalityTemplates'
-import { ATLAS } from '@/lib/data/types'
 import type { CharacterProfile, Personality } from '@/lib/data/types'
 import { FOODS_BY_CHARACTER, TOYS, MEDICINES } from '@/lib/nurture/items'
 import { usePetStore } from '@/stores/petStore'

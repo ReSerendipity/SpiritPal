@@ -10,10 +10,10 @@
  */
 
 import { invoke } from '@tauri-apps/api/core'
-import { getCurrentWindow, primaryMonitor, PhysicalPosition } from '@tauri-apps/api/window'
+import { primaryMonitor, PhysicalPosition } from '@tauri-apps/api/window'
 import { useEffect, type Dispatch, type SetStateAction, type RefObject } from 'react'
-import { safeGetWindow } from '@/lib/system/appWindows'
 import type { PetState } from '@/lib/data/types'
+import { safeGetWindow } from '@/lib/system/appWindows'
 
 // ========== 漫游行走控制器常量 ==========
 

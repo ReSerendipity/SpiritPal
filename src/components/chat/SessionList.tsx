@@ -7,9 +7,9 @@
  */
 import { useState, useCallback, useMemo } from 'react'
 import { Plus, MessageSquare, Trash2, Pin, PinOff, MoreHorizontal, X, Check } from 'lucide-react'
+import type { ChatSession } from '@/lib/data/types'
 import { useChatStore } from '@/stores/chatStore'
 import { usePetStore } from '@/stores/petStore'
-import type { ChatSession } from '@/lib/data/types'
 
 interface SessionListProps {
   /** 关闭抽屉的回调 */

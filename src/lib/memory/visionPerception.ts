@@ -19,7 +19,7 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import { getPrompt } from '@/lib/ai/promptRegistry'
-import { getKeyframeMemory, KeyframeLevel } from './keyframeMemory'
+import { getKeyframeMemory } from './keyframeMemory'
 import type { KeyframeMemory } from './keyframeMemory'
 
 // ============ 类型定义 ============

@@ -33,9 +33,6 @@ import {
 X, Bot, Palette, Settings as SettingsIcon, Info,
 Heart, ShoppingBag, Backpack, Brain, SlidersHorizontal, Trophy, Calendar, Package, Camera, Database, Sliders, Grid3x3, Activity, Sparkles, Users, Upload, Plug, BookOpen, Cpu,
 } from 'lucide-react'
-import { windowEventBus } from '@/lib/system/windowEventBus'
-import { usePetStore } from '@/stores/petStore'
-import { useSettingsStore } from '@/stores/settingsStore'
 import { AchievementPanel } from '@/components/AchievementPanel'
 import { AlbumPanel } from '@/components/AlbumPanel'
 import { CharacterCreationWizard } from '@/components/CharacterCreationWizard'
@@ -64,10 +61,10 @@ import { ShopPanel } from '@/components/ShopPanel'
 import { SpriteSheetPanel } from '@/components/SpriteSheetPanel'
 import { BrandButton, BrandInput, BrandSelect, BrandSlider } from '@/components/ui'
 import { WindowControls } from '@/components/WindowControls'
+import { getDualBrainRoutingSummary } from '@/lib/ai/dualBrain'
 import { DEFAULT_AI_CONFIG } from '@/lib/ai/llmClient'
 import { LLM_PROVIDERS, getProvider, detectOllama, listOllamaModels, costTracker } from '@/lib/ai/llmProviders'
 // P1-2/P1-3: 双脑路由汇总（升级率/慢脑占比）与 AI 用量成本卡片
-import { getDualBrainRoutingSummary } from '@/lib/ai/dualBrain'
 import { getCharacter, getAllCharacters } from '@/lib/data/characters'
 import { setApiKey, getApiKey, deleteApiKey } from '@/lib/data/secureStorage'
 import type { AIConfig, AppSettings, BackgroundConfig, BackgroundType } from '@/lib/data/types'
@@ -83,6 +80,9 @@ import { setLanguage as i18nSetLanguage } from '@/lib/system/i18n'
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from '@/lib/system/legalDocuments'
 import { themeManager, type ThemeMode } from '@/lib/system/themeManager'
 import { validateUploadMagic } from '@/lib/system/uploadMagic'
+import { windowEventBus } from '@/lib/system/windowEventBus'
+import { usePetStore } from '@/stores/petStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 const selectUpdateSettings = (s: ReturnType<typeof useSettingsStore.getState>) => s.updateSettings
 const selectSwitchSettingsChar = (s: ReturnType<typeof useSettingsStore.getState>) => s.switchCharacter

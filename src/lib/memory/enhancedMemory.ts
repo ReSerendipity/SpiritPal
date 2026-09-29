@@ -57,8 +57,6 @@ import {
   // P1-6: 结构化语义事实
   getSemanticFacts,
   upsertSemanticFact,
-  deleteSemanticFact,
-  clearSemanticFacts,
   type MemoryRow,
   type MemoryStateRow,
   type SemanticFactRow,  // P1-6

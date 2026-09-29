@@ -12,8 +12,6 @@
  * 参考：Live2DPet multimodal_memory.py / OpenPets packages/memory/multimodal/
  */
 
-import type { MemoryEntry } from '@/lib/data/types'
-
 // ============ 类型定义 ============
 
 /** 记忆类型枚举 */

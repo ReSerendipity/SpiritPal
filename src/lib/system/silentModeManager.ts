@@ -13,8 +13,7 @@
  * 参考：VPet SilentMode / Dororo Quiet Mode
  */
 
-import { listen, emit } from '@tauri-apps/api/event'
-import { getCurrentWindow } from '@tauri-apps/api/window'
+import { emit } from '@tauri-apps/api/event'
 
 // ============ 类型定义 ============
 

@@ -28,8 +28,8 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 // （不导出 API），需在 pixi.js 之前 import 一次以启用 eval 能力。
 import 'pixi.js/unsafe-eval'
 import { Application, Ticker } from 'pixi.js'
-import Logger from '@/lib/system/logger'
 import type { PetState } from '@/lib/data/types'
+import Logger from '@/lib/system/logger'
 import { getParamAutoMapper } from '@/lib/system/paramAutoMapper'
 
 // @jannchie/pixi-live2d-display 动态加载 — 避免 Cubism Core 缺失时崩溃整个应用

@@ -12,7 +12,6 @@
  * 参考：Live2DPet memory_summarizer.py / OpenPets packages/memory/summarization/
  */
 
-import { invoke } from '@tauri-apps/api/core'
 import { getPrompt } from '@/lib/ai/promptRegistry'
 import type { MemoryEntry } from '@/lib/data/types'
 

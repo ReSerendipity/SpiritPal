@@ -72,7 +72,7 @@ vi.mock('@/lib/data/secureStorage', () => ({
 }))
 
 import { toolOpenApplication } from '@/lib/ai/agentTools'
-import { AGENT_TOOLS, detectAgentIntent, detectMultiStepIntent, processAgentRequest, matchIntent } from '@/lib/ai/aiAgent'
+import { detectMultiStepIntent, matchIntent } from '@/lib/ai/aiAgent'
 
 const EXPECTED_TOOL_NAMES = [
   'open_application',

@@ -23,9 +23,6 @@
  */
 import { useState, useRef, useEffect } from 'react'
 import { Download, Upload, AlertCircle, Check, Database, RotateCcw, Cloud, CloudOff, Link, Loader2, Trash2 } from 'lucide-react'
-import { getDataManager } from '@/lib/data/dataManager'
-import { cleanupZombieData, getZombieDataReport, type ZombieDataReport } from '@/lib/data/zombieDataCleanup'
-// P1: 数据健康检查 — 接入启动链路（runMigrations + runDirtyDataChecks）的结果展示
 import {
   getDataHealthSnapshot,
   subscribeDataHealth,
@@ -34,15 +31,18 @@ import {
   migrationFailureText,
   type DataHealthSnapshot,
 } from '@/lib/data/dataHealth'
-import { syncManager, type SyncStatus } from '@/lib/system/syncManager'
-import { getWebDAVClient, type WebDAVTestResult } from '@/lib/system/webdavClient'
-// P1: 本地自动备份 — 退出自动备份加密库（保留 3 份）+ 列出/恢复/删除
+import { getDataManager } from '@/lib/data/dataManager'
 import {
   listDbBackups,
   restoreDbBackup,
   deleteDbBackup,
   type DBBackupInfoTs,
 } from '@/lib/data/dbBackup'
+import { cleanupZombieData, getZombieDataReport, type ZombieDataReport } from '@/lib/data/zombieDataCleanup'
+// P1: 数据健康检查 — 接入启动链路（runMigrations + runDirtyDataChecks）的结果展示
+import { syncManager, type SyncStatus } from '@/lib/system/syncManager'
+import { getWebDAVClient, type WebDAVTestResult } from '@/lib/system/webdavClient'
+// P1: 本地自动备份 — 退出自动备份加密库（保留 3 份）+ 列出/恢复/删除
 // B-3: 数据治理 —— 迁移遗留（.legacy）数据清理
 
 /**

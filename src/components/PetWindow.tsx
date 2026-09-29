@@ -23,7 +23,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { PhysicalPosition, PhysicalSize } from '@tauri-apps/api/window'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import { safeGetWindow } from '@/lib/system/appWindows'
 import {
   Hand,
   UtensilsCrossed,
@@ -49,24 +48,15 @@ import {
   VolumeX,
   Smile,
 } from 'lucide-react'
-import { SpriteRenderer } from '@/components/SpriteRenderer'
-import { Live2DRenderer } from '@/components/Live2DRenderer'
-import { CharacterSelector } from '@/components/CharacterSelector'
-import { FirstRunGreeting } from '@/components/FirstRunGreeting'
 import { AgreementGate, agreementAccepted } from '@/components/AgreementGate'
-import { DialoguePanel } from '@/components/DialoguePanel'
-import type { InventoryItem } from '@/lib/data/types'
-import { getDialogueManager } from '@/lib/ai/dialogueManager'
-import { useInputReactions } from '@/lib/system/useInputReactions'
-import { pickPetReaction } from '@/lib/ai/behaviorEngine'
-import { trackPetInteraction, trackTomatoComplete, trackImageSwitch } from '@/lib/system/analytics'
+import { CharacterSelector } from '@/components/CharacterSelector'
 import { swallowedCatch } from '@/lib/system/swallowedCatch'
 import { LevelUpOverlay } from '@/components/LevelUpOverlay'
 import { getScreenshotManager } from '@/lib/system/screenshotManager'
 import { getVisualPerceptionManager } from '@/lib/memory/visualPerception'
 import { DecorationLayer } from '@/components/DecorationLayer'
-import { getAchievementManager } from '@/lib/nurture/achievementSystem'
-import { getEmotionManager } from '@/lib/ai/emotionManager'
+import { DialoguePanel } from '@/components/DialoguePanel'
+import { FirstRunGreeting } from '@/components/FirstRunGreeting'
 import {
   useSafeTimeout,
   usePetGaze,
@@ -110,17 +100,27 @@ import {
 } from '@/lib/system/petWindowSizing'
 import { renderPetTrayIcon } from '@/lib/render/trayIconRenderer'
 import { FramelessResizeHandles, DRAG_SURFACE_CLASS } from '@/components/FramelessChrome'
+import { Live2DRenderer } from '@/components/Live2DRenderer'
 import { PetBubble } from '@/components/PetBubble'
 import { ExpressionSelector } from '@/components/pet/ExpressionSelector'
 import { ActionButton, ActionRow, StatRow, tierColor } from '@/components/petPanelParts'
 import { PomodoroOverlay } from '@/components/PomodoroOverlay'
+import { SpriteRenderer } from '@/components/SpriteRenderer'
+import { pickPetReaction } from '@/lib/ai/behaviorEngine'
+import { getDialogueManager } from '@/lib/ai/dialogueManager'
+import { getEmotionManager } from '@/lib/ai/emotionManager'
 import { getCharacter, getDefaultCharacter, getAllCharacters } from '@/lib/data/characters'
 import { getModManager } from '@/lib/data/modManager'
+import type { InventoryItem } from '@/lib/data/types'
+import { getAchievementManager } from '@/lib/nurture/achievementSystem'
 import { getFoodsForCharacter } from '@/lib/nurture/items'
 // P2-4：宠物共同经历记忆
 import { getPetExperienceManager } from '@/lib/nurture/petExperience'
 import { cssUrl } from '@/lib/render/cssUrl'
+import { trackPetInteraction, trackTomatoComplete, trackImageSwitch } from '@/lib/system/analytics'
+import { safeGetWindow } from '@/lib/system/appWindows'
 import { usePixelClickThrough } from '@/lib/system/pixelClickThrough'
+import { useInputReactions } from '@/lib/system/useInputReactions'
 import { usePetStore } from '@/stores/petStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 
