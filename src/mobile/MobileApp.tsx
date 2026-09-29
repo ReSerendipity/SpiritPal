@@ -26,6 +26,7 @@
  */
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { Cat, MessageCircle, Heart, Settings as SettingsIcon, Sun, Moon, Brain } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { AgreementGate, agreementAccepted } from '@/components/AgreementGate'
 import { syncManager, type SyncStatus } from '@/lib/system/syncManager'
 import { themeManager, type EffectiveTheme, type ThemeMode } from '@/lib/system/themeManager'
@@ -46,19 +47,19 @@ type TabId = 'pet' | 'chat' | 'nurture' | 'memory' | 'settings'
 interface TabDef {
   /** Tab ID */
   id: TabId
-  /** Tab 显示标签 */
-  label: string
+  /** Tab 显示标签的 i18n 键（渲染时经 t() 解析） */
+  labelKey: string
   /** Tab 图标组件 */
   icon: typeof Cat
 }
 
 /** Tab 配置列表 */
 const TABS: TabDef[] = [
-  { id: 'pet', label: '宠物', icon: Cat },
-  { id: 'chat', label: '聊天', icon: MessageCircle },
-  { id: 'nurture', label: '养成', icon: Heart },
-  { id: 'memory', label: '记忆', icon: Brain },
-  { id: 'settings', label: '设置', icon: SettingsIcon },
+  { id: 'pet', labelKey: 'tab.pet', icon: Cat },
+  { id: 'chat', labelKey: 'tab.chat', icon: MessageCircle },
+  { id: 'nurture', labelKey: 'tab.nurture', icon: Heart },
+  { id: 'memory', labelKey: 'tab.memory', icon: Brain },
+  { id: 'settings', labelKey: 'settings.title', icon: SettingsIcon },
 ]
 
 /** 滑动切换 Tab 的最小距离阈值（像素） */
@@ -69,6 +70,7 @@ const SWIPE_THRESHOLD = 50
  * @returns 移动端应用根组件
  */
 export default function MobileApp() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<TabId>('pet')
   const [theme, setTheme] = useState<EffectiveTheme>(themeManager.getEffective())
   const [themeMode, setThemeMode] = useState<ThemeMode>(themeManager.getMode())
@@ -174,13 +176,13 @@ export default function MobileApp() {
         <div className="flex items-center gap-2">
           <span className="text-lg font-semibold">SpiritPal</span>
           {syncStatus === 'syncing' && (
-            <span className="text-xs text-tangerine-deep">同步中…</span>
+            <span className="text-xs text-tangerine-deep">{t('mobile.sync.syncing')}</span>
           )}
           {syncStatus === 'success' && (
-            <span className="text-xs text-success-deep">已同步</span>
+            <span className="text-xs text-success-deep">{t('mobile.sync.done')}</span>
           )}
           {syncStatus === 'error' && (
-            <span className="text-xs text-error">同步失败</span>
+            <span className="text-xs text-error">{t('mobile.sync.failed')}</span>
           )}
         </div>
         <button
@@ -188,8 +190,8 @@ export default function MobileApp() {
           className={`flex h-9 w-9 items-center justify-center rounded-full ${
             isDark ? 'bg-tangerine-soft text-tangerine-deep' : 'bg-ink/5 text-ink-muted'
           }`}
-          aria-label="切换主题"
-          title={`当前: ${themeMode}`}
+          aria-label={t('mobile.theme.toggle')}
+          title={`${t('settings.mobile.current')}: ${themeMode}`}
         >
           {isDark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
@@ -247,7 +249,7 @@ export default function MobileApp() {
               }`}
             >
               <Icon size={22} />
-              <span className="text-[10px]">{tab.label}</span>
+              <span className="text-[10px]">{t(tab.labelKey)}</span>
             </button>
           )
         })}

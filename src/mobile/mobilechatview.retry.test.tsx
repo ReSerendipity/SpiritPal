@@ -6,6 +6,8 @@
 //   3. 成功回复时不显示重试按钮
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+// 初始化 i18next（组件用 useTranslation，测试环境需显式引入）
+import '@/lib/system/i18n'
 import { useChatStore } from '@/stores/chatStore'
 import { MobileChatView } from './MobileChatView'
 
@@ -54,7 +56,7 @@ vi.mock('@/lib/ai/personalityEngine', () => ({
 
 /** 输入并点击发送 */
 async function sendMessage(text: string) {
-  fireEvent.change(screen.getByPlaceholderText('输入消息…'), { target: { value: text } })
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: text } })
   fireEvent.click(screen.getByLabelText('发送'))
 }
 

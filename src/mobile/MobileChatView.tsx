@@ -21,6 +21,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { Send, Square, Trash2, Bot, User, RefreshCw } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import Markdown from 'react-markdown'
 // SECURITY R-02 对齐：与桌面端 ChatWindow 使用同一套 rehype-sanitize 配置，
 // 阻断 AI 输出型 XSS（此前移动端直接渲染 Markdown，无任何消毒）
@@ -37,6 +38,7 @@ import { usePetStore } from '@/stores/petStore'
  * @returns 聊天界面组件
  */
 export function MobileChatView() {
+  const { t } = useTranslation()
   const messagesBySession = useChatStore((s) => s.messagesBySession)
   const activeSessionByCharacter = useChatStore((s) => s.activeSessionByCharacter)
   const isLoading = useChatStore((s) => s.isLoading)
@@ -281,15 +283,15 @@ export function MobileChatView() {
       <header className={`flex items-center justify-between border-b ${inputBorderClass} px-4 py-2`}>
         <div className="flex items-center gap-2">
           <Bot size={18} className="text-tangerine" />
-          <span className="text-sm font-medium">{character?.displayName ?? '宠物'}</span>
+          <span className="text-sm font-medium">{character?.displayName ?? t('tab.pet')}</span>
         </div>
         <button
           onClick={handleClear}
           className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-ink-faint hover:bg-ink/5 hover:text-error"
-          title="清空历史"
+          title={t('chat.clearHistory')}
         >
           <Trash2 size={14} />
-          清空
+          {t('app.clear')}
         </button>
       </header>
 
@@ -302,8 +304,10 @@ export function MobileChatView() {
         {messages.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center text-center text-ink-faint">
             <Bot size={48} className="mb-3 opacity-40" />
-            <p className="text-sm">和 {character?.displayName ?? '宠物'} 聊聊天吧～</p>
-            <p className="mt-1 text-xs text-ink-muted">支持流式输出和 Markdown</p>
+            <p className="text-sm">
+              {t('chat.emptyHint', { name: character?.displayName ?? t('tab.pet') })}
+            </p>
+            <p className="mt-1 text-xs text-ink-muted">{t('chat.markdownHint')}</p>
           </div>
         )}
 
@@ -369,7 +373,7 @@ export function MobileChatView() {
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder="输入消息…"
+            placeholder={t('chat.placeholder')}
             rows={1}
             className={`flex-1 resize-none rounded-panel ${inputBgClass} ${textClass} border ${inputBorderClass} px-3 py-2 text-sm placeholder-ink-faint outline-none focus:ring-1 focus:ring-tangerine`}
             style={{ maxHeight: '120px' }}
@@ -378,7 +382,7 @@ export function MobileChatView() {
             <button
               onClick={handleStop}
               className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-error text-white"
-              aria-label="停止"
+              aria-label={t('app.stop')}
             >
               <Square size={16} />
             </button>
@@ -387,7 +391,7 @@ export function MobileChatView() {
               onClick={handleSend}
               disabled={!input.trim()}
               className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-tangerine text-white shadow-soft hover:bg-tangerine-deep disabled:opacity-40"
-              aria-label="发送"
+              aria-label={t('app.send')}
             >
               <Send size={16} />
             </button>
