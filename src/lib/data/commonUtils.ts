@@ -150,7 +150,7 @@ export function selectTopK<T>(
 // ============ 防抖函数 ============
 
 /** 防抖函数返回值类型 */
-export interface DebouncedFunction<T extends (...args: any[]) => any> {
+export interface DebouncedFunction<T extends (...args: never[]) => unknown> {
   (...args: Parameters<T>): void
   /** 取消延迟执行 */
   cancel: () => void
@@ -166,15 +166,15 @@ export interface DebouncedFunction<T extends (...args: any[]) => any> {
  * @param wait 等待时间（毫秒）
  * @returns 防抖后的函数，带有 cancel 和 flush 方法
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: never[]) => unknown>(
   fn: T,
   wait: number,
 ): DebouncedFunction<T> {
   let timeoutId: ReturnType<typeof setTimeout> | null = null
   let lastArgs: Parameters<T> | null = null
-  let lastThis: any = null
+  let lastThis: unknown = null
 
-  const debounced = function(this: any, ...args: Parameters<T>) {
+  const debounced = function(this: unknown, ...args: Parameters<T>) {
     // eslint-disable-next-line @typescript-eslint/no-this-alias -- 防抖/节流需暂存 this 上下文供延迟调用
     lastThis = this
     lastArgs = args
@@ -215,7 +215,7 @@ export function debounce<T extends (...args: any[]) => any>(
 // ============ 节流函数 ============
 
 /** 节流函数返回值类型 */
-export interface ThrottledFunction<T extends (...args: any[]) => any> {
+export interface ThrottledFunction<T extends (...args: never[]) => unknown> {
   (...args: Parameters<T>): void
   /** 取消等待 */
   cancel: () => void
@@ -232,7 +232,7 @@ export interface ThrottledFunction<T extends (...args: any[]) => any> {
  * @param options.trailing 是否在等待结束后执行最后一次调用（默认 true）
  * @returns 节流后的函数，带有 cancel 方法
  */
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: never[]) => unknown>(
   fn: T,
   wait: number,
   options: { leading?: boolean; trailing?: boolean } = {},
@@ -240,10 +240,10 @@ export function throttle<T extends (...args: any[]) => any>(
   const { leading = true, trailing = true } = options
   let timeoutId: ReturnType<typeof setTimeout> | null = null
   let lastArgs: Parameters<T> | null = null
-  let lastThis: any = null
+  let lastThis: unknown = null
   let lastCallTime = 0
 
-  const throttled = function(this: any, ...args: Parameters<T>) {
+  const throttled = function(this: unknown, ...args: Parameters<T>) {
     const now = Date.now()
     // eslint-disable-next-line @typescript-eslint/no-this-alias -- 防抖/节流需暂存 this 上下文供延迟调用
     lastThis = this
@@ -299,22 +299,22 @@ export function throttle<T extends (...args: any[]) => any>(
  * safeGet(obj, 'a.b.d', 0) // => 0
  * ```
  */
-export function safeGet<T = any>(
-  obj: any,
+export function safeGet<T = unknown>(
+  obj: unknown,
   path: string | (string | number)[],
   defaultValue?: T,
 ): T | undefined {
   if (obj == null) return defaultValue
 
   const keys = Array.isArray(path) ? path : path.split('.')
-  let result = obj
+  let result: unknown = obj
 
   for (const key of keys) {
     if (result == null) return defaultValue
-    result = result[key as keyof typeof result]
+    result = (result as Record<string, unknown>)[key as string]
   }
 
-  return result !== undefined && result !== null ? result : defaultValue
+  return result !== undefined && result !== null ? (result as T) : defaultValue
 }
 
 // ============ 数组工具 ============
@@ -673,12 +673,13 @@ export const perfMonitor = new PerformanceMonitor()
  * @param fn 要测量的函数
  * @returns 包装后的函数
  */
-export function withPerf<T extends (...args: any[]) => any>(
+export function withPerf<T extends (...args: never[]) => unknown>(
   name: string,
   fn: T,
 ): (...args: Parameters<T>) => ReturnType<T> extends Promise<infer R> ? Promise<R> : ReturnType<T> {
-  return function(this: any, ...args: Parameters<T>): any {
-    return perfMonitor.measure(name, () => fn.apply(this, args)) as any
+  type PerfResult = ReturnType<T> extends Promise<infer R> ? Promise<R> : ReturnType<T>
+  return function(this: unknown, ...args: Parameters<T>): PerfResult {
+    return perfMonitor.measure(name, () => fn.apply(this, args)) as PerfResult
   }
 }
 
@@ -756,13 +757,13 @@ export function safeSync<T>(
  * @param fn 要包装的函数
  * @returns 包装后的函数，第二次及以后调用直接返回第一次的结果
  */
-export function once<T extends (...args: any[]) => any>(fn: T): T {
+export function once<T extends (...args: never[]) => unknown>(fn: T): T {
   let called = false
   let result: ReturnType<T>
-  return function(this: any, ...args: Parameters<T>): ReturnType<T> {
+  return function(this: unknown, ...args: Parameters<T>): ReturnType<T> {
     if (!called) {
       called = true
-      result = fn.apply(this, args)
+      result = fn.apply(this, args) as ReturnType<T>
     }
     return result
   } as T
