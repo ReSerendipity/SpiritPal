@@ -43,6 +43,14 @@ object SpiritPalOnDevice {
     external fun nativeIsCancelled(sessionId: String): Boolean
 
     /**
+     * P1-D：由 MainActivity 启动时回传外部专属模型目录
+     * （getExternalFilesDir("models") 的结果，框架已 provision、adb push 可写）。
+     * Rust 侧 engine.rs 存入 OnceLock，model_dir() 优先采用。
+     */
+    @JvmStatic
+    external fun nativeSetExternalModelsDir(path: String)
+
+    /**
      * 加载一个端侧模型（configPath 指向 MNN 模型的 config.json）。
      * @param enableThinking "1" 开启思维链 / 其他值关闭。MNN **仅在 load 时**从 config.json 读
      *   `enable_thinking`，而 generate() 的 params 被忽略（见 llm/LlmSession.kt），故必须在此改写
