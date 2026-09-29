@@ -89,7 +89,7 @@ export function MobileChatView() {
     if (!text) return
     // 生成中拦截：消息保留在输入框不丢失，但给出可见提示（此前为静默 return）
     if (isLoading) {
-      setError('上一条回复还在生成中，请稍候再发送')
+      setError(t('chat.errGenerating'))
       return
     }
     setInput('')
@@ -153,7 +153,7 @@ export function MobileChatView() {
       // 401 在聊天错误条兜底（移动端 keychain 未接线，见 docs/execution/chat-llama-e2e-20260928.md P1-A）。
       const keylessProviders = ['ondevice', 'custom', 'ollama']
       if (!config.apiKey && !keylessProviders.includes(config.provider)) {
-        setError('请先在设置中配置 AI API Key')
+        setError(t('chat.errNoApiKey'))
         finishStreaming(assistantId)
         setLoading(false)
         return
@@ -162,7 +162,7 @@ export function MobileChatView() {
       const client = getLLMClient(config)
       const char = getCharacter(currentCharacterId)
       if (!char) {
-        setError('角色不存在')
+        setError(t('chat.errNoCharacter'))
         finishStreaming(assistantId)
         setLoading(false)
         return
@@ -224,11 +224,11 @@ export function MobileChatView() {
       // 常见错误转译为用户语言（原始技术错误保留在括号内便于排查）
       let msg = raw
       if (/error sending request for url|network|fetch failed|ERR_CONNECTION/i.test(raw)) {
-        msg = '无法连接到 AI 服务：请确认本地服务已启动、地址与端口正确后重试。'
+        msg = t('chat.errNetwork')
       } else if (/401|403|unauthorized|invalid[ _-]?api[ _-]?key/i.test(raw)) {
-        msg = '鉴权失败：API Key 无效或缺失，请检查服务端配置。'
+        msg = t('chat.errAuth')
       } else if (/timeout|timed out|aborted/i.test(raw)) {
-        msg = '请求超时或已中止：模型响应时间过长，请稍后重试。'
+        msg = t('chat.errTimeout')
       }
       setError(msg)
       finishStreaming(assistantId)
@@ -355,7 +355,7 @@ export function MobileChatView() {
                   }`}
                 >
                   <RefreshCw size={11} />
-                  重试
+                  {t('app.retry')}
                 </button>
               )}
             </div>

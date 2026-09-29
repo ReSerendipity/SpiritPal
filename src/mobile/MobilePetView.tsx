@@ -24,6 +24,7 @@
  * @see {@link ../lib/behaviorEngine} 行为引擎
  */
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { DecorationLayer } from '@/components/DecorationLayer'
 import { Live2DRenderer, getMotionGroupForState } from '@/components/Live2DRenderer'
 import type { Live2DRendererHandle } from '@/components/Live2DRenderer'
@@ -71,8 +72,8 @@ const EMPTY_DECORATIONS: WornDecoration[] = []
 interface MenuItem {
   /** 菜单项 ID */
   id: string
-  /** 显示标签 */
-  label: string
+  /** 显示标签的 i18n 键（渲染时经 t() 解析） */
+  labelKey: string
   /** 显示表情符号 */
   emoji: string
   /** 点击执行的动作 */
@@ -87,6 +88,7 @@ interface MenuItem {
  * @returns 宠物展示组件
  */
 export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
+  const { t } = useTranslation()
   const currentCharacterId = usePetStore((s) => s.currentCharacterId)
   const stats = usePetStore((s) => s.stats[s.currentCharacterId])
   const petStoreClick = usePetStore((s) => s.click)
@@ -330,9 +332,9 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
       feedWith(food)
     } else {
       // 背包空：提示
-      showBubble('背包里没有食物啦～')
+      showBubble(t('pet.noFood'))
     }
-  }, [feedOptions, feedWith, showBubble])
+  }, [feedOptions, feedWith, showBubble, t])
 
   /**
    * 触发玩耍互动
@@ -351,10 +353,10 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
   const triggerBathe = useCallback(() => {
     petStoreBathe()
     getAchievementManager().recordBathe()
-    showBubble('洗得香喷喷～')
+    showBubble(t('pet.batheDone'))
     setPetState('happy')
     window.setTimeout(() => setPetState('idle'), 1500)
-  }, [petStoreBathe, showBubble])
+  }, [petStoreBathe, showBubble, t])
 
   /**
    * 触发点击互动
@@ -369,13 +371,13 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
 
   // ===== 互动菜单 =====
   const menuItems: MenuItem[] = [
-    { id: 'pet', label: '摸头', emoji: '🤚', action: triggerPet },
-    { id: 'feed', label: '喂食', emoji: '🍎', action: () => setMenuSub('feed'), opensSub: 'feed' },
-    { id: 'play', label: '玩耍', emoji: '🎮', action: triggerPlay },
-    { id: 'bathe', label: '洗澡', emoji: '🛁', action: triggerBathe },
+    { id: 'pet', labelKey: 'action.petHead', emoji: '🤚', action: triggerPet },
+    { id: 'feed', labelKey: 'action.feed', emoji: '🍎', action: () => setMenuSub('feed'), opensSub: 'feed' },
+    { id: 'play', labelKey: 'action.play', emoji: '🎮', action: triggerPlay },
+    { id: 'bathe', labelKey: 'action.bathe', emoji: '🛁', action: triggerBathe },
     {
       id: 'character',
-      label: '切换角色',
+      labelKey: 'action.switchCharacter',
       emoji: '🔄',
       action: () => setMenuSub('character'),
       opensSub: 'character',
@@ -553,11 +555,11 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
       <div className={`absolute left-2 top-2 z-30 flex flex-col gap-1 rounded-lg ${statusBgClass} px-2 py-1.5 text-[11px] text-white backdrop-blur-sm`}>
         <div className="flex items-center gap-1.5">
           <span className={`h-2 w-2 rounded-full ${tierColor[hungerTier]}`} />
-          <span>饱食 {Math.round(stats.hunger)}</span>
+          <span>{t('stat.hunger')} {Math.round(stats.hunger)}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className={`h-2 w-2 rounded-full ${tierColor[moodTier]}`} />
-          <span>心情 {Math.round(stats.mood)}</span>
+          <span>{t('stat.mood')} {Math.round(stats.mood)}</span>
         </div>
         <div className="flex items-center gap-1.5 text-tangerine-soft">
           🪙 <span className="tabular-nums">{sharedCoins}</span>
@@ -659,10 +661,10 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
                 onClick={() => setMenuSub(null)}
                 className="rounded-lg px-3 py-1 text-xs text-tangerine-deep hover:bg-ink/5"
               >
-                ← 返回
+                ← {t('settings.mobile.back')}
               </button>
               {feedOptions.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-ink-muted">背包里没有食物啦～</div>
+                <div className="px-3 py-2 text-xs text-ink-muted">{t('pet.noFood')}</div>
               ) : (
                 feedOptions.map((food) => (
                   <button
@@ -685,7 +687,7 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
                 onClick={() => setMenuSub(null)}
                 className="rounded-lg px-3 py-1 text-xs text-tangerine-deep hover:bg-ink/5"
               >
-                ← 返回
+                ← {t('settings.mobile.back')}
               </button>
               {characterOptions.map((char) => (
                 <button
@@ -716,14 +718,14 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-ink hover:bg-ink/5"
                 >
                   <span className="text-lg">{item.emoji}</span>
-                  <span>{item.label}</span>
+                  <span>{t(item.labelKey)}</span>
                 </button>
               ))}
               <button
                 onClick={closeMenu}
                 className="mt-1 rounded-lg bg-cream-deep px-3 py-1.5 text-xs text-ink-muted hover:bg-ink/10"
               >
-                关闭
+                {t('app.close')}
               </button>
             </>
           )}
@@ -732,7 +734,7 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
 
       {/* 底部提示 */}
       <div className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 text-center text-[10px] text-ink-faint">
-        单击互动 · 双击喂食 · 长按菜单 · 捏合缩放
+        {t('pet.hint')}
       </div>
     </div>
   )
