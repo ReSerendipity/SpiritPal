@@ -9,7 +9,7 @@
  * - 外观主题：浅色/深色/跟随系统
  * - 宠物大小：0.5x-3.0x 缩放调节
  * - 推送通知：开关控制
- * - 数据同步：云端/局域网传输，自动同步间隔配置
+ * - 数据同步：WebDAV 传输（云端/局域网尚未实现，按钮显式禁用），自动同步间隔配置
  * - 角色切换：多角色选择
  * - 语言：中/英/日/韩多语言
  */
@@ -17,7 +17,7 @@ import { useEffect, useState } from 'react'
 import {
   Sun, Moon, Monitor, Bell, RefreshCw, Cloud, Wifi,
   Type, Info, ChevronRight, Brain, Sparkles, Cpu,
-  FileText, ShieldCheck,
+  FileText, ShieldCheck, CloudUpload,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { LegalDocument } from '@/components/LegalDocument'
@@ -26,8 +26,9 @@ import { LLM_PROVIDERS, getProvider } from '@/lib/ai/llmProviders'
 import { getAllCharacters } from '@/lib/data/characters'
 import { deleteApiKey, getApiKey, setApiKey } from '@/lib/data/secureStorage'
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from '@/lib/system/legalDocuments'
-import { syncManager, type SyncConfig } from '@/lib/system/syncManager'
+import { syncManager, type SyncConfig, type SyncStatus } from '@/lib/system/syncManager'
 import { themeManager, type ThemeMode } from '@/lib/system/themeManager'
+import type { WebDAVTestResult } from '@/lib/system/webdavClient'
 import { MobileMemoryView } from '@/mobile/MobileMemoryView'
 import { MobilePersonalityView } from '@/mobile/MobilePersonalityView'
 import { usePetStore } from '@/stores/petStore'
@@ -40,6 +41,10 @@ type SettingsSection = 'main' | 'theme' | 'sync' | 'memory' | 'personality' | 'o
 const AI_CONFIG_KEY = 'spiritpal-ai-config'
 /** 与 llmClient 的 DEFAULT_AI_CONFIG.provider 保持一致 */
 const DEFAULT_PROVIDER = 'deepseek'
+/** WebDAV 密码占位符（表示「keychain 中已有密码」，与 DataPanel 保持一致） */
+const PASSWORD_PLACEHOLDER = '••••••••'
+/** WebDAV 服务器默认值（坚果云，与 DataPanel 保持一致） */
+const DEFAULT_WEBDAV_URL = 'https://dav.jianguoyun.com/dav/'
 
 /** 读取当前 provider（MobileChatView 每次发送都会重读该配置，故改完即时生效） */
 function readProvider(): string {
@@ -169,6 +174,9 @@ export function MobileSettingsView() {
     return themeManager.subscribe((_effective, mode) => setThemeMode(mode))
   }, [])
   const [syncConfig, setSyncConfig] = useState<SyncConfig>(syncManager.getConfig())
+  // 同步状态需订阅（此前在渲染期直接读 getStatus()，按钮点完界面不会更新）
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(syncManager.getStatus())
+  useEffect(() => syncManager.subscribe((status) => setSyncStatus(status)), [])
 
   // 主题样式（与桌面端 SettingsWindow 一致的语义 Token 配色）
   const bgClass = 'bg-cream'
@@ -200,6 +208,95 @@ export function MobileSettingsView() {
   /** 手动触发同步 */
   async function handleSyncNow() {
     await syncManager.sync()
+  }
+
+  // ===== WebDAV 配置（移动端此前只暴露 cloud/lan 两个未实现的通道，WebDAV 无入口） =====
+  const [webdavServerUrl, setWebdavServerUrl] = useState(
+    () => syncManager.getConfig().webdav?.serverUrl || DEFAULT_WEBDAV_URL,
+  )
+  const [webdavUsername, setWebdavUsername] = useState(
+    () => syncManager.getConfig().webdav?.username ?? '',
+  )
+  const [webdavPassword, setWebdavPassword] = useState('')
+  const [webdavBusy, setWebdavBusy] = useState(false)
+  const [webdavStatus, setWebdavStatus] = useState<{ ok: boolean; text: string } | null>(null)
+
+  // 挂载时读取 keychain 中是否已有密码（有则显示占位符，避免误清空）
+  useEffect(() => {
+    let cancelled = false
+    void import('@/lib/system/webdavClient')
+      .then(({ getWebDAVClient }) => getWebDAVClient().loadPassword())
+      .then((pwd) => {
+        if (!cancelled && pwd) setWebdavPassword(PASSWORD_PLACEHOLDER)
+      })
+      .catch(() => {
+        // keychain 不可用（纯浏览器/权限受限）：保持空密码
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  /**
+   * 将当前表单写入 webdavClient + syncManager（密码走 keychain，不进 syncConfig）
+   */
+  async function applyWebdavConfig(): Promise<void> {
+    const { getWebDAVClient } = await import('@/lib/system/webdavClient')
+    const client = getWebDAVClient()
+    await client.configure({
+      serverUrl: webdavServerUrl,
+      username: webdavUsername,
+      autoSync: syncConfig.enabled,
+      autoSyncInterval: syncConfig.autoSyncInterval,
+    })
+    if (webdavPassword && webdavPassword !== PASSWORD_PLACEHOLDER) {
+      await client.setPassword(webdavPassword)
+    }
+    handleUpdateSync({
+      transport: 'webdav',
+      webdav: { serverUrl: webdavServerUrl, username: webdavUsername },
+    })
+  }
+
+  /** 测试 WebDAV 连接（先应用表单再探测） */
+  async function handleTestWebdav() {
+    setWebdavBusy(true)
+    setWebdavStatus(null)
+    try {
+      await applyWebdavConfig()
+      const { getWebDAVClient } = await import('@/lib/system/webdavClient')
+      const result: WebDAVTestResult = await getWebDAVClient().testConnection()
+      setWebdavStatus({
+        ok: result.success,
+        text: result.success
+          ? t('settings.mobile.webdavTestOk')
+          : `${t('settings.mobile.webdavTestFail')}${result.error ? `: ${result.error}` : ''}`,
+      })
+    } catch (err) {
+      setWebdavStatus({
+        ok: false,
+        text: `${t('settings.mobile.webdavTestFail')}: ${err instanceof Error ? err.message : String(err)}`,
+      })
+    } finally {
+      setWebdavBusy(false)
+    }
+  }
+
+  /** 保存 WebDAV 配置 */
+  async function handleSaveWebdav() {
+    setWebdavBusy(true)
+    setWebdavStatus(null)
+    try {
+      await applyWebdavConfig()
+      setWebdavStatus({ ok: true, text: t('settings.mobile.webdavSaved') })
+    } catch (err) {
+      setWebdavStatus({
+        ok: false,
+        text: err instanceof Error ? err.message : String(err),
+      })
+    } finally {
+      setWebdavBusy(false)
+    }
   }
 
   /**
@@ -301,10 +398,18 @@ export function MobileSettingsView() {
 
           {/* 数据同步 */}
           <SettingItem
-            icon={syncConfig.transport === 'cloud' ? Cloud : Wifi}
+            icon={syncConfig.transport === 'webdav' ? CloudUpload : syncConfig.transport === 'cloud' ? Cloud : Wifi}
             iconBg="bg-tangerine-deep"
             title={t('settings.mobile.dataSync')}
-            subtitle={syncConfig.enabled ? (syncConfig.transport === 'cloud' ? '云端' : '局域网') : t('settings.mobile.syncDisabled')}
+            subtitle={
+              syncConfig.enabled
+                ? syncConfig.transport === 'webdav'
+                  ? 'WebDAV'
+                  : syncConfig.transport === 'cloud'
+                    ? t('settings.mobile.transportCloud')
+                    : t('settings.mobile.transportLan')
+                : t('settings.mobile.syncDisabled')
+            }
             chevronClass={chevronClass}
             cardBgClass={cardBgClass}
             cardBorderClass={cardBorderClass}
@@ -565,34 +670,122 @@ export function MobileSettingsView() {
             </p>
           </div>
 
-          {/* 传输方式 */}
+          {/* 传输方式（WebDAV 是唯一已实现的真实通道；cloud/lan 仍为占位，显式禁用而非静默失败） */}
           <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
-            <h3 className="mb-2 text-sm font-medium">传输方式</h3>
+            <h3 className="mb-2 text-sm font-medium">{t('settings.mobile.transport')}</h3>
             <div className="flex gap-2">
               <button
-                onClick={() => handleUpdateSync({ transport: 'cloud' })}
+                onClick={() => handleUpdateSync({ transport: 'webdav' })}
                 className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-2 text-xs ${
-                  syncConfig.transport === 'cloud'
+                  syncConfig.transport === 'webdav'
                     ? 'bg-tangerine text-white'
                     : 'bg-cream-deep text-ink-muted'
                 }`}
               >
-                <Cloud size={14} />
-                云端
+                <CloudUpload size={14} />
+                WebDAV
               </button>
               <button
-                onClick={() => handleUpdateSync({ transport: 'lan' })}
-                className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-2 text-xs ${
-                  syncConfig.transport === 'lan'
-                    ? 'bg-tangerine text-white'
-                    : 'bg-cream-deep text-ink-muted'
-                }`}
+                disabled
+                aria-disabled="true"
+                title={t('settings.mobile.transportUnavailable')}
+                className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-cream-deep py-2 text-xs text-ink-faint opacity-50"
+              >
+                <Cloud size={14} />
+                {t('settings.mobile.transportCloud')}
+              </button>
+              <button
+                disabled
+                aria-disabled="true"
+                title={t('settings.mobile.transportUnavailable')}
+                className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-cream-deep py-2 text-xs text-ink-faint opacity-50"
               >
                 <Wifi size={14} />
-                局域网
+                {t('settings.mobile.transportLan')}
               </button>
             </div>
+            <p className={`mt-2 text-xs ${subtitleClass}`}>
+              {t('settings.mobile.transportHint')}
+            </p>
           </div>
+
+          {/* WebDAV 连接配置（仅在选中 WebDAV 时展示） */}
+          {syncConfig.transport === 'webdav' && (
+            <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
+              <h3 className="mb-2 text-sm font-medium">{t('settings.mobile.webdavConfig')}</h3>
+              <label className="mb-2 block">
+                <span className={`mb-1 block text-xs ${subtitleClass}`}>
+                  {t('settings.mobile.webdavServer')}
+                </span>
+                <input
+                  type="url"
+                  inputMode="url"
+                  autoComplete="off"
+                  value={webdavServerUrl}
+                  onChange={(e) => setWebdavServerUrl(e.target.value)}
+                  placeholder={DEFAULT_WEBDAV_URL}
+                  className={`w-full rounded-lg border ${cardBorderClass} bg-cream px-2 py-1.5 text-xs text-ink outline-none`}
+                />
+              </label>
+              <label className="mb-2 block">
+                <span className={`mb-1 block text-xs ${subtitleClass}`}>
+                  {t('settings.mobile.webdavUsername')}
+                </span>
+                <input
+                  type="text"
+                  autoComplete="off"
+                  value={webdavUsername}
+                  onChange={(e) => setWebdavUsername(e.target.value)}
+                  className={`w-full rounded-lg border ${cardBorderClass} bg-cream px-2 py-1.5 text-xs text-ink outline-none`}
+                />
+              </label>
+              <label className="mb-3 block">
+                <span className={`mb-1 block text-xs ${subtitleClass}`}>
+                  {t('settings.mobile.webdavPassword')}
+                </span>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={webdavPassword}
+                  onChange={(e) => setWebdavPassword(e.target.value)}
+                  onFocus={() => {
+                    // 占位符状态下聚焦即清空，允许输入新密码
+                    if (webdavPassword === PASSWORD_PLACEHOLDER) setWebdavPassword('')
+                  }}
+                  className={`w-full rounded-lg border ${cardBorderClass} bg-cream px-2 py-1.5 text-xs text-ink outline-none`}
+                />
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleTestWebdav}
+                  disabled={webdavBusy}
+                  className={`flex-1 rounded-lg border ${cardBorderClass} py-2 text-xs text-ink ${
+                    webdavBusy ? 'opacity-50' : ''
+                  }`}
+                >
+                  {webdavBusy ? t('settings.mobile.webdavTesting') : t('settings.mobile.webdavTest')}
+                </button>
+                <button
+                  onClick={handleSaveWebdav}
+                  disabled={webdavBusy}
+                  className={`flex-1 rounded-lg bg-tangerine py-2 text-xs font-medium text-white ${
+                    webdavBusy ? 'opacity-50' : ''
+                  }`}
+                >
+                  {t('settings.mobile.webdavSave')}
+                </button>
+              </div>
+              {webdavStatus && (
+                <p
+                  className={`mt-2 text-xs ${
+                    webdavStatus.ok ? 'text-success-deep' : 'text-stat-bad'
+                  }`}
+                >
+                  {webdavStatus.text}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* 自动同步间隔 */}
           <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
@@ -643,7 +836,15 @@ export function MobileSettingsView() {
             <div className="space-y-1 text-xs text-ink-muted">
               <div className="flex justify-between">
                 <span>当前状态</span>
-                <span>{syncManager.getStatus()}</span>
+                <span>
+                  {{
+                    idle: '未同步',
+                    syncing: '同步中…',
+                    success: '已同步',
+                    error: syncManager.getLastError() ?? '同步失败',
+                    offline: '离线',
+                  }[syncStatus] ?? syncStatus}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>金币（共享）</span>

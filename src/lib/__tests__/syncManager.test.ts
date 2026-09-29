@@ -1,6 +1,6 @@
 // syncManager 模块测试 — LWW 冲突解决、配置管理、同步流程
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { syncManager } from '@/lib/system/syncManager'
+import { syncManager, SyncManager } from '@/lib/system/syncManager'
 import type { SyncPayload } from '@/lib/system/syncManager'
 
 describe('syncManager', () => {
@@ -58,6 +58,56 @@ describe('syncManager', () => {
       expect(config.enabled).toBe(true)
       expect(config.transport).toBe('cloud')
       expect(config.lanPort).toBe(1234)
+    })
+  })
+
+  describe('配置持久化', () => {
+    it('configure 会把非敏感字段写入 localStorage', () => {
+      syncManager.configure({
+        enabled: true,
+        transport: 'webdav',
+        autoSyncInterval: 60000,
+        webdav: { serverUrl: 'https://dav.example.com/dav/', username: 'doro' },
+      })
+      const raw = localStorage.getItem('spiritpal-sync-config')
+      expect(raw).toBeTruthy()
+      const saved = JSON.parse(raw as string)
+      expect(saved.enabled).toBe(true)
+      expect(saved.transport).toBe('webdav')
+      expect(saved.autoSyncInterval).toBe(60000)
+      expect(saved.webdav.serverUrl).toBe('https://dav.example.com/dav/')
+      expect(saved.webdav.username).toBe('doro')
+    })
+
+    it('新实例能从 localStorage 恢复配置', () => {
+      localStorage.setItem('spiritpal-sync-config', JSON.stringify({
+        enabled: true,
+        transport: 'webdav',
+        autoSyncInterval: 120000,
+        webdav: { serverUrl: 'https://dav.restore.com/dav/', username: 'restored' },
+      }))
+      const fresh = new SyncManager()
+      const config = fresh.getConfig()
+      expect(config.enabled).toBe(true)
+      expect(config.transport).toBe('webdav')
+      expect(config.autoSyncInterval).toBe(120000)
+      expect(config.webdav?.serverUrl).toBe('https://dav.restore.com/dav/')
+      expect(config.webdav?.username).toBe('restored')
+      fresh.destroy()
+    })
+
+    it('持久化数据损坏时回退默认值且不抛错', () => {
+      localStorage.setItem('spiritpal-sync-config', '{ not valid json')
+      const fresh = new SyncManager()
+      expect(fresh.getConfig().transport).toBe('webdav')
+      fresh.destroy()
+    })
+
+    it('非白名单的 transport 值被忽略', () => {
+      localStorage.setItem('spiritpal-sync-config', JSON.stringify({ transport: 'ftp' }))
+      const fresh = new SyncManager()
+      expect(fresh.getConfig().transport).toBe('webdav')
+      fresh.destroy()
     })
   })
 

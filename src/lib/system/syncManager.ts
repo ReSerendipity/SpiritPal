@@ -117,7 +117,18 @@ export interface SyncConfig {
 
 // ============ 同步管理器单例 ============
 
-class SyncManager {
+/**
+ * 同步配置持久化键。
+ *
+ * 只持久化**非敏感**字段（enabled / interval / transport / 端点 / WebDAV 服务器与用户名）。
+ * WebDAV 密码由 webdavClient 走 keychain（`setPassword`/`loadPassword`）单独管理，绝不写入此处。
+ */
+const SYNC_CONFIG_STORAGE_KEY = 'spiritpal-sync-config'
+
+/**
+ * 同步管理器（导出类以便测试构造新实例验证配置持久化；应用内请使用 `syncManager` 单例）
+ */
+export class SyncManager {
   private config: SyncConfig = {
     enabled: false,
     autoSyncInterval: 5 * 60 * 1000, // 默认 5 分钟
@@ -142,6 +153,51 @@ class SyncManager {
   constructor() {
     // 生成或读取设备标识
     this.deviceInfo = this.loadOrCreateDeviceId()
+    // 恢复上次保存的同步配置（此前配置仅存内存，重启即丢，导致两端都得重填）
+    this.config = this.loadPersistedConfig()
+  }
+
+  /**
+   * 读取持久化的同步配置（缺失/损坏时回退到默认值）
+   *
+   * 安全：只接受白名单字段，且对 webdav 只取 serverUrl/username/remoteDir —— 密码不在此通道。
+   */
+  private loadPersistedConfig(): SyncConfig {
+    try {
+      const raw = localStorage.getItem(SYNC_CONFIG_STORAGE_KEY)
+      if (!raw) return this.config
+      const saved = JSON.parse(raw) as Partial<SyncConfig>
+      const merged: SyncConfig = { ...this.config }
+      if (typeof saved.enabled === 'boolean') merged.enabled = saved.enabled
+      if (typeof saved.autoSyncInterval === 'number') merged.autoSyncInterval = saved.autoSyncInterval
+      if (saved.transport === 'cloud' || saved.transport === 'lan' || saved.transport === 'webdav') {
+        merged.transport = saved.transport
+      }
+      if (typeof saved.cloudEndpoint === 'string') merged.cloudEndpoint = saved.cloudEndpoint
+      if (typeof saved.lanPort === 'number') merged.lanPort = saved.lanPort
+      if (saved.webdav && typeof saved.webdav === 'object') {
+        merged.webdav = {
+          serverUrl: typeof saved.webdav.serverUrl === 'string' ? saved.webdav.serverUrl : '',
+          username: typeof saved.webdav.username === 'string' ? saved.webdav.username : '',
+          remoteDir: typeof saved.webdav.remoteDir === 'string' ? saved.webdav.remoteDir : undefined,
+        }
+      }
+      return merged
+    } catch {
+      // 解析失败（脏数据/隐私模式）：保持默认，不阻断启动
+      return this.config
+    }
+  }
+
+  /**
+   * 持久化当前同步配置（剔除密码等敏感字段）
+   */
+  private persistConfig(): void {
+    try {
+      localStorage.setItem(SYNC_CONFIG_STORAGE_KEY, JSON.stringify(this.config))
+    } catch {
+      // 存储不可用时忽略（仅本次会话生效）
+    }
   }
 
   /**
@@ -199,6 +255,8 @@ class SyncManager {
    */
   configure(partial: Partial<SyncConfig>): void {
     this.config = { ...this.config, ...partial }
+    // 落盘（非敏感字段），使配置跨重启保留
+    this.persistConfig()
     // 重启自动同步
     if (this.autoSyncTimer !== null) {
       this.stopAutoSync()
