@@ -84,10 +84,10 @@ export function DialoguePanel({ graphId, onClose }: DialoguePanelProps) {
   if (!currentNode) return null
 
   return (
-    <div className="absolute bottom-20 left-1/2 z-40 w-64 -translate-x-1/2 rounded-xl bg-gray-900/95 p-3 text-white shadow-2xl ring-1 ring-white/10">
+    <div className="absolute bottom-20 left-1/2 z-40 w-64 -translate-x-1/2 rounded-xl bg-surface/95 p-3 text-ink shadow-2xl ring-1 ring-ink/10">
       {/* 说话者 */}
       {currentNode.speaker && (
-        <div className="mb-1 text-xs font-semibold text-amber-300">{currentNode.speaker}</div>
+        <div className="mb-1 text-xs font-semibold text-tangerine-deep">{currentNode.speaker}</div>
       )}
 
       {/* 节点文本 */}
@@ -99,7 +99,7 @@ export function DialoguePanel({ graphId, onClose }: DialoguePanelProps) {
           <button
             key={i}
             onClick={() => handleSelect(i)}
-            className="rounded-lg bg-gray-700 px-3 py-1.5 text-left text-[13px] transition-colors hover:bg-amber-500 hover:text-gray-900"
+            className="rounded-lg bg-cream px-3 py-1.5 text-left text-[13px] transition-colors hover:bg-tangerine hover:text-white"
           >
             {opt.text}
           </button>
@@ -108,7 +108,7 @@ export function DialoguePanel({ graphId, onClose }: DialoguePanelProps) {
         {canBack && (
           <button
             onClick={handleBack}
-            className="mt-1 rounded-lg border border-gray-600 px-3 py-1.5 text-[13px] text-gray-300 transition-colors hover:bg-gray-700"
+            className="mt-1 rounded-lg border border-ink/20 px-3 py-1.5 text-[13px] text-ink-faint transition-colors hover:bg-cream"
           >
             ← 返回
           </button>
@@ -117,7 +117,7 @@ export function DialoguePanel({ graphId, onClose }: DialoguePanelProps) {
         {!currentNode.options && (
           <button
             onClick={onClose}
-            className="mt-1 rounded-lg bg-gray-700 px-3 py-1.5 text-[13px] text-gray-300 hover:bg-gray-600"
+            className="mt-1 rounded-lg bg-cream px-3 py-1.5 text-[13px] text-ink-faint hover:bg-ink/15"
           >
             好的～
           </button>
@@ -127,7 +127,7 @@ export function DialoguePanel({ graphId, onClose }: DialoguePanelProps) {
       {/* 关闭 */}
       <button
         onClick={onClose}
-        className="absolute right-2 top-2 text-gray-500 hover:text-gray-300"
+        className="absolute right-2 top-2 text-ink-muted hover:text-ink"
         aria-label="关闭对话"
       >
         ✕
