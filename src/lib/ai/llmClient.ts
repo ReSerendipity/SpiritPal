@@ -32,15 +32,15 @@
  * - 错误响应脱敏（密钥/Token 抹除）
  * - AbortController 中断支持
  */
+import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { extractJSONString } from '@/lib/data/jsonUtils'
 import type { AIConfig, ChatMessage, CharacterProfile } from '@/lib/data/types'
+import { isMobileRuntime } from '@/lib/system/platform'
 import { runtimeMonitor } from '@/lib/system/runtimeMonitor'
 import { safeFetch } from '@/lib/system/ssrfProtection'
 import { OLLAMA_TAGS_URL, recordUsage } from './llmProviders'
 import { getPrompt } from './promptRegistry'
-import { invoke } from '@tauri-apps/api/core'
-import { listen } from '@tauri-apps/api/event'
-import { isMobileRuntime } from '@/lib/system/platform'
 // [Quality Review] DRY 提取：共享 SSE 流解析和 JSON 提取逻辑
 import { readTextStream, type StreamLineType } from './sseUtils'
 // SECURITY R-09: SSRF 防护 — LLM 请求使用 safeFetch 替代原生 fetch

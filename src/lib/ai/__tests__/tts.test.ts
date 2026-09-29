@@ -8,13 +8,13 @@ vi.mock('@/lib/system/ssrfProtection', () => ({
   resetSSRFProtector: vi.fn(),
 }))
 
-import { safeFetch } from '@/lib/system/ssrfProtection'
 import {
   TTSEngine,
   VoicevoxEngineError,
   DEFAULT_VOICEVOX_URL,
   type Speaker,
 } from '@/lib/ai/tts'
+import { safeFetch } from '@/lib/system/ssrfProtection'
 
 const mockSafeFetch = vi.mocked(safeFetch)
 

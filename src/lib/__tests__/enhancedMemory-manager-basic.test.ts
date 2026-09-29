@@ -1,5 +1,5 @@
 // enhancedMemory 测试（拆分自 enhancedMemory.test.ts，审计 P1-6 God Test 拆分）
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn((cmd: string) => {
@@ -26,9 +26,8 @@ vi.mock('@/lib/system/vectorSearch', () => ({
   searchSimilar: vi.fn(() => [{ id: 1, score: 0.8 }]),
 }))
 
-import { getSetting, setSetting, getAllEmbeddings } from '@/lib/data/db'
+import { getSetting, setSetting } from '@/lib/data/db'
 import { EnhancedMemoryManager, getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
-import { invoke } from '@tauri-apps/api/core'
 import { isVectorSearchAvailable, embed, searchSimilar } from '@/lib/system/vectorSearch'
 
 describe('EnhancedMemoryManager', () => {

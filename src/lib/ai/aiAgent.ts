@@ -32,6 +32,8 @@
 
 import { extractJSONObject } from '@/lib/data/jsonUtils'
 import type { AIConfig, ChatMessage } from '@/lib/data/types'
+import { validateToolParams } from '@/lib/system/toolParamValidator'
+import { requestToolConfirmation } from './agentSandbox'
 import {
   toolOpenApplication,
   toolSearchWeb,
@@ -60,9 +62,7 @@ import { loadAIConfig } from './aiConfig'
 import { getLLMClient } from './llmClient'
 import { getPrompt } from './promptRegistry'
 // P0-1：接入 zod 输出参数校验（LLM 输出 → 工具参数的第一道防线）
-import { validateToolParams } from '@/lib/system/toolParamValidator'
 // P0-1：接入工具级确认闸门（fail-closed，豁免名单外必须确认）
-import { requestToolConfirmation } from './agentSandbox'
 
 // ============ 工具定义类型 ============
 

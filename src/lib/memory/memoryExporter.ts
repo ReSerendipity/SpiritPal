@@ -12,9 +12,9 @@
  * 参考：Obsidian Data Export / Notion API Export
  */
 
-import type { MemoryEntry, MemoryData } from '@/lib/data/types'
+import type { MemoryEntry } from '@/lib/data/types'
 import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
-import { getKeyframeMemory, KeyframeLevel } from '@/lib/memory/keyframeMemory'
+import { getKeyframeMemory } from '@/lib/memory/keyframeMemory'
 
 // ============ 类型定义 ============
 

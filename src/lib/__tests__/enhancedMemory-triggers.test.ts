@@ -26,9 +26,8 @@ vi.mock('@/lib/system/vectorSearch', () => ({
   searchSimilar: vi.fn(() => [{ id: 1, score: 0.8 }]),
 }))
 
-import { getSetting, setSetting, getAllEmbeddings } from '@/lib/data/db'
-import { EnhancedMemoryManager, getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
-import { invoke } from '@tauri-apps/api/core'
+import { getSetting } from '@/lib/data/db'
+import { EnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 import { isVectorSearchAvailable, embed, searchSimilar } from '@/lib/system/vectorSearch'
 
 // 时钟钉死：这批用例断言"当前没有节日/生日/纪念日事件"，等于把断言绑在运行日期上。

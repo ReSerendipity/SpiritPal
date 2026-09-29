@@ -14,7 +14,6 @@
  */
 
 import { getCurrentWindow, PhysicalPosition } from '@tauri-apps/api/window'
-import type { PetState } from '@/lib/data/types'
 import { usePetStore } from '@/stores/petStore'
 
 // ============ 隐藏状态类型 ============

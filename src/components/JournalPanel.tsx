@@ -10,7 +10,7 @@
 import { useState } from 'react'
 import { BookOpen, Download, Sparkles } from 'lucide-react'
 import type { ChatMessage } from '@/lib/data/types'
-import { formatDate, formatDateTime } from '@/lib/system/i18n'
+import { formatDate } from '@/lib/system/i18n'
 import { useChatStore } from '@/stores/chatStore'
 
 interface JournalEntry {

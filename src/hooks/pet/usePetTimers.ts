@@ -13,23 +13,23 @@
 import { useEffect, useRef } from 'react'
 import { getChatStageManager } from '@/lib/ai/chatStages'
 // P1-2：接线 proactiveSpeak
-import { getProactiveSpeakManager } from '@/lib/ai/proactiveSpeak'
 // P1-3：接线记忆维护闭环
-import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 // P1-1：接线日记系统定时生成
-import { getDiarySystemManager } from '@/lib/nurture/diarySystem'
 // R1：上下文快照管理器
-import { getContextEpisodeManager } from '@/lib/memory/contextEpisodeManager'
 // R1：情境感知管理器（用于状态变迁订阅）
 import { getContextAwarenessManager } from '@/lib/ai/contextAwareness'
 import { WELCOME_DIALOGUE } from '@/lib/ai/dialogueConfig'
 import { getDialogueManager } from '@/lib/ai/dialogueManager'
 import { getEmotionManager } from '@/lib/ai/emotionManager'
+import { getProactiveSpeakManager } from '@/lib/ai/proactiveSpeak'
 import { getCharacter } from '@/lib/data/characters'
 // A-5：静默模式管理器（抑制宠物自发开口）
 // A-9/A-10：情绪 × 文化的表情适配
 import type { PetState } from '@/lib/data/types'
+import { getContextEpisodeManager } from '@/lib/memory/contextEpisodeManager'
+import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 import { getAchievementManager } from '@/lib/nurture/achievementSystem'
+import { getDiarySystemManager } from '@/lib/nurture/diarySystem'
 import { InteractionCounter } from '@/lib/nurture/interactionCounter'
 import { getAnimationStateMachine } from '@/lib/render/animationConfig'
 import type { AnimationId } from '@/lib/render/animationConfig'

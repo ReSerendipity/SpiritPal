@@ -71,7 +71,6 @@ vi.mock('@/lib/data/secureStorage', () => ({
   getApiKey: mocks.secureStorage.getApiKey,
 }))
 
-import { toolOpenApplication } from '@/lib/ai/agentTools'
 import { AGENT_TOOLS, detectAgentIntent, processAgentRequest, matchIntent } from '@/lib/ai/aiAgent'
 
 const EXPECTED_TOOL_NAMES = [

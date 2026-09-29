@@ -26,10 +26,10 @@ vi.mock('@/lib/system/vectorSearch', () => ({
   searchSimilar: vi.fn(() => [{ id: 1, score: 0.8 }]),
 }))
 
-import { getSetting, setSetting, getAllEmbeddings } from '@/lib/data/db'
-import { EnhancedMemoryManager, getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
+import { getSetting, setSetting } from '@/lib/data/db'
+import { EnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 import { invoke } from '@tauri-apps/api/core'
-import { isVectorSearchAvailable, embed, searchSimilar } from '@/lib/system/vectorSearch'
+import { isVectorSearchAvailable, searchSimilar } from '@/lib/system/vectorSearch'
 
 // 时钟钉死：这批用例断言"当前没有节日/生日/纪念日事件"，等于把断言绑在运行日期上。
 // FESTIVALS 只有 1/1、12/25 与农历 2026 春节 2/17、2026 中秋 9/25（src/lib/memory/memoryTypes.ts:152-164）。

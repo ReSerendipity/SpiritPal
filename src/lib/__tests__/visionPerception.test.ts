@@ -12,7 +12,6 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { getKeyframeMemory } from '@/lib/memory/keyframeMemory'
 import { getVisionPerceptionManager, resetVisionPerceptionManager } from '@/lib/memory/visionPerception'
 
 const mockInvoke = vi.mocked(invoke)

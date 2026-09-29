@@ -15,10 +15,10 @@
  * - 使用 ref + rAF 直接操作 DOM，避免拖拽时高频 setState
  */
 
-import { getCurrentWindow, currentMonitor, PhysicalPosition } from '@tauri-apps/api/window'
+import { currentMonitor, PhysicalPosition } from '@tauri-apps/api/window'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useSettingsStore } from '../../stores/settingsStore'
 import { safeGetWindow } from '@/lib/system/appWindows'
+import { useSettingsStore } from '../../stores/settingsStore'
 
 const MOTION_MAX_SPEED = 2.0
 const DRAG_DECELERATION = 0.15

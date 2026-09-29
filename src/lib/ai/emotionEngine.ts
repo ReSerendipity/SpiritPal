@@ -13,8 +13,6 @@
  * 参考：Dororo Emotion System / AI-Desktop-Pet Mood Tracker
  */
 
-import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
-
 // ============ 类型定义 ============
 
 /** 基础情绪类别 */

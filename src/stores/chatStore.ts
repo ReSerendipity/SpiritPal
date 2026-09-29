@@ -26,10 +26,10 @@
  */
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import { sqliteStorage } from '@/lib/data/db'
 import type { ChatMessage, ChatSession, MessageMetrics } from '@/lib/data/types'
 import { genId } from '@/lib/system/randomId'
 import { usePetStore } from '@/stores/petStore'
-import { sqliteStorage } from '@/lib/data/db'
 
 // ============ 常量 ============
 

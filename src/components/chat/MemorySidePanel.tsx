@@ -7,12 +7,12 @@
  */
 import { useState, useEffect } from 'react'
 import { X, Brain, Layers, Network, User } from 'lucide-react'
-import { usePetStore } from '@/stores/petStore'
-import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
-import { getOwnerFactsManager, type OwnerFact } from '@/lib/memory/ownerFacts'
 import { EnhancedMemoryList } from '@/components/memory/EnhancedMemoryList'
 import EntityGraphView from '@/components/memory/EntityGraphView'
 import type { MemoryEntry } from '@/lib/data/types'
+import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
+import { getOwnerFactsManager, type OwnerFact } from '@/lib/memory/ownerFacts'
+import { usePetStore } from '@/stores/petStore'
 
 interface MemorySidePanelProps {
   /** 关闭面板的回调 */
