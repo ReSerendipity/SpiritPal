@@ -58,6 +58,12 @@ export interface JournalEntry {
   synced: boolean
 }
 
+/** 日报正文/摘要所用的今日记忆片段（只取实际读到的两个字段） */
+type JournalMemory = { content: string; created_at: string }
+
+/** 日报正文所用的今日活动片段 */
+type JournalActivity = { app: string; duration: number | string }
+
 export interface JournalSummary {
   /** 日期范围 */
   dateRange: { start: string; end: string }
@@ -356,8 +362,8 @@ export class DailyJournalManager {
    * 生成自动摘要
    */
   private async generateAutoSummary(
-    memories: any[],
-    _activities: any[],
+    memories: JournalMemory[],
+    _activities: JournalActivity[],
   ): Promise<{
     summary: string
     tags: string[]
@@ -385,7 +391,7 @@ export class DailyJournalManager {
   /**
    * 提取今日记忆（简化实现）
    */
-  private async fetchTodaysMemories(_date: string): Promise<any[]> {
+  private async fetchTodaysMemories(_date: string): Promise<JournalMemory[]> {
     // TODO: 从记忆中提取
     return []
   }
@@ -393,7 +399,7 @@ export class DailyJournalManager {
   /**
    * 提取今日活动（简化实现）
    */
-  private async fetchTodaysActivities(_date: string): Promise<any[]> {
+  private async fetchTodaysActivities(_date: string): Promise<JournalActivity[]> {
     // TODO: 从窗口日志中提取
     return []
   }
@@ -401,7 +407,7 @@ export class DailyJournalManager {
   /**
    * 构建日报内容
    */
-  private buildDailyContent(memories: any[], activities: any[]): string {
+  private buildDailyContent(memories: JournalMemory[], activities: JournalActivity[]): string {
     const sections: string[] = []
 
     sections.push('# 今天的发生的事情\n')

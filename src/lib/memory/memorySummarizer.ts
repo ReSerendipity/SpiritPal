@@ -356,7 +356,7 @@ export class MemorySummarizer {
    * 按时间段分组
    */
   private groupByTimePeriod(
-    memories: Array<{ created_at: string }>,
+    memories: Array<{ created_at: string; user: string; assistant: string }>,
     granularity: 'day' | 'week' | 'month',
   ): Map<string, Array<{ created_at: string; user: string; assistant: string }>> {
     const groups = new Map<string, Array<{ created_at: string; user: string; assistant: string }>>()
@@ -386,7 +386,7 @@ export class MemorySummarizer {
       if (!groups.has(period)) {
         groups.set(period, [])
       }
-      groups.get(period)!.push(m as any)
+      groups.get(period)!.push(m)
     })
 
     return groups

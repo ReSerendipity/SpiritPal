@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react'
+import type { PetState } from '@/lib/data/types'
 import type { AnimationId } from '@/lib/render/animationConfig'
 
 const WALK_ACCEL_START = 0.3
@@ -28,7 +29,7 @@ export interface UsePetWalkOptions {
   /** 设置位置 state */
   setPos: (pos: { x: number; y: number }) => void
   /** 设置宠物状态 */
-  setPetState: (state: any) => void
+  setPetState: (state: PetState) => void
   /** 设置当前动画 ID */
   setCurrentAnimId: (id: AnimationId) => void
   /** 设置朝向 */
