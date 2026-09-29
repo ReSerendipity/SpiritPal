@@ -12,6 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { CommitmentTracker, getCommitmentTracker } from '@/lib/nurture/commitmentTracker'
 
 // Mock db — mock 本模块依赖的语义化封装函数（走 invoke 的 sp_ 命令）
 const mocks = vi.hoisted(() => ({
@@ -27,8 +28,6 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/data/db', () => mocks)
-
-import { CommitmentTracker, getCommitmentTracker } from '@/lib/nurture/commitmentTracker'
 
 describe('CommitmentTracker', () => {
   let tracker: CommitmentTracker

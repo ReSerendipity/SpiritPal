@@ -7,6 +7,7 @@
  */
 import { type Update } from '@tauri-apps/plugin-updater'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { checkForUpdates, downloadAndInstallUpdate } from '@/lib/system/updater'
 
 // ============ mocks ============
 
@@ -28,8 +29,6 @@ vi.mock('@tauri-apps/plugin-notification', () => ({
   isPermissionGranted: mocks.isPermissionGranted,
   requestPermission: mocks.requestPermission,
 }))
-
-import { checkForUpdates, downloadAndInstallUpdate } from '@/lib/system/updater'
 
 function makeUpdate(overrides: Partial<Update> = {}): Update {
   return {

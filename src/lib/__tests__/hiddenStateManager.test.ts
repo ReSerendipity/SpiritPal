@@ -12,6 +12,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import {
+  getHiddenStateManager,
+  resetHiddenStateManager,
+  type HiddenState,
+} from '@/lib/render/hiddenStateManager'
 
 // hiddenStateManager 的 gatherWindowState 使用 Tauri window API，mock 掉避免导入副作用
 vi.mock('@tauri-apps/api/window', () => ({
@@ -27,12 +32,6 @@ vi.mock('@tauri-apps/api/window', () => ({
     ),
   }),
 }))
-
-import {
-  getHiddenStateManager,
-  resetHiddenStateManager,
-  type HiddenState,
-} from '@/lib/render/hiddenStateManager'
 
 function getState() {
   return getHiddenStateManager().getCurrentState()

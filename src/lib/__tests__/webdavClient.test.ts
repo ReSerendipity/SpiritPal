@@ -1,5 +1,7 @@
 // webdavClient 单元测试 — WebDAV 客户端核心逻辑
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { setSecret, getSecret, deleteSecret } from '@/lib/data/secureStorage'
+import { safeFetch } from '@/lib/system/ssrfProtection'
 import {
   WebDAVClient,
   getWebDAVClient,
@@ -18,9 +20,6 @@ vi.mock('@/lib/data/secureStorage', () => ({
 vi.mock('@/lib/system/ssrfProtection', () => ({
   safeFetch: vi.fn(),
 }))
-
-import { safeFetch } from '@/lib/system/ssrfProtection'
-import { setSecret, getSecret, deleteSecret } from '@/lib/data/secureStorage'
 
 describe('WebDAVClient', () => {
   let client: WebDAVClient

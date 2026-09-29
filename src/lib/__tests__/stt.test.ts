@@ -1,12 +1,12 @@
 // STT 引擎单元测试 — Web Speech API 主路径 + Whisper 可选后端
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { STTEngine, isSpeechRecognitionSupported, transcribeWithWhisper } from '@/lib/ai/stt'
+import { safeFetch } from '@/lib/system/ssrfProtection'
 
 // Whisper 网络层隔离：mock safeFetch（与 ttsEngine.test.ts 一致）
 vi.mock('@/lib/system/ssrfProtection', () => ({
   safeFetch: vi.fn(),
 }))
-import { safeFetch } from '@/lib/system/ssrfProtection'
 const mockSafeFetch = vi.mocked(safeFetch)
 
 // ============ Mock SpeechRecognition ============

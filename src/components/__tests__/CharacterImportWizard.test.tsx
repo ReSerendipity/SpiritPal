@@ -6,6 +6,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { CharacterImportWizard } from '@/components/CharacterImportWizard'
+import { importCharacter } from '@/lib/nurture/characterImportService'
 
 // Mock dependencies
 vi.mock('@/lib/nurture/characterImportService', () => ({
@@ -27,8 +28,6 @@ vi.mock('react-i18next', () => ({
 vi.mock('@tauri-apps/plugin-dialog', () => ({
   open: vi.fn(),
 }))
-
-import { importCharacter } from '@/lib/nurture/characterImportService'
 
 beforeEach(() => {
   vi.clearAllMocks()

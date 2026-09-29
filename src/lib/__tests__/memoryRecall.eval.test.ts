@@ -22,7 +22,10 @@
  * 阈值 70% 是**回归保护线**而非质量目标：命中率跌破它说明检索打分被改坏了。
  */
 
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, it, expect, beforeAll, vi } from 'vitest'
+import { EnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 
 /**
  * P2: 真实向量路径开关。
@@ -92,10 +95,6 @@ vi.mock('@/lib/memory/entityLinking', () => ({
 vi.mock('@/lib/ai/llmClient', () => ({
   getLLMClient: vi.fn(() => ({ chatOnce: vi.fn(() => Promise.resolve('[]')) })),
 }))
-
-import { EnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
-import { mkdirSync, writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 
 interface EvalCase {
   id: number

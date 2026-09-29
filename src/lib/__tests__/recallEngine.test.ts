@@ -11,6 +11,12 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import {
+  RecallEngine,
+  getRecallEngine,
+  buildRecallRenderPrompt,
+  type RecallCandidate,
+} from '@/lib/memory/recallEngine'
 
 // Mock 依赖模块
 vi.mock('@/lib/memory/enhancedMemory', () => ({
@@ -43,13 +49,6 @@ vi.mock('@/lib/nurture/diarySystem', () => ({
     checkAnniversaryReminder: vi.fn().mockReturnValue(null),
   })),
 }))
-
-import {
-  RecallEngine,
-  getRecallEngine,
-  buildRecallRenderPrompt,
-  type RecallCandidate,
-} from '@/lib/memory/recallEngine'
 
 describe('RecallEngine', () => {
   let engine: RecallEngine

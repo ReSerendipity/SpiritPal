@@ -1,18 +1,17 @@
 // scheduleManager 模块测试 — 对话式日程创建 + 提醒
+import { sendNotification, isPermissionGranted } from '@tauri-apps/plugin-notification'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import {
+  parseScheduleFromText,
+  ScheduleManager,
+  getScheduleManager,
+} from '@/lib/nurture/scheduleManager'
 
 vi.mock('@tauri-apps/plugin-notification', () => ({
   sendNotification: vi.fn(() => Promise.resolve()),
   isPermissionGranted: vi.fn(() => Promise.resolve(true)),
   requestPermission: vi.fn(() => Promise.resolve('granted')),
 }))
-
-import {
-  parseScheduleFromText,
-  ScheduleManager,
-  getScheduleManager,
-} from '@/lib/nurture/scheduleManager'
-import { sendNotification, isPermissionGranted } from '@tauri-apps/plugin-notification'
 
 describe('parseScheduleFromText', () => {
   it('解析 "X分钟后"', () => {

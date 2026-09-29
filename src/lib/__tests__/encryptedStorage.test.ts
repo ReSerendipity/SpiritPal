@@ -11,6 +11,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { encryptedStorage, _resetTauriCache, _setTauriAvailable } from '@/lib/data/encryptedStorage'
 
 // 用 vi.hoisted 避免 mock 提升 TDZ 问题（Gotcha 26）
 const mockTauri = vi.hoisted(() => ({
@@ -22,8 +23,6 @@ vi.mock('@tauri-apps/api/core', () => ({
   isTauri: () => mockTauri.isTauri,
   invoke: mockTauri.invoke,
 }))
-
-import { encryptedStorage, _resetTauriCache, _setTauriAvailable } from '@/lib/data/encryptedStorage'
 
 describe('encryptedStorage', () => {
   beforeEach(() => {

@@ -6,6 +6,7 @@
  */
 import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { OnDeviceModelPanel } from '@/components/OnDeviceModelPanel'
 
 // ============ mock：invoke 按命令名分派 ============
 const { mockInvoke, platformState } = vi.hoisted(() => ({
@@ -21,8 +22,6 @@ vi.mock('@/lib/system/platform', () => ({
   isMobileRuntime: () => platformState.mobile,
   isDesktopRuntime: () => !platformState.mobile,
 }))
-
-import { OnDeviceModelPanel } from '@/components/OnDeviceModelPanel'
 
 const DIR = '/storage/emulated/0/Android/data/com.spiritpal.desktop_pet/files/models'
 

@@ -12,6 +12,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { updateMemoryRow, upsertSemanticFact, getSemanticFacts } from '@/lib/data/db'
+import { EnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
+import type { EnhancedMemory } from '@/lib/memory/memoryTypes'
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn((cmd: string) => {
@@ -45,10 +48,6 @@ vi.mock('@/lib/system/vectorSearch', () => ({
   isVectorSearchAvailable: vi.fn(() => Promise.resolve(false)),
   searchSimilar: vi.fn(() => [{ id: 1, score: 0.8 }]),
 }))
-
-import { updateMemoryRow, upsertSemanticFact, getSemanticFacts } from '@/lib/data/db'
-import { EnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
-import type { EnhancedMemory } from '@/lib/memory/memoryTypes'
 
 const DAY_MS = 86400000
 

@@ -1,5 +1,7 @@
 // dataManager 模块测试 — 配置导入/导出 + 全量数据备份/恢复
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { DataManager, getDataManager } from '@/lib/data/dataManager'
+import { setApiKey } from '@/lib/data/secureStorage'
 
 vi.mock('@/lib/data/modManager', () => ({
   getModManager: vi.fn(() => ({
@@ -36,9 +38,6 @@ vi.mock('@/lib/data/db', () => ({
   getSetting: vi.fn(() => Promise.resolve(null)),
   setSetting: vi.fn(() => Promise.resolve()),
 }))
-
-import { DataManager, getDataManager } from '@/lib/data/dataManager'
-import { setApiKey } from '@/lib/data/secureStorage'
 
 describe('DataManager', () => {
   let mgr: DataManager

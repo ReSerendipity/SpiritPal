@@ -17,6 +17,8 @@
  * 除 idle 外全部误判 Unknown。已新增 REACTION_ANIMATION_MAP（反应名→动画 ID，状态类回退 idle）。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { createMcpServer, startMcpServer, stopMcpServer } from '@/lib/system/mcpServer'
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 // ============ Mock 依赖（必须先于 import 源模块）============
 
@@ -68,9 +70,6 @@ vi.mock('@modelcontextprotocol/sdk/server/stdio.js', () => ({
     }
   }),
 }))
-
-import { createMcpServer, startMcpServer, stopMcpServer } from '@/lib/system/mcpServer'
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 /** 访问 McpServer 内部注册表（_registeredTools 为 SDK 内部字段） */
 function getRegisteredTools(server: McpServer): Record<string, { handler: (args?: any) => Promise<any> }> {

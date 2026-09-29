@@ -1,15 +1,4 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-
-// Mock piiMasking
-vi.mock('@/lib/data/piiMasking', () => ({
-  maskPII: vi.fn((s: string) => s.replace(/1[3-9]\d{9}/g, '138****1234')),
-}))
-
-// Mock dynamic import of @sentry/browser
-vi.mock('@sentry/browser', () => {
-  throw new Error('Module not found')
-})
-
 import {
   initSentry,
   getSentry,
@@ -23,6 +12,16 @@ import {
   identifyUser,
   clearUserContext,
 } from '@/lib/system/sentry'
+
+// Mock piiMasking
+vi.mock('@/lib/data/piiMasking', () => ({
+  maskPII: vi.fn((s: string) => s.replace(/1[3-9]\d{9}/g, '138****1234')),
+}))
+
+// Mock dynamic import of @sentry/browser
+vi.mock('@sentry/browser', () => {
+  throw new Error('Module not found')
+})
 
 describe('Sentry Integration', () => {
   beforeEach(() => {

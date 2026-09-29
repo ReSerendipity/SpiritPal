@@ -10,6 +10,11 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import {
+  cleanupZombieData,
+  getZombieDataReport,
+  autoCleanupIfDue,
+} from '@/lib/data/zombieDataCleanup'
 
 const mocks = vi.hoisted(() => ({
   getZombieReport: vi.fn(),
@@ -26,12 +31,6 @@ vi.mock('@/lib/system/auditLogger', () => ({
   auditLog: vi.fn(() => Promise.resolve()),
   AuditEventType: { SECURITY_EVENT: 'security_event' },
 }))
-
-import {
-  cleanupZombieData,
-  getZombieDataReport,
-  autoCleanupIfDue,
-} from '@/lib/data/zombieDataCleanup'
 
 beforeEach(() => {
   vi.clearAllMocks()

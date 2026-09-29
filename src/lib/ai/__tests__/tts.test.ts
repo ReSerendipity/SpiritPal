@@ -1,13 +1,5 @@
 // VOICEVOX TTS 引擎单元测试 — API 调用流程（mock safeFetch）
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-
-// 与既有 ttsEngine.test.ts 一致：mock 网络层，不 stub 全局 fetch/URL
-vi.mock('@/lib/system/ssrfProtection', () => ({
-  safeFetch: vi.fn(),
-  getSSRFProtector: vi.fn(),
-  resetSSRFProtector: vi.fn(),
-}))
-
 import {
   TTSEngine,
   VoicevoxEngineError,
@@ -15,6 +7,13 @@ import {
   type Speaker,
 } from '@/lib/ai/tts'
 import { safeFetch } from '@/lib/system/ssrfProtection'
+
+// 与既有 ttsEngine.test.ts 一致：mock 网络层，不 stub 全局 fetch/URL
+vi.mock('@/lib/system/ssrfProtection', () => ({
+  safeFetch: vi.fn(),
+  getSSRFProtector: vi.fn(),
+  resetSSRFProtector: vi.fn(),
+}))
 
 const mockSafeFetch = vi.mocked(safeFetch)
 

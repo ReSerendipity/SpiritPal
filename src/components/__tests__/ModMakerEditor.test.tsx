@@ -1,6 +1,7 @@
 // ModMakerEditor 组件测试 — 渲染/实时预览/动画行编辑/拖拽上传/导出流程（mock ModPackager）
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { ModMakerEditor } from '@/components/mod-maker/ModMakerEditor'
 // ============ mock ModPackager ============
 const { mockPack, mockOnExported } = vi.hoisted(() => ({
   mockPack: vi.fn(),
@@ -10,8 +11,6 @@ const { mockPack, mockOnExported } = vi.hoisted(() => ({
 vi.mock('@/lib/data/modPackager', () => ({
   getModPackager: () => ({ pack: mockPack }),
 }))
-
-import { ModMakerEditor } from '@/components/mod-maker/ModMakerEditor'
 
 beforeEach(() => {
   mockPack.mockReset()
