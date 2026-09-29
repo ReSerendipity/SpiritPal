@@ -155,7 +155,15 @@
 
 结论：**第一阶段阻断报告中的 P1-A/P1-B/P1-C 全部落地并验证**。安卓端自此可配置任何云端服务商（Key 走安全存储）与本地/自定义端点（免 Key 直连）。
 
-### 7.6 第三阶段证据（assets/）
+### 7.6 云端供应商真机实测（2026-09-29，ModelScope）
+
+用户提供 ModelScope 端点/Key/模型名，真机 Custom 配置实测（截图 32/33）：
+- 连接配置：`https://api-inference.modelscope.cn/v1` + `Qwen/Qwen3.8-Flash-Next` + API Key（加密存储，重装后仍保留）
+- custom 供应商现已显示可选 API Key 卡（此前仅云端预设显示——补充覆盖 ModelScope 这类需鉴权的自定义端点）
+- 聊天 "what model are you?" → 多罗人设回复「多罗是小狗呀！」——**本地 llama-server 此时已停止**，回复只能来自云端，证明安卓端云端链路（P1-A/B/C）真实打通，且应用系统提示注入在云端路径生效
+- 顺带修复：切换供应商时 API Key 草稿未重置（会残留上一供应商的 Key 文本）
+
+### 7.7 第三阶段证据（assets/）
 
 | 文件 | 内容 |
 | --- | --- |
@@ -177,6 +185,8 @@
 | `29-keychain-key-roundtrip.png` | P1-A：强杀重启后 Key 回读（安卓 keychain 全链路） |
 | `30-error-message-translated.png` | P3-3：停服错误文案已转译为用户语言（修复后实测） |
 | `31-final-sanity-recovered.png` | 最终确认：链路恢复、记忆召回（Mochi is lucky 47） |
+| `32-modelscope-config.png` | 云端实测：Custom 三项配置（ModelScope） |
+| `33-modelscope-cloud-reply.png` | 云端实测：多罗人设回复（本地服务已停，证明来自云端） |
 
 ## 8. 证据清单（第一阶段/第二阶段，assets/ 相对本报告）
 
