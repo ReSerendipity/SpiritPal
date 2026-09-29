@@ -280,6 +280,28 @@ describe('ScheduleManager', () => {
         expect(sendNotification).toHaveBeenCalled()
       })
     })
+
+    it('用户在设置里关闭通知时不发送（此前该开关全仓无消费者）', async () => {
+      const { useSettingsStore } = await import('@/stores/settingsStore')
+      useSettingsStore.setState({ notifications: false })
+      ;(isPermissionGranted as ReturnType<typeof vi.fn>).mockResolvedValue(true)
+      ;(sendNotification as ReturnType<typeof vi.fn>).mockClear()
+
+      mgr.addEvent({
+        title: '关闭通知测试',
+        triggerTime: Date.now() - 1000,
+        source: 'manual',
+        reminderMinutes: [],
+      })
+
+      vi.advanceTimersByTime(60000)
+      // 开关判断在 sendSystemNotification 的首个 await 之前同步执行，无需等异步链路
+      await Promise.resolve()
+      expect(sendNotification).not.toHaveBeenCalled()
+
+      // 还原，避免影响后续用例
+      useSettingsStore.setState({ notifications: true })
+    })
   })
 
   describe('start / stop', () => {
