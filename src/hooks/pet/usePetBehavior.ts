@@ -170,7 +170,7 @@ export function usePetBehavior(options: UsePetBehaviorOptions): UsePetBehaviorRe
     }
     setPetState(renderState)
     scheduleNextBehavior()
-  }, [scheduleNextBehavior, showBubble, animStateMachine, workStateRef, activeMusicRef, dockDirRef])
+  }, [scheduleNextBehavior, showBubble, animStateMachine, workStateRef, activeMusicRef, dockDirRef, pauseRef])
 
   // 每次渲染后同步最新 pickBehavior（供定时器回调调用）
   useEffect(() => {
