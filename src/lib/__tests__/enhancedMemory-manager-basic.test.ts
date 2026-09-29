@@ -2,7 +2,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { getSetting, setSetting } from '@/lib/data/db'
 import { EnhancedMemoryManager, getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
-import { isVectorSearchAvailable, embed, searchSimilar } from '@/lib/system/vectorSearch'
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn((cmd: string) => {

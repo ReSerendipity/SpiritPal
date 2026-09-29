@@ -72,17 +72,6 @@ vi.mock('@/lib/ai/llmClient', () => ({
 vi.mock('@/lib/data/secureStorage', () => ({
   getApiKey: mocks.secureStorage.getApiKey,
 }))
-
-const EXPECTED_TOOL_NAMES = [
-  'open_application',
-  'search_web',
-  'set_reminder',
-  'manage_schedule',
-  'adjust_pet_state',
-  'get_weather',
-  'get_pet_status',
-]
-
 describe('matchIntent', () => {
   it('中文关键词「打开计算器」匹配 open_application', () => {
     expect(matchIntent('打开计算器')).toBe('open_application')

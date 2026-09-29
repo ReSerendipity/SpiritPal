@@ -68,9 +68,10 @@ describe('tauriInvoker', () => {
     })
 
     it('可重试错误（超时）首次失败、第二次成功应重试 1 次', async () => {
-      // 模拟超时：第一次 invoke 永远 pending
-      let resolveFirst: (v: string) => void
-      const firstCall = new Promise<string>((resolve) => { resolveFirst = resolve })
+      // 模拟超时：第一次 invoke 永远 pending（故意不接 resolve，让它挂到超时）
+      const firstCall = new Promise<string>(() => {
+        /* no-op: 该 Promise 永不 settle */
+      })
       mockInvoke.mockReturnValueOnce(firstCall)
       // 第二次正常返回
       mockInvoke.mockResolvedValueOnce('recovered')

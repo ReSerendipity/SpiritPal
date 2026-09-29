@@ -1,7 +1,7 @@
 // aiAgent 测试（拆分自 aiAgent.test.ts，审计 P1-6 God Test 拆分）
 import { invoke } from '@tauri-apps/api/core'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { AGENT_TOOLS, detectAgentIntent, processAgentRequest, matchIntent } from '@/lib/ai/aiAgent'
+import { processAgentRequest } from '@/lib/ai/aiAgent'
 
 // ============ Mock 依赖模块 ============
 // 使用 vi.hoisted 确保 mock 对象在 vi.mock 工厂执行前可用
@@ -71,17 +71,6 @@ vi.mock('@/lib/ai/llmClient', () => ({
 vi.mock('@/lib/data/secureStorage', () => ({
   getApiKey: mocks.secureStorage.getApiKey,
 }))
-
-const EXPECTED_TOOL_NAMES = [
-  'open_application',
-  'search_web',
-  'set_reminder',
-  'manage_schedule',
-  'adjust_pet_state',
-  'get_weather',
-  'get_pet_status',
-]
-
 describe('processAgentRequest（规则回退）', () => {
   beforeEach(() => {
     vi.mocked(invoke).mockReset()

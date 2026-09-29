@@ -69,7 +69,7 @@ describe('QualityMonitor', () => {
     })
 
     it('should compute length score correctly', () => {
-      const id = monitor.recordResponse('test', 'model', 'hi', 'hi', 100)
+      monitor.recordResponse('test', 'model', 'hi', 'hi', 100)
       const record = monitor.getRecords()[0] as QualityRecord
       expect(record.dimensions.lengthScore).toBeLessThan(0.5) // too short
     })
