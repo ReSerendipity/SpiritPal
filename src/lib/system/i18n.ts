@@ -29,6 +29,8 @@ export type SupportedLang = 'zh' | 'en' | 'ja' | 'ko' | 'zh-TW'
 // 中文翻译资源
 const zh = {
   // ===== 移动端设置页（P2-2 全量 i18n 化：主页面+分区标题）=====
+
+  translation: {
   'settings.mobile.appearance': '外观主题',
   'settings.mobile.appearanceFollow': '跟随系统',
   'settings.mobile.appearanceDark': '深色',
@@ -49,8 +51,6 @@ const zh = {
   'settings.mobile.about': '关于',
   'settings.mobile.back': '返回',
   'settings.mobile.current': '当前',
-
-  translation: {
     // 通用
     'app.name': 'SpiritPal 桌宠',
     'app.confirm': '确认',
@@ -368,6 +368,8 @@ const zh = {
 
 // 英文翻译资源
 const en = {
+
+  translation: {
   'settings.mobile.appearance': 'Appearance',
   'settings.mobile.appearanceFollow': 'Follow system',
   'settings.mobile.appearanceDark': 'Dark',
@@ -388,8 +390,6 @@ const en = {
   'settings.mobile.about': 'About',
   'settings.mobile.back': 'Back',
   'settings.mobile.current': 'Current',
-
-  translation: {
     'app.name': 'SpiritPal',
     'app.confirm': 'OK',
     'app.cancel': 'Cancel',
@@ -602,6 +602,8 @@ const en = {
 
 // 日文翻译资源
 const ja = {
+
+  translation: {
   'settings.mobile.appearance': '外観テーマ',
   'settings.mobile.appearanceFollow': 'システムに従う',
   'settings.mobile.appearanceDark': 'ダーク',
@@ -622,8 +624,6 @@ const ja = {
   'settings.mobile.about': '情報',
   'settings.mobile.back': '戻る',
   'settings.mobile.current': '現在',
-
-  translation: {
     'app.name': 'SpiritPal デスクトップペット',
     'app.confirm': '確認',
     'app.cancel': 'キャンセル',
@@ -836,6 +836,8 @@ const ja = {
 
 // 韩文翻译资源
 const ko = {
+
+  translation: {
   'settings.mobile.appearance': '외관 테마',
   'settings.mobile.appearanceFollow': '시스템 따름',
   'settings.mobile.appearanceDark': '다크',
@@ -856,8 +858,6 @@ const ko = {
   'settings.mobile.about': '정보',
   'settings.mobile.back': '뒤로',
   'settings.mobile.current': '현재',
-
-  translation: {
     'app.name': 'SpiritPal 데스크탑 펫',
     'app.confirm': '확인',
     'app.cancel': '취소',
@@ -1070,6 +1070,8 @@ const ko = {
 
 // 繁体中文翻译资源
 const zhTw = {
+
+  translation: {
   'settings.mobile.appearance': '外觀主題',
   'settings.mobile.appearanceFollow': '跟隨系統',
   'settings.mobile.appearanceDark': '深色',
@@ -1090,8 +1092,6 @@ const zhTw = {
   'settings.mobile.about': '關於',
   'settings.mobile.back': '返回',
   'settings.mobile.current': '目前',
-
-  translation: {
     'app.name': 'SpiritPal 桌寵',
     'app.confirm': '確認',
     'app.cancel': '取消',
