@@ -246,7 +246,7 @@ function stopRenderLoop(): void {
 
 // ============ 响应发送函数 ============
 
-function sendSuccess(messageId: string, data?: any): void {
+function sendSuccess(messageId: string, data?: unknown): void {
   const response: WorkerResponse = {
     messageId,
     type: 'success',

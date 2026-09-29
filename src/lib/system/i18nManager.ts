@@ -162,10 +162,10 @@ export class I18nManager {
 
     // 使用点号路径访问嵌套对象
     const keys = keyPath.split('.')
-    let value: any = bundle
+    let value: unknown = bundle
 
     for (const k of keys) {
-      value = value?.[k]
+      value = value == null ? undefined : (value as Record<string, unknown>)[k]
       if (value === undefined) {
         console.warn(`[I18n] Missing translation: ${keyPath}`)
         return keyPath // Fallback to key path
@@ -178,11 +178,12 @@ export class I18nManager {
     }
 
     // 插值参数替换
+    let text: string = value
     if (params) {
-      value = this.interpolate(value, params)
+      text = this.interpolate(text, params)
     }
 
-    return value
+    return text
   }
 
   /**

@@ -91,7 +91,7 @@ const CHARACTER_SELECTORS = [
  */
 function isDevToolsOpen(): boolean {
   // 方法 1: window.devtools API (Tauri WebView2 可能支持)
-  if (typeof (window as any).devtools !== 'undefined') {
+  if (typeof (window as Window & { devtools?: unknown }).devtools !== 'undefined') {
     return true
   }
   // 方法 2: 检测 outerWidth/outerHeight 与 innerWidth/innerHeight 差异（DevTools 停靠时）

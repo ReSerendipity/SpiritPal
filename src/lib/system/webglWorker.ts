@@ -20,7 +20,13 @@ export interface WorkerMessage {
   id: string
   /** 消息类型 */
   type: 'init' | 'render' | 'update' | 'resize' | 'destroy' | 'stats'
-  /** 数据载荷 */
+  /**
+   * 数据载荷：字段随 type 变化（init 带 canvasId/canvasTransferable，render 带 commands，
+   * resize 带 width/height，update 带 deltaTime/emitterPos）。
+   * 要精确表达需改成按 type 判别的联合，并同时改 worker 侧的字段读取与 send 的动态构造 ——
+   * 那是重设计 IPC 协议而非清 lint，故保留宽松类型并豁免。
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 跨 realm IPC 载荷，形状随 type 变化；见上
   payload?: any
   /** 时间戳 */
   timestamp: number
@@ -32,7 +38,7 @@ export interface WorkerResponse {
   /** 响应类型 */
   type: 'success' | 'error' | 'stats'
   /** 响应数据 */
-  data?: any
+  data?: unknown
   /** 错误信息 */
   error?: string
 }
@@ -40,7 +46,11 @@ export interface WorkerResponse {
 export interface RenderCommand {
   /** 命令类型 */
   command: 'drawSprite' | 'drawParticle' | 'clear' | 'present'
-  /** 参数 */
+  /**
+   * 命令参数：drawSprite/drawParticle 各自读不同键（如 params.color 当数组下标用）。
+   * 改 unknown 会让 worker 侧出现 4 处索引报错，需逐处加断言 —— 属改 worker 代码而非清 lint。
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 渲染命令参数表，键集随 command 变化
   params: Record<string, any>
 }
 
@@ -67,7 +77,10 @@ const DEFAULT_WORKER_CONFIG: WebGLWorkerConfig = {
 export class WebGLWorkerManager {
   private worker: Worker | null = null
   private config: WebGLWorkerConfig
+  // pendingRequests 混合了不同 send<T> 的 resolve：(value: unknown) => void 因参数逆变
+  // 无法接受 new Promise<T> 的 resolve（TS2322），故此处保留 any 作为类型擦除的容器
   private pendingRequests: Map<string, {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 异构 pending 表，resolve 需抹平 T
     resolve: (value: any) => void
     reject: (error: Error) => void
     timer: NodeJS.Timeout
@@ -111,9 +124,9 @@ export class WebGLWorkerManager {
   /**
    * 发送消息到 Worker
    */
-  async send<T = any>(
+  async send<T = unknown>(
     type: WorkerMessage['type'],
-    payload?: any,
+    payload?: unknown,
   ): Promise<T> {
     return new Promise((resolve, reject) => {
       const messageId = `msg_${++this.requestCounter}_${Date.now()}`
@@ -195,7 +208,7 @@ export class WebGLWorkerManager {
   /**
    * 获取性能统计
    */
-  async getStats(): Promise<any> {
+  async getStats(): Promise<unknown> {
     return this.send('stats')
   }
 

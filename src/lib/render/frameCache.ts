@@ -82,7 +82,7 @@ export interface FrameCacheKey {
   /** 缩放比例 */
   scale?: number
   /** 其他参数 */
-  params?: Record<string, any>
+  params?: Record<string, unknown>
 }
 
 // ============ LRU Cache 实现 ============
@@ -429,7 +429,7 @@ export class LRUCache<K extends string | number, V> {
 // ============ 帧动画缓存专用类 ============
 
 export class FrameAnimationCache {
-  private cache: LRUCache<string, any>
+  private cache: LRUCache<string, unknown>
   private keyGenerator: (key: FrameCacheKey) => string
 
   constructor(config?: LRUCacheConfig) {
@@ -449,7 +449,7 @@ export class FrameAnimationCache {
   /**
    * 获取帧数据
    */
-  getFrame(key: FrameCacheKey): any {
+  getFrame(key: FrameCacheKey): unknown {
     const cacheKey = this.keyGenerator(key)
     return this.cache.get(cacheKey)
   }
@@ -457,7 +457,7 @@ export class FrameAnimationCache {
   /**
    * 缓存帧数据
    */
-  cacheFrame(key: FrameCacheKey, data: any, metadata?: {
+  cacheFrame(key: FrameCacheKey, data: unknown, metadata?: {
     size?: number
     ttl?: number
     tags?: string[]
@@ -478,7 +478,7 @@ export class FrameAnimationCache {
       }
     }
 
-    keysToDelete.forEach(key => this.cache.delete(key as any))
+    keysToDelete.forEach(key => this.cache.delete(key))
   }
 
   /**
@@ -496,16 +496,18 @@ export class FrameAnimationCache {
 
 // ============ 单例 ============
 
-let lruInstance: LRUCache<any, any> | null = null
+// 共享单例对外的键/值类型随调用方的泛型实参而变，本质上无法用一个具体类型精确表达，
+// 故内部以 LRUCache<string | number, unknown> 存储，进出各做一次 unknown 中转断言。
+let lruInstance: LRUCache<string | number, unknown> | null = null
 let frameInstance: FrameAnimationCache | null = null
 
 export function getLRUCache<K extends string | number, V>(
   config?: LRUCacheConfig,
 ): LRUCache<K, V> {
   if (!lruInstance) {
-    lruInstance = new LRUCache(config) as any
+    lruInstance = new LRUCache<string, V>(config) as unknown as LRUCache<string | number, unknown>
   }
-  return lruInstance as any
+  return lruInstance as unknown as LRUCache<K, V>
 }
 
 export function getFrameAnimationCache(

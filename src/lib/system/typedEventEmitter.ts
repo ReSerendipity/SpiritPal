@@ -19,8 +19,8 @@
  * - `off(原始 listener)` 可以移除对应的 once 包装（Node 做不到这点）。
  */
 
-/** 最宽监听器签名：任何具体签名都可赋给它（any 放宽参数逆变检查） */
-export type AnyListener = (...args: any[]) => void
+/** 最宽监听器签名：任何具体签名都可赋给它（never 参数位对所有函数类型逆变兼容） */
+export type AnyListener = (...args: never[]) => void
 /** 宽松事件映射（未声明事件映射时的默认值） */
 export type LooseEventMap = { [event: string]: AnyListener }
 
@@ -44,11 +44,11 @@ export class TypedEventEmitter<T extends Record<string, AnyListener> = LooseEven
   }
 
   once<K extends keyof T & string>(event: K, listener: T[K]): this {
-    const wrapper = ((...args: any[]) => {
+    const wrapper = ((...args: unknown[]) => {
       this.removeListener(event, wrapper as T[K])
       this.onceWrappers.delete(listener)
       ;(listener as unknown as (...a: unknown[]) => void)(...args)
-    }) as T[K]
+    }) as unknown as T[K]
     this.onceWrappers.set(listener, wrapper)
     return this.addListener(event, wrapper)
   }

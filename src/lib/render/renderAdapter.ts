@@ -101,6 +101,18 @@ export interface Live2DAdapterConfig {
 }
 
 /**
+ * Live2D 模型的可选能力面。
+ * model 以 unknown 持有（pixi-live2d-display 的 Live2DModel 实例，其类型随加载方式而异），
+ * 调用前一律做 typeof 守卫；集中在此声明一次，避免每个调用点各写一次断言。
+ */
+type Live2DCapabilities = {
+  motion?: (id: string) => void
+  expression?: (name: string) => void
+  scale?: { set: (v: number) => void }
+  destroy?: () => void
+}
+
+/**
  * Live2D 渲染适配器
  * 通过 pixi-live2d-display 加载和操控 Live2D 模型
  */
@@ -119,14 +131,19 @@ export class Live2DAdapter extends EventEmitter implements RenderAdapter {
     this.scale = config.initialScale ?? 1.0
   }
 
+  /** model 的能力面视图（仅在 this.model 非空时读取） */
+  private get modelCaps(): Live2DCapabilities {
+    return this.model as Live2DCapabilities
+  }
+
   play(animationId: AnimationId): void {
     this.currentAnimation = animationId
     this.emit('animation-play', animationId)
     // 实际的 Live2D motion 播放由集成层处理
     // 此处仅记录状态和触发事件
-    if (this.model && typeof (this.model as any).motion === 'function') {
+    if (this.model && typeof this.modelCaps.motion === 'function') {
       try {
-        (this.model as any).motion(animationId)
+        this.modelCaps.motion?.(animationId)
       } catch (err) {
         this.emit('adapter-error', err instanceof Error ? err : new Error(String(err)))
       }
@@ -140,9 +157,9 @@ export class Live2DAdapter extends EventEmitter implements RenderAdapter {
 
   setExpression(expression: string): void {
     this.emit('expression-change', expression)
-    if (this.model && typeof (this.model as any).expression === 'function') {
+    if (this.model && typeof this.modelCaps.expression === 'function') {
       try {
-        (this.model as any).expression(expression)
+        this.modelCaps.expression?.(expression)
       } catch (err) {
         this.emit('adapter-error', err instanceof Error ? err : new Error(String(err)))
       }
@@ -164,9 +181,9 @@ export class Live2DAdapter extends EventEmitter implements RenderAdapter {
 
   setScale(scale: number): void {
     this.scale = scale
-    if (this.model && typeof (this.model as any).scale === 'object') {
+    if (this.model && typeof this.modelCaps.scale === 'object') {
       try {
-        (this.model as any).scale.set(scale)
+        this.modelCaps.scale?.set(scale)
       } catch {
         // 忽略
       }
@@ -188,9 +205,9 @@ export class Live2DAdapter extends EventEmitter implements RenderAdapter {
   }
 
   destroy(): void {
-    if (this.model && typeof (this.model as any).destroy === 'function') {
+    if (this.model && typeof this.modelCaps.destroy === 'function') {
       try {
-        (this.model as any).destroy()
+        this.modelCaps.destroy?.()
       } catch {
         // 忽略
       }
