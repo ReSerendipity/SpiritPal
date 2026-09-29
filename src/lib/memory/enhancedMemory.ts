@@ -2100,11 +2100,9 @@ export class EnhancedMemoryManager {
     query: string,
     pool: EnhancedMemory[],
     limit: number,
-    currentMood?: { valence: number; arousal: number }
+    _currentMood?: { valence: number; arousal: number }
   ): Promise<RetrievalResult[]> {
     const vectorResults = await this.vectorSearchInMemories(query, pool, limit)
-    const now = Date.now()
-    const mood = currentMood ?? this.getCurrentMood()
 
     // vectorSearchInMemories 返回的已计算过 fusedScore，这里近似为 0.7
     return vectorResults.map(mem => ({

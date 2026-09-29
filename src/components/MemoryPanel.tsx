@@ -39,7 +39,7 @@ export function MemoryPanel() {
 
   // A-12：批量操作管理器（多选 + 批量删除 + 撤销快照）
   const batch = useMemo(() => createBatchManager<OwnerFact>([]), [])
-  const [selVersion, setSelVersion] = useState(0)
+  const [, setSelVersion] = useState(0)
   const [exporting, setExporting] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showUndo, setShowUndo] = useState(false)

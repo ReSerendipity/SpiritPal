@@ -44,9 +44,6 @@ const DEFAULT_SCHEDULES = [
   { startHour: 23, endHour: 7, reason: 'schedule' as const },
 ]
 
-/** 临时静音默认时长（5 分钟） */
-const DEFAULT_TEMP_DURATION_MS = 5 * 60 * 1000
-
 // ============ 静默模式管理器 ============
 
 export class SilentModeManager {
@@ -158,7 +155,6 @@ export class SilentModeManager {
     if (!this.state.isActive) return
 
     const prevReason = this.state.reason
-    const wasTemporary = !!this.state.resumeAt
 
     // 清除定时器
     if (this.tempTimer) {

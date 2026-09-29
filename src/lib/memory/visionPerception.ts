@@ -260,7 +260,7 @@ export class VisionPerceptionManager {
    * A-1：尝试用系统活动窗口信息增强描述（`analyze_screen_content` 命令仍为计划中，
    * 但截屏 + 窗口信息已真实可用，降级描述也要给出有价值反馈而非固定文案）
    */
-  private async fallbackAnalysis(screenshot: ScreenshotResult): Promise<VisualAnalysisResult> {
+  private async fallbackAnalysis(_screenshot: ScreenshotResult): Promise<VisualAnalysisResult> {
     try {
       const win = await invoke<{ title: string; processName: string }>('get_active_window')
       if (win?.title) {

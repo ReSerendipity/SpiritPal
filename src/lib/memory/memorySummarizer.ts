@@ -207,7 +207,7 @@ export class MemorySummarizer {
       .replace('{max_tokens}', String(this.config.maxTokens))
       .replace('{style}', this.config.style === 'narrative' ? '叙述式' : this.config.style === 'detailed' ? '详细列举' : '精简概括')
 
-    const userContent = memories.slice(-20).map((m, idx) => {
+    const userContent = memories.slice(-20).map((m, _idx) => {
       const date = new Date(m.created_at).toLocaleString('zh-CN')
       return `[${date}] 主人：${m.user}\n[${date}] 宠物：${m.assistant}`
     }).join('\n')

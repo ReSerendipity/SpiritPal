@@ -126,7 +126,7 @@ export function SpriteRenderer({
   const [fallbackToAtlas, setFallbackToAtlas] = useState(false)
 
   // 视频加载失败计数：同一角色连续失败 2 次（当前状态 + idle）后触发图集回退
-  const [videoFailCount, setVideoFailCount] = useState(0)
+  const [, setVideoFailCount] = useState(0)
 
   // 角色切换时重置回退状态（渲染期调整，非 effect——避免级联渲染）
   const [prevCharForFallback, setPrevCharForFallback] = useState(characterId)

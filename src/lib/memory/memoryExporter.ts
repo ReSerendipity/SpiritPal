@@ -164,7 +164,7 @@ export class MemoryExporter {
   /**
    * 生成文件名
    */
-  private generateFilename(memories: MemoryEntry[]): string {
+  private generateFilename(_memories: MemoryEntry[]): string {
     const now = new Date()
     const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
 

@@ -204,14 +204,12 @@ export class CharacterResourceLoader {
               }
             }),
           )
-          let successCount = 0
           for (const result of results) {
             if (result.status === 'fulfilled' && result.value?.id) {
               const config = result.value
               if (!this.discoveredPacks.has(config.id)) {
                 this.discoveredPacks.set(config.id, config)
                 packs.push(config)
-                successCount++
               }
             }
           }

@@ -352,7 +352,7 @@ export class CalendarManager {
       if (!stdout.includes('permission denied')) {
         console.log('[Calendar] macOS calendar permission granted')
       }
-    } catch (error) {
+    } catch {
       console.warn('[Calendar] macOS calendar permission not granted')
     }
   }
@@ -402,8 +402,8 @@ export class CalendarManager {
    */
   private async fetchEvents(
     source: CalendarDataSource,
-    startDate: Date,
-    endDate: Date,
+    _startDate: Date,
+    _endDate: Date,
   ): Promise<CalendarEvent[]> {
     console.log(`[Calendar] Fetching events from ${source.type} (未接入系统日历，返回空)`)
     return []

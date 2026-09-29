@@ -221,7 +221,7 @@ export class MemoryRecommendationEngine {
   private generateCandidatePool(
     memories: MemoryEntry[],
     profile: UserInterestProfile,
-    query: RecommendationQuery,
+    _query: RecommendationQuery,
   ): Array<{
     id: string
     type: RecommendationType
@@ -255,7 +255,7 @@ export class MemoryRecommendationEngine {
     Object.entries(profile.activityPreferences)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
-      .forEach(([activity, score], idx) => {
+      .forEach(([activity, score], _idx) => {
         candidates.push({
           id: `activity_${activity}`,
           type: 'activity',

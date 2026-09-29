@@ -67,7 +67,7 @@ export class IpcRetryExhaustedError extends Error {
 /**
  * 创建一个超时 Promise，在指定毫秒后 reject
  */
-function createTimeout<T>(ms: number, command: string): Promise<never> {
+function createTimeout(ms: number, command: string): Promise<never> {
   return new Promise((_, reject) => {
     setTimeout(() => reject(new IpcTimeoutError(command, ms)), ms)
   })
@@ -113,7 +113,7 @@ export async function tauriInvokeNoRetry<T>(
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ): Promise<T> {
   const invokePromise = invoke<T>(command, args)
-  const timeoutPromise = createTimeout<T>(timeoutMs, command)
+  const timeoutPromise = createTimeout(timeoutMs, command)
   return Promise.race([invokePromise, timeoutPromise])
 }
 

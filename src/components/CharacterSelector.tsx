@@ -35,10 +35,10 @@ export function CharacterSelector({ onSelect }: CharacterSelectorProps) {
   const switchSettingsChar = useSettingsStore((s) => s.switchCharacter)
   const switchPetChar = usePetStore((s) => s.switchCharacter)
   const initCharacter = usePetStore((s) => s.initCharacter)
-  // 订阅角色列表版本号：社区/shimeji 角色异步加载完成后触发重渲染
+  // 订阅角色列表版本号：社区/shimeji 角色异步加载完成后触发重渲染。
+  // 返回值不参与渲染，**订阅行为本身才是目的**，删除此行会让异步加载完成后不重渲染。
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 故意只订阅、不读值（见上两行）
   const charListVersion = useSettingsStore((s) => s.characterListVersion)
-
-  const allChars = getAllCharacters()
 
   function handleSelect(id: string) {
     initCharacter(id)

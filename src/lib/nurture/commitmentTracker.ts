@@ -25,7 +25,6 @@ import {
   autoLapseCommitments,
   getRecurringDoneCommitments,
   getOpenCommitmentByContent,
-  type CommitmentRow,
 } from '@/lib/data/db'
 
 // ============ 类型定义 ============

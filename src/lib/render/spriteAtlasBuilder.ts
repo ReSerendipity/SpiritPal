@@ -123,7 +123,8 @@ class BinPacker {
     for (const item of sorted) {
       const node = this.findNode(this.root, item.w, item.h)
       if (node) {
-        const splitNode = this.splitNode(node, item.w, item.h)
+        // splitNode 会就地切分空闲节点（修改 this.root 树），返回值在本算法中不需要
+        this.splitNode(node, item.w, item.h)
         result.push({ x: node.x, y: node.y, data: item.data })
       } else {
         return null // 放不下

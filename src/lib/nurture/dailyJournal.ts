@@ -357,7 +357,7 @@ export class DailyJournalManager {
    */
   private async generateAutoSummary(
     memories: any[],
-    activities: any[],
+    _activities: any[],
   ): Promise<{
     summary: string
     tags: string[]
@@ -385,7 +385,7 @@ export class DailyJournalManager {
   /**
    * 提取今日记忆（简化实现）
    */
-  private async fetchTodaysMemories(date: string): Promise<any[]> {
+  private async fetchTodaysMemories(_date: string): Promise<any[]> {
     // TODO: 从记忆中提取
     return []
   }
@@ -393,7 +393,7 @@ export class DailyJournalManager {
   /**
    * 提取今日活动（简化实现）
    */
-  private async fetchTodaysActivities(date: string): Promise<any[]> {
+  private async fetchTodaysActivities(_date: string): Promise<any[]> {
     // TODO: 从窗口日志中提取
     return []
   }
@@ -408,7 +408,7 @@ export class DailyJournalManager {
 
     if (memories.length > 0) {
       sections.push('## 💭 对话记录\n')
-      memories.forEach((m, idx) => {
+      memories.forEach((m, _idx) => {
         const time = new Date(m.created_at).toLocaleTimeString('zh-CN')
         sections.push(`**${time}**: ${m.content}`)
       })

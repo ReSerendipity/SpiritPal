@@ -148,8 +148,6 @@ export function shouldApplyRollout(
 
 // ============ 灰度配置管理 ============
 
-/** 缓存的灰度配置 */
-let cachedConfig: RolloutConfig = DEFAULT_ROLLOUT_CONFIG
 let cachedUserId = ''
 
 /**
@@ -172,7 +170,6 @@ export function getRolloutConfig(): RolloutConfig {
  * 更新灰度配置（远程下发或本地调试用）
  */
 export function setRolloutConfig(config: RolloutConfig): void {
-  cachedConfig = config
   try {
     localStorage.setItem(ROLLOUT_STORAGE_KEY, JSON.stringify(config))
   } catch {
@@ -217,7 +214,6 @@ export function getRolloutOverrides(): RolloutDecision[] {
  * 清除灰度配置缓存
  */
 export function clearRolloutCache(): void {
-  cachedConfig = DEFAULT_ROLLOUT_CONFIG
   cachedUserId = ''
   try {
     localStorage.removeItem(ROLLOUT_STORAGE_KEY)

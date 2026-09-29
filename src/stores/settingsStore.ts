@@ -121,6 +121,7 @@ export const useSettingsStore = create<SettingsStoreState>()(
       version: 1,
       // 运行时状态不持久化
       partialize: (state) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- omit 惯用法：这两个是运行时状态、刻意不持久化，靠 rest 得到要落盘的子集
         const { characterListVersion, bumpCharacterList, ...persisted } = state
         return persisted
       },

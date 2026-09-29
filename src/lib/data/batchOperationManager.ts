@@ -369,7 +369,7 @@ export class BatchOperationManager<T extends { id: string }> {
       createUndo: (_itemIds: string[]) => (() => void) | undefined
     },
   ): Promise<BatchOperationResult> {
-    const { type, itemIds, params, execute, createUndo } = operationConfig
+    const { itemIds, params, execute, createUndo } = operationConfig
 
     if (itemIds.length === 0) {
       return {

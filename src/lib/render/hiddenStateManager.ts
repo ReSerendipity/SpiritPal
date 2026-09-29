@@ -14,7 +14,6 @@
  */
 
 import { getCurrentWindow, PhysicalPosition } from '@tauri-apps/api/window'
-import { usePetStore } from '@/stores/petStore'
 
 // ============ 隐藏状态类型 ============
 
@@ -259,7 +258,8 @@ export class HiddenStateManager {
     try {
       const win = getCurrentWindow()
       const pos = await win.outerPosition()
-      const size = await win.outerSize()
+      // 探头只需要位置；outerSize() 保留一次 IPC 往返（原逻辑即如此），结果不参与计算
+      await win.outerSize()
 
       let newX = pos.x
       let newY = pos.y
