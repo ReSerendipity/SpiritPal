@@ -17,12 +17,15 @@ import { useEffect, useState } from 'react'
 import {
   Sun, Moon, Monitor, Bell, RefreshCw, Cloud, Wifi,
   Type, Info, ChevronRight, Brain, Sparkles, Cpu,
+  FileText, ShieldCheck,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { LegalDocument } from '@/components/LegalDocument'
 import { OnDeviceModelPanel } from '@/components/OnDeviceModelPanel'
 import { LLM_PROVIDERS, getProvider } from '@/lib/ai/llmProviders'
 import { getAllCharacters } from '@/lib/data/characters'
 import { deleteApiKey, getApiKey, setApiKey } from '@/lib/data/secureStorage'
+import { PRIVACY_POLICY, TERMS_OF_SERVICE } from '@/lib/system/legalDocuments'
 import { syncManager, type SyncConfig } from '@/lib/system/syncManager'
 import { themeManager, type ThemeMode } from '@/lib/system/themeManager'
 import { MobileMemoryView } from '@/mobile/MobileMemoryView'
@@ -156,6 +159,8 @@ export function MobileSettingsView() {
   }
 
   const [section, setSection] = useState<SettingsSection>('main')
+  // 法律文档弹窗（隐私政策 / 用户协议）——与桌面端 SettingsWindow 的 legalDoc 同构
+  const [legalDoc, setLegalDoc] = useState<'privacy' | 'terms' | null>(null)
   // 主题模式订阅制：初始快照可能早于 themeManager.init()（MobileApp useEffect），
   // 故挂载后订阅权威状态回填，避免「选中态与实际渲染脱节」
   const [themeMode, setThemeMode] = useState<ThemeMode>(themeManager.getMode())
@@ -691,6 +696,7 @@ export function MobileSettingsView() {
 
   // ===== 关于 =====
   return (
+    <>
     <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
       <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
         <button onClick={() => setSection('main')} className="text-sm text-tangerine">
@@ -718,6 +724,29 @@ export function MobileSettingsView() {
             <li>✓ 推送通知</li>
           </ul>
         </div>
+        {/* 法律信息（P0 合规）：移动端此前完全没有隐私政策 / 用户协议入口 */}
+        <div className={`mx-auto mt-4 max-w-xs rounded-xl ${cardBgClass} border ${cardBorderClass} p-4 text-left`}>
+          <h3 className="mb-2 text-sm font-medium">{t('settings.mobile.legal')}</h3>
+          <div className="space-y-1">
+            <button
+              onClick={() => setLegalDoc('privacy')}
+              className="flex w-full items-center gap-2 rounded-lg px-1 py-1.5 text-left text-xs text-ink hover:bg-ink/6"
+            >
+              <ShieldCheck size={14} className="text-ink-faint" />
+              {t('settings.mobile.privacyPolicy')}
+              <ChevronRight size={14} className={`ml-auto ${chevronClass}`} />
+            </button>
+            <button
+              onClick={() => setLegalDoc('terms')}
+              className="flex w-full items-center gap-2 rounded-lg px-1 py-1.5 text-left text-xs text-ink hover:bg-ink/6"
+            >
+              <FileText size={14} className="text-ink-faint" />
+              {t('settings.mobile.userAgreement')}
+              <ChevronRight size={14} className={`ml-auto ${chevronClass}`} />
+            </button>
+          </div>
+        </div>
+
         <div className={`mx-auto mt-4 max-w-xs rounded-xl ${cardBgClass} border ${cardBorderClass} p-4 text-left`}>
           <h3 className="mb-2 text-sm font-medium">关注我们</h3>
           <div className="flex flex-wrap gap-2 text-xs">
@@ -765,6 +794,14 @@ export function MobileSettingsView() {
         </div>
       </div>
     </div>
+    {legalDoc && (
+      <LegalDocument
+        title={legalDoc === 'privacy' ? t('settings.mobile.privacyPolicy') : t('settings.mobile.userAgreement')}
+        content={legalDoc === 'privacy' ? PRIVACY_POLICY : TERMS_OF_SERVICE}
+        onClose={() => setLegalDoc(null)}
+      />
+    )}
+    </>
   )
 }
 

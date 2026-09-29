@@ -26,6 +26,7 @@
  */
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { Cat, MessageCircle, Heart, Settings as SettingsIcon, Sun, Moon, Brain } from 'lucide-react'
+import { AgreementGate, agreementAccepted } from '@/components/AgreementGate'
 import { syncManager, type SyncStatus } from '@/lib/system/syncManager'
 import { themeManager, type EffectiveTheme, type ThemeMode } from '@/lib/system/themeManager'
 import { useWindowEvent } from '@/lib/system/windowEventBus'
@@ -72,6 +73,9 @@ export default function MobileApp() {
   const [theme, setTheme] = useState<EffectiveTheme>(themeManager.getEffective())
   const [themeMode, setThemeMode] = useState<ThemeMode>(themeManager.getMode())
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(syncManager.getStatus())
+  // 合规门槛：与桌面端 AgreementGate 共用同一 localStorage 键/版本号（agreementAccepted）。
+  // 移动端 WebView 存储独立，故移动端用户会独立确认一次。
+  const [agreed, setAgreed] = useState<boolean>(() => agreementAccepted())
 
   // 手势状态 ref
   const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null)
@@ -149,6 +153,15 @@ export default function MobileApp() {
   const tabBarClass = 'border-ink/10 bg-surface/95 backdrop-blur-md'
   const activeTabClass = 'text-tangerine'
   const inactiveTabClass = 'text-ink-faint'
+
+  // 合规门槛：未同意协议前不渲染任何业务界面（此前移动端完全无此入口）
+  if (!agreed) {
+    return (
+      <div className={`flex h-[100dvh] w-screen flex-col ${bgClass} ${textClass} overflow-hidden`}>
+        <AgreementGate onAccept={() => setAgreed(true)} />
+      </div>
+    )
+  }
 
   return (
     <div
