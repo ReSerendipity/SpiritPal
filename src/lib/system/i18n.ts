@@ -28,6 +28,28 @@ export type SupportedLang = 'zh' | 'en' | 'ja' | 'ko' | 'zh-TW'
 
 // 中文翻译资源
 const zh = {
+  // ===== 移动端设置页（P2-2 全量 i18n 化：主页面+分区标题）=====
+  'settings.mobile.appearance': '外观主题',
+  'settings.mobile.appearanceFollow': '跟随系统',
+  'settings.mobile.appearanceDark': '深色',
+  'settings.mobile.appearanceLight': '浅色',
+  'settings.mobile.petSize': '宠物大小',
+  'settings.mobile.pushNotification': '推送通知',
+  'settings.mobile.aiProvider': 'AI 服务商',
+  'settings.mobile.onDevice': '端侧模型',
+  'settings.mobile.onDeviceSub': 'MNN 内嵌 · 本地推理',
+  'settings.mobile.dataSync': '数据同步',
+  'settings.mobile.syncDisabled': '未启用',
+  'settings.mobile.currentCharacter': '当前角色',
+  'settings.mobile.language': '语言',
+  'settings.mobile.memory': '记忆',
+  'settings.mobile.memorySub': '查看三层记忆与可视化分析',
+  'settings.mobile.personality': '性格',
+  'settings.mobile.personalitySub': '编辑五维性格、说话风格与作息',
+  'settings.mobile.about': '关于',
+  'settings.mobile.back': '返回',
+  'settings.mobile.current': '当前',
+
   translation: {
     // 通用
     'app.name': 'SpiritPal 桌宠',
@@ -346,6 +368,27 @@ const zh = {
 
 // 英文翻译资源
 const en = {
+  'settings.mobile.appearance': 'Appearance',
+  'settings.mobile.appearanceFollow': 'Follow system',
+  'settings.mobile.appearanceDark': 'Dark',
+  'settings.mobile.appearanceLight': 'Light',
+  'settings.mobile.petSize': 'Pet Size',
+  'settings.mobile.pushNotification': 'Push Notifications',
+  'settings.mobile.aiProvider': 'AI Provider',
+  'settings.mobile.onDevice': 'On-device Model',
+  'settings.mobile.onDeviceSub': 'MNN embedded · local inference',
+  'settings.mobile.dataSync': 'Data Sync',
+  'settings.mobile.syncDisabled': 'Not enabled',
+  'settings.mobile.currentCharacter': 'Character',
+  'settings.mobile.language': 'Language',
+  'settings.mobile.memory': 'Memory',
+  'settings.mobile.memorySub': 'View three-tier memory & visualization',
+  'settings.mobile.personality': 'Personality',
+  'settings.mobile.personalitySub': 'Edit 5-dim personality, style & schedule',
+  'settings.mobile.about': 'About',
+  'settings.mobile.back': 'Back',
+  'settings.mobile.current': 'Current',
+
   translation: {
     'app.name': 'SpiritPal',
     'app.confirm': 'OK',
@@ -559,6 +602,27 @@ const en = {
 
 // 日文翻译资源
 const ja = {
+  'settings.mobile.appearance': '外観テーマ',
+  'settings.mobile.appearanceFollow': 'システムに従う',
+  'settings.mobile.appearanceDark': 'ダーク',
+  'settings.mobile.appearanceLight': 'ライト',
+  'settings.mobile.petSize': 'ペットサイズ',
+  'settings.mobile.pushNotification': 'プッシュ通知',
+  'settings.mobile.aiProvider': 'AI プロバイダ',
+  'settings.mobile.onDevice': 'オンデバイスモデル',
+  'settings.mobile.onDeviceSub': 'MNN 内蔵 · ローカル推論',
+  'settings.mobile.dataSync': 'データ同期',
+  'settings.mobile.syncDisabled': '無効',
+  'settings.mobile.currentCharacter': '現在のキャラ',
+  'settings.mobile.language': '言語',
+  'settings.mobile.memory': 'メモリ',
+  'settings.mobile.memorySub': '三層メモリと可視化分析を表示',
+  'settings.mobile.personality': '性格',
+  'settings.mobile.personalitySub': '五次元性格・話し方・生活リズムを編集',
+  'settings.mobile.about': '情報',
+  'settings.mobile.back': '戻る',
+  'settings.mobile.current': '現在',
+
   translation: {
     'app.name': 'SpiritPal デスクトップペット',
     'app.confirm': '確認',
@@ -772,6 +836,27 @@ const ja = {
 
 // 韩文翻译资源
 const ko = {
+  'settings.mobile.appearance': '외관 테마',
+  'settings.mobile.appearanceFollow': '시스템 따름',
+  'settings.mobile.appearanceDark': '다크',
+  'settings.mobile.appearanceLight': '라이트',
+  'settings.mobile.petSize': '반려동물 크기',
+  'settings.mobile.pushNotification': '푸시 알림',
+  'settings.mobile.aiProvider': 'AI 제공자',
+  'settings.mobile.onDevice': '기기 모델',
+  'settings.mobile.onDeviceSub': 'MNN 내장 · 로컬 추론',
+  'settings.mobile.dataSync': '데이터 동기화',
+  'settings.mobile.syncDisabled': '비활성화',
+  'settings.mobile.currentCharacter': '현재 캐릭터',
+  'settings.mobile.language': '언어',
+  'settings.mobile.memory': '메모리',
+  'settings.mobile.memorySub': '3단계 메모리 및 시각화 분석',
+  'settings.mobile.personality': '성격',
+  'settings.mobile.personalitySub': '5차원 성격, 말투, 생활리듬 편집',
+  'settings.mobile.about': '정보',
+  'settings.mobile.back': '뒤로',
+  'settings.mobile.current': '현재',
+
   translation: {
     'app.name': 'SpiritPal 데스크탑 펫',
     'app.confirm': '확인',
@@ -985,6 +1070,27 @@ const ko = {
 
 // 繁体中文翻译资源
 const zhTw = {
+  'settings.mobile.appearance': '外觀主題',
+  'settings.mobile.appearanceFollow': '跟隨系統',
+  'settings.mobile.appearanceDark': '深色',
+  'settings.mobile.appearanceLight': '淺色',
+  'settings.mobile.petSize': '寵物大小',
+  'settings.mobile.pushNotification': '推播通知',
+  'settings.mobile.aiProvider': 'AI 服務商',
+  'settings.mobile.onDevice': '裝置端模型',
+  'settings.mobile.onDeviceSub': 'MNN 內嵌 · 本機推論',
+  'settings.mobile.dataSync': '資料同步',
+  'settings.mobile.syncDisabled': '未啟用',
+  'settings.mobile.currentCharacter': '目前角色',
+  'settings.mobile.language': '語言',
+  'settings.mobile.memory': '記憶',
+  'settings.mobile.memorySub': '檢視三層記憶與視覺化分析',
+  'settings.mobile.personality': '個性',
+  'settings.mobile.personalitySub': '編輯五維個性、說話風格與作息',
+  'settings.mobile.about': '關於',
+  'settings.mobile.back': '返回',
+  'settings.mobile.current': '目前',
+
   translation: {
     'app.name': 'SpiritPal 桌寵',
     'app.confirm': '確認',

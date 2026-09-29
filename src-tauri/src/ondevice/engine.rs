@@ -54,6 +54,14 @@ static JVM: OnceLock<JavaVM> = OnceLock::new();
 /// 的调用线程执行，其 `find_class` 用的是**应用 class loader**（正确）。
 static ON_DEVICE_CLASS: OnceLock<GlobalRef> = OnceLock::new();
 
+/// P1-D：MainActivity 经 `getExternalFilesDir("models")` 回传的外部专属模型目录。
+/// 该目录由 Android 框架 provision（app 有读写权限），且位于
+/// `/storage/emulated/0/Android/data/<pkg>/files/models` —— **adb push 可写**，
+/// 解决「裸路径 mkdir 被 FUSE/SELinux 拒 → 回退私有目录 → adb 写不进」的老问题。
+/// 未回传（如桌面/异常）时 model_dir() 走原回退逻辑。
+#[cfg(target_os = "android")]
+static EXTERNAL_MODELS_DIR: OnceLock<std::path::PathBuf> = OnceLock::new();
+
 // ---- 全局单例 ----
 static SCHEDULER: OnceLock<Scheduler> = OnceLock::new();
 static APP: OnceLock<AppHandle> = OnceLock::new();
@@ -104,6 +112,10 @@ fn scheduler() -> &'static Scheduler {
 fn model_dir(app: &AppHandle) -> std::path::PathBuf {
     #[cfg(target_os = "android")]
     {
+        // 优先用 MainActivity 经 getExternalFilesDir 回传的外部专属目录（P1-D 正解）。
+        if let Some(dir) = EXTERNAL_MODELS_DIR.get() {
+            return dir.clone();
+        }
         // ⚠️ 必须做 `-` → `_` 转换：`tauri.conf.json` 的 identifier 是 `com.spiritpal.desktop-pet`，
         // 而 Tauri 生成 Android 工程时会把 `-` 换成 `_`（applicationId = `com.spiritpal.desktop_pet`）。
         // 直接用 identifier 会拼出不存在的包名目录，FUSE 按包名拦截 → create_dir_all 必然失败
@@ -315,6 +327,23 @@ pub extern "system" fn Java_com_alibaba_mnnllm_android_SpiritPalOnDevice_nativeI
         .and_then(|m| m.get(&sid).map(|c| c.is_cancelled()))
         .unwrap_or(false);
     cancelled as jni::sys::jboolean
+}
+
+/// P1-D：MainActivity 启动时经 JNI 回传外部专属模型目录
+/// （`getExternalFilesDir("models")` 的结果，框架已 provision、adb 可写）。
+/// 仅存储一次；后续 `model_dir()` 优先采用。
+#[cfg(target_os = "android")]
+pub extern "system" fn Java_com_alibaba_mnnllm_android_SpiritPalOnDevice_nativeSetExternalModelsDir(
+    mut env: JNIEnv,
+    _class: JClass,
+    path: JString,
+) {
+    if let Ok(s) = env.get_string(&path) {
+        let p = std::path::PathBuf::from(s.to_string_lossy().as_ref());
+        if !p.as_os_str().is_empty() {
+            let _ = EXTERNAL_MODELS_DIR.set(p);
+        }
+    }
 }
 
 // ---- Tauri 命令（仅移动端，命令名前缀 ondevice_ 与前端 invoke 对齐）----

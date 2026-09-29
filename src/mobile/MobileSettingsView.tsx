@@ -219,9 +219,13 @@ export function MobileSettingsView() {
           <SettingItem
             icon={themeMode === 'dark' ? Moon : Sun}
             iconBg="bg-tangerine"
-            title="外观主题"
+            title={t('settings.mobile.appearance')}
             subtitle={
-              themeMode === 'system' ? '跟随系统' : themeMode === 'dark' ? '深色' : '浅色'
+              themeMode === 'system'
+                ? t('settings.mobile.appearanceFollow')
+                : themeMode === 'dark'
+                  ? t('settings.mobile.appearanceDark')
+                  : t('settings.mobile.appearanceLight')
             }
             chevronClass={chevronClass}
             cardBgClass={cardBgClass}
@@ -234,7 +238,7 @@ export function MobileSettingsView() {
           <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
             <div className="mb-2 flex items-center gap-2">
               <Type size={16} className="text-ink-faint" />
-              <span className="text-sm font-medium">宠物大小</span>
+              <span className="text-sm font-medium">{t('settings.mobile.petSize')}</span>
               <span className="ml-auto text-xs text-ink-muted">{settings.petSize.toFixed(1)}x</span>
             </div>
             <input
@@ -252,7 +256,7 @@ export function MobileSettingsView() {
           <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
             <div className="flex items-center gap-2">
               <Bell size={16} className="text-ink-faint" />
-              <span className="text-sm font-medium">推送通知</span>
+              <span className="text-sm font-medium">{t('settings.mobile.pushNotification')}</span>
               <label className="ml-auto flex items-center">
                 <input
                   type="checkbox"
@@ -268,7 +272,7 @@ export function MobileSettingsView() {
           <SettingItem
             icon={Sparkles}
             iconBg="bg-tangerine"
-            title="AI 服务商"
+            title={t('settings.mobile.aiProvider')}
             subtitle={getProvider(provider)?.name ?? provider}
             chevronClass={chevronClass}
             cardBgClass={cardBgClass}
@@ -281,8 +285,8 @@ export function MobileSettingsView() {
           <SettingItem
             icon={Cpu}
             iconBg="bg-tangerine-deep"
-            title="端侧模型"
-            subtitle="MNN 内嵌 · 本地推理"
+            title={t('settings.mobile.onDevice')}
+            subtitle={t('settings.mobile.onDeviceSub')}
             chevronClass={chevronClass}
             cardBgClass={cardBgClass}
             cardBorderClass={cardBorderClass}
@@ -294,8 +298,8 @@ export function MobileSettingsView() {
           <SettingItem
             icon={syncConfig.transport === 'cloud' ? Cloud : Wifi}
             iconBg="bg-tangerine-deep"
-            title="数据同步"
-            subtitle={syncConfig.enabled ? `已启用 · ${syncConfig.transport === 'cloud' ? '云端' : '局域网'}` : '未启用'}
+            title={t('settings.mobile.dataSync')}
+            subtitle={syncConfig.enabled ? (syncConfig.transport === 'cloud' ? '云端' : '局域网') : t('settings.mobile.syncDisabled')}
             chevronClass={chevronClass}
             cardBgClass={cardBgClass}
             cardBorderClass={cardBorderClass}
@@ -353,8 +357,8 @@ export function MobileSettingsView() {
           <SettingItem
             icon={Brain}
             iconBg="bg-tangerine"
-            title="记忆"
-            subtitle="查看三层记忆与可视化分析"
+            title={t('settings.mobile.memory')}
+            subtitle={t('settings.mobile.memorySub')}
             chevronClass={chevronClass}
             cardBgClass={cardBgClass}
             cardBorderClass={cardBorderClass}
@@ -366,8 +370,8 @@ export function MobileSettingsView() {
           <SettingItem
             icon={Sparkles}
             iconBg="bg-tangerine-deep"
-            title="性格"
-            subtitle="编辑五维性格、说话风格与作息"
+            title={t('settings.mobile.personality')}
+            subtitle={t('settings.mobile.personalitySub')}
             chevronClass={chevronClass}
             cardBgClass={cardBgClass}
             cardBorderClass={cardBorderClass}
@@ -379,7 +383,7 @@ export function MobileSettingsView() {
           <SettingItem
             icon={Info}
             iconBg="bg-ink/50"
-            title="关于"
+            title={t('settings.mobile.about')}
             subtitle="SpiritPal v0.1.0"
             chevronClass={chevronClass}
             cardBgClass={cardBgClass}
@@ -403,9 +407,9 @@ export function MobileSettingsView() {
       <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
         <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
           <button onClick={() => setSection('main')} className="text-sm text-tangerine">
-            ← 返回
+            {t('settings.mobile.back')}
           </button>
-          <h2 className="text-base font-semibold">外观主题</h2>
+          <h2 className="text-base font-semibold">{t('settings.mobile.appearance')}</h2>
         </header>
         <div className="flex-1 overflow-y-auto px-3 py-3">
           {themeOptions.map((opt) => {
@@ -447,9 +451,9 @@ export function MobileSettingsView() {
       <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
         <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
           <button onClick={() => setSection('main')} className="text-sm text-tangerine">
-            ← 返回
+            {t('settings.mobile.back')}
           </button>
-          <h2 className="text-base font-semibold">AI 服务商</h2>
+          <h2 className="text-base font-semibold">{t('settings.mobile.aiProvider')}</h2>
         </header>
         <div className="flex-1 overflow-y-auto px-3 py-3">
           <p className={`mb-3 text-xs ${subtitleClass}`}>
@@ -465,7 +469,7 @@ export function MobileSettingsView() {
               } p-3 text-left`}
             >
               <span className="flex-1 text-sm font-medium">{p.name}</span>
-              {provider === p.id && <span className="text-xs text-tangerine">当前</span>}
+              {provider === p.id && <span className="text-xs text-tangerine">{t('settings.mobile.current')}</span>}
             </button>
           ))}
           {provider === 'custom' && (
@@ -516,9 +520,9 @@ export function MobileSettingsView() {
       <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
         <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
           <button onClick={() => setSection('main')} className="text-sm text-tangerine">
-            ← 返回
+            {t('settings.mobile.back')}
           </button>
-          <h2 className="text-base font-semibold">端侧模型</h2>
+          <h2 className="text-base font-semibold">{t('settings.mobile.onDevice')}</h2>
         </header>
         <div className="flex-1 overflow-y-auto px-3 py-3">
           <OnDeviceModelPanel />
@@ -532,9 +536,9 @@ export function MobileSettingsView() {
       <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
         <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
           <button onClick={() => setSection('main')} className="text-sm text-tangerine">
-            ← 返回
+            {t('settings.mobile.back')}
           </button>
-          <h2 className="text-base font-semibold">数据同步</h2>
+          <h2 className="text-base font-semibold">{t('settings.mobile.dataSync')}</h2>
         </header>
         <div className="flex-1 overflow-y-auto px-3 py-3">
           {/* 启用同步 */}
@@ -657,7 +661,7 @@ export function MobileSettingsView() {
       <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
         <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
           <button onClick={() => setSection('main')} className="text-sm text-tangerine">
-            ← 返回
+            {t('settings.mobile.back')}
           </button>
           <h2 className="text-base font-semibold">记忆</h2>
         </header>
@@ -674,9 +678,9 @@ export function MobileSettingsView() {
       <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
         <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
           <button onClick={() => setSection('main')} className="text-sm text-tangerine">
-            ← 返回
+            {t('settings.mobile.back')}
           </button>
-          <h2 className="text-base font-semibold">性格</h2>
+          <h2 className="text-base font-semibold">{t('settings.mobile.personality')}</h2>
         </header>
         <div className="flex-1 overflow-hidden">
           <MobilePersonalityView />
@@ -692,7 +696,7 @@ export function MobileSettingsView() {
         <button onClick={() => setSection('main')} className="text-sm text-tangerine">
           ← 返回
         </button>
-        <h2 className="text-base font-semibold">关于</h2>
+        <h2 className="text-base font-semibold">{t('settings.mobile.about')}</h2>
       </header>
       <div className="flex-1 overflow-y-auto px-4 py-6 text-center">
         <div className="mb-4 text-6xl">🐾</div>
