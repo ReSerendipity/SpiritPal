@@ -190,10 +190,31 @@ function rglobExe(dir) {
 }
 
 // ---- 7. dist 产物与 SRI 清单逐条一致（R-11 构建期门禁的本地等价物）----
+// 注意顺序依赖：sri_hashes.rs 是**生成物**，默认模式的脚本会就地改写 dist 后再据其字节算哈希。
+// CI 的 build job 与 release.yml 都先跑 tauri-action（触发 tauri.conf.json 的 beforeBuildCommand
+// = tsc -b && vite build && obfuscate-and-sri）再跑 --verify，比对的是同一次构建的产物，故必然自洽。
+// 本地若在「build 之后、生成步骤之前」跑本项，报的是顺序造成的假阳性，不是完整性事故 ——
+// 所以失败时要点名前置命令，否则会被误读成清单与产物真脱节（该误读已实际发生过一次）。
 {
-  const r = sh('node', ['scripts/obfuscate-and-sri.mjs', '--verify'])
-  const tail = (r.out || '').trim().split('\n').filter(Boolean).slice(-2).join(' | ')
-  record('SRI 清单与 dist 一致', r.code === 0, tail || '无输出')
+  const distAssets = join(ROOT, 'dist', 'assets')
+  if (!existsSync(distAssets)) {
+    record('SRI 清单与 dist 一致', false, '本地无 dist/assets 产物（先跑 pnpm build && node scripts/obfuscate-and-sri.mjs）')
+  } else {
+    const r = sh('node', ['scripts/obfuscate-and-sri.mjs', '--verify'])
+    const out = String(r.out || '')
+    if (r.code === 0) {
+      record('SRI 清单与 dist 一致', true, out.trim().split('\n').filter(Boolean).pop() || '')
+    } else {
+      const n = (out.match(/SRI 校验失败：(\d+) 项不一致/) || [])[1] || '?'
+      record(
+        'SRI 清单与 dist 一致',
+        false,
+        `${n} 项不一致 — 若只是本地报红，先确认是否漏跑生成步骤：`
+        + `pnpm build && node scripts/obfuscate-and-sri.mjs（就地混淆 dist 并重算清单）。`
+        + `发版链路不受影响：tauri build 的 beforeBuildCommand 会重生成后，--verify 才比对同一次构建的产物。`,
+      )
+    }
+  }
 }
 
 // ---- 汇总 ----
