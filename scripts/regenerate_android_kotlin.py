@@ -102,6 +102,30 @@ def render(template: Path, add_comment: bool, package: str, library: str) -> str
     return (AUTO_GEN_COMMENT + content) if add_comment else content
 
 
+def normalize(text: str) -> str:
+    """比较用归一化：去掉 AUTO-GENERATED 头注释、行尾空白与前导空行。
+
+    本仓把胶水层从 `generated/` 搬进包目录并纳入 git 跟踪（提交 4360e18），
+    搬运时删掉了 AUTO-GENERATED 头、并归一了行尾空白；package 行未改，
+    因此**两处布局的类名完全相同**——若同时存在会触发 Kotlin Redeclaration。
+    """
+    t = text.replace(AUTO_GEN_COMMENT, "", 1) if text.startswith(AUTO_GEN_COMMENT) else text
+    lines = [l.rstrip() for l in t.splitlines()]
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    return "\n".join(lines).strip() + "\n"
+
+
+def candidates(root: Path, package: str) -> dict[str, list[Path]]:
+    """每个文件名允许的落点：stock 的 generated/ 与本仓的扁平包目录。"""
+    pkg_dir = Path(*package.split("."))
+    base = root / "src-tauri" / "gen" / "android" / "app" / "src" / "main" / "java"
+    return {  # 顺序即写入优先级：优先沿用已存在的那份，避免制造重复类
+        "flat": base / pkg_dir,
+        "generated": base / pkg_dir / "generated",
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="重建 Tauri/wry 的 Android Kotlin 胶水层")
     ap.add_argument("--check", action="store_true", help="只检查，不做写入（缺失/不一致 → 退出码 1）")
@@ -110,8 +134,7 @@ def main() -> int:
     root = repo_root()
     package = read_android_package(root)
     library = read_library_name(root)
-    out_dir = (root / "src-tauri" / "gen" / "android" / "app" / "src" / "main"
-               / "java" / Path(*package.split(".")) / "generated")
+    dirs = candidates(root, package)
 
     templates = find_templates(cargo_home())
     if not templates:
@@ -120,37 +143,52 @@ def main() -> int:
         return 2
 
     print(f"[info] package={package}  library={library}")
-    print(f"[info] out_dir={out_dir}")
+    print(f"[info] 允许落点：{', '.join(str(d.relative_to(root)).replace(chr(92), '/') for d in dirs.values())}")
     print(f"[info] 模板 {len(templates)} 个：{', '.join(sorted(templates))}")
 
-    missing, stale, written = [], [], []
+    missing, stale, written, dup, layout = [], [], [], [], set()
     for name, (tpl, add_comment) in sorted(templates.items()):
-        expected = render(tpl, add_comment, package, library)
-        dst = out_dir / name
-        if not dst.exists():
+        expected = normalize(render(tpl, add_comment, package, library))
+        present = [(k, dirs[k] / name) for k in ("flat", "generated") if (dirs[k] / name).exists()]
+        if len(present) > 1:
+            dup.append(name)  # 同包同名两份 → Kotlin Redeclaration，构建必炸
+        if not present:
             missing.append(name)
-        elif dst.read_text(encoding="utf-8") != expected:
+        elif normalize(present[0][1].read_text(encoding="utf-8")) != expected:
             stale.append(name)
+        else:
+            layout.add(present[0][0])
 
         if args.check:
             continue
-        out_dir.mkdir(parents=True, exist_ok=True)
-        if dst.exists() and dst.read_text(encoding="utf-8") == expected:
-            continue
-        dst.write_text(expected, encoding="utf-8")
+        # 已存在就原地修；都不存在时才落到 stock 的 generated/（保持 #115 的自救语义）
+        target = present[0][1] if present else dirs["generated"] / name
+        if present:
+            continue  # 存在即不动（含 stale 由人工确认后处理，避免覆盖本仓的搬运改动）
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(expected, encoding="utf-8")
         written.append(name)
+
+    if dup:
+        print(f"[FAIL] 同名胶水层在两种布局里同时存在 {len(dup)}：{dup} —— 会触发 Redeclaration，"
+              f"请只保留一份（本仓约定保留包目录那份）", file=sys.stderr)
+        return 1
 
     if args.check:
         if missing or stale:
-            print(f"[FAIL] 缺失 {len(missing)}：{missing or '无'}；内容不一致 {len(stale)}：{stale or '无'}",
+            print(f"[FAIL] 缺失 {len(missing)}：{missing or '无'}；内容与模板不一致 {len(stale)}：{stale or '无'}",
                   file=sys.stderr)
             return 1
-        print("[OK] 全部就位且内容与模板一致。")
+        print(f"[OK] 全部就位且内容与模板一致（归一化比较：忽略 AUTO-GENERATED 头与行尾空白）。"
+              f"当前布局：{', '.join(sorted(layout))}")
         return 0
 
     print(f"[done] 新写入 {len(written)}：{written or '（无变化）'}")
     if missing:
         print(f"       其中原本缺失 {len(missing)}：{missing}")
+    if stale:
+        print(f"[warn] 内容与模板有差异（未覆盖）{len(stale)}：{stale} —— 本仓包目录那份刻意删了 AUTO-GENERATED 头，"
+              f"若确属漂移请人工比对", file=sys.stderr)
     print("[next] 之后执行 gradlew assembleRelease / bundleRelease 即可编译。")
     return 0
 
