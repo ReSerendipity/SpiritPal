@@ -124,4 +124,33 @@ describe('MobilePetView 长按菜单', () => {
     fireEvent.click(screen.getByText('← 返回'))
     expect(screen.getByText('摸头')).toBeInTheDocument()
   })
+
+  // 回归：MobilePetView 在 MobileApp 里常驻挂载，菜单若不在切走 tab 时收起，
+  // 六个动作按钮会在其他页继续留在 DOM 且保有非零矩形 —— 被上层面板盖住看不见，
+  // 但键盘 Tab 焦点与读屏遍历仍然可达。模拟器 UI 走查就是被这个假象卡住的。
+  it('切走 tab 时把菜单从 DOM 移除，而不是只被上层面板遮住', () => {
+    const { container, rerender } = render(<MobilePetView isActive={true} isDark={false} />)
+    openMenu(container)
+    expect(screen.getByText('摸头')).toBeInTheDocument()
+
+    rerender(<MobilePetView isActive={false} isDark={false} />)
+
+    expect(screen.queryByText('摸头')).not.toBeInTheDocument()
+    expect(screen.queryByText('切换角色')).not.toBeInTheDocument()
+    expect(screen.queryByText('关闭')).not.toBeInTheDocument()
+  })
+
+  it('切走再切回，不残留上次打开的二级面板', () => {
+    const { container, rerender } = render(<MobilePetView isActive={true} isDark={false} />)
+    openMenu(container)
+    fireEvent.click(screen.getByText('喂食'))
+    expect(screen.getByText('苹果')).toBeInTheDocument()
+
+    rerender(<MobilePetView isActive={false} isDark={false} />)
+    rerender(<MobilePetView isActive={true} isDark={false} />)
+
+    // 切回后应回到「菜单未打开」的初始态，而不是直接落在食物列表上
+    expect(screen.queryByText('苹果')).not.toBeInTheDocument()
+    expect(screen.queryByText('摸头')).not.toBeInTheDocument()
+  })
 })
