@@ -28,10 +28,18 @@ jobs:
             exit 1
           fi
           fails=0
-          while IFS= read -r commit; do
+          # --no-merges：merge 提交不引入任何作者内容，官方 DCO bot 同样跳过它。不加这个参数时，
+          # GitHub 的 "Update branch"（Dependabot 每次同步分支都走这条路）会造出一个没有
+          # Signed-off-by 的 merge 提交，把本来绿的 PR 判红 —— 2026-10-02 实测：纯 dependabot
+          # 提交 1140e09 的 DCO=success，两轮 update-branch 之后同一条 PR=failure，
+          # 被扫的 3 个提交里 2 个是那种 merge。红是流程副产物，不是有人在规避签名。
+          # 内容类提交仍逐个判，签名要求没有放宽。
+          mapfile -t COMMITS < <(git rev-list --no-merges "$base_sha..$head_sha")
+          echo "扫描 ${#COMMITS[@]} 个非 merge 提交（base=${base_sha:0:7} head=${head_sha:0:7}）"
+          for commit in "${COMMITS[@]}"; do
             if ! git log -1 --format='%B' "$commit" | grep -q 'Signed-off-by:'; then
               echo "::error::Commit $commit is missing 'Signed-off-by:' trailer (run: git commit -s)"
               fails=1
             fi
-          done < <(git rev-list "$base_sha..$head_sha")
+          done
           exit $fails
