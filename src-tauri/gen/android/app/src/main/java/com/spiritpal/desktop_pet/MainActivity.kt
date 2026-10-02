@@ -14,14 +14,29 @@ class MainActivity : TauriActivity() {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
     // Edge-to-edge 下 WebView 内容会顶进系统状态栏（时间/电量遮挡应用标题）。
-    // 将 systemBars insets 转为根容器 padding；仅消费 systemBars，
-    // IME 等 insets 继续下发给 WebView，键盘行为不受影响。
+    // 将 systemBars insets 转为根容器 padding。
+    //
+    // D-IME 修复：底部 padding 取 systemBars 与 ime 的较大值，并且把 ime 也消费掉。
+    // 原先只消费 systemBars、让 ime 继续下发给 WebView，注释据此断言"键盘行为不受
+    // 影响"——该断言不成立：edge-to-edge 下窗口不再随 IME resize，WebView 也拿不到
+    // IME 可视区变化，`visualViewport.height` 保持不动，聊天页的输入行与发送按钮
+    // 被键盘整个盖住（用户在收起键盘前看不到自己输入的内容）。
+    // 两处实测证据：realme/Android 16/ColorOS 与本仓 Android 15 模拟器 x86_64 均复现，
+    // 说明这是通用缺陷而非 OEM 特有。ime 一并消费是必须的：否则 WebView 会在我们
+    // 已经加过 padding 之后再收一次底部内边距，键盘弹出时内容被压缩两遍。
     val contentView = findViewById<View>(android.R.id.content)
     ViewCompat.setOnApplyWindowInsetsListener(contentView) { view, windowInsets ->
       val bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-      view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+      val ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
+      view.setPadding(
+        bars.left,
+        bars.top,
+        bars.right,
+        maxOf(bars.bottom, ime.bottom),
+      )
       WindowInsetsCompat.Builder(windowInsets)
         .setInsets(WindowInsetsCompat.Type.systemBars(), Insets.NONE)
+        .setInsets(WindowInsetsCompat.Type.ime(), Insets.NONE)
         .build()
     }
 
