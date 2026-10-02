@@ -325,6 +325,15 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
     setMenuSub(null)
   }, [])
 
+  // 切走 tab 时必须收起长按菜单。MobilePetView 在 MobileApp 里是常驻挂载的
+  // （桌宠不能卸载，见 MobileApp.tsx 的 z-index 分层），而菜单此前只靠用户点
+  // 「关闭」收起：切到聊天/养成/设置等 tab 后 menu 仍非 null，六个动作按钮会
+  // 继续留在 DOM 且保有非零矩形 —— 视觉上被上层面板盖住，但键盘 Tab 焦点与
+  // 读屏遍历仍然可达；切回宠物页时还会残留上次打开的二级面板。
+  useEffect(() => {
+    if (!isActive) closeMenu()
+  }, [isActive, closeMenu])
+
   const triggerFeed = useCallback(() => {
     // 默认喂第一个可选食物（双击手势走这条快捷路径）
     const food = feedOptions[0]
