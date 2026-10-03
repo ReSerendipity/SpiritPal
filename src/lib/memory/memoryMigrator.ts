@@ -49,15 +49,24 @@ export interface MigrationResult {
 /**
  * 检查是否需要迁移（迁移标记未设 + 旧 blob 存在 + 未强制 legacy 模式）
  */
+/**
+ * 该角色是否还存在旧式 settings blob（迁移前的唯一存储）。
+ *
+ * 单独导出是因为「要不要迁移」和「新数据该写哪、读哪」是两件事：
+ * 全新安装根本没有旧 blob，needsMigration 永远为 false，迁移标记也就永远不会置位。
+ */
+export async function hasLegacyMemoryBlob(characterId: string): Promise<boolean> {
+  const blobKey = `spiritpal-enhanced-memory-${characterId}`
+  return (await getSetting(blobKey)) !== null
+}
+
 export async function needsMigration(characterId: string): Promise<boolean> {
   // 强制 legacy 模式时不迁移
   if (await isLegacyMode()) return false
   // 已迁移则跳过
   if (await isMemoryMigrated()) return false
   // 检查旧 blob 是否存在
-  const blobKey = `spiritpal-enhanced-memory-${characterId}`
-  const raw = await getSetting(blobKey)
-  return raw !== null
+  return hasLegacyMemoryBlob(characterId)
 }
 
 /**

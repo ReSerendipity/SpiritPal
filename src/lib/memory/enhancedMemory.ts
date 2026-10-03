@@ -70,7 +70,7 @@ import {
 import { embed, isVectorSearchAvailable, searchSimilar, terminateVectorSearch } from '@/lib/system/vectorSearch'
 import { getEntityManager } from './entityLinking'
 import { INJECTION_CONFIG } from './memoryConfig'
-import { needsMigration, migrateCharacterMemory } from './memoryMigrator'
+import { needsMigration, migrateCharacterMemory, hasLegacyMemoryBlob } from './memoryMigrator'
 // P3-1：深度整合 RAGRetriever — BM25+向量+RRF 多信号并行检索
 import {
   type EnhancedMemory,
@@ -322,10 +322,20 @@ export class EnhancedMemoryManager {
     }
 
     // S2: 决定使用行级路径还是旧 blob 路径
+    //
+    // 原判定 `migrated && !legacy` 把「迁移是否跑过」当成「新数据该存哪」的前提，
+    // 但全新安装根本没有旧 blob ⇒ needsMigration 恒 false ⇒ migrateCharacterMemory
+    // 从不执行 ⇒ 迁移标记永远不会置位 ⇒ useRowLevelStorage 恒 false。
+    // 后果是读写落在两个不同的地方：写走 legacy 分支（只写 content/importance，
+    // tags 与 emotional_intensity 丢失、tier 停在 DB 默认值），读走 loadFromBlob()
+    // 去找一个从未被写过的 settings 键 ⇒ 记忆池恒空，「记忆列表/标签云/情感曲线/
+    // 记忆密度」在全新安装上永远是 0。
+    // 修正：未被强制 legacy，且没有旧 blob 需要保留时，直接启用行级存储。
     try {
       const migrated = await isMemoryMigrated()
       const legacy = await isLegacyMode()
-      this.useRowLevelStorage = migrated && !legacy
+      const hasLegacyBlob = await hasLegacyMemoryBlob(this.characterId)
+      this.useRowLevelStorage = !legacy && (migrated || !hasLegacyBlob)
     } catch {
       this.useRowLevelStorage = false
     }
