@@ -77,6 +77,53 @@ impl SecretStore for SystemKeychainStore {
 /// 全局 store（默认系统 Keychain；测试注入内存实现）
 static STORE: std::sync::OnceLock<Arc<dyn SecretStore>> = std::sync::OnceLock::new();
 
+// ============ 设备密钥：移动端「机器 ID」的唯一来源 ============
+//
+// crypto::get_machine_id() 在桌面端分别读 /etc/machine-id、注册表 MachineGuid、
+// kern.uuid；这三条路径在 Android/iOS 上一个都不会编译进来，于是移动端恒返回 Err，
+// encrypt_data / encrypt_data_chunked 永远失败。这里复用本模块已有的
+// 「首启随机生成、与秘密表同目录」的 32 字节设备密钥作为移动端机器 ID。
+
+/// 设备密钥文件名（与 mobile_file_store 的秘密表同目录）
+pub(crate) const DEVICE_KEY_FILE: &str = "secrets-device.key";
+
+/// 读取（或首启生成）`dir` 下的 32 字节设备密钥，返回小写十六进制（64 字符）。
+///
+/// 为什么放在不带 cfg 的区域：唯一的生产调用方 `device_secret_hex()` 是
+/// `#[cfg(not(desktop))]`，整个 mobile_file_store 模块也一样 —— 若把这个函数
+/// 写在模块里，宿主 `cargo test`（desktop cfg）根本看不到它，密钥「随机 + 稳定
+/// + 复用」这条性质就没有任何测试覆盖。提到这里后 desktop 测试能直接跑。
+#[cfg_attr(desktop, allow(dead_code))] // 生产路径仅移动端；桌面下由 tests 使用
+pub(crate) fn device_key_hex_in(dir: &std::path::Path) -> Result<String, String> {
+    let key = read_or_create_device_key(dir)?;
+    Ok(key.iter().map(|b| format!("{:02x}", b)).collect())
+}
+
+/// 已存在则复用，否则用 OS CSPRNG 生成并落盘。
+///
+/// 全局串行是必要的：并发首启时两份随机密钥都可能写到同一路径，后写的会覆盖先写的，
+/// 于是先前用另一份密钥加密的 blob / 秘密表再也解不开（表现为静默数据丢失）。
+#[cfg_attr(desktop, allow(dead_code))] // 生产路径仅移动端；桌面下由 tests 使用
+pub(crate) fn read_or_create_device_key(dir: &std::path::Path) -> Result<[u8; 32], String> {
+    static CREATE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    //  poisoning 只可能来自 panic 路径，密钥本身仍可读，继续即可
+    let _guard = CREATE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+
+    let path = dir.join(DEVICE_KEY_FILE);
+    if let Ok(bytes) = std::fs::read(&path) {
+        if bytes.len() == 32 {
+            let mut key = [0u8; 32];
+            key.copy_from_slice(&bytes);
+            return Ok(key);
+        }
+    }
+    let mut key = [0u8; 32];
+    getrandom::getrandom(&mut key).map_err(|e| format!("生成设备密钥失败: {}", e))?;
+    std::fs::create_dir_all(dir).map_err(|e| format!("创建密钥目录失败: {}", e))?;
+    std::fs::write(&path, key).map_err(|e| format!("写入设备密钥失败: {}", e))?;
+    Ok(key)
+}
+
 // ============ 移动端实现：应用沙箱内加密文件存储 ============
 // Android/iOS 无可供 Rust 直接使用的系统 Keychain（keyring crate 不支持移动平台）。
 // 此实现提供「沙箱等价保护」：秘密以 AES-256-GCM 加密存放于应用私有目录
@@ -96,7 +143,6 @@ mod mobile_file_store {
     use std::path::PathBuf;
     use std::sync::Mutex;
 
-    const KEY_FILE: &str = "secrets-device.key";
     const DATA_FILE: &str = "secrets.json.enc";
 
     pub struct MobileFileSecretStore {
@@ -113,29 +159,15 @@ mod mobile_file_store {
             }
         }
 
-        fn key_path(&self) -> PathBuf {
-            self.dir.join(KEY_FILE)
-        }
-
         fn data_path(&self) -> PathBuf {
             self.dir.join(DATA_FILE)
         }
 
-        /// 首启生成 32 字节随机设备密钥（OS CSPRNG），已存在则复用
+        /// 首启生成 32 字节随机设备密钥（OS CSPRNG），已存在则复用。
+        /// 实现提到模块外（`super::read_or_create_device_key`），
+        /// 因为移动端 get_machine_id() 要用同一把密钥，且需要宿主测试覆盖。
         fn ensure_device_key(&self) -> Result<[u8; 32], String> {
-            let path = self.key_path();
-            if let Ok(bytes) = std::fs::read(&path) {
-                if bytes.len() == 32 {
-                    let mut key = [0u8; 32];
-                    key.copy_from_slice(&bytes);
-                    return Ok(key);
-                }
-            }
-            let mut key = [0u8; 32];
-            getrandom::getrandom(&mut key).map_err(|e| format!("生成设备密钥失败: {}", e))?;
-            std::fs::create_dir_all(&self.dir).map_err(|e| e.to_string())?;
-            std::fs::write(&path, &key).map_err(|e| e.to_string())?;
-            Ok(key)
+            super::read_or_create_device_key(&self.dir)
         }
 
         fn cipher(&self) -> Result<Aes256Gcm, String> {
@@ -210,10 +242,27 @@ mod mobile_file_store {
 #[cfg(not(desktop))]
 use mobile_file_store::MobileFileSecretStore;
 
+/// 移动端秘密存储目录（setup 阶段注入），供 get_machine_id() 复用同一把设备密钥
+#[cfg(not(desktop))]
+static MOBILE_SECRETS_DIR: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+
+/// 移动端「机器 ID」：设备密钥的十六进制串。
+///
+/// 目录尚未注入（setup 未跑到 init_mobile_store）时返回 Err —— 沿用 D3 的
+/// Fail Fast 约定，不降级到任何固定密钥。
+#[cfg(not(desktop))]
+pub(crate) fn device_secret_hex() -> Result<String, String> {
+    let dir = MOBILE_SECRETS_DIR
+        .get()
+        .ok_or_else(|| "密钥目录尚未初始化（setup 未调用 init_mobile_store）".to_string())?;
+    device_key_hex_in(dir)
+}
+
 /// 移动端：在 setup 阶段以应用私有目录初始化秘密存储。
 /// 必须在任何 set/get/delete_secret 命令可被前端调用前执行（lib.rs setup）。
 #[cfg(not(desktop))]
 pub(crate) fn init_mobile_store(dir: std::path::PathBuf) {
+    let _ = MOBILE_SECRETS_DIR.set(dir.clone());
     let _ = STORE.set(Arc::new(MobileFileSecretStore::new(dir)));
 }
 
@@ -401,5 +450,75 @@ mod tests {
             get_secret_inner(&*store, "b").unwrap(),
             Some("2".to_string())
         );
+    }
+
+    // ============ 设备密钥（移动端 get_machine_id 的唯一来源）============
+
+    /// 独立临时目录（不引 tempfile 依赖：pid + 递增序号保证互不干扰）
+    fn tmp_dir(tag: &str) -> std::path::PathBuf {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        static SEQ: AtomicU32 = AtomicU32::new(0);
+        let n = SEQ.fetch_add(1, Ordering::SeqCst);
+        let dir = std::env::temp_dir().join(format!(
+            "spiritpal-keytest-{}-{}-{}",
+            std::process::id(),
+            tag,
+            n
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        dir
+    }
+
+    #[test]
+    fn device_key_is_hex64_and_stable_across_calls() {
+        let dir = tmp_dir("stable");
+        let first = device_key_hex_in(&dir).expect("首启应生成设备密钥");
+        assert_eq!(first.len(), 64, "32 字节 ⇒ 64 位十六进制");
+        assert!(
+            first.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()),
+            "应是小写十六进制"
+        );
+        // 关键性质：第二次调用必须复用磁盘上那份，而不是重新随机
+        assert_eq!(first, device_key_hex_in(&dir).expect("复用已存在密钥"));
+        assert!(dir.join(DEVICE_KEY_FILE).is_file());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn device_key_differs_between_directories() {
+        let a = tmp_dir("diff-a");
+        let b = tmp_dir("diff-b");
+        let ha = device_key_hex_in(&a).unwrap();
+        let hb = device_key_hex_in(&b).unwrap();
+        assert_ne!(ha, hb, "不同安装目录不应共用同一把密钥");
+        let _ = std::fs::remove_dir_all(&a);
+        let _ = std::fs::remove_dir_all(&b);
+    }
+
+    #[test]
+    fn device_key_regenerated_when_file_is_corrupt() {
+        let dir = tmp_dir("corrupt");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join(DEVICE_KEY_FILE), b"too-short").unwrap();
+        let hex = device_key_hex_in(&dir).expect("长度不符应重新生成");
+        assert_eq!(hex.len(), 64);
+        assert_eq!(hex, device_key_hex_in(&dir).unwrap(), "重新生成后应稳定");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn concurrent_first_run_produces_one_shared_key() {
+        // 回归：并发首启若不加串行，两个线程各写各的密钥，
+        // 后写的覆盖先写的 ⇒ 用先写那份加密的数据再也解不开。
+        let dir = tmp_dir("race");
+        let d1 = dir.clone();
+        let d2 = dir.clone();
+        let t1 = std::thread::spawn(move || device_key_hex_in(&d1));
+        let t2 = std::thread::spawn(move || device_key_hex_in(&d2));
+        let k1 = t1.join().unwrap().unwrap();
+        let k2 = t2.join().unwrap().unwrap();
+        assert_eq!(k1, k2, "并发首启只能留下一把密钥");
+        assert_eq!(k1, device_key_hex_in(&dir).unwrap());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
