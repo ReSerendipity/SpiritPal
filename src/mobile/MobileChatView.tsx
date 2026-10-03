@@ -29,6 +29,7 @@ import rehypeSanitize from 'rehype-sanitize'
 import { composeFullSystemPrompt, getEffectivePersonality } from '@/lib/ai/personalityEngine'
 import { getCharacter } from '@/lib/data/characters'
 import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
+import { getOwnerFactsManager } from '@/lib/memory/ownerFacts'
 import { useChatStore } from '@/stores/chatStore'
 import { usePetStore } from '@/stores/petStore'
 // D8：移动端记忆注入
@@ -218,6 +219,17 @@ export function MobileChatView() {
       } catch {
         // 记忆写入失败不影响正常使用
       }
+      // P2-1：规则层提取主人事实（桌面端 ChatWindow 有、移动端此前整段没接）
+      // 只接规则层：纯正则 + 一次 upsert，不额外发 LLM 请求，
+      // 否则每聊一句就多一次网络调用，手机上的流量/配额代价要单独决策。
+      // 用 void 异步跑（与桌面端同一写法），不挡住 finishStreaming。
+      void (async () => {
+        const factsMgr = getOwnerFactsManager(currentCharacterId)
+        await factsMgr.ensureLoaded()
+        await factsMgr.extractAndSave(text)
+      })().catch(() => {
+        // 事实提取失败不影响回复
+      })
       finishStreaming(assistantId)
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err)
