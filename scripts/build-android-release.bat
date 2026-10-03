@@ -71,6 +71,25 @@ if %errorlevel% neq 0 (
 :kotlin_ok
 echo   [OK] Kotlin 胶水层就位
 
+echo.
+echo   [3b] Pre-build gate: dist assets must match src-tauri/src/generated/sri_hashes.rs
+echo        gradle does NOT run tauri.conf.json beforeBuildCommand. Skipping this
+echo        gate yields an APK that silently hangs on the splash screen with no
+echo        logcat error. See docs/execution/android-fix-verification-20261003.md
+node scripts\obfuscate-and-sri.mjs --verify
+if %errorlevel% neq 0 goto :sri_fail
+echo   [OK] dist and SRI manifest match
+goto :sri_done
+:sri_fail
+echo   [ERROR] dist and sri_hashes.rs are NOT from the same build. Abort.
+echo           Regenerate both, in this order:
+echo             npm run build
+echo             node scripts\obfuscate-and-sri.mjs
+pause
+exit /b 1
+:sri_done
+
+
 :: ------------------------------------------
 :: 4. 出 arm64 release APK（SOP-4 ③）
 :: ------------------------------------------
