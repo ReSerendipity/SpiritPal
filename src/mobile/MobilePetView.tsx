@@ -35,6 +35,7 @@ import { getAllCharacters, getCharacter } from '@/lib/data/characters'
 import { getModManager } from '@/lib/data/modManager'
 import type { PetState, InventoryItem, WornDecoration } from '@/lib/data/types'
 import { getAchievementManager } from '@/lib/nurture/achievementSystem'
+import { getPetExperienceManager } from '@/lib/nurture/petExperience'
 import { getFoodsForCharacter } from '@/lib/nurture/items'
 import { usePetStore } from '@/stores/petStore'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -257,6 +258,11 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
 
   /**
    * 触发摸头互动
+   *
+   * P2-4 经历记录此前只在桌面端 PetWindow 的四个动作里接了
+   * （`getPetExperienceManager(id).record(...)`），移动端各写了一份 trigger* 却
+   * 只记了成就没记经历 ⇒ 手机上「记忆 › 我们的故事」永远是 0，哪怕天天摸。
+   * 这里按桌面端同一处位置补回，type 参数与 PetWindow 逐一对齐。
    */
   const triggerPet = useCallback(() => {
     const cur = usePetStore.getState().getCurrentStats()
@@ -264,10 +270,11 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
     setPetState(reaction)
     petStorePet()
     getAchievementManager().recordPet()
+    void getPetExperienceManager(currentCharacterId).record('pet')
     spawnHearts()
     showBubble(pickBubble('pet'))
     window.setTimeout(() => setPetState('idle'), 1200)
-  }, [petStorePet, spawnHearts, showBubble, pickBubble])
+  }, [petStorePet, spawnHearts, showBubble, pickBubble, currentCharacterId])
 
   /**
    * 触发喂食互动
@@ -280,11 +287,12 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
     (food: InventoryItem) => {
       petStoreFeed(food)
       getAchievementManager().recordFeed()
+      void getPetExperienceManager(currentCharacterId).record('feed')
       showBubble(pickBubble('feed'))
       setPetState('eat')
       window.setTimeout(() => setPetState('idle'), 1500)
     },
-    [petStoreFeed, showBubble, pickBubble],
+    [petStoreFeed, showBubble, pickBubble, currentCharacterId],
   )
 
   /**
@@ -351,10 +359,11 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
   const triggerPlay = useCallback(() => {
     petStorePlay()
     getAchievementManager().recordPlay()
+    void getPetExperienceManager(currentCharacterId).record('play')
     showBubble(pickBubble('pet'))
     setPetState('happy')
     window.setTimeout(() => setPetState('idle'), 1500)
-  }, [petStorePlay, showBubble, pickBubble])
+  }, [petStorePlay, showBubble, pickBubble, currentCharacterId])
 
   /**
    * 触发洗澡互动
@@ -362,10 +371,11 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
   const triggerBathe = useCallback(() => {
     petStoreBathe()
     getAchievementManager().recordBathe()
+    void getPetExperienceManager(currentCharacterId).record('bathe')
     showBubble(t('pet.batheDone'))
     setPetState('happy')
     window.setTimeout(() => setPetState('idle'), 1500)
-  }, [petStoreBathe, showBubble, t])
+  }, [petStoreBathe, showBubble, t, currentCharacterId])
 
   /**
    * 触发点击互动
