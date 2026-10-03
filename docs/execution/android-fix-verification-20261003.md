@@ -39,6 +39,20 @@
 
 ## 4. 复现步骤与两个构建陷阱
 
+> **本节两个陷阱已于同日堵住**：`scripts/build-android-release.bat` 加了构建前门禁 3b（dist/SRI 一致性），
+> `buildSrc` 的 `RustPlugin.kt` 加了 `verifyFrontendSri` 任务并挂在所有 `rustBuild*` 之前，
+> 因此**手搓 `gradlew assemble*` 也会被拦**，不再只有走 .bat 才安全。确需绕过：`-PskipFrontendSriCheck`
+> （降级为警告，不静默放行）。
+>
+> 门禁自身四条分支都实跑过：正例（配对 → `SRI 校验通过：36 个产物逐条一致`）、反例（清单回退成 HEAD
+> 占位 → BUILD FAILED 并给出重建命令）、逃生口（加 `-PskipFrontendSriCheck` → 警告后放行，不静默）、
+> 以及**诊断分流**（故意把 `rootDirRel` 改错一层 → 报"这是工装接线问题，不代表 dist 与清单不一致"）。
+> 最后一条是刻意加的：开发这个门禁时它一度因 `File(projectDir, "../../../").parentFile` **不做 `..`
+> 归一化**而拼错脚本路径，node 抛 `MODULE_NOT_FOUND`，却被门禁报成"哈希不一致"——假诊断会把人推向
+> 完全错误的方向。现在先判脚本存在、再判退出码。另两个实现坑：`Exec` 任务的 `exitValue` 在 Gradle 8
+> 的 Kotlin 编译期不可见，改用 `project.exec { }.exitValue`（与同目录 `BuildTask.kt` 同款）；
+> `kotlin-dsl` 的 `doLast { }` 是无参闭包，闭包内只能引用外面捕获的 `val`。
+
 ```bash
 # 前端必须走完整的 beforeBuildCommand，不能只 npm run build
 node node_modules/typescript/bin/tsc -b \
@@ -56,7 +70,8 @@ cd src-tauri/gen/android && ./gradlew :app:assembleArm64Debug
 
 ## 5. 现场状态
 
-- 工作树：`src-tauri/src/generated/sri_hashes.rs` 的构建改动**已回退不提交**（沿用 v2.79 的既有定论：刷新入库清单对开发态门禁无收益，只产生哈希噪声）。
+- 本轮新增的两道门禁：`scripts/build-android-release.bat` 的构建前 3b、`buildSrc/RustPlugin.kt` 的 `verifyFrontendSri`（挂在所有 `rustBuild*` 之前，覆盖手搓 gradle 的绕行路径）。
+- 工作树：`src-tauri/src/generated/sri_hashes.rs` 的构建改动**已回退不提交**（沿用 v2.79 的既有定论：刷新入库清单对开发态门禁无收益，只产生哈希噪声）。注意这意味着**干净检出后直接跑 `gradlew assemble*` 会被新门禁判失败**——这是预期行为，先按 §4 重建 dist 与清单配对即可。
 - 设备：已还原为修复前的 `artifacts/app-arm64-release.apk`（as-found）。要装回带修复的包：`adb -s emulator-5554 install -r src-tauri/gen/android/app/build/outputs/apk/arm64/debug/app-arm64-debug.apk`（debug 产物，336 MB，未 strip）。
 - 工装与原始日志：`artifacts/emulator-ui-20261002/`（`baseline_prefix.log` 修复前基线、`verify/verify.log` 修复后、`verify_fix.mjs` / `baseline_prefix.mjs` 可重跑）。
 
