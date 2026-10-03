@@ -72,6 +72,8 @@ const PBKDF2_SALT_LEN: usize = 32;
 /// - **Linux**: 读取 `/etc/machine-id`
 /// - **Windows**: 通过 `reg query` 读取注册表 `MachineGuid`
 /// - **macOS**: 优先 `sysctl -n kern.uuid`，失败则尝试 `ioreg` 获取 `IOPlatformUUID`
+/// - **Android / iOS**: 读（或首启生成）应用私有目录下的设备密钥
+///   `secrets-device.key`，取其十六进制串（`keychain::device_secret_hex`）
 pub fn get_machine_id() -> Result<String, String> {
     #[cfg(target_os = "linux")]
     {
@@ -144,6 +146,23 @@ pub fn get_machine_id() -> Result<String, String> {
                     }
                 }
             }
+        }
+    }
+
+    // Android / iOS：上面三条平台路径（/etc/machine-id、注册表 MachineGuid、
+    // kern.uuid）在移动 target 上一个都不会编译进来 —— target_os 是 "android"
+    // 而非 "linux"。于是本函数在移动端恒走到下面的 Err，连锁后果：
+    //   · encrypt_data / encrypt_data_chunked 永远失败；
+    //   · 前端各 blob 存储点 catch 后只 console.error 就放弃写入（拒绝写明文），
+    //     主人画像 / 我们的故事 / 实体图谱 / 视觉记忆 在真机上永远为空；
+    //   · encrypted_db::encrypt_db_at_rest 直接 `?` 上抛，spiritpal.db 始终明文落盘，
+    //     R-14「数据库静态加密」在移动端其实从未生效。
+    // 修法：复用 keychain 移动端已有的每安装随机设备密钥（secrets-device.key，
+    // 应用私有目录、SELinux per-app 隔离），保持 D3 Fail Fast 不退化。
+    #[cfg(not(desktop))]
+    {
+        if let Ok(hex) = crate::keychain::device_secret_hex() {
+            return Ok(hex);
         }
     }
 
