@@ -194,7 +194,11 @@ pytest_tmp/
 .workbuddy/
 .workbuddy-ai/
 .zcode/
+# ZCode 工具的本机忽略规则（内容与 .gitignore 高度重复，属工具配置，不入库，2026-10-04）
+.zcodeignore
 _tmp_excluded_tests/
+# 工具产生的 0 字节临时文件（形如 _tmp_<pid>_<hash>，2026-10-04 清理时归入忽略）
+_tmp_*
 
 # --- 社区宠物接入（2026-09-11）---
 # 第三方仓库本地克隆（WindowPet 素材源，含版权二创素材，不入库）
