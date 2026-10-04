@@ -475,7 +475,9 @@ mod tests {
         let first = device_key_hex_in(&dir).expect("首启应生成设备密钥");
         assert_eq!(first.len(), 64, "32 字节 ⇒ 64 位十六进制");
         assert!(
-            first.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()),
+            first
+                .chars()
+                .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()),
             "应是小写十六进制"
         );
         // 关键性质：第二次调用必须复用磁盘上那份，而不是重新随机
