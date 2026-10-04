@@ -540,6 +540,11 @@ pub fn run() {
                     encrypt_data_chunked,
                     decrypt_data_chunked,
                     compute_sha256,
+                    // R-14: 数据库静态加密（启动解密 / 退出加密；前端 initDB() 与
+                    // encryptDatabaseAtRest() 直接 invoke 这两个命令——移动端此前
+                    // 未注册导致 .enc 无法解密（二次启动数据不可达）与退出加密静默失效）
+                    encrypt_db_at_rest,
+                    decrypt_db_at_rest,
                     // P1: 本地自动备份
                     backup_db_at_rest,
                     list_db_backups,
