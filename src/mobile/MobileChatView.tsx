@@ -48,6 +48,7 @@ import { composeFullSystemPrompt, getEffectivePersonality } from '@/lib/ai/perso
 import { getCharacter } from '@/lib/data/characters'
 import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 import { getOwnerFactsManager } from '@/lib/memory/ownerFacts'
+import { getCommitmentTracker } from '@/lib/nurture/commitmentTracker'
 import { useChatStore } from '@/stores/chatStore'
 import { usePetStore } from '@/stores/petStore'
 // D8：移动端记忆注入
@@ -264,6 +265,15 @@ export function MobileChatView() {
         // 记忆加载失败不影响正常使用
       }
 
+      // P1-7-be：注入约定与计划上下文（桌面端 ChatWindow 有、移动端此前整段没接）
+      // 让 AI 知道主人有哪些待完成的计划/承诺，才能在约定日主动关心。
+      let commitmentCtx = ''
+      try {
+        commitmentCtx = await getCommitmentTracker(currentCharacterId).buildContext()
+      } catch {
+        // 约定上下文不可用不影响正常使用
+      }
+
       const abortController = new AbortController()
       setAbortController(abortController)
 
@@ -272,6 +282,9 @@ export function MobileChatView() {
       ]
       if (memCtx) {
         apiMessages.push({ id: 'mem-ctx', role: 'system', content: memCtx, timestamp: Date.now() })
+      }
+      if (commitmentCtx) {
+        apiMessages.push({ id: 'commitment-ctx', role: 'system', content: commitmentCtx, timestamp: Date.now() })
       }
       apiMessages.push(...history)
       apiMessages.push({ id: 'user', role: 'user', content: text, timestamp: Date.now() })
@@ -321,6 +334,18 @@ export function MobileChatView() {
       } catch {
         // 记忆写入失败不影响正常使用
       }
+      // P1-7-be：从本轮对话抽取约定并落库，并自动把超期未提及的置为 lapsed
+      // 与桌面端同序：记忆写入之后、主人事实提取之前；失败一律不影响回复。
+      void (async () => {
+        const tracker = getCommitmentTracker(currentCharacterId)
+        const extracted = tracker.extractFromText(text, fullText)
+        for (const ext of extracted) {
+          await tracker.saveCommitment(ext)
+        }
+        await tracker.autoLapseOverdue()
+      })().catch(() => {
+        // 约定提取失败不影响回复
+      })
       // P2-1：规则层提取主人事实（桌面端 ChatWindow 有、移动端此前整段没接）
       // 只接规则层：纯正则 + 一次 upsert，不额外发 LLM 请求，
       // 否则每聊一句就多一次网络调用，手机上的流量/配额代价要单独决策。
