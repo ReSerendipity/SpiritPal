@@ -35,6 +35,9 @@ import {
   Pencil,
   Check,
   Search,
+  Brain,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import Markdown from 'react-markdown'
@@ -107,6 +110,16 @@ export function MobileChatView() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const searchHits = searchQuery.trim() ? searchMessages(searchQuery) : []
+  // P1-2: 思维链展开状态（默认折叠，按消息 ID 记忆）
+  const [thinkExpanded, setThinkExpanded] = useState<Set<string>>(new Set())
+  const toggleThink = (id: string) => {
+    setThinkExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
   // 与 chatStore.getSessions 同序：置顶优先，再按 updatedAt 降序
   const sessionsSorted = [...sessions].sort((a, b) => {
     if (a.pinned && !b.pinned) return -1
@@ -432,6 +445,25 @@ export function MobileChatView() {
             >
               {msg.role === 'assistant' ? (
                 <>
+                  {/* P1-2: 思维链折叠展示（默认折叠可展开；无 thinkContent 不渲染该块） */}
+                  {msg.thinkContent?.trim() && (
+                    <div className="mb-1">
+                      <button
+                        onClick={() => toggleThink(msg.id)}
+                        aria-expanded={thinkExpanded.has(msg.id)}
+                        className="flex items-center gap-1 rounded-lg bg-blush-soft/70 px-2 py-1 text-[11px] text-tangerine-deep/80"
+                      >
+                        <Brain size={11} />
+                        {t('chat.thinkTitle')}
+                        {thinkExpanded.has(msg.id) ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                      </button>
+                      {thinkExpanded.has(msg.id) && (
+                        <div className="mt-1 rounded-lg border border-blush/40 bg-blush-soft/70 px-2 py-1.5 text-[12px] italic leading-relaxed text-ink-muted">
+                          {msg.thinkContent}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {msg.content ? (
                     <Markdown rehypePlugins={[rehypeSanitize]}>{msg.content}</Markdown>
                   ) : msg.sendStatus && msg.sendStatus !== 'pending' ? (
