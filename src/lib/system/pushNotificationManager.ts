@@ -75,6 +75,18 @@ class PushNotificationManager {
     this.initialized = true
 
     try {
+      // 合规（D-COMPLIANCE）：用户在设置里关闭了通知开关时不请求权限；
+      // 重置标记，允许用户在设置页开启开关后再次调用本方法完成初始化。
+      try {
+        const { useSettingsStore } = await import('@/stores/settingsStore')
+        if (useSettingsStore.getState().notifications === false) {
+          this.initialized = false
+          return
+        }
+      } catch {
+        // 设置读取失败按默认（开启）处理
+      }
+
       // 1. 请求通知权限（移动端需要用户授权）
       await this.requestPermission()
 
@@ -85,6 +97,13 @@ class PushNotificationManager {
       this.listenForegroundNotifications()
     } catch (err) {
       console.warn('[SpiritPal] Push notification init failed:', err)
+      // P0-4: 生产 console 被 drop，走日志通道留痕（诊断导出可见）
+      try {
+        const { reportWarn, formatError } = await import('@/lib/system/frontendErrorReport')
+        reportWarn(`[pushNotification] init failed: ${formatError(err)}`)
+      } catch {
+        // 上报通道不可用时静默
+      }
     }
   }
 

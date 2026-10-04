@@ -160,7 +160,22 @@ export default function MobileApp() {
   if (!agreed) {
     return (
       <div className={`flex h-[100dvh] w-screen flex-col ${bgClass} ${textClass} overflow-hidden`}>
-        <AgreementGate onAccept={() => setAgreed(true)} />
+        <AgreementGate
+          onAccept={() => {
+            setAgreed(true)
+            // 合规（D-COMPLIANCE）：隐私协议同意后才允许请求通知权限——
+            // main.tsx 启动时因未同意已跳过初始化，此处补触发（init 内部幂等，
+            // 且会再校验设置里的通知开关）。
+            void import('@/lib/system/pushNotificationManager')
+              .then(({ pushNotificationManager }) => pushNotificationManager.init())
+              .catch((err: unknown) => {
+                // 推送初始化失败，静默降级——P0-4: 进日志可诊断
+                void import('@/lib/system/frontendErrorReport').then(({ reportWarn, formatError }) => {
+                  reportWarn(`[pushNotification] 同意后补触发失败: ${formatError(err)}`)
+                })
+              })
+          }}
+        />
       </div>
     )
   }

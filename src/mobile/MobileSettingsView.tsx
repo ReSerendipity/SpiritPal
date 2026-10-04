@@ -363,7 +363,21 @@ export function MobileSettingsView() {
                 <input
                   type="checkbox"
                   checked={settings.notifications}
-                  onChange={(e) => updateSettings({ notifications: e.target.checked })}
+                  onChange={(e) => {
+                    updateSettings({ notifications: e.target.checked })
+                    if (e.target.checked) {
+                      // 合规（D-COMPLIANCE）：用户主动开启通知后才补请求权限
+                      // （init 幂等；能进入设置页说明协议已同意）。
+                      void import('@/lib/system/pushNotificationManager')
+                        .then(({ pushNotificationManager }) => pushNotificationManager.init())
+                        .catch((err: unknown) => {
+                          // 推送初始化失败，静默降级——P0-4: 进日志可诊断
+                          void import('@/lib/system/frontendErrorReport').then(({ reportWarn, formatError }) => {
+                            reportWarn(`[pushNotification] 开关补触发失败: ${formatError(err)}`)
+                          })
+                        })
+                    }
+                  }}
                   className="h-4 w-4 accent-tangerine"
                 />
               </label>
