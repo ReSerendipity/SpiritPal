@@ -10,7 +10,7 @@
  * - 底部 Tab 栏点击切换
  * - 深浅色主题切换按钮
  * - 同步状态显示
- * - 应用启动时自动计算离线衰减
+ * - 应用启动时自动计算离线衰减，并在使用期间常驻 tick 衰减（与桌面一致）
  *
  * 手势支持：
  * - 左右滑动切换 Tab（阈值 50px）
@@ -65,6 +65,9 @@ const TABS: TabDef[] = [
 /** 滑动切换 Tab 的最小距离阈值（像素） */
 const SWIPE_THRESHOLD = 50
 
+/** 衰减看门狗轮询间隔（毫秒）：只判断「是否该 tick」，真正的衰减节奏由 tickDue 决定 */
+const DECAY_WATCHDOG_INTERVAL_MS = 60 * 1000
+
 /**
  * 移动端主应用组件
  * @returns 移动端应用根组件
@@ -101,11 +104,23 @@ export default function MobileApp() {
     return unsub
   }, [])
 
-  // 应用离线衰减（与桌面端 PetWindow 保持一致）
+  // 应用离线衰减 + 常驻衰减计时器（审计工单 P1-5）
+  // 桌面端由 usePetTimers 挂 1h 定时器；移动端此前只有挂载一次的 applyOfflineDecay，
+  // 开着 App 数值不会随时间下降。此处补上常驻计时。
+  //
+  // 采用「每分钟看门狗 + tickDue 按真实经过时间补齐」而非裸 setInterval(1h)：
+  // Android WebView 在后台会被系统节流/合并定时器，1h 定时器可能整点不触发；
+  // tickDue 以 lastTickAt 的真实经过时间为准补 tick，衰减速率仍为「每满 1 小时一次」，
+  // 与桌面端完全一致，且挂起恢复后能一次补齐（上限 24 次）。
   const applyOfflineDecay = usePetStore((s) => s.applyOfflineDecay)
+  const tickDue = usePetStore((s) => s.tickDue)
   useEffect(() => {
     applyOfflineDecay()
-  }, [applyOfflineDecay])
+    const watchdogTimer = window.setInterval(() => {
+      tickDue()
+    }, DECAY_WATCHDOG_INTERVAL_MS)
+    return () => clearInterval(watchdogTimer)
+  }, [applyOfflineDecay, tickDue])
 
   /**
    * 切换主题模式（浅/深/系统循环切换）

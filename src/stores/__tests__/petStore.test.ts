@@ -1,5 +1,5 @@
 // petStore 单元测试 — 四维数值、经验等级、金币、背包、装饰品
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type { InventoryItem } from '@/lib/data/types'
 import { usePetStore, computeOfflineDecay, applyPendingRecovery, stopPendingRecoveryTicker } from '@/stores/petStore'
 
@@ -229,6 +229,67 @@ describe('petStore', () => {
       }))
       usePetStore.getState().tick()
       expect(usePetStore.getState().stats['doro'].health).toBeLessThan(80)
+    })
+  })
+
+  describe('tickDue（移动端常驻衰减计时器，P1-5）', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-10-05T10:00:00Z'))
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    /** 准备一个已知数值、lastTickAt=当前时间的角色 */
+    const prepare = () => {
+      usePetStore.getState().initCharacter('doro')
+      usePetStore.setState((s) => ({
+        stats: {
+          ...s.stats,
+          doro: { ...s.stats['doro'], hunger: 80, mood: 80, lastTickAt: Date.now() },
+        },
+      }))
+    }
+
+    it('不足一小时不衰减，返回 0', () => {
+      prepare()
+      vi.advanceTimersByTime(59 * 60 * 1000)
+      expect(usePetStore.getState().tickDue()).toBe(0)
+      expect(usePetStore.getState().stats['doro'].hunger).toBe(80)
+      expect(usePetStore.getState().stats['doro'].mood).toBe(80)
+    })
+
+    it('满一小时补一次 tick（速率与桌面每小时间隔一致）', () => {
+      prepare()
+      vi.advanceTimersByTime(60 * 60 * 1000 + 1000)
+      expect(usePetStore.getState().tickDue()).toBe(1)
+      const stats = usePetStore.getState().stats['doro']
+      expect(stats.hunger).toBeCloseTo(78, 5)
+      expect(stats.mood).toBeCloseTo(78.5, 5)
+    })
+
+    it('后台挂起 3 小时一次补齐 3 次 tick', () => {
+      prepare()
+      vi.advanceTimersByTime(3 * 60 * 60 * 1000)
+      expect(usePetStore.getState().tickDue()).toBe(3)
+      expect(usePetStore.getState().stats['doro'].hunger).toBeCloseTo(74, 5)
+    })
+
+    it('补齐上限 24 次，避免长时间挂起后长循环', () => {
+      prepare()
+      vi.advanceTimersByTime(30 * 60 * 60 * 1000)
+      expect(usePetStore.getState().tickDue()).toBe(24)
+      expect(usePetStore.getState().stats['doro'].hunger).toBeCloseTo(32, 5)
+    })
+
+    it('补齐后 lastTickAt 刷新，立即再调用返回 0（不重复衰减）', () => {
+      prepare()
+      vi.advanceTimersByTime(2 * 60 * 60 * 1000)
+      expect(usePetStore.getState().tickDue()).toBe(2)
+      expect(usePetStore.getState().tickDue()).toBe(0)
+      expect(usePetStore.getState().stats['doro'].hunger).toBeCloseTo(76, 5)
     })
   })
 

@@ -76,6 +76,10 @@ const MAX_AFFECTION = 9999
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
 /** 一天毫秒数 */
 const ONE_DAY_MS = 24 * 60 * 60 * 1000
+/** 一小时毫秒数（tick 周期：与桌面 usePetTimers 的 1 小时间隔对齐） */
+const ONE_HOUR_MS = 60 * 60 * 1000
+/** tickDue 单次补齐上限（后台长时间挂起后一次性补的量，避免长循环阻塞主线程） */
+const MAX_CATCHUP_TICKS = 24
 
 // ============ 养成数值衰减/增益常量 ============
 
@@ -411,6 +415,18 @@ interface PetStoreState {
 
   /** 定时 tick：执行数值衰减和亲密度每日衰减 */
   tick: () => void
+
+  /**
+   * 按真实经过时间补齐 tick（每满 1 小时补一次，单次上限 MAX_CATCHUP_TICKS）。
+   *
+   * 存在意义：移动端 WebView 在后台会被系统节流/合并定时器，裸 setInterval(1h)
+   * 可能整小时都不触发（表现为「开着 App 数值也不掉」）。调用方只需高频轮询本动作，
+   * 由本动作依据 lastTickAt 的真实经过时间决定是否补、补几次——衰减速率仍与
+   * 桌面端「每小时一次 tick」完全一致。
+   *
+   * @returns 实际执行的 tick 次数（0 表示还不到一小时）
+   */
+  tickDue: () => number
 
   /** 应用离线数值衰减（启动时调用） */
   applyOfflineDecay: () => void
@@ -765,6 +781,22 @@ export const usePetStore = create<PetStoreState>()(
             },
           },
         }))
+      },
+
+      tickDue: () => {
+        const { currentCharacterId, stats } = get()
+        const cur = stats[currentCharacterId]
+        if (!cur) return 0
+
+        const now = Date.now()
+        const elapsed = now - (cur.lastTickAt ?? now)
+        if (elapsed < ONE_HOUR_MS) return 0
+
+        const times = Math.min(Math.floor(elapsed / ONE_HOUR_MS), MAX_CATCHUP_TICKS)
+        for (let i = 0; i < times; i++) {
+          get().tick()
+        }
+        return times
       },
 
       applyOfflineDecay: () => {
