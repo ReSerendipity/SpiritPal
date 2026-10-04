@@ -287,7 +287,37 @@ export function MobileChatView() {
       // D8：移动端写入记忆
       try {
         const memMgr = getEnhancedMemoryManager(currentCharacterId)
-        memMgr.addExchange(text, fullText)
+        const mem = memMgr.addExchange(text, fullText)
+        // P1-3-be: 规则层实体提取（EntityManager.extractAndLink）→ 节点写入
+        // 图谱表 memory_entities + 同记忆共现实体两两建边 memory_entity_edges。
+        // 此前抽取无生产调用且 entityLinking 只写旧表（sp_entity_*），图谱两端恒空。
+        try {
+          const { getEntityManager } = await import('@/lib/memory/entityLinking')
+          const { upsertEntity, upsertEntityEdge } = await import('@/lib/memory/entityGraph')
+          const em = getEntityManager(currentCharacterId)
+          await em.ensureLoaded()
+          const nodes = em.extractAndLink(text, mem.id)
+          // entityLinking 与 entityGraph 的类型命名漂移：place↔location、thing↔object
+          const typeMap: Record<string, 'person' | 'location' | 'object' | 'time' | 'concept' | 'event'> = {
+            person: 'person',
+            place: 'location',
+            thing: 'object',
+            time: 'time',
+            concept: 'concept',
+            event: 'event',
+          }
+          const ids: string[] = []
+          for (const n of nodes) {
+            ids.push(await upsertEntity(n.name, typeMap[n.type] ?? 'concept', mem.id))
+          }
+          for (let i = 0; i < ids.length; i++) {
+            for (let j = i + 1; j < ids.length; j++) {
+              await upsertEntityEdge(ids[i]!, ids[j]!, 1.0)
+            }
+          }
+        } catch {
+          // 实体提取失败不影响记忆写入
+        }
       } catch {
         // 记忆写入失败不影响正常使用
       }
