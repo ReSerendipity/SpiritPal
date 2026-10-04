@@ -17,7 +17,7 @@ import { useEffect, useState } from 'react'
 import {
   Sun, Moon, Monitor, Bell, RefreshCw, Cloud, Wifi,
   Type, Info, ChevronRight, Brain, Sparkles, Cpu,
-  FileText, ShieldCheck, CloudUpload,
+  FileText, ShieldCheck, CloudUpload, Database,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { LegalDocument } from '@/components/LegalDocument'
@@ -33,9 +33,10 @@ import { MobileMemoryView } from '@/mobile/MobileMemoryView'
 import { MobilePersonalityView } from '@/mobile/MobilePersonalityView'
 import { usePetStore } from '@/stores/petStore'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { MobileDataPanel } from './MobileDataPanel'
 
 /** 设置页面分区类型 */
-type SettingsSection = 'main' | 'theme' | 'sync' | 'memory' | 'personality' | 'ondevice' | 'ai' | 'about'
+type SettingsSection = 'main' | 'theme' | 'sync' | 'memory' | 'personality' | 'ondevice' | 'ai' | 'about' | 'data'
 
 /** AI 配置在 localStorage 的键（与 SettingsWindow / MobileChatView 一致） */
 const AI_CONFIG_KEY = 'spiritpal-ai-config'
@@ -429,6 +430,19 @@ export function MobileSettingsView() {
             cardBorderClass={cardBorderClass}
             subtitleClass={subtitleClass}
             onClick={() => setSection('sync')}
+          />
+
+          {/* P1-4: 数据管理（备份/恢复/重置） */}
+          <SettingItem
+            icon={Database}
+            iconBg="bg-tangerine-deep"
+            title={t('settings.data.title')}
+            subtitle={t('settings.data.subtitle')}
+            chevronClass={chevronClass}
+            cardBgClass={cardBgClass}
+            cardBorderClass={cardBorderClass}
+            subtitleClass={subtitleClass}
+            onClick={() => setSection('data')}
           />
 
           {/* 角色切换 */}
@@ -868,6 +882,20 @@ export function MobileSettingsView() {
   }
 
   // ===== 记忆 =====
+  // P1-4: 数据管理（完整性检查 / 备份 / 恢复 / 重置）
+  if (section === 'data') {
+    return (
+      <MobileDataPanel
+        onBack={() => setSection('main')}
+        bgClass={bgClass}
+        textClass={textClass}
+        cardBgClass={cardBgClass}
+        cardBorderClass={cardBorderClass}
+        subtitleClass={subtitleClass}
+      />
+    )
+  }
+
   if (section === 'memory') {
     return (
       <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
