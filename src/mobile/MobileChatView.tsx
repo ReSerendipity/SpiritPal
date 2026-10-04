@@ -20,7 +20,22 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { Send, Square, Trash2, Bot, User, RefreshCw } from 'lucide-react'
+import {
+  Send,
+  Square,
+  Trash2,
+  Bot,
+  User,
+  RefreshCw,
+  MessagesSquare,
+  X,
+  Plus,
+  Pin,
+  PinOff,
+  Pencil,
+  Check,
+  Search,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import Markdown from 'react-markdown'
 // SECURITY R-02 对齐：与桌面端 ChatWindow 使用同一套 rehype-sanitize 配置，
@@ -52,10 +67,22 @@ export function MobileChatView() {
   const setLoading = useChatStore((s) => s.setLoading)
   const setMessageStatus = useChatStore((s) => s.setMessageStatus)
   const updateMessageContent = useChatStore((s) => s.updateMessageContent)
+  // P1-1: 多会话管理
+  const createSession = useChatStore((s) => s.createSession)
+  const switchSession = useChatStore((s) => s.switchSession)
+  const deleteSession = useChatStore((s) => s.deleteSession)
+  const renameSession = useChatStore((s) => s.renameSession)
+  const togglePinSession = useChatStore((s) => s.togglePinSession)
+  const searchMessages = useChatStore((s) => s.searchMessages)
 
   const currentCharacterId = usePetStore((s) => s.currentCharacterId)
   const character = getCharacter(currentCharacterId)
   const activeSessionId = activeSessionByCharacter[currentCharacterId] ?? ''
+  // P1-1: 当前角色会话列表。注意 selector 必须返回稳定引用（zustand v5
+  // useSyncExternalStore 要求），不能写 (s) => s.sessions[id] ?? [] ——
+  // ?? [] 每次产生新数组会导致无限重渲染。
+  const charSessions = useChatStore((s) => s.sessions[currentCharacterId])
+  const sessions = charSessions ?? []
   // eslint-disable-next-line react-hooks/exhaustive-deps -- messages 是 ?? [] 逻辑表达式，每次渲染可能产生新引用；用 useMemo 包裹会改变 useEffect 滚动触发时机，故保留原依赖数组
   const messages = messagesBySession[activeSessionId] ?? []
 
@@ -72,6 +99,20 @@ export function MobileChatView() {
   const [error, setError] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  // P1-1: 会话管理抽屉状态
+  const [sessionsOpen, setSessionsOpen] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState('')
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const searchHits = searchQuery.trim() ? searchMessages(searchQuery) : []
+  // 与 chatStore.getSessions 同序：置顶优先，再按 updatedAt 降序
+  const sessionsSorted = [...sessions].sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1
+    if (!a.pinned && b.pinned) return 1
+    return b.updatedAt - a.updatedAt
+  })
 
   // 新消息到达时自动滚动到底部
   useEffect(() => {
@@ -330,21 +371,32 @@ export function MobileChatView() {
   }
 
   return (
-    <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
-      {/* 顶部：角色信息 + 清空按钮 */}
+    <div className={`relative flex h-full w-full flex-col ${bgClass} ${textClass}`}>
+      {/* 顶部：角色信息 + 会话管理 + 清空按钮 */}
       <header className={`flex items-center justify-between border-b ${inputBorderClass} px-4 py-2`}>
         <div className="flex items-center gap-2">
           <Bot size={18} className="text-tangerine" />
           <span className="text-sm font-medium">{character?.displayName ?? t('tab.pet')}</span>
         </div>
-        <button
-          onClick={handleClear}
-          className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-ink-faint hover:bg-ink/5 hover:text-error"
-          title={t('chat.clearHistory')}
-        >
-          <Trash2 size={14} />
-          {t('app.clear')}
-        </button>
+        <div className="flex items-center gap-1">
+          {/* P1-1: 会话管理抽屉入口 */}
+          <button
+            onClick={() => setSessionsOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-ink-faint hover:bg-ink/5 hover:text-ink"
+            aria-label={t('chat.sessions.title')}
+            title={t('chat.sessions.title')}
+          >
+            <MessagesSquare size={16} />
+          </button>
+          <button
+            onClick={handleClear}
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-ink-faint hover:bg-ink/5 hover:text-error"
+            title={t('chat.clearHistory')}
+          >
+            <Trash2 size={14} />
+            {t('app.clear')}
+          </button>
+        </div>
       </header>
 
       {/* 消息列表 */}
@@ -475,6 +527,205 @@ export function MobileChatView() {
           )}
         </div>
       </div>
+
+      {/* P1-1: 会话管理抽屉（全屏面板） */}
+      {sessionsOpen && (
+        <div className="absolute inset-0 z-30 flex flex-col bg-cream text-ink">
+          {/* 面板头 */}
+          <div className="flex items-center justify-between border-b border-ink/10 bg-surface/80 px-4 py-2">
+            <span className="text-sm font-semibold">{t('chat.sessions.title')}</span>
+            <button
+              onClick={() => setSessionsOpen(false)}
+              aria-label={t('app.close')}
+              className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-ink/5"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* 消息全文搜索 */}
+          <div className="px-3 pb-2 pt-3">
+            <div className="flex items-center gap-2 rounded-xl border border-ink/10 bg-surface px-3 py-2">
+              <Search size={15} className="text-ink-faint" />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t('chat.sessions.searchPlaceholder')}
+                className="flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  aria-label={t('app.cancel')}
+                  className="text-ink-faint hover:text-ink"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            {searchQuery.trim() && (
+              <div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-ink/10 bg-surface">
+                {searchHits.length === 0 && (
+                  <div className="px-3 py-3 text-xs text-ink-faint">{t('chat.sessions.searchNoHit')}</div>
+                )}
+                {searchHits.map((hit) => (
+                  <button
+                    key={hit.messageId}
+                    onClick={() => {
+                      switchSession(hit.sessionId)
+                      setSessionsOpen(false)
+                      setSearchQuery('')
+                    }}
+                    className="block w-full border-b border-ink/5 px-3 py-2 text-left last:border-b-0 hover:bg-ink/5"
+                  >
+                    <div className="text-xs text-ink">{hit.snippet}</div>
+                    <div className="mt-0.5 text-[10px] text-ink-faint">
+                      {new Date(hit.timestamp).toLocaleString()}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 新建会话 */}
+          <div className="px-3 pb-2">
+            <button
+              onClick={() => {
+                createSession()
+                setEditingId(null)
+                setDeleteConfirmId(null)
+              }}
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-ink/10 bg-surface py-2.5 text-sm font-medium text-tangerine-deep hover:bg-tangerine-soft"
+            >
+              <Plus size={15} />
+              {t('chat.sessions.new')}
+            </button>
+          </div>
+
+          {/* 会话列表（置顶优先 + 最近更新在前） */}
+          <div className="flex-1 overflow-y-auto px-3 pb-4">
+            {sessionsSorted.length === 0 && (
+              <div className="py-6 text-center text-xs text-ink-faint">{t('chat.sessions.empty')}</div>
+            )}
+            {sessionsSorted.map((s) => {
+              const isActive = s.id === activeSessionId
+              if (editingId === s.id) {
+                return (
+                  <div key={s.id} className="mb-2 rounded-xl border border-tangerine/50 bg-surface p-2">
+                    <input
+                      autoFocus
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      aria-label={t('chat.sessions.rename')}
+                      className="w-full rounded-lg border border-ink/10 bg-cream px-2 py-1.5 text-sm text-ink outline-none"
+                    />
+                    <div className="mt-2 flex justify-end gap-2">
+                      <button
+                        onClick={() => {
+                          setEditingId(null)
+                          setEditingTitle('')
+                        }}
+                        aria-label={t('app.cancel')}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-ink/10 text-ink-faint"
+                      >
+                        <X size={14} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          const title = editingTitle.trim()
+                          if (title) renameSession(s.id, title)
+                          setEditingId(null)
+                          setEditingTitle('')
+                        }}
+                        aria-label={t('app.confirm')}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-tangerine text-white"
+                      >
+                        <Check size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )
+              }
+              return (
+                <div
+                  key={s.id}
+                  data-testid={`session-card-${s.id}`}
+                  className={`mb-2 rounded-xl border p-2.5 ${
+                    isActive ? 'border-tangerine/60 bg-tangerine-soft/40' : 'border-ink/10 bg-surface'
+                  }`}
+                >
+                  <button
+                    onClick={() => {
+                      switchSession(s.id)
+                      setSessionsOpen(false)
+                    }}
+                    className="block w-full text-left"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      {s.pinned && <Pin size={12} className="flex-shrink-0 text-tangerine" />}
+                      <span className="flex-1 truncate text-sm font-medium text-ink">{s.title}</span>
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-ink-faint">
+                      {t('chat.sessions.msgCount', { count: s.messageCount })} ·{' '}
+                      {new Date(s.updatedAt).toLocaleDateString()}
+                    </div>
+                  </button>
+                  {deleteConfirmId === s.id ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="flex-1 text-xs text-error">{t('chat.sessions.confirmDelete')}</span>
+                      <button
+                        onClick={() => setDeleteConfirmId(null)}
+                        aria-label={t('app.cancel')}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-ink/10 text-ink"
+                      >
+                        <X size={13} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          deleteSession(s.id)
+                          setDeleteConfirmId(null)
+                        }}
+                        aria-label={t('app.confirm')}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-error text-xs text-white"
+                      >
+                        <Check size={13} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-2 flex items-center gap-1">
+                      <button
+                        onClick={() => togglePinSession(s.id)}
+                        aria-label={s.pinned ? t('chat.sessions.unpin') : t('chat.sessions.pin')}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-faint hover:bg-ink/5"
+                      >
+                        {s.pinned ? <PinOff size={14} /> : <Pin size={14} />}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingId(s.id)
+                          setEditingTitle(s.title)
+                        }}
+                        aria-label={t('chat.sessions.rename')}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-faint hover:bg-ink/5"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => setDeleteConfirmId(s.id)}
+                        aria-label={t('app.delete')}
+                        className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-ink-faint hover:bg-ink/5 hover:text-error"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

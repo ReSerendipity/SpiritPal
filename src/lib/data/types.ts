@@ -664,6 +664,18 @@ export interface ChatSession {
   pinned?: boolean
 }
 
+/** 会话消息搜索命中（P1-1 多会话管理：跨会话全文搜索结果项） */
+export interface SessionSearchHit {
+  /** 命中所在会话 ID */
+  sessionId: string
+  /** 命中消息 ID */
+  messageId: string
+  /** 命中片段（命中词前后各留约 15 字，越界加省略号） */
+  snippet: string
+  /** 消息时间戳（ms epoch），用于排序 */
+  timestamp: number
+}
+
 /**
  * 记忆条目接口（基础文本版本）
  */

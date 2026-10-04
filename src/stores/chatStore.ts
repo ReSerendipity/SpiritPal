@@ -27,7 +27,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { sqliteStorage } from '@/lib/data/db'
-import type { ChatMessage, ChatSession, MessageMetrics } from '@/lib/data/types'
+import type { ChatMessage, ChatSession, MessageMetrics, SessionSearchHit } from '@/lib/data/types'
 import { genId } from '@/lib/system/randomId'
 import { usePetStore } from '@/stores/petStore'
 
@@ -64,8 +64,10 @@ interface ChatStoreState {
   renameSession: (sessionId: string, title: string) => void
   /** 置顶/取消置顶会话 */
   togglePinSession: (sessionId: string) => void
-  /** 获取当前角色的会话列表（按 updatedAt 降序） */
+  /** 获取当前角色的会话列表（按置顶优先 + updatedAt 降序） */
   getSessions: () => ChatSession[]
+  /** 跨当前角色全部会话的全文搜索（P1-1），命中按消息时间降序 */
+  searchMessages: (query: string) => SessionSearchHit[]
 
   // ---- 消息操作 ----
   sendMessage: (text: string) => string
@@ -323,6 +325,25 @@ export const useChatStore = create<ChatStoreState>()(
           if (!a.pinned && b.pinned) return 1
           return b.updatedAt - a.updatedAt
         })
+      },
+
+      searchMessages: (query) => {
+        const q = query.trim()
+        if (!q) return []
+        const charId = getCurrentCharacterId()
+        const hits: SessionSearchHit[] = []
+        for (const session of get().sessions[charId] ?? []) {
+          for (const m of get().messagesBySession[session.id] ?? []) {
+            const idx = m.content.indexOf(q)
+            if (idx === -1) continue
+            const start = Math.max(0, idx - 15)
+            const end = Math.min(m.content.length, idx + q.length + 15)
+            const snippet =
+              (start > 0 ? '…' : '') + m.content.slice(start, end) + (end < m.content.length ? '…' : '')
+            hits.push({ sessionId: session.id, messageId: m.id, snippet, timestamp: m.timestamp })
+          }
+        }
+        return hits.sort((a, b) => b.timestamp - a.timestamp)
       },
 
       // ---- 消息操作 ----
