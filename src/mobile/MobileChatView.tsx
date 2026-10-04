@@ -171,6 +171,7 @@ export function MobileChatView() {
       const keylessProviders = ['ondevice', 'custom', 'ollama']
       if (!config.apiKey && !keylessProviders.includes(config.provider)) {
         setError(t('chat.errNoApiKey'))
+        setMessageStatus(assistantId, 'failed')
         finishStreaming(assistantId)
         setLoading(false)
         return
@@ -180,6 +181,7 @@ export function MobileChatView() {
       const char = getCharacter(currentCharacterId)
       if (!char) {
         setError(t('chat.errNoCharacter'))
+        setMessageStatus(assistantId, 'failed')
         finishStreaming(assistantId)
         setLoading(false)
         return
@@ -246,8 +248,15 @@ export function MobileChatView() {
       })().catch(() => {
         // 事实提取失败不影响回复
       })
-      // P0-3: 成功送达 → 清除 pending（sendStatus 回到缺省「已成功」）
-      setMessageStatus(assistantId, undefined)
+      if (abortController.signal.aborted) {
+        // P0-3: proxyFetch 不透传 AbortSignal（netProxy 无 signal 支持），用户中止后
+        // client.chat 可能正常 resolve 部分文本而非抛 AbortError——以 signal 为准判定，
+        // 保留 stopGeneration 已标记的 aborted，绝不静默标成功。
+        setMessageStatus(assistantId, 'aborted')
+      } else {
+        // P0-3: 成功送达 → 清除 pending（sendStatus 回到缺省「已成功」）
+        setMessageStatus(assistantId, undefined)
+      }
       finishStreaming(assistantId)
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err)
