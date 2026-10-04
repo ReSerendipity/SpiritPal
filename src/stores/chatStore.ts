@@ -82,6 +82,14 @@ interface ChatStoreState {
   setMessageConsistency: (messageId: string, violations: string[]) => void
   updateMessageThink: (messageId: string, thinkContent: string) => void
 
+  // ---- P0-3: 发送状态机 ----
+  /**
+   * 设置消息发送状态（pending/failed/timeout/aborted）。
+   * 传 undefined 清除状态（恢复为「已成功送达」）。
+   * 仅作用于当前活跃会话内的消息。
+   */
+  setMessageStatus: (messageId: string, status: ChatMessage['sendStatus']) => void
+
   // ---- 指标回写 ----
   /** 流式完成后将 LLM 性能指标写入对应消息并更新会话汇总 */
   setMessageMetrics: (messageId: string, metrics: MessageMetrics) => void
@@ -440,7 +448,8 @@ export const useChatStore = create<ChatStoreState>()(
         flushScheduled = false
         set({ isLoading: false, abortController: null })
         updateActiveMessages(set, (list) =>
-          list.map((m) => (m.isStreaming ? { ...m, isStreaming: false } : m)),
+          // P0-3: 用户主动停止的消息显式标记 aborted（区别于超时/失败，不算错误）
+          list.map((m) => (m.isStreaming ? { ...m, isStreaming: false, sendStatus: 'aborted' } : m)),
         )
       },
 
@@ -527,6 +536,14 @@ export const useChatStore = create<ChatStoreState>()(
       updateMessageThink: (messageId, thinkContent) => {
         updateActiveMessages(set, (list) =>
           list.map((m) => (m.id === messageId ? { ...m, thinkContent } : m)),
+        )
+      },
+
+      // ---- P0-3: 发送状态机 ----
+
+      setMessageStatus: (messageId, status) => {
+        updateActiveMessages(set, (list) =>
+          list.map((m) => (m.id === messageId ? { ...m, sendStatus: status } : m)),
         )
       },
 
