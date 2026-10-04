@@ -106,6 +106,59 @@ describe('chatStore', () => {
       const streaming = messages.filter((m) => m.isStreaming)
       expect(streaming).toHaveLength(0)
     })
+
+    it('P0-3: 用户主动停止的消息显式标记 aborted', () => {
+      const assistantId = useChatStore.getState().sendMessage('test')
+      useChatStore.getState().stopGeneration()
+      const msg = useChatStore.getState().getMessages().find((m) => m.id === assistantId)
+      expect(msg?.isStreaming).toBe(false)
+      expect(msg?.sendStatus).toBe('aborted')
+    })
+  })
+
+  describe('setMessageStatus（P0-3 发送状态机）', () => {
+    it('pending → failed：失败时消息进入 failed 且不静默成功', () => {
+      const assistantId = useChatStore.getState().sendMessage('test')
+      useChatStore.getState().setMessageStatus(assistantId, 'pending')
+      useChatStore.getState().setMessageStatus(assistantId, 'failed')
+      const msg = useChatStore.getState().getMessages().find((m) => m.id === assistantId)
+      expect(msg?.sendStatus).toBe('failed')
+    })
+
+    it('pending → timeout：超时与失败状态可区分', () => {
+      const assistantId = useChatStore.getState().sendMessage('test')
+      useChatStore.getState().setMessageStatus(assistantId, 'timeout')
+      const msg = useChatStore.getState().getMessages().find((m) => m.id === assistantId)
+      expect(msg?.sendStatus).toBe('timeout')
+    })
+
+    it('pending → undefined：成功送达后清除状态（回到缺省「已成功」）', () => {
+      const assistantId = useChatStore.getState().sendMessage('test')
+      useChatStore.getState().setMessageStatus(assistantId, 'pending')
+      useChatStore.getState().setMessageStatus(assistantId, undefined)
+      const msg = useChatStore.getState().getMessages().find((m) => m.id === assistantId)
+      expect(msg?.sendStatus).toBeUndefined()
+    })
+
+    it('不存在的 messageId 不影响其他消息', () => {
+      const assistantId = useChatStore.getState().sendMessage('test')
+      useChatStore.getState().setMessageStatus(assistantId, 'pending')
+      useChatStore.getState().setMessageStatus('nonexistent', 'failed')
+      const msg = useChatStore.getState().getMessages().find((m) => m.id === assistantId)
+      expect(msg?.sendStatus).toBe('pending')
+    })
+
+    it('状态只作用于当前活跃会话', () => {
+      usePetStore.setState({ currentCharacterId: 'doro' })
+      const doroId = useChatStore.getState().sendMessage('doro msg')
+      usePetStore.setState({ currentCharacterId: 'feibi' })
+      const feibiId = useChatStore.getState().sendMessage('feibi msg')
+      useChatStore.getState().setMessageStatus(feibiId, 'failed')
+
+      usePetStore.setState({ currentCharacterId: 'doro' })
+      const doroMsg = useChatStore.getState().getMessages().find((m) => m.id === doroId)
+      expect(doroMsg?.sendStatus).toBeUndefined()
+    })
   })
 
   describe('clearHistory', () => {

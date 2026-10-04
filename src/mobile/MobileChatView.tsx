@@ -50,6 +50,8 @@ export function MobileChatView() {
   const clearHistory = useChatStore((s) => s.clearHistory)
   const setAbortController = useChatStore((s) => s.setAbortController)
   const setLoading = useChatStore((s) => s.setLoading)
+  const setMessageStatus = useChatStore((s) => s.setMessageStatus)
+  const updateMessageContent = useChatStore((s) => s.updateMessageContent)
 
   const currentCharacterId = usePetStore((s) => s.currentCharacterId)
   const character = getCharacter(currentCharacterId)
@@ -57,9 +59,14 @@ export function MobileChatView() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- messages 是 ?? [] 逻辑表达式，每次渲染可能产生新引用；用 useMemo 包裹会改变 useEffect 滚动触发时机，故保留原依赖数组
   const messages = messagesBySession[activeSessionId] ?? []
 
-  /** 末条助手消息内容为空 ⇒ 上一轮失败/被中断，可重试 */
+  /** 末条助手消息内容为空或显式 failed/timeout ⇒ 上一轮失败/被中断，可重试 */
   const lastMessage = messages[messages.length - 1]
-  const canRetry = !!lastMessage && lastMessage.role === 'assistant' && !lastMessage.content.trim()
+  const canRetry =
+    !!lastMessage &&
+    lastMessage.role === 'assistant' &&
+    (!lastMessage.content.trim() ||
+      lastMessage.sendStatus === 'failed' ||
+      lastMessage.sendStatus === 'timeout')
 
   const [input, setInput] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -113,11 +120,18 @@ export function MobileChatView() {
   function handleRetry() {
     if (isLoading) return
     const last = messages[messages.length - 1]
-    // 仅当末条是「内容为空的助手消息」时才允许重试（即上一轮确实失败/被中断）
-    if (!last || last.role !== 'assistant' || last.content.trim()) return
+    // 仅当末条是「内容为空的助手消息」或显式 failed/timeout 时才允许重试
+    if (
+      !last ||
+      last.role !== 'assistant' ||
+      (last.content.trim() && last.sendStatus !== 'failed' && last.sendStatus !== 'timeout')
+    )
+      return
     const lastUser = [...messages].reverse().find((m) => m.role === 'user')
     if (!lastUser) return
     setError(null)
+    // failed/timeout 的消息可能残留部分流式内容（流中异常），重试前先清空避免拼接
+    if (last.content) updateMessageContent(last.id, '')
     void runCompletion(lastUser.content, last.id)
   }
 
@@ -128,6 +142,8 @@ export function MobileChatView() {
    */
   async function runCompletion(text: string, assistantId: string) {
     setLoading(true)
+    // P0-3: 发送开始 → 显式 pending（成功/失败/超时/中止时由对应路径覆盖）
+    setMessageStatus(assistantId, 'pending')
 
     try {
       // 延迟导入避免循环依赖
@@ -230,19 +246,34 @@ export function MobileChatView() {
       })().catch(() => {
         // 事实提取失败不影响回复
       })
+      // P0-3: 成功送达 → 清除 pending（sendStatus 回到缺省「已成功」）
+      setMessageStatus(assistantId, undefined)
       finishStreaming(assistantId)
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err)
-      // 常见错误转译为用户语言（原始技术错误保留在括号内便于排查）
-      let msg = raw
-      if (/error sending request for url|network|fetch failed|ERR_CONNECTION/i.test(raw)) {
-        msg = t('chat.errNetwork')
-      } else if (/401|403|unauthorized|invalid[ _-]?api[ _-]?key/i.test(raw)) {
-        msg = t('chat.errAuth')
-      } else if (/timeout|timed out|aborted/i.test(raw)) {
-        msg = t('chat.errTimeout')
+      // P0-3: 精准区分用户中止与超时——llmClient 对用户 abort 抛「LLM 请求已取消」，
+      // 对 30s 无响应抛「LLM 请求超时（Ns）」，二者此前混为同一「超时」文案。
+      const isAbort =
+        (err instanceof DOMException && err.name === 'AbortError') ||
+        /已取消|AbortError|aborted/i.test(raw)
+      if (isAbort) {
+        // 用户主动停止：非错误，不弹错误横幅（store.stopGeneration 亦会标记 aborted）
+        setMessageStatus(assistantId, 'aborted')
+        setError(null)
+      } else if (/超时|timed?[ _-]?out|timeout/i.test(raw)) {
+        setMessageStatus(assistantId, 'timeout')
+        setError(t('chat.errTimeout'))
+      } else {
+        setMessageStatus(assistantId, 'failed')
+        // 常见错误转译为用户语言（原始技术错误保留在括号内便于排查）
+        let msg = raw
+        if (/error sending request for url|network|fetch failed|ERR_CONNECTION/i.test(raw)) {
+          msg = t('chat.errNetwork')
+        } else if (/401|403|unauthorized|invalid[ _-]?api[ _-]?key/i.test(raw)) {
+          msg = t('chat.errAuth')
+        }
+        setError(msg)
       }
-      setError(msg)
       finishStreaming(assistantId)
     } finally {
       setLoading(false)
@@ -339,7 +370,32 @@ export function MobileChatView() {
               } ${msg.isStreaming ? 'opacity-90' : ''}`}
             >
               {msg.role === 'assistant' ? (
-                <Markdown rehypePlugins={[rehypeSanitize]}>{msg.content || '...'}</Markdown>
+                <>
+                  {msg.content ? (
+                    <Markdown rehypePlugins={[rehypeSanitize]}>{msg.content}</Markdown>
+                  ) : msg.sendStatus && msg.sendStatus !== 'pending' ? (
+                    /* P0-3: 失败/超时/中止且无内容 → 显示状态文字（替代流式等待的 ...） */
+                    <div
+                      className={`text-xs ${
+                        msg.sendStatus === 'aborted' ? 'text-ink-faint' : 'text-error'
+                      }`}
+                    >
+                      {msg.sendStatus === 'failed' && t('chat.statusFailed')}
+                      {msg.sendStatus === 'timeout' && t('chat.statusTimeout')}
+                      {msg.sendStatus === 'aborted' && t('chat.statusStopped')}
+                    </div>
+                  ) : (
+                    <Markdown rehypePlugins={[rehypeSanitize]}>{msg.content || '...'}</Markdown>
+                  )}
+                  {/* 流中中止（已有部分内容）时在气泡尾部补「已停止」标记 */}
+                  {msg.content && msg.sendStatus === 'aborted' && (
+                    <div className="mt-1 text-[11px] text-ink-faint">{t('chat.statusStopped')}</div>
+                  )}
+                  {/* 陈旧 pending：App 重启后持久化残留的发送中状态（无流式进行）＝失败 */}
+                  {msg.sendStatus === 'pending' && !msg.isStreaming && (
+                    <div className="mt-1 text-[11px] text-error">{t('chat.statusFailed')}</div>
+                  )}
+                </>
               ) : (
                 <div className="whitespace-pre-wrap break-words">{msg.content}</div>
               )}

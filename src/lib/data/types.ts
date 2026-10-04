@@ -594,6 +594,16 @@ export interface ChatMessage {
   // 技术性能指标（流式完成后回写）
   /** 本次 LLM 调用的性能与 token 用量指标 */
   metrics?: MessageMetrics
+  // P0-3: 发送状态机（离线/失败/超时/中止 显式区分，绝不静默标成功）
+  /**
+   * 消息发送状态。缺省（undefined）= 已成功送达；
+   * - 'pending'：请求进行中（发送中）
+   * - 'failed'：网络/服务端等失败
+   * - 'timeout'：响应超时（30s 无首包）
+   * - 'aborted'：用户主动停止
+   * 字段可选以兼容旧持久化数据（旧消息视为已送达）。
+   */
+  sendStatus?: 'pending' | 'failed' | 'timeout' | 'aborted'
 }
 
 // ============ 消息性能指标 ============
