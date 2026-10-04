@@ -124,10 +124,10 @@ const PLAY_EXP_GAIN = 5
 const PET_EXP_GAIN = 3
 /** 点击经验增益 */
 const CLICK_EXP_GAIN = 3
-/** 番茄钟经验增益 */
-const POMODORO_EXP_GAIN = 25
-/** 番茄钟金币增益 */
-const POMODORO_COIN_GAIN = 10
+/** 番茄钟经验增益（导出供完成反馈 UI 展示，避免 UI 层硬编码数值） */
+export const POMODORO_EXP_GAIN = 25
+/** 番茄钟金币增益（同上；实际到手还会叠加任务系统奖励） */
+export const POMODORO_COIN_GAIN = 10
 /** 升级金币奖励倍率（level × 此值） */
 const LEVEL_UP_COIN_MULTIPLIER = 100
 /** 随机金币掉落均值（正态分布 μ） */

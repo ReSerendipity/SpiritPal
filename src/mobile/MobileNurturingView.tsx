@@ -12,19 +12,26 @@
  * @see {@link ../stores/petStore} 宠物养成状态 Store
  * @see {@link ../lib/items} 物品配置模块
  */
-import { useState } from 'react'
-import { Heart, ShoppingBag, Backpack, Trophy, Coins, Sparkles } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Heart, ShoppingBag, Backpack, Trophy, Coins, Sparkles, Timer, Play, Pause, Square, RotateCcw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getCharacter } from '@/lib/data/characters'
 import type { BadgeTier } from '@/lib/data/types'
+import { getAchievementManager } from '@/lib/nurture/achievementSystem'
+import { POMODORO_DURATIONS, getPomodoroManager, type PomodoroSnapshot } from '@/lib/nurture/pomodoroManager'
 import { formatRelativeTime } from '@/lib/system/i18n'
 import { MobileAchievementView } from '@/mobile/MobileAchievementView'
 import { MobileInventoryView } from '@/mobile/MobileInventoryView'
 import { MobileShopView } from '@/mobile/MobileShopView'
-import { usePetStore } from '@/stores/petStore'
+import { usePetStore, POMODORO_EXP_GAIN } from '@/stores/petStore'
 
 /** 子 Tab 类型 */
-type SubTab = 'stats' | 'shop' | 'inventory' | 'achievement'
+type SubTab = 'stats' | 'shop' | 'inventory' | 'achievement' | 'focus'
+
+/** 番茄钟默认时长（分钟） */
+const DEFAULT_FOCUS_MINUTES = 25
+/** 「已结束专注」提示停留时长（毫秒） */
+const STOP_HINT_MS = 2500
 
 /** 属性颜色等级映射 */
 const TIER_COLORS: Record<string, string> = {
@@ -67,6 +74,32 @@ export function MobileNurturingView() {
 
   const [subTab, setSubTab] = useState<SubTab>('stats')
 
+  // ===== 番茄钟（P1-6）：状态机放模块级单例，切 Tab 卸载组件也不丢计时 =====
+  const [pomodoro, setPomodoro] = useState<PomodoroSnapshot>(() => getPomodoroManager().getSnapshot())
+  const [focusMinutes, setFocusMinutes] = useState<number>(DEFAULT_FOCUS_MINUTES)
+  const [stopHint, setStopHint] = useState(false)
+  const stopHintTimerRef = useRef<number | null>(null)
+
+  useEffect(() => () => {
+    if (stopHintTimerRef.current !== null) clearTimeout(stopHintTimerRef.current)
+  }, [])
+
+  useEffect(() => {
+    const mgr = getPomodoroManager()
+    // 完成结算：发奖励 + 记成就，返回实际发放量供反馈展示
+    mgr.setCompletionHandler((minutes) => {
+      const coinsBefore = usePetStore.getState().sharedCoins
+      usePetStore.getState().completePomodoro(minutes)
+      getAchievementManager().recordPomodoro(minutes)
+      // 金币增量含任务系统额外奖励；经验增量固定（升级时 exp 会清零，故不取差值）
+      const coins = usePetStore.getState().sharedCoins - coinsBefore
+      return { exp: POMODORO_EXP_GAIN, coins }
+    })
+    const unsub = mgr.subscribe((snapshot) => setPomodoro(snapshot))
+    setPomodoro(mgr.getSnapshot())
+    return unsub
+  }, [])
+
   const badge = getBadge(stats.level)
   const badgeMeta = BADGE_META[badge]
   const expNeed = stats.level * 100
@@ -79,6 +112,32 @@ export function MobileNurturingView() {
   const cardBorderClass = 'border-ink/10'
   const subTabActiveClass = 'bg-tangerine text-white'
   const subTabInactiveClass = 'bg-cream-deep text-ink-muted'
+
+  // ===== 番茄钟派生值与控制 =====
+  const focusRemain = Math.ceil(pomodoro.remainingSec)
+  const focusMm = String(Math.floor(focusRemain / 60)).padStart(2, '0')
+  const focusSs = String(focusRemain % 60).padStart(2, '0')
+  const focusProgress =
+    pomodoro.durationSec > 0 ? Math.min(1, pomodoro.elapsedSec / pomodoro.durationSec) : 0
+
+  /** 开始 / 再来一轮 */
+  const handleStartFocus = () => {
+    setStopHint(false)
+    getPomodoroManager().start(focusMinutes)
+  }
+  /** 暂停 */
+  const handlePauseFocus = () => getPomodoroManager().pause()
+  /** 继续 */
+  const handleResumeFocus = () => getPomodoroManager().resume()
+  /** 提前结束（不发放奖励），提示 2.5s 后自动消失 */
+  const handleStopFocus = () => {
+    getPomodoroManager().stop()
+    setStopHint(true)
+    if (stopHintTimerRef.current !== null) clearTimeout(stopHintTimerRef.current)
+    stopHintTimerRef.current = window.setTimeout(() => setStopHint(false), STOP_HINT_MS)
+  }
+  /** 关闭完成反馈 */
+  const handleDismissFocus = () => getPomodoroManager().reset()
 
   // 属性条配置
   const statBars = [
@@ -127,6 +186,7 @@ export function MobileNurturingView() {
           { id: 'shop', labelKey: 'action.shop', icon: ShoppingBag },
           { id: 'inventory', labelKey: 'tab.inventory', icon: Backpack },
           { id: 'achievement', labelKey: 'tab.achievement', icon: Trophy },
+          { id: 'focus', labelKey: 'tab.focus', icon: Timer },
         ] as const).map((tabDef) => {
           const Icon = tabDef.icon
           const isActive = subTab === tabDef.id
@@ -213,6 +273,135 @@ export function MobileNurturingView() {
 
         {/* 成就 */}
         {subTab === 'achievement' && <MobileAchievementView />}
+
+        {/* 专注 / 番茄钟（P1-6） */}
+        {subTab === 'focus' && (
+          <div className={`rounded-xl ${cardBgClass} border ${cardBorderClass} p-4`} data-testid="pomodoro-card">
+            {/* 完成时：奖励反馈 */}
+            {pomodoro.phase === 'done' ? (
+              <div className="text-center" data-testid="pomodoro-done">
+                <div className="mb-1 text-3xl">🎉</div>
+                <div className="mb-1 text-base font-semibold text-tangerine-deep">
+                  {t('pomodoro.completed')}
+                </div>
+                <div className="mb-2 text-xs text-ink-muted">{t('pomodoro.breakSuggestion')}</div>
+                {pomodoro.reward && (
+                  <div className="mb-3 text-sm tabular-nums" data-testid="pomodoro-reward">
+                    {t('pomodoro.reward', { exp: pomodoro.reward.exp, coins: pomodoro.reward.coins })}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleStartFocus}
+                    data-testid="pomodoro-again"
+                    className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-tangerine py-2 text-sm font-medium text-white"
+                  >
+                    <RotateCcw size={14} /> {t('pomodoro.again')}
+                  </button>
+                  <button
+                    onClick={handleDismissFocus}
+                    className="flex flex-1 items-center justify-center rounded-lg bg-cream-deep py-2 text-sm text-ink-muted"
+                  >
+                    {t('app.close')}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="mb-3 flex items-center gap-2">
+                  <Timer size={16} className="text-tangerine-deep" />
+                  <span className="text-sm font-semibold">{t('pomodoro.title')}</span>
+                  {pomodoro.phase === 'paused' && (
+                    <span className="rounded bg-cream-deep px-1.5 py-0.5 text-[10px] text-ink-muted">
+                      {t('pomodoro.paused')}
+                    </span>
+                  )}
+                </div>
+
+                {/* 时长选择（进行中不可改） */}
+                <div className="mb-1 text-xs text-ink-muted">{t('pomodoro.selectDuration')}</div>
+                <div className="mb-3 grid grid-cols-4 gap-1">
+                  {POMODORO_DURATIONS.map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => setFocusMinutes(d)}
+                      disabled={pomodoro.phase !== 'idle'}
+                      data-testid={`pomodoro-duration-${d}`}
+                      className={`rounded-md py-1.5 text-xs tabular-nums transition-colors disabled:opacity-40 ${
+                        focusMinutes === d
+                          ? 'bg-tangerine text-white'
+                          : 'bg-cream-deep text-ink hover:bg-blush-soft'
+                      }`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+
+                {/* 倒计时 + 进度 */}
+                {pomodoro.phase !== 'idle' && (
+                  <div className="mb-3">
+                    <div className="mb-1 text-center text-2xl font-mono font-bold tabular-nums" data-testid="pomodoro-remaining">
+                      {focusMm}:{focusSs}
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-cream-deep">
+                      <div
+                        className="h-full rounded-full bg-tangerine transition-all duration-500"
+                        style={{ width: `${Math.min(100, focusProgress * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* 控制按钮：开始 / 暂停·继续 / 结束 */}
+                <div className="flex gap-2">
+                  {pomodoro.phase === 'idle' && (
+                    <button
+                      onClick={handleStartFocus}
+                      data-testid="pomodoro-start"
+                      className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-tangerine py-2 text-sm font-medium text-white"
+                    >
+                      <Play size={14} /> {t('pomodoro.start')}
+                    </button>
+                  )}
+                  {pomodoro.phase === 'running' && (
+                    <button
+                      onClick={handlePauseFocus}
+                      data-testid="pomodoro-pause"
+                      className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-cream-deep py-2 text-sm text-ink"
+                    >
+                      <Pause size={14} /> {t('pomodoro.pause')}
+                    </button>
+                  )}
+                  {pomodoro.phase === 'paused' && (
+                    <button
+                      onClick={handleResumeFocus}
+                      data-testid="pomodoro-resume"
+                      className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-tangerine py-2 text-sm font-medium text-white"
+                    >
+                      <Play size={14} /> {t('pomodoro.resume')}
+                    </button>
+                  )}
+                  {pomodoro.phase !== 'idle' && (
+                    <button
+                      onClick={handleStopFocus}
+                      data-testid="pomodoro-stop"
+                      className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-error/90 py-2 text-sm text-white"
+                    >
+                      <Square size={14} /> {t('pomodoro.stop')}
+                    </button>
+                  )}
+                </div>
+
+                {stopHint && (
+                  <div className="mt-2 text-center text-xs text-ink-muted" data-testid="pomodoro-stop-hint">
+                    {t('pomodoro.stopped')}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
