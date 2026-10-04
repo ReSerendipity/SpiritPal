@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next'
 import { MemoryPanel } from '@/components/MemoryPanel'
 import { TagCloud, EmotionCurve, TimeDensityChart } from '@/components/MemoryVisualization'
 import { getEnhancedMemoryManager, type EnhancedMemory } from '@/lib/memory/enhancedMemory'
+import { MobileCommitmentBar } from '@/mobile/MobileCommitmentBar'
 import { usePetStore } from '@/stores/petStore'
 
 /** 子页面类型 */
@@ -57,6 +58,10 @@ export function MobileMemoryView() {
 
   return (
     <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
+      {/* P1-7-fe: 到期/逾期约定提示（无数据时不渲染） */}
+      <div className="px-3 pt-2">
+        <MobileCommitmentBar />
+      </div>
       {/* 子页面切换 */}
       <div className="flex gap-1 p-2">
         {([

@@ -49,6 +49,7 @@ import { getCharacter } from '@/lib/data/characters'
 import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 import { getOwnerFactsManager } from '@/lib/memory/ownerFacts'
 import { getCommitmentTracker } from '@/lib/nurture/commitmentTracker'
+import { MobileCommitmentBar } from '@/mobile/MobileCommitmentBar'
 import { useChatStore } from '@/stores/chatStore'
 import { usePetStore } from '@/stores/petStore'
 // D8：移动端记忆注入
@@ -466,6 +467,11 @@ export function MobileChatView() {
           </button>
         </div>
       </header>
+
+      {/* P1-7-fe: 到期/逾期约定提示（无数据时不渲染） */}
+      <div className="px-3 pt-2">
+        <MobileCommitmentBar refreshKey={messages.length} />
+      </div>
 
       {/* 消息列表 */}
       <div
