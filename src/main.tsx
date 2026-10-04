@@ -278,10 +278,27 @@ try {
 // 迁移框架为死代码、脏数据检测仅停留在测试。现接入启动链路，
 // 结果经 runGovernanceChecks 广播，设置页「数据管理」面板展示健康徽章。
 // ============================================================
+// P0-4: 全局错误兜底上报（最先安装）
+// 生产构建剥离 console.*（SECURITY R-08），未被处理的错误若只走 console
+// 将完全静默；此处统一上报 log_frontend_error → spiritpal.log → 诊断导出。
+// ============================================================
+try {
+  void import('@/lib/system/frontendErrorReport').then(({ installGlobalErrorReport }) => {
+    installGlobalErrorReport()
+  })
+} catch {
+  // 忽略上报安装失败
+}
+
+// ============================================================
 try {
   void import('@/lib/data/dataHealth').then(({ runGovernanceChecks }) => {
     return runGovernanceChecks().catch((err: unknown) => {
       console.warn('[DataHealth] 启动治理检查失败（非致命）:', err)
+      // P0-4: 生产 console 被 drop，非致命失败也需进日志（诊断导出可见）
+      void import('@/lib/system/frontendErrorReport').then(({ reportWarn, formatError }) => {
+        reportWarn(`[DataHealth] 启动治理检查失败（非致命）: ${formatError(err)}`)
+      })
     })
   })
 } catch {
@@ -295,8 +312,11 @@ try {
 try {
   void import('@/lib/memory/memoryBackground').then(({ initMemoryBackground }) => {
     return initMemoryBackground()
-  }).catch(() => {
-    // 记忆后台初始化失败，静默降级
+  }).catch((err: unknown) => {
+    // 记忆后台初始化失败，静默降级——但 P0-4 要求进日志可诊断
+    void import('@/lib/system/frontendErrorReport').then(({ reportWarn, formatError }) => {
+      reportWarn(`[memoryBackground] 初始化失败（非致命降级）: ${formatError(err)}`)
+    })
   })
 } catch {
   // 忽略记忆后台初始化错误
@@ -304,13 +324,21 @@ try {
 
 // ============================================================
 // 推送/本地通知：启动时装接入生产（请求权限 + 前置本地通知）
+// 合规（D-COMPLIANCE）：通知权限必须在隐私协议同意之后请求——
+// 未同意时此处跳过，由移动端 AgreementGate onAccept 回调补触发。
 // 非致命：失败或环境不支持则静默降级
 // ============================================================
 try {
-  void import('@/lib/system/pushNotificationManager').then(({ pushNotificationManager }) => {
-    return pushNotificationManager.init()
-  }).catch(() => {
-    // 推送初始化失败，静默降级
+  void import('@/components/AgreementGate').then(({ agreementAccepted }) => {
+    if (!agreementAccepted()) return
+    return import('@/lib/system/pushNotificationManager').then(({ pushNotificationManager }) => {
+      return pushNotificationManager.init()
+    })
+  }).catch((err: unknown) => {
+    // 推送初始化失败，静默降级——但 P0-4 要求进日志可诊断
+    void import('@/lib/system/frontendErrorReport').then(({ reportWarn, formatError }) => {
+      reportWarn(`[pushNotification] 初始化失败（非致命降级）: ${formatError(err)}`)
+    })
   })
 } catch {
   // 忽略推送初始化错误
@@ -323,8 +351,11 @@ try {
 try {
   void import('@/lib/system/mcpAppBridge').then(({ startMcpAppBridge }) => {
     startMcpAppBridge()
-  }).catch(() => {
-    // MCP 桥初始化失败，静默降级
+  }).catch((err: unknown) => {
+    // MCP 桥初始化失败，静默降级——但 P0-4 要求进日志可诊断
+    void import('@/lib/system/frontendErrorReport').then(({ reportWarn, formatError }) => {
+      reportWarn(`[mcpAppBridge] 初始化失败（非致命降级）: ${formatError(err)}`)
+    })
   })
 } catch {
   // 忽略 MCP 桥初始化错误

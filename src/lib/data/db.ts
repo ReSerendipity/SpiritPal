@@ -144,6 +144,9 @@ export async function encryptDatabaseAtRest(): Promise<void> {
     })
   } catch (e) {
     console.warn('[SpiritPal] Failed to encrypt database at rest:', e)
+    // P0-4: 生产 console 被 drop，数据库加密失败必须进日志（诊断导出可查）
+    const { reportError, formatError } = await import('@/lib/system/frontendErrorReport')
+    reportError(`[db] Failed to encrypt database at rest: ${formatError(e)}`)
   }
 }
 
@@ -154,6 +157,10 @@ if (typeof window !== 'undefined') {
     encryptDatabaseAtRest().catch((e: unknown) => {
       // M-2: 不再静默吞错 — 加密失败需记录（虽然 Rust 端 ExitRequested 会重试）
       console.error('[db] encryptDatabaseAtRest failed in beforeunload:', e instanceof Error ? e.message : e)
+      // P0-4: 生产 console.error 被 drop，走日志通道留痕
+      void import('@/lib/system/frontendErrorReport').then(({ reportError, formatError }) => {
+        reportError(`[db] encryptDatabaseAtRest failed in beforeunload: ${formatError(e)}`)
+      })
     })
   })
 }
@@ -168,6 +175,9 @@ export async function initDB(): Promise<void> {
     await invoke('decrypt_db_at_rest')
   } catch (e) {
     console.warn('[SpiritPal] Failed to decrypt database at rest:', e)
+    // P0-4: 解密失败可能导致数据不可达（.enc 存在但明文未生成），必须进日志留痕
+    const { reportError, formatError } = await import('@/lib/system/frontendErrorReport')
+    reportError(`[db] Failed to decrypt database at rest: ${formatError(e)}`)
   }
 
   // D-1: 建表/PRAGMA/迁移全部由 Rust 侧 ensure_schema 承担
