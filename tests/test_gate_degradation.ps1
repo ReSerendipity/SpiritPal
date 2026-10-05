@@ -19,6 +19,7 @@
 #   I 健康提交后紧跟 --no-verify → 仍被记录（凭据一次性消费）
 #   J amend / 空提交：走钩子的 amend 不误报；跳过钩子的内容变更（含 --no-verify 的 amend）被记；
 #     无内容变化的空提交不误报
+#   K 幂等判据只看行首：正文里引用 `capability-lint skipped:` 不会吞掉真降级行；已有行首标记时不重复插
 $ErrorActionPreference = 'Continue'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 $OutputEncoding = [System.Text.UTF8Encoding]::new()
@@ -204,6 +205,37 @@ git commit -q --amend --no-verify -m 'chore: content amend without hooks' 2>&1 |
 Check 'J3 改内容却绕过钩子的 amend 被记录' ((LogCount 'gate-bypass suspected') -eq ($bypassJ + 2)) ''
 git commit -q --allow-empty --no-verify -m 'chore: empty without hooks' 2>&1 | Out-Null
 Check 'J4 无内容变化的空提交不误报' ((LogCount 'gate-bypass suspected') -eq ($bypassJ + 2)) ''
+
+# ---------- K. 便签幂等判据只看行首（a6fdb59 踩过：正文提到该标记就把降级行吞了） ----------
+$env:SPIRITPAL_CAPLINT_FAKE_KILL = '1'
+'k1' | Set-Content k1.txt
+git add k1.txt 2>&1 | Out-Null
+$msgK1 = @'
+feat: quote token inline
+
+实现里记 `capability-lint skipped: <原因>` 后 exit 0，让其余钩子照常跑。
+'@
+[System.IO.File]::WriteAllText("$rp/.git/K1MSG", $msgK1 + "`n")
+git commit -q -F .git/K1MSG 2>&1 | Out-Null
+$bodyK1 = git log -1 --format=%B
+$linesK1 = @(($bodyK1 -split "`r?`n") | Where-Object { $_ -match '^capability-lint skipped:' }).Count
+Check 'K1 正文引用该标记时降级行仍被插入' ($linesK1 -eq 1) "lines=$linesK1"
+
+'k2' | Set-Content k2.txt
+git add k2.txt 2>&1 | Out-Null
+$msgK2 = @'
+feat: already annotated
+
+capability-lint skipped: 人预先写好的说明
+
+正文
+'@
+[System.IO.File]::WriteAllText("$rp/.git/K2MSG", $msgK2 + "`n")
+git commit -q -F .git/K2MSG 2>&1 | Out-Null
+Remove-Item Env:\SPIRITPAL_CAPLINT_FAKE_KILL
+$bodyK2 = git log -1 --format=%B
+$linesK2 = @(($bodyK2 -split "`r?`n") | Where-Object { $_ -match '^capability-lint skipped:' }).Count
+Check 'K2 已有行首标记时不重复插入' ($linesK2 -eq 1) "lines=$linesK2"
 
 '=== 留痕日志全文 ==='
 if (Test-Path $skipLog) { Get-Content $skipLog } else { '(no skip log)' }
