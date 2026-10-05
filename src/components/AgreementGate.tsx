@@ -51,8 +51,9 @@ export function AgreementGate({ onAccept }: AgreementGateProps) {
           <a className="text-tangerine-deep underline underline-offset-2" href={"https://github.com/ReSerendipity/SpiritPal/blob/main/PRIVACY_POLICY.md"} target="_blank" rel="noopener noreferrer">《隐私政策》</a>：
           不将本工具用于侵权或违法用途（包括未经授权使用他人角色形象、声纹）；选择境外 AI 服务商时对话内容将传输至境外服务器；请勿提交敏感个人信息。
         </p>
-        <label className="mb-3 flex items-start gap-2 text-[13px] text-ink">
-          <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} className="mt-0.5" />
+        {/* P2-1：触控命中区 ≥48dp——整行 label 作为命中区（min-h-48px），勾选框本身放大到 20px 视觉 */}
+        <label className="mb-3 flex min-h-[48px] cursor-pointer items-center gap-2 text-[13px] text-ink">
+          <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} className="h-5 w-5 shrink-0" />
           <span>我已阅读并同意《用户协议》《隐私政策》及上述使用要求</span>
         </label>
         <button
