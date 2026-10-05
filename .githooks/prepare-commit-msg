@@ -13,7 +13,9 @@ fi
 if [ -n "$GATE_LIB_LOADED" ]; then
     # 便签读后即删（见 lib-gate.sh），不会串到下一笔提交。
     NOTE="$(gate_take_skip_note)"
-    if [ -n "$NOTE" ] && ! grep -qF 'capability-lint skipped:' "$MSG"; then
+    # 幂等只看「整行以该标记开头」（即真便签行），不用子串：否则提交正文里只要提到
+    # `capability-lint skipped: <原因>` 就会把真正的降级行吞掉（实测踩过，见 a6fdb59）。
+    if [ -n "$NOTE" ] && ! grep -qE '^capability-lint skipped:' "$MSG"; then
         # 用 head/tail 拼接而非 awk -v：awk 会把变量值里的反斜杠当转义序列，
         # Windows 路径递进去会被拼成乱码（实测 \t 变制表符、\g \s 直接消失）。
         CMTLINE=$(grep -n '^#' "$MSG" | head -1 | cut -d: -f1)
