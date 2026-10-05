@@ -23,10 +23,21 @@ import { usePetStore } from '@/stores/petStore'
 
 type Tab = 'facts' | 'experiences' | 'diary' | 'all'
 
-export function MemoryPanel() {
+export interface MemoryPanelProps {
+  /**
+   * 'full'（默认）：带「精简/可视化/图谱」视图切换条（桌面端）。
+   * 'embedded'（P2-6）：宿主已有视图选择器（如移动端记忆页的三级子页）时使用——
+   * 不再渲染自身的视图切换条，恒以精简内容呈现，消除「两处可视化」。
+   */
+  variant?: 'full' | 'embedded'
+}
+
+export function MemoryPanel({ variant = 'full' }: MemoryPanelProps) {
   const currentCharacterId = usePetStore((s) => s.currentCharacterId)
   // A-4：视图切换 —— 精简（默认，保持旧行为零回归）/ 可视化
   const [viewMode, setViewMode] = useState<'compact' | 'visual' | 'graph'>('compact')
+  // embedded 模式下视图选择由宿主负责，恒为精简
+  const effectiveView = variant === 'embedded' ? 'compact' : viewMode
   const [tab, setTab] = useState<Tab>('facts')
   const [facts, setFacts] = useState<OwnerFact[]>([])
   const [experiences, setExperiences] = useState<PetExperience[]>([])
@@ -169,45 +180,47 @@ export function MemoryPanel() {
 
   return (
     <div className="flex h-full flex-col gap-3 p-4">
-      {/* A-4：视图切换 —— 精简（默认）/ 可视化 */}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => setViewMode('compact')}
-          className={`rounded border px-2.5 py-1 text-xs transition-colors ${
-            viewMode === 'compact'
-              ? 'border-tangerine bg-tangerine/10 text-tangerine-deep'
-              : 'border-ink/15 text-ink-muted hover:bg-ink/5 hover:text-ink'
-          }`}
-        >
-          精简
-        </button>
-        <button
-          onClick={() => setViewMode('visual')}
-          className={`rounded border px-2.5 py-1 text-xs transition-colors ${
-            viewMode === 'visual'
-              ? 'border-tangerine bg-tangerine/10 text-tangerine-deep'
-              : 'border-ink/15 text-ink-muted hover:bg-ink/5 hover:text-ink'
-          }`}
-        >
-          可视化
-        </button>
-        <button
-          onClick={() => setViewMode('graph')}
-          className={`rounded border px-2.5 py-1 text-xs transition-colors ${
-            viewMode === 'graph'
-              ? 'border-tangerine bg-tangerine/10 text-tangerine-deep'
-              : 'border-ink/15 text-ink-muted hover:bg-ink/5 hover:text-ink'
-          }`}
-        >
-          图谱
-        </button>
-      </div>
+      {/* A-4：视图切换 —— 精简（默认）/ 可视化 / 图谱（embedded 模式由宿主选择器接管，不渲染） */}
+      {variant === 'full' && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setViewMode('compact')}
+            className={`rounded border px-2.5 py-1 text-xs transition-colors ${
+              viewMode === 'compact'
+                ? 'border-tangerine bg-tangerine/10 text-tangerine-deep'
+                : 'border-ink/15 text-ink-muted hover:bg-ink/5 hover:text-ink'
+            }`}
+          >
+            精简
+          </button>
+          <button
+            onClick={() => setViewMode('visual')}
+            className={`rounded border px-2.5 py-1 text-xs transition-colors ${
+              viewMode === 'visual'
+                ? 'border-tangerine bg-tangerine/10 text-tangerine-deep'
+                : 'border-ink/15 text-ink-muted hover:bg-ink/5 hover:text-ink'
+            }`}
+          >
+            可视化
+          </button>
+          <button
+            onClick={() => setViewMode('graph')}
+            className={`rounded border px-2.5 py-1 text-xs transition-colors ${
+              viewMode === 'graph'
+                ? 'border-tangerine bg-tangerine/10 text-tangerine-deep'
+                : 'border-ink/15 text-ink-muted hover:bg-ink/5 hover:text-ink'
+            }`}
+          >
+            图谱
+          </button>
+        </div>
+      )}
 
-      {viewMode === 'visual' ? (
+      {effectiveView === 'visual' ? (
         <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-ink/10">
           <MemoryVisualizer />
         </div>
-      ) : viewMode === 'graph' ? (
+      ) : effectiveView === 'graph' ? (
         <div className="min-h-0 flex-1 overflow-hidden">
           <EntityGraphView />
         </div>

@@ -96,10 +96,12 @@ export function MobileMemoryView() {
         </div>
       )}
 
-      {/* 记忆列表子页：复用桌面端 MemoryPanel（内部自带滚动） */}
+      {/* 记忆列表子页：复用桌面端 MemoryPanel。
+          P2-6：embedded 变体——不渲染面板自带的「精简/可视化/图谱」切换条，
+          视图选择统一由本页三个子页承担，消除「两处可视化」。 */}
       {subView === 'list' && (
         <div className="h-full overflow-hidden">
-          <MemoryPanel />
+          <MemoryPanel variant="embedded" />
         </div>
       )}
 
