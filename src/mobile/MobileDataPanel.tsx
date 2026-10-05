@@ -23,6 +23,7 @@ import {
   Check,
   Loader2,
   X,
+  FileDown,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getDataManager } from '@/lib/data/dataManager'
@@ -33,6 +34,7 @@ import {
   checkDbIntegrity,
   type DBBackupInfoTs,
 } from '@/lib/data/dbBackup'
+import { exportDiagnostics, type ExportDiagnosticsResult } from '@/lib/system/diagnostics'
 
 interface MobileDataPanelProps {
   /** 返回设置主页 */
@@ -72,6 +74,29 @@ export function MobileDataPanel({
   const [confirmRestoreName, setConfirmRestoreName] = useState<string | null>(null)
   const [confirmDeleteName, setConfirmDeleteName] = useState<string | null>(null)
   const [confirmResetStep, setConfirmResetStep] = useState<0 | 1 | 2>(0)
+  // P2-13：诊断导出状态
+  const [diagBusy, setDiagBusy] = useState(false)
+  const [diagResult, setDiagResult] = useState<ExportDiagnosticsResult | null>(null)
+
+  /** 导出诊断包（主日志 + 审计日志 + 崩溃日志 + 级别配置） */
+  async function handleExportDiagnostics() {
+    setDiagBusy(true)
+    setDiagResult(null)
+    try {
+      const result = await exportDiagnostics()
+      if (result) {
+        setDiagResult(result)
+        flash('success', t('settings.data.diagnosticsOk'))
+      } else {
+        // 非 Tauri 环境（浏览器/测试）没有可导出的日志
+        flash('error', t('settings.data.diagnosticsUnsupported'))
+      }
+    } catch (err) {
+      flash('error', `${t('settings.data.diagnosticsFail')}: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setDiagBusy(false)
+    }
+  }
 
   function flash(type: 'success' | 'error', text: string) {
     setMessage({ type, text })
@@ -202,6 +227,31 @@ export function MobileDataPanel({
           {integrity !== null && (
             <p className={`mt-1.5 text-xs ${integrity ? 'text-ink' : 'text-error'}`}>
               {integrity ? t('settings.data.integrityOk') : t('settings.data.integrityFail')}
+            </p>
+          )}
+        </div>
+
+        {/* P2-13：诊断导出（主日志/审计日志/崩溃日志/级别配置打包） */}
+        <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
+          <div className="flex items-center gap-2">
+            <FileDown size={16} className="text-ink-faint" />
+            <span className="text-sm font-medium">{t('settings.data.diagnostics')}</span>
+            <button
+              onClick={() => void handleExportDiagnostics()}
+              disabled={diagBusy}
+              data-testid="export-diagnostics"
+              className={`ml-auto flex items-center gap-1 rounded-lg border border-ink/10 px-2 py-1 text-xs ${
+                diagBusy ? 'opacity-50' : 'hover:bg-ink/5'
+              }`}
+            >
+              {diagBusy && <Loader2 size={12} className="animate-spin" />}
+              {t('settings.data.diagnosticsBtn')}
+            </button>
+          </div>
+          <p className="mt-1 text-[11px] leading-4 text-ink-faint">{t('settings.data.diagnosticsDesc')}</p>
+          {diagResult && (
+            <p className="mt-1.5 text-xs text-ink" data-testid="diagnostics-result">
+              {t('settings.data.diagnosticsDone', { count: diagResult.files.length })}: {diagResult.path}
             </p>
           )}
         </div>

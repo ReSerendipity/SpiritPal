@@ -28,6 +28,13 @@ vi.mock('@/lib/data/dataManager', () => ({
   getDataManager: () => ({ resetAll: resetAllMock }),
 }))
 
+// P2-13：诊断导出走 tauriInvoker（isTauri 判定 + invoke），单测里 mock 掉
+const exportDiagnosticsMock = vi.fn()
+vi.mock('@/lib/system/diagnostics', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/system/diagnostics')>()
+  return { ...actual, exportDiagnostics: (...args: unknown[]) => exportDiagnosticsMock(...args) }
+})
+
 const SAMPLE_BACKUPS = [
   { name: 'spiritpal-backup-1001.db.enc', sizeBytes: 290816, modifiedAt: 1791100000000 },
   { name: 'spiritpal-backup-1002.db.enc', sizeBytes: 291000, modifiedAt: 1791100500000 },
@@ -118,6 +125,35 @@ describe('MobileDataPanel（P1-4 数据管理）', () => {
     fireEvent.click(screen.getByText(/检查/))
     await waitFor(() => {
       expect(screen.getByText('数据库完好')).toBeTruthy()
+    })
+  })
+
+  it('P2-13: 诊断导出成功显示文件数与路径', async () => {
+    exportDiagnosticsMock.mockResolvedValue({ path: '/data/0/files/diag-1001', files: ['spiritpal.log', 'audit.log'] })
+    render(<MobileDataPanel onBack={() => {}} bgClass="" textClass="" cardBgClass="" cardBorderClass="" subtitleClass="" />)
+    fireEvent.click(await screen.findByTestId('export-diagnostics'))
+    await waitFor(() => {
+      expect(screen.getByTestId('diagnostics-result').textContent).toContain('已导出 2 个文件')
+    })
+    expect(screen.getByTestId('diagnostics-result').textContent).toContain('/data/0/files/diag-1001')
+    expect(exportDiagnosticsMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('P2-13: 诊断导出失败显示错误横幅', async () => {
+    exportDiagnosticsMock.mockRejectedValue(new Error('io error'))
+    render(<MobileDataPanel onBack={() => {}} bgClass="" textClass="" cardBgClass="" cardBorderClass="" subtitleClass="" />)
+    fireEvent.click(await screen.findByTestId('export-diagnostics'))
+    await waitFor(() => {
+      expect(screen.getByText(/诊断导出失败/)).toBeInTheDocument()
+    })
+  })
+
+  it('P2-13: 非 Tauri 环境提示不支持', async () => {
+    exportDiagnosticsMock.mockResolvedValue(null)
+    render(<MobileDataPanel onBack={() => {}} bgClass="" textClass="" cardBgClass="" cardBorderClass="" subtitleClass="" />)
+    fireEvent.click(await screen.findByTestId('export-diagnostics'))
+    await waitFor(() => {
+      expect(screen.getByText(/当前环境不支持诊断导出/)).toBeInTheDocument()
     })
   })
 
