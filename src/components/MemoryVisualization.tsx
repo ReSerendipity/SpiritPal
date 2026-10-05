@@ -103,6 +103,14 @@ export function TagCloud({ memories, onSelectTag, selectedTag }: TagCloudProps) 
           </button>
         ))}
       </div>
+
+      {/* P2-3：层级说明——字号/颜色即提及频次 */}
+      <div
+        className="mt-2 border-t border-ink/8 pt-1.5 text-[10px] leading-4 text-ink-faint"
+        data-testid="tagcloud-legend"
+      >
+        字号越大、颜色越亮 = 提及越多（最高 {maxFreq} 条）；点击标签可筛选该类记忆
+      </div>
     </div>
   )
 }
@@ -168,6 +176,10 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
 
   const maxAvg = Math.max(...chartData.map((d) => d.avgIntensity), 0.01)
   const chartHeight = 60
+  // P2-3：峰值日（结论副标题用）
+  const peakDay = chartData.reduce((a, b) => (b.avgIntensity > a.avgIntensity ? b : a))
+  // P2-3：y 轴刻度（1/0.75/0.5/0.25/0 × 本期峰值；HTML 渲染避免 SVG 非等比拉伸把文字拉变形）
+  const yTicks = [1, 0.75, 0.5, 0.25, 0]
 
   return (
     <div className="rounded-xl border border-ink/10 bg-surface p-4">
@@ -178,7 +190,20 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
 
       {/* SVG 折线图 */}
       <div className="relative" style={{ height: chartHeight + 20 }}>
-        <svg
+        {/* P2-3：y 轴刻度列（数值 = 刻度比例 × 本期峰值） */}
+        <div className="absolute inset-y-0 left-0 w-9" data-testid="emotion-y-ticks">
+          {yTicks.map((tick) => (
+            <span
+              key={tick}
+              className="absolute right-1 -translate-y-1/2 text-[8px] tabular-nums text-ink-faint"
+              style={{ top: `${((1 - tick) * chartHeight * 100) / (chartHeight + 20)}%` }}
+            >
+              {(tick * maxAvg).toFixed(2)}
+            </span>
+          ))}
+        </div>
+        <div className="pl-9">
+          <svg
           className="w-full"
           height={chartHeight + 20}
           viewBox={`0 0 ${chartData.length * 30} ${chartHeight + 20}`}
@@ -264,6 +289,7 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
             </text>
           ))}
         </svg>
+        </div>
       </div>
 
       {/* 图例 */}
@@ -277,6 +303,15 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
         <span className="flex items-center gap-1">
           <span className="h-2 w-2 rounded-full bg-tangerine-deep" /> 低情感
         </span>
+      </div>
+
+      {/* P2-3：结论副标题——y 轴含义 + 峰值标注 */}
+      <div
+        className="mt-1 border-t border-ink/8 pt-1.5 text-[10px] leading-4 text-ink-faint"
+        data-testid="emotion-conclusion"
+      >
+        纵轴 = 当日平均情感强度（0~1）；峰值 {peakDay.avgIntensity.toFixed(2)}（{peakDay.date}）
+        · 共 {chartData.length} 天有记忆
       </div>
     </div>
   )
@@ -335,6 +370,9 @@ export function TimeDensityChart({ memories, onSelectMonth, selectedMonth }: Tim
 
   const maxCount = Math.max(...monthlyData.map((d) => d[1]), 1)
   const barHeight = 50
+  // P2-3：结论数据——峰值月与合计
+  const peakMonth = monthlyData.reduce((a, b) => (b[1] > a[1] ? b : a))
+  const totalCount = monthlyData.reduce((sum, [, c]) => sum + c, 0)
 
   return (
     <div className="rounded-xl border border-ink/10 bg-surface p-4">
@@ -353,7 +391,7 @@ export function TimeDensityChart({ memories, onSelectMonth, selectedMonth }: Tim
         )}
       </div>
 
-      <div className="flex items-end gap-1" style={{ height: barHeight + 16 }}>
+      <div className="flex items-end gap-1" style={{ height: barHeight + 28 }}>
         {monthlyData.map(([month, count]) => {
           const height = Math.max(2, (count / maxCount) * barHeight)
           const ratio = count / maxCount
@@ -373,6 +411,10 @@ export function TimeDensityChart({ memories, onSelectMonth, selectedMonth }: Tim
               className="flex flex-1 flex-col items-center transition-transform hover:scale-105"
               title={`${month}: ${count} 条记忆${onSelectMonth ? '（点击筛选）' : ''}`}
             >
+              {/* P2-3：柱顶数值标注 */}
+              <span className="text-[8px] tabular-nums leading-3 text-ink-faint" data-testid="density-count">
+                {count}
+              </span>
               <div
                 className={`w-full rounded-t ${color} transition-all`}
                 style={{ height }}
@@ -383,6 +425,15 @@ export function TimeDensityChart({ memories, onSelectMonth, selectedMonth }: Tim
             </button>
           )
         })}
+      </div>
+
+      {/* P2-3：结论副标题——峰值月与合计 */}
+      <div
+        className="mt-1 border-t border-ink/8 pt-1.5 text-[10px] leading-4 text-ink-faint"
+        data-testid="density-conclusion"
+      >
+        峰值 {peakMonth[0]}（{peakMonth[1]} 条）· 近 {monthlyData.length} 个月合计 {totalCount} 条记忆
+        {onSelectMonth ? '；点击柱子可筛选该月' : ''}
       </div>
     </div>
   )
