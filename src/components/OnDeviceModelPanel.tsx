@@ -18,8 +18,15 @@
  */
 import { invoke } from '@tauri-apps/api/core'
 import { useCallback, useEffect, useState } from 'react'
-import { HardDrive, RefreshCw, Cpu, AlertTriangle, CheckCircle2, Download } from 'lucide-react'
+import { HardDrive, RefreshCw, Cpu, AlertTriangle, CheckCircle2, Download, Gauge, CloudOff } from 'lucide-react'
 import { BrandButton, BrandSwitch } from '@/components/ui'
+// P2-12-be：设备分级接入（此前 detect_device_tier 命令已注册但前端无任何生产调用方）
+import {
+  detectDeviceTier,
+  recommendOnDeviceDetected,
+  type DeviceTierResult,
+  type OnDeviceRecommendation,
+} from '@/lib/ai/onDeviceTiers'
 import { isMobileRuntime } from '@/lib/system/platform'
 
 /** 端侧偏好存于与 AI 服务商相同的 localStorage key，字段独立，互不干扰 */
@@ -78,6 +85,9 @@ export function OnDeviceModelPanel() {
   const [error, setError] = useState<string>('')
   // 思维链（Thinking）开关：默认关，持久化到 localStorage；加载时透传给引擎覆写 config.json
   const [thinking, setThinking] = useState<boolean>(() => readThinking())
+  // P2-12-be/fe：设备分级与端侧推荐（Rust detect_device_tier → 前端首次可见）
+  const [tier, setTier] = useState<DeviceTierResult | null>(null)
+  const [recommendation, setRecommendation] = useState<OnDeviceRecommendation | null>(null)
 
   const setThinkingPersist = useCallback((v: boolean) => {
     writeThinking(v)
@@ -85,6 +95,22 @@ export function OnDeviceModelPanel() {
   }, [])
 
   const mobile = isMobileRuntime()
+
+  useEffect(() => {
+    if (!mobile) return
+    let cancelled = false
+    void (async () => {
+      const t = await detectDeviceTier(false)
+      if (cancelled) return
+      setTier(t)
+      if (t.llmAllowed) {
+        setRecommendation(await recommendOnDeviceDetected(false))
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [mobile])
 
   /** 拉取模型目录 + 可用模型列表 */
   const refresh = useCallback(async () => {
@@ -178,6 +204,42 @@ export function OnDeviceModelPanel() {
         （含 <code className="rounded bg-cream-deep px-1">config.json</code> /{' '}
         <code className="rounded bg-cream-deep px-1">llm.mnn</code>）；GGUF 需先在 PC 侧转换。
       </p>
+
+      {/* P2-12-be/fe：设备分级（Rust 实测）+ 端侧不可用时的云端回退提示 */}
+      {tier && (
+        <div className="mb-3 rounded-lg bg-cream-deep/70 p-3" data-testid="device-tier-card">
+          <div className="flex items-center gap-2">
+            <Gauge size={14} className="shrink-0 text-ink-muted" />
+            <span className="text-xs font-medium text-ink">设备分级</span>
+            <span
+              data-testid="device-tier-badge"
+              className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                tier.tier === 'T2'
+                  ? 'bg-success/15 text-success'
+                  : tier.tier === 'T1'
+                    ? 'bg-warning/15 text-warning'
+                    : 'bg-error/15 text-error'
+              }`}
+            >
+              {tier.tier}
+            </span>
+            <span className="text-[10px] text-ink-faint">≈{tier.ramGB}GB 内存档</span>
+          </div>
+          <p className="mt-1 break-all text-[11px] leading-4 text-ink-muted">{tier.note}</p>
+          {!tier.llmAllowed && (
+            <p
+              className="mt-1 flex items-start gap-1 text-[11px] leading-4 text-error"
+              data-testid="ondevice-fallback"
+            >
+              <CloudOff size={12} className="mt-0.5 shrink-0" />
+              该设备不满足端侧推理要求，聊天将自动使用云端服务商；此处仅作说明，不影响其他功能。
+            </p>
+          )}
+          {recommendation && recommendation.recommended && (
+            <p className="mt-1 text-[10px] leading-4 text-ink-faint">推荐配置：{recommendation.hint}</p>
+          )}
+        </div>
+      )}
 
       <div className="mb-3 flex items-center justify-between gap-3 rounded-lg bg-cream-deep/70 p-3">
         <div className="min-w-0">
