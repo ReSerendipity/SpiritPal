@@ -52,6 +52,10 @@ export interface EntityGraphViewProps {
   /** 可选：注入数据（用于测试）。缺省时按 characterId 从真实 DB 拉取。 */
   entities?: GraphEntity[]
   edges?: GraphEdge[]
+  /** 可选：无数据时的主文案（缺省沿用桌面文案） */
+  emptyTitle?: string
+  /** 可选：无数据时的说明文案（缺省沿用桌面文案） */
+  emptyHint?: string
 }
 
 interface ViewTransform {
@@ -67,7 +71,7 @@ interface HoverInfo {
   y: number
 }
 
-export function EntityGraphView({ entities, edges }: EntityGraphViewProps) {
+export function EntityGraphView({ entities, edges, emptyTitle, emptyHint }: EntityGraphViewProps) {
   const currentCharacterId = usePetStore((s) => s.currentCharacterId)
 
   const [entitiesList, setEntitiesList] = useState<GraphEntity[]>(entities ?? [])
@@ -376,8 +380,10 @@ export function EntityGraphView({ entities, edges }: EntityGraphViewProps) {
         {!loading && !error && entitiesList.length === 0 && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-ink-muted">
             <Network size={32} className="opacity-30" />
-            <p>暂无实体数据</p>
-            <p className="text-xs text-ink-faint">对话中提取的人物/地点/事件会自动出现在这里</p>
+            <p>{emptyTitle ?? '暂无实体数据'}</p>
+            <p className="text-xs text-ink-faint">
+              {emptyHint ?? '对话中提取的人物/地点/事件会自动出现在这里'}
+            </p>
           </div>
         )}
         {error && (
