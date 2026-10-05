@@ -15,8 +15,9 @@
  * @see {@link ../components/MemoryVisualization} 记忆可视化组件（复用）
  */
 import { useEffect, useState } from 'react'
-import { BarChart3, List } from 'lucide-react'
+import { BarChart3, List, Network } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { EntityGraphView } from '@/components/memory/EntityGraphView'
 import { MemoryPanel } from '@/components/MemoryPanel'
 import { TagCloud, EmotionCurve, TimeDensityChart } from '@/components/MemoryVisualization'
 import { getEnhancedMemoryManager, type EnhancedMemory } from '@/lib/memory/enhancedMemory'
@@ -24,7 +25,7 @@ import { MobileCommitmentBar } from '@/mobile/MobileCommitmentBar'
 import { usePetStore } from '@/stores/petStore'
 
 /** 子页面类型 */
-type SubView = 'viz' | 'list'
+type SubView = 'viz' | 'list' | 'graph'
 
 /**
  * 移动端记忆视图组件
@@ -67,6 +68,7 @@ export function MobileMemoryView() {
         {([
           { id: 'viz', labelKey: 'memory.visual', icon: BarChart3 },
           { id: 'list', labelKey: 'memory.list', icon: List },
+          { id: 'graph', labelKey: 'memory.graph', icon: Network },
         ] as const).map((tabDef) => {
           const Icon = tabDef.icon
           const isActive = subView === tabDef.id
@@ -98,6 +100,19 @@ export function MobileMemoryView() {
       {subView === 'list' && (
         <div className="h-full overflow-hidden">
           <MemoryPanel />
+        </div>
+      )}
+
+      {/* P1-3-fe：实体图谱子页——复用桌面 Canvas 力导向视图 + 诚实的数据来源说明 */}
+      {subView === 'graph' && (
+        <div className="flex min-h-0 flex-1 flex-col gap-1 px-3 pb-4">
+          <p className="text-[10px] leading-4 text-ink-faint">{t('memory.graphHint')}</p>
+          <div className="min-h-0 flex-1">
+            <EntityGraphView
+              emptyTitle={t('memory.graphEmpty')}
+              emptyHint={t('memory.graphEmptyHint')}
+            />
+          </div>
         </div>
       )}
     </div>
