@@ -7,7 +7,7 @@ import { usePetStore } from '@/stores/petStore'
 import { MobileChatView } from './MobileChatView'
 
 const chatMock = vi.fn()
-const recordStateChangeMock = vi.fn(() => Promise.resolve())
+const recordStateChangeMock = vi.fn((_state: string) => Promise.resolve())
 
 vi.mock('@/lib/ai/llmClient', () => ({
   getLLMClient: () => ({ chat: chatMock }),

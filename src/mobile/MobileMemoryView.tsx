@@ -15,17 +15,18 @@
  * @see {@link ../components/MemoryVisualization} 记忆可视化组件（复用）
  */
 import { useEffect, useState } from 'react'
-import { BarChart3, List, Network } from 'lucide-react'
+import { BarChart3, BookOpen, List, Network } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { EntityGraphView } from '@/components/memory/EntityGraphView'
 import { MemoryPanel } from '@/components/MemoryPanel'
 import { TagCloud, EmotionCurve, TimeDensityChart } from '@/components/MemoryVisualization'
+import { getSemanticFacts, type SemanticFactRow } from '@/lib/data/db'
 import { getEnhancedMemoryManager, type EnhancedMemory } from '@/lib/memory/enhancedMemory'
 import { MobileCommitmentBar } from '@/mobile/MobileCommitmentBar'
 import { usePetStore } from '@/stores/petStore'
 
 /** 子页面类型 */
-type SubView = 'viz' | 'list' | 'graph'
+type SubView = 'viz' | 'list' | 'graph' | 'semantic'
 
 /**
  * 移动端记忆视图组件
@@ -36,6 +37,9 @@ export function MobileMemoryView() {
   const currentCharacterId = usePetStore((s) => s.currentCharacterId)
   const [subView, setSubView] = useState<SubView>('viz')
   const [memories, setMemories] = useState<EnhancedMemory[]>([])
+  // P3-7：语义事实只读列表（memory_semantic_facts 表）
+  const [semanticFacts, setSemanticFacts] = useState<SemanticFactRow[]>([])
+  const [semanticLoaded, setSemanticLoaded] = useState(false)
 
   // 异步加载全部记忆（可视化图表数据源）
   useEffect(() => {
@@ -50,6 +54,26 @@ export function MobileMemoryView() {
       cancelled = true
     }
   }, [currentCharacterId])
+
+  // P3-7：语义事实加载（只读，进入该子页时惰性拉取 + 角色切换重取）
+  useEffect(() => {
+    if (subView !== 'semantic') return
+    let cancelled = false
+    void (async () => {
+      try {
+        const rows = await getSemanticFacts(currentCharacterId)
+        if (cancelled) return
+        setSemanticFacts(Array.isArray(rows) ? rows : [])
+      } catch {
+        if (!cancelled) setSemanticFacts([])
+      } finally {
+        if (!cancelled) setSemanticLoaded(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [subView, currentCharacterId])
 
   // 主题样式类（与移动端其他视图一致的语义 Token 配色）
   const bgClass = 'bg-cream'
@@ -69,6 +93,7 @@ export function MobileMemoryView() {
           { id: 'viz', labelKey: 'memory.visual', icon: BarChart3 },
           { id: 'list', labelKey: 'memory.list', icon: List },
           { id: 'graph', labelKey: 'memory.graph', icon: Network },
+          { id: 'semantic', labelKey: 'memory.semantic', icon: BookOpen },
         ] as const).map((tabDef) => {
           const Icon = tabDef.icon
           const isActive = subView === tabDef.id
@@ -102,6 +127,45 @@ export function MobileMemoryView() {
       {subView === 'list' && (
         <div className="h-full overflow-hidden">
           <MemoryPanel variant="embedded" />
+        </div>
+      )}
+
+      {/* P3-7：语义事实只读列表（memory_semantic_facts） */}
+      {subView === 'semantic' && (
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-4">
+          {!semanticLoaded ? (
+            <div className="py-8 text-center text-sm text-ink-muted">{t('memory.semanticLoading')}</div>
+          ) : semanticFacts.length === 0 ? (
+            <div className="py-8 text-center text-sm text-ink-muted">
+              <BookOpen size={32} className="mx-auto mb-2 opacity-30" />
+              <p>{t('memory.semanticEmpty')}</p>
+              <p className="mt-1 text-xs text-ink-faint">{t('memory.semanticEmptyHint')}</p>
+            </div>
+          ) : (
+            semanticFacts.map((fact) => (
+              <div
+                key={fact.id ?? `${fact.fact_key}-${fact.fact_value}`}
+                className={`rounded-xl border border-ink/10 bg-surface p-3`}
+                data-testid="semantic-fact-card"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className="rounded bg-cream-deep px-1.5 py-0.5 text-[10px] text-ink-muted">
+                    {fact.fact_key}
+                  </span>
+                  <span className="text-[10px] text-ink-faint">
+                    {t('memory.semanticImportance', { score: Math.round(fact.importance) })}
+                  </span>
+                  <span className="ml-auto text-[10px] text-ink-faint">
+                    {new Date(fact.updated_at).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="mt-1 text-sm text-ink">{fact.fact_value}</div>
+                <div className="mt-0.5 text-[10px] text-ink-faint">
+                  {t('memory.semanticSources', { count: fact.source_memory_ids.length })}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
 
