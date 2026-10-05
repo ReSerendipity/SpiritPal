@@ -215,9 +215,10 @@ export default function MobileApp() {
             <span className="text-xs text-error">{t('mobile.sync.failed')}</span>
           )}
         </div>
+        {/* P2-1: 主题切换命中区经 after 伪元素扩到 ≥48px（36px 视觉 + 8px 四向） */}
         <button
           onClick={toggleTheme}
-          className={`flex h-9 w-9 items-center justify-center rounded-full ${
+          className={`relative flex h-9 w-9 items-center justify-center rounded-full after:absolute after:-inset-2 after:content-[''] ${
             isDark ? 'bg-tangerine-soft text-tangerine-deep' : 'bg-ink/5 text-ink-muted'
           }`}
           aria-label={t('mobile.theme.toggle')}

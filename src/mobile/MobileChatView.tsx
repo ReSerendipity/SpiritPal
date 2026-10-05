@@ -448,10 +448,10 @@ export function MobileChatView() {
           <span className="text-sm font-medium">{character?.displayName ?? t('tab.pet')}</span>
         </div>
         <div className="flex items-center gap-1">
-          {/* P1-1: 会话管理抽屉入口 */}
+          {/* P1-1: 会话管理抽屉入口（P2-1: 命中区经 after 伪元素扩到 ≥48px） */}
           <button
             onClick={() => setSessionsOpen(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-ink-faint hover:bg-ink/5 hover:text-ink"
+            className="relative flex h-9 w-9 items-center justify-center rounded-lg text-ink-faint after:absolute after:-inset-2 after:content-[''] hover:bg-ink/5 hover:text-ink"
             aria-label={t('chat.sessions.title')}
             title={t('chat.sessions.title')}
           >
@@ -459,7 +459,7 @@ export function MobileChatView() {
           </button>
           <button
             onClick={handleClear}
-            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-ink-faint hover:bg-ink/5 hover:text-error"
+            className="relative flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-ink-faint after:absolute after:-inset-2 after:content-[''] hover:bg-ink/5 hover:text-error"
             title={t('chat.clearHistory')}
           >
             <Trash2 size={14} />
@@ -603,19 +603,19 @@ export function MobileChatView() {
           {isLoading ? (
             <button
               onClick={handleStop}
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-error text-white"
+              className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-error text-white"
               aria-label={t('app.stop')}
             >
-              <Square size={16} />
+              <Square size={18} />
             </button>
           ) : (
             <button
               onClick={handleSend}
               disabled={!input.trim()}
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-tangerine text-white shadow-soft hover:bg-tangerine-deep disabled:opacity-40"
+              className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-tangerine text-white shadow-soft hover:bg-tangerine-deep disabled:opacity-40"
               aria-label={t('app.send')}
             >
-              <Send size={16} />
+              <Send size={18} />
             </button>
           )}
         </div>
