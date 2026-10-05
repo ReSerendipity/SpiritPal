@@ -30,6 +30,7 @@ import {
   requestPermission,
 } from '@tauri-apps/plugin-notification'
 import { generateId } from '@/lib/data/commonUtils'
+import { getSchedules, saveSchedule } from '@/lib/data/db'
 import { useSettingsStore } from '@/stores/settingsStore'
 
 // ============ 日程事件类型 ============
@@ -265,6 +266,8 @@ function binarySearchInsertPos(arr: EnhancedScheduleEvent[], time: number): numb
 
 /** localStorage 存储键名 */
 const STORAGE_KEY = 'spiritpal-schedules'
+/** P3-1：一次性迁移标记（localStorage 种子 → sp_schedules_* 表） */
+const DB_MIGRATED_KEY = 'spiritpal-schedules-db-migrated'
 /** 保存防抖间隔 */
 const SAVE_DEBOUNCE_MS = 300
 /** 默认检查间隔（毫秒） */
@@ -357,6 +360,89 @@ export class ScheduleManager {
     } catch {
       this.events = []
     }
+    // P3-1：接线 sp_schedules_* 表（此前命令与封装存在但无任何生产调用方，表为孤儿）
+    void this.initDbSync()
+  }
+
+  /**
+   * DB 同步（P3-1 接线）：
+   * 1. 首次运行：以 localStorage 种子逐条 upsert 到 schedules 表（一次性迁移）；
+   * 2. 已迁移且 localStorage 为空（清存储/换机/重装）：以 DB 为源恢复日程
+   *    ——日程从此纳入 P1-4 的备份/加密体系，不再只活在 localStorage。
+   * 局限：sp_schedules_save 仅 upsert，无删除命令——removeEvent 后 DB 中的残留行
+   * 仅在「localStorage 为空且从 DB 恢复」的边界场景可能复活；彻底解决需新增
+   * delete 命令（Rust 改动），不在本单范围。
+   */
+  private async initDbSync(): Promise<void> {
+    try {
+      const rows = await getSchedules()
+      const migrated = localStorage.getItem(DB_MIGRATED_KEY) === '1'
+      if (!migrated) {
+        for (const e of this.events) this.mirrorToDb(e)
+        localStorage.setItem(DB_MIGRATED_KEY, '1')
+        return
+      }
+      if (this.events.length === 0 && rows.length > 0) {
+        const restored = rows
+          .map((row) => this.eventFromDbRow(row))
+          .filter((e): e is EnhancedScheduleEvent => e !== null)
+          .filter((e) => e.status === 'pending' || e.triggerTime > Date.now() - 86400000)
+          .sort((a, b) => a.triggerTime - b.triggerTime)
+        if (restored.length > 0) {
+          this.events = restored
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(this.events))
+          } catch {
+            /* 忽略存储错误 */
+          }
+          this.notifyListeners()
+          this.ensureChecking()
+        }
+      }
+    } catch {
+      // 非 Tauri / DB 不可用：维持 localStorage-only（原行为）
+    }
+  }
+
+  /** 内存事件 → DB upsert（失败静默，不影响本地存储） */
+  private mirrorToDb(e: EnhancedScheduleEvent): void {
+    void saveSchedule({
+      id: e.id,
+      title: e.title,
+      time: e.triggerTime,
+      repeat: e.repeatRule ? JSON.stringify(e.repeatRule) : undefined,
+      completed: e.status !== 'pending',
+    }).catch(() => {
+      /* DB 不可用时静默 */
+    })
+  }
+
+  /** DB 行 → 内存事件（字段缺失/非法返回 null） */
+  private eventFromDbRow(row: Record<string, unknown>): EnhancedScheduleEvent | null {
+    const id = typeof row.id === 'string' ? row.id : null
+    const title = typeof row.title === 'string' ? row.title : null
+    const time = typeof row.time === 'number' ? row.time : null
+    if (!id || !title || time === null) return null
+    let repeatRule: EnhancedScheduleEvent['repeatRule'] | undefined
+    if (typeof row.repeat === 'string' && row.repeat) {
+      try {
+        const parsed = JSON.parse(row.repeat) as EnhancedScheduleEvent['repeatRule']
+        if (parsed && typeof parsed === 'object') repeatRule = parsed
+      } catch {
+        /* 非法 repeat 忽略 */
+      }
+    }
+    const completed = row.completed === true
+    return {
+      id,
+      title,
+      triggerTime: time,
+      repeatRule,
+      reminderMinutes: [],
+      firedReminders: [],
+      status: completed ? 'completed' : 'pending',
+      source: 'manual',
+    }
   }
 
   /**
@@ -394,6 +480,8 @@ export class ScheduleManager {
     } catch {
       // 忽略存储错误
     }
+    // P3-1：镜像到 schedules 表（每条 upsert，失败静默）
+    for (const e of this.events) this.mirrorToDb(e)
     this.notifyListeners()
   }
 
