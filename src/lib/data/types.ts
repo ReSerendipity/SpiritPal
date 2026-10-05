@@ -565,6 +565,14 @@ export interface AppSettings {
   silentModeEnabled: boolean
   /** P2-14: 静默模式自动恢复时长（分钟，null 表示永久静音） */
   silentModeDuration?: number | null
+  /** P2-11: 天气感知能力开关（定时刷新天气并影响行为） */
+  weatherEnabled: boolean
+  /** P2-11: 主动说话能力开关（宠物自发开口） */
+  proactiveSpeakEnabled: boolean
+  /** P2-11: 情绪系统能力开关（情绪累积与自发表情） */
+  emotionEnabled: boolean
+  /** P2-11: 情境感知能力开关（工作状态/环境上下文） */
+  contextAwarenessEnabled: boolean
 }
 
 // ============ 聊天消息 ============

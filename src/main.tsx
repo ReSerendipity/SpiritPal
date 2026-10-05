@@ -24,6 +24,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import './index.css'
 import { trackAppLaunch } from '@/lib/system/analytics'
+import { initCapabilitySettingsSync } from '@/lib/system/capabilityToggles'
 import { setLanguage as i18nSetLanguage } from '@/lib/system/i18n'
 import Logger from '@/lib/system/logger'
 import { runtimeMonitor } from '@/lib/system/runtimeMonitor'
@@ -173,6 +174,8 @@ window.addEventListener('unhandledrejection', (event) => {
 // ============================================================
 try {
   initAllCharacters()
+  // P2-11：应用并同步 AI 能力开关（weather/proactive/emotion/contextAwareness）
+  initCapabilitySettingsSync()
 } catch (err) {
   const msg = err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err)
   try { console.error('[SpiritPal] initAllCharacters failed (non-fatal)', msg) } catch { /* no-op */ }

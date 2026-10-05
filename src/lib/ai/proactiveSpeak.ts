@@ -76,8 +76,17 @@ export class ProactiveSpeakManager {
   /** 防止并发检查 */
   private isChecking = false
 
+  /** P2-11：能力开关（false 时 start() 为 no-op，已运行的可由 stop() 停止） */
+  private capabilityEnabled: boolean = true
+
+  setCapabilityEnabled(enabled: boolean): void {
+    this.capabilityEnabled = enabled
+    if (!enabled) this.stop()
+  }
+
   /** 启动定时检查 */
   start(): void {
+    if (!this.capabilityEnabled) return
     if (this.checkTimer !== null) return
     this.scheduleNextCheck()
   }

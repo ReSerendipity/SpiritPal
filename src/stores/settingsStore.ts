@@ -37,6 +37,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   // 以下两个字段为早期实现遗留，保持占位以兼容持久化 schema，不再消费。
   silentModeEnabled: false,
   silentModeDuration: null,
+  // P2-11：AI 能力开关（持久化 + capabilityToggles 应用到各管理器）
+  weatherEnabled: true,
+  proactiveSpeakEnabled: true,
+  emotionEnabled: true,
+  contextAwarenessEnabled: true,
 }
 
 /**

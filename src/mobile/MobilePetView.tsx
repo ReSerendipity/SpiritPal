@@ -530,6 +530,18 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
     if (dragStartedRef.current) {
       dragStartedRef.current = false
       setPetState('idle')
+      // P2-11：边缘吸附——接近屏幕左右缘时贴边（设置可关）
+      if (useSettingsStore.getState().edgeSnapEnabled) {
+        const margin = 12
+        const nearLeft = pos.x <= margin
+        const nearRight = pos.x + displayW >= screenSize.w - margin
+        if (nearLeft || nearRight) {
+          setPos((p) => ({
+            ...p,
+            x: nearLeft ? margin : Math.max(margin, screenSize.w - displayW - margin),
+          }))
+        }
+      }
       return
     }
 
@@ -554,7 +566,7 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
         triggerClick()
       }
     }
-  }, [isActive, menu, triggerFeed, triggerClick])
+  }, [isActive, menu, triggerFeed, triggerClick, pos, displayW, screenSize.w])
 
   // Live2D 动画变化时触发动作
   const lastMotionGroupRef = useRef<string>('')
