@@ -70,6 +70,15 @@ gate_check_chain() {
     _gc_tree="$(git rev-parse 'HEAD^{tree}' 2>/dev/null)"
     [ -n "$_gc_tree" ] || return 0
     _gc_att="$(gate_git_path "$GATE_ATTEST_NAME")"
+    # 本笔提交相对父提交没带来任何内容变化（--allow-empty、或改完又改回去的空 amend）：
+    # 没有需要守卫的内容，不判绕过（否则往审计日志里灌假警报）；旧凭据同样作废。
+    # 注意：“纯改提交说明的 amend”不属此类——HEAD^1 是被 amend 掉的那笔的父，
+    # tree 与它相比仍有差异；那种 amend 确实跳过了 commit-msg（DCO），仍应被记。
+    _gc_ptree="$(git rev-parse 'HEAD^1^{tree}' 2>/dev/null)"
+    if [ -n "$_gc_ptree" ] && [ "$_gc_ptree" = "$_gc_tree" ]; then
+        [ -n "$_gc_att" ] && rm -f "$_gc_att" 2>/dev/null
+        return 0
+    fi
     _gc_ok=0
     if [ -n "$_gc_att" ] && [ -f "$_gc_att" ]; then
         if grep -q "^${_gc_tree} " "$_gc_att" 2>/dev/null; then

@@ -41,6 +41,10 @@ git config core.hooksPath .githooks      # 或执行 ./.githooks/install.sh
   （≤60s）认领，不会误报。merge/rebase/cherry-pick 等由 git 内部机制写的提交不判。
 - 已知边界：若 gate 进程**自身**被击杀（非子进程），本项仍会红；此时请走上面的人工批准
   `SKIP=<hook-id>`，不要整链绕过。
+- 复跑验证：`pwsh -NoProfile -File tests/test_gate_degradation.ps1`（在 `.workbuddy/tmp/gate-repo`
+  建隔离小仓，逐条断言 A–J：降级只影响本项、留痕同时落日志与提交说明、`--no-verify` 被记为
+  `gate-bypass suspected`、`SKIP` 豁免被补记、真实违规不降级、合并冲突守卫与 DCO 仍生效；
+  退出码 0 = 全过，不碰主仓工作树）。
 
 ## 说明
 
