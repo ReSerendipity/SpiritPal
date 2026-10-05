@@ -39,4 +39,13 @@ describe('MobileMemoryView', () => {
     fireEvent.click(screen.getByRole('button', { name: /记忆列表/i }))
     expect(screen.getByTestId('memory-panel')).toBeInTheDocument()
   })
+
+  it('P1-3-fe：实体图谱子页渲染画布与诚实占位说明', async () => {
+    render(<MobileMemoryView />)
+    await screen.findByText('暂无标签数据')
+    fireEvent.click(screen.getByRole('button', { name: /实体图谱/i }))
+    expect(screen.getByTestId('entity-graph-canvas')).toBeInTheDocument()
+    // 诚实占位：明确说明数据来源是规则层抽取、深度抽取未接入
+    expect(screen.getByText(/规则层关键词抽取/)).toBeInTheDocument()
+  })
 })
