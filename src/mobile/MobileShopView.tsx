@@ -153,8 +153,8 @@ export function MobileShopView() {
         />
       </div>
 
-      {/* 分类 Tab（横向滚动） */}
-      <div className="flex gap-1 overflow-x-auto pb-1">
+      {/* 分类 Tab（P2-9：换行铺开，七分类一眼可见，不再藏在横向滚动里） */}
+      <div className="flex flex-wrap gap-1">
         {CATEGORIES.map((c) => (
           <button
             key={c.id}
@@ -228,6 +228,14 @@ export function MobileShopView() {
                   <button
                     onClick={() => handleBuy(item)}
                     disabled={!canBuy}
+                    data-testid={`buy-${item.id}`}
+                    title={
+                      isLocked
+                        ? t(lockConfig.labelKey)
+                        : !canBuy
+                          ? t('shop.insufficientCoins', { need: item.price - sharedCoins })
+                          : undefined
+                    }
                     className="rounded-lg bg-tangerine px-2.5 py-1 text-[11px] text-white disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {t('app.buy')}
@@ -240,6 +248,12 @@ export function MobileShopView() {
                     {t('shop.sell')}
                   </button>
                 </div>
+                {/* P2-9：金币不足时说明原因（未解锁的原因已由 lockConfig.labelKey 展示） */}
+                {!isLocked && sharedCoins < item.price && (
+                  <span className="text-[9px] leading-3 text-error" data-testid="insufficient-reason">
+                    {t('shop.insufficientCoins', { need: item.price - sharedCoins })}
+                  </span>
+                )}
                 {/* 装饰品穿戴/{t('inventory.remove')}（仅已拥有） */}
                 {isAccessory && ownedCount > 0 && (
                   <div className="flex items-center gap-1">
