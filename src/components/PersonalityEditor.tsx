@@ -21,8 +21,7 @@
  */
 import { useState, useCallback } from 'react'
 import {
-  RotateCcw, Eye, Plus, Trash2, Sparkles, Clock,
-} from 'lucide-react'
+  RotateCcw, Eye, Plus, Trash2, Sparkles, Clock, Baby, Flame, BookOpen, Zap, Candy, type LucideIcon } from 'lucide-react'
 import {
   PERSONALITY_LABELS,
   composePersonalityPrompt,
@@ -38,6 +37,15 @@ import type {
   SchedulePeriod, Tone, WordPreference, InteractionFrequency,
 } from '@/lib/data/types'
 import { useSettingsStore } from '@/stores/settingsStore'
+
+// P2-5：模板按钮 emoji → 单色线性图标（按 id 映射，数据层 emoji 保留供其他入口使用）
+const TEMPLATE_ICONS: Record<string, LucideIcon> = {
+  soft: Baby,
+  energetic: Zap,
+  poisonous: Flame,
+  intellectual: BookOpen,
+  tsundere: Candy,
+}
 
 // ============ 五维雷达图（SVG）============
 const DIM_KEYS: (keyof Personality)[] = ['warmth', 'liveliness', 'dependence', 'directness', 'rationality']
@@ -533,7 +541,10 @@ function TemplateButtons({ onApply }: { onApply: (templateId: string) => void })
                 : 'border-ink/10 hover:border-tangerine/50 hover:bg-white/5'
             }`}
           >
-            <span className="text-lg">{t.emoji}</span>
+            {(() => {
+              const TplIcon = TEMPLATE_ICONS[t.id] ?? Sparkles
+              return <TplIcon size={18} className="text-tangerine-deep" />
+            })()}
             <span className="mt-0.5 text-[10px] text-ink">{t.name}</span>
           </button>
         ))}

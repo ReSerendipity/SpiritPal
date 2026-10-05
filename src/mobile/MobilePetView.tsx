@@ -24,7 +24,7 @@
  * @see {@link ../lib/behaviorEngine} 行为引擎
  */
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
-import { ChevronDown, ChevronUp, ImageOff } from 'lucide-react'
+import { Apple, Bath, Check, ChevronDown, ChevronUp, Coins, Gamepad2, Hand, Heart, ImageOff, PawPrint, Repeat } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DecorationLayer } from '@/components/DecorationLayer'
 import { Live2DRenderer, getMotionGroupForState } from '@/components/Live2DRenderer'
@@ -40,6 +40,7 @@ import { getFoodsForCharacter } from '@/lib/nurture/items'
 import { getPetExperienceManager } from '@/lib/nurture/petExperience'
 import { usePetStore } from '@/stores/petStore'
 import { useSettingsStore } from '@/stores/settingsStore'
+import type { LucideIcon } from 'lucide-react'
 
 /**
  * MobilePetView 组件属性
@@ -76,8 +77,8 @@ interface MenuItem {
   id: string
   /** 显示标签的 i18n 键（渲染时经 t() 解析） */
   labelKey: string
-  /** 显示表情符号 */
-  emoji: string
+  /** 单色线性图标（P2-5：emoji → lucide） */
+  icon: LucideIcon
   /** 点击执行的动作 */
   action: () => void
   /** 若设置，点击后展开对应二级面板而不是关闭菜单 */
@@ -411,14 +412,14 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
 
   // ===== 互动菜单 =====
   const menuItems: MenuItem[] = [
-    { id: 'pet', labelKey: 'action.petHead', emoji: '🤚', action: triggerPet },
-    { id: 'feed', labelKey: 'action.feed', emoji: '🍎', action: () => setMenuSub('feed'), opensSub: 'feed' },
-    { id: 'play', labelKey: 'action.play', emoji: '🎮', action: triggerPlay },
-    { id: 'bathe', labelKey: 'action.bathe', emoji: '🛁', action: triggerBathe },
+    { id: 'pet', labelKey: 'action.petHead', icon: Hand, action: triggerPet },
+    { id: 'feed', labelKey: 'action.feed', icon: Apple, action: () => setMenuSub('feed'), opensSub: 'feed' },
+    { id: 'play', labelKey: 'action.play', icon: Gamepad2, action: triggerPlay },
+    { id: 'bathe', labelKey: 'action.bathe', icon: Bath, action: triggerBathe },
     {
       id: 'character',
       labelKey: 'action.switchCharacter',
-      emoji: '🔄',
+      icon: Repeat,
       action: () => setMenuSub('character'),
       opensSub: 'character',
     },
@@ -613,10 +614,12 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
               <span>{t('stat.mood')} {Math.round(stats.mood)}</span>
             </div>
             <div className="flex items-center gap-1.5 text-tangerine-soft">
-              🪙 <span className="tabular-nums">{sharedCoins}</span>
+              <Coins size={11} />
+              <span className="tabular-nums">{sharedCoins}</span>
             </div>
             <div className="flex items-center gap-1.5 text-tangerine-soft">
-              ❤️ <span className="tabular-nums">Lv.{stats.level}</span>
+              <Heart size={11} />
+              <span className="tabular-nums">Lv.{stats.level}</span>
             </div>
           </>
         )}
@@ -765,7 +768,11 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
                     char.id === currentCharacterId ? 'text-tangerine-deep' : 'text-ink'
                   }`}
                 >
-                  <span className="text-lg">{char.id === currentCharacterId ? '✅' : '🐾'}</span>
+                  {char.id === currentCharacterId ? (
+                    <Check size={16} className="text-tangerine-deep" />
+                  ) : (
+                    <PawPrint size={16} className="text-ink-muted" />
+                  )}
                   <span>{char.displayName}</span>
                 </button>
               ))}
@@ -782,7 +789,7 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
                   }}
                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-ink hover:bg-ink/5"
                 >
-                  <span className="text-lg">{item.emoji}</span>
+                  <item.icon size={16} className="text-ink-muted" />
                   <span>{t(item.labelKey)}</span>
                 </button>
               ))}

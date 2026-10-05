@@ -11,7 +11,7 @@
  * @see {@link ../lib/achievementSystem} 成就管理器
  */
 import { useEffect, useState } from 'react'
-import { Trophy, TrendingUp, Award, Lock } from 'lucide-react'
+import { Trophy, TrendingUp, Award, Lock, Pointer, Heart, Timer, ShoppingBag, Sparkles, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   getAchievementManager,
@@ -23,12 +23,13 @@ import {
 import { usePetStore } from '@/stores/petStore'
 
 /** 成就类别元信息 */
-const CATEGORIES: Record<string, { labelKey: string; icon: string }> = {
-  interaction: { labelKey: 'achievement.category.interaction', icon: '👆' },
-  nurturing: { labelKey: 'achievement.category.nurture', icon: '💛' },
-  focus: { labelKey: 'achievement.category.focus', icon: '🍅' },
-  collection: { labelKey: 'achievement.category.collection', icon: '🛒' },
-  special: { labelKey: 'achievement.category.special', icon: '🌟' },
+// P2-5：分类图标 emoji → 单色线性图标
+const CATEGORIES: Record<string, { labelKey: string; icon: LucideIcon }> = {
+  interaction: { labelKey: 'achievement.category.interaction', icon: Pointer },
+  nurturing: { labelKey: 'achievement.category.nurture', icon: Heart },
+  focus: { labelKey: 'achievement.category.focus', icon: Timer },
+  collection: { labelKey: 'achievement.category.collection', icon: ShoppingBag },
+  special: { labelKey: 'achievement.category.special', icon: Sparkles },
 }
 
 const selectStats = (s: ReturnType<typeof usePetStore.getState>) => s.stats[s.currentCharacterId]
@@ -182,7 +183,7 @@ export function MobileAchievementView() {
             return (
               <div key={catKey}>
                 <div className={`mb-1.5 text-xs font-semibold ${subTextClass}`}>
-                  {catInfo.icon} {t(catInfo.labelKey)}
+                  <catInfo.icon size={13} className="inline" /> {t(catInfo.labelKey)}
                 </div>
                 <div className="space-y-1.5">
                   {catAchievements.map((ach) => (
