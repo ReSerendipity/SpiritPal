@@ -62,23 +62,25 @@ interface ExtractionRule {
   pattern: RegExp
   /** 提取分组索引（从 1 开始） */
   group: number
+  /** 规则层置信度（P2-7：按规则差异化，替代原先一刀切的 0.6） */
+  confidence?: number
 }
 
 const EXTRACTION_RULES: ExtractionRule[] = [
-  // 姓名
-  { key: 'name', pattern: /(?:我叫|我的名字是|我是|I am|I'm|my name is)\s*([^\s,，。.!！?？]{1,10})/i, group: 1 },
+  // 姓名（显式自述，置信度最高）
+  { key: 'name', pattern: /(?:我叫|我的名字是|我是|I am|I'm|my name is)\s*([^\s,，。.!！?？]{1,10})/i, group: 1, confidence: 0.9 },
   // 宠物
-  { key: 'pet', pattern: /(?:我养了|我有|我的宠物是|my pet is|I have a)\s*(?:一只|个|条)?\s*([^\s,，。.!！?？]{1,15})/i, group: 1 },
+  { key: 'pet', pattern: /(?:我养了|我有|我的宠物是|my pet is|I have a)\s*(?:一只|个|条)?\s*([^\s,，。.!！?？]{1,15})/i, group: 1, confidence: 0.85 },
   // 职业
-  { key: 'job', pattern: /(?:我是做|我的工作|我在|I work as|my job is)\s*([^\s,，。.!！?？]{1,20})/i, group: 1 },
-  // 生日
-  { key: 'birthday', pattern: /(?:我的生日|我生日是|my birthday is)\s*([^\s,，。.!！?？]{1,15})/i, group: 1 },
+  { key: 'job', pattern: /(?:我是做|我的工作|我在|I work as|my job is)\s*([^\s,，。.!！?？]{1,20})/i, group: 1, confidence: 0.8 },
+  // 生日（显式自述）
+  { key: 'birthday', pattern: /(?:我的生日|我生日是|my birthday is)\s*([^\s,，。.!！?？]{1,15})/i, group: 1, confidence: 0.9 },
   // 位置
-  { key: 'location', pattern: /(?:我在|我住在|我位于|I live in|I'm in)\s*([^\s,，。.!！?？]{1,15})/i, group: 1 },
-  // 偏好
-  { key: 'preference', pattern: /(?:我喜欢|我爱|我偏好|I like|I love|I prefer)\s*([^\s,，。.!！?？]{1,20})/i, group: 1 },
-  // 家人
-  { key: 'family', pattern: /(?:我的(?:爸爸|妈妈|老公|老婆|儿子|女儿|哥哥|姐姐|弟弟|妹妹)|my (?:father|mother|husband|wife|son|daughter))\s*(?:是|叫)?\s*([^\s,，。.!！?？]{1,10})/i, group: 1 },
+  { key: 'location', pattern: /(?:我在|我住在|我位于|I live in|I'm in)\s*([^\s,，。.!！?？]{1,15})/i, group: 1, confidence: 0.85 },
+  // 偏好（喜好易变，置信度最低）
+  { key: 'preference', pattern: /(?:我喜欢|我爱|我偏好|I like|I love|I prefer)\s*([^\s,，。.!！?？]{1,20})/i, group: 1, confidence: 0.7 },
+  // 家人（匹配句式复杂，误报风险略高）
+  { key: 'family', pattern: /(?:我的(?:爸爸|妈妈|老公|老婆|儿子|女儿|哥哥|姐姐|弟弟|妹妹)|my (?:father|mother|husband|wife|son|daughter))\s*(?:是|叫)?\s*([^\s,，。.!！?？]{1,10})/i, group: 1, confidence: 0.75 },
 ]
 
 // ============ 事实显示标签 ============
@@ -91,6 +93,14 @@ const FACT_LABELS: Record<string, string> = {
   location: '所在地',
   preference: '偏好',
   family: '家人',
+}
+
+/**
+ * 事实键名的中文显示标签（P2-7：UI 不再裸露英文 key）
+ * 未知 key（LLM 抽取的自定义键）原样返回，便于用户辨认与编辑。
+ */
+export function factKeyLabel(key: string): string {
+  return FACT_LABELS[key] ?? key
 }
 
 // ============ 用户画像管理器 ============
@@ -328,8 +338,8 @@ export class OwnerFactsManager {
    * @param userMessage 用户消息
    * @returns 提取到的事实列表
    */
-  extractFromText(userMessage: string): { key: string; value: string }[] {
-    const extracted: { key: string; value: string }[] = []
+  extractFromText(userMessage: string): { key: string; value: string; confidence: number }[] {
+    const extracted: { key: string; value: string; confidence: number }[] = []
 
     for (const rule of EXTRACTION_RULES) {
       const match = userMessage.match(rule.pattern)
@@ -339,7 +349,7 @@ export class OwnerFactsManager {
           // 避免提取到代词等无意义词
           const stopWords = ['你', '我', '他', '她', '它', '什么', '怎么', 'why', 'what', 'how']
           if (!stopWords.includes(value.toLowerCase())) {
-            extracted.push({ key: rule.key, value })
+            extracted.push({ key: rule.key, value, confidence: rule.confidence ?? 0.6 })
           }
         }
       }
@@ -358,12 +368,12 @@ export class OwnerFactsManager {
     if (extracted.length === 0) return false
 
     let hasNew = false
-    for (const { key, value } of extracted) {
+    for (const { key, value, confidence } of extracted) {
       const existing = this.facts.get(key)
       // 已有同值事实则跳过
       if (existing?.value === value) continue
-      // 规则提取置信度 0.6
-      await this.upsertFact(key, value, 0.6, false)
+      // P2-7：置信度按规则差异化（name/birthday 0.9 > location/pet 0.85 > job 0.8 > family 0.75 > preference 0.7）
+      await this.upsertFact(key, value, confidence, false)
       hasNew = true
     }
 
