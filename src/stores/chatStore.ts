@@ -28,6 +28,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { sqliteStorage } from '@/lib/data/db'
 import type { ChatMessage, ChatSession, MessageMetrics, SessionSearchHit } from '@/lib/data/types'
+import i18n from '@/lib/system/i18n'
 import { genId } from '@/lib/system/randomId'
 import { usePetStore } from '@/stores/petStore'
 
@@ -208,7 +209,7 @@ export const useChatStore = create<ChatStoreState>()(
         const newSession: ChatSession = {
           id: sessionId,
           characterId: charId,
-          title: '新对话',
+          title: i18n.t('chat.sessionDefault'),
           createdAt: Date.now(),
           updatedAt: Date.now(),
           messageCount: 0,
@@ -269,7 +270,7 @@ export const useChatStore = create<ChatStoreState>()(
               const newSession: ChatSession = {
                 id: newId,
                 characterId: charId,
-                title: '新对话',
+                title: i18n.t('chat.sessionDefault'),
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
                 messageCount: 0,
@@ -401,7 +402,8 @@ export const useChatStore = create<ChatStoreState>()(
             if (s.id !== sessionId) return s
             const newCount = trimmed.length
             // 首条消息时自动设置标题
-            const title = s.title === '新对话' && existing.length === 0
+            const defaultTitle = i18n.t('chat.sessionDefault')
+            const title = s.title === defaultTitle && existing.length === 0
               ? text.slice(0, 24) + (text.length > 24 ? '…' : '')
               : s.title
             return { ...s, updatedAt: Date.now(), messageCount: newCount, title }
@@ -502,7 +504,7 @@ export const useChatStore = create<ChatStoreState>()(
             const newSession: ChatSession = {
               id: sessionId,
               characterId: charId,
-              title: '新对话',
+              title: i18n.t('chat.sessionDefault'),
               createdAt: Date.now(),
               updatedAt: Date.now(),
               messageCount: 0,

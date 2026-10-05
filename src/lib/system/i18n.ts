@@ -70,7 +70,8 @@ const zh = {
   'settings.mobile.webdavTestOk': '连接成功',
   'settings.mobile.webdavTestFail': '连接失败',
   'tab.pet': '宠物',
-  'chat.clearHistory': '清空历史',
+  'chat.clearHistory': '清空历史',  'chat.sessionDefault': '新对话',
+
   'settings.mobile.appearanceLightDesc': '明亮模式',
   'settings.mobile.appearanceDarkDesc': '暗黑模式',
   'settings.mobile.appearanceFollowDesc': '自动跟随系统主题',
@@ -639,7 +640,8 @@ const en = {
   'settings.mobile.webdavTestOk': 'Connected',
   'settings.mobile.webdavTestFail': 'Connection failed',
   'tab.pet': 'Pet',
-  'chat.clearHistory': 'Clear history',
+  'chat.clearHistory': 'Clear history',  'chat.sessionDefault': 'New chat',
+
   'settings.mobile.appearanceLightDesc': 'Bright mode',
   'settings.mobile.appearanceDarkDesc': 'Dark mode',
   'settings.mobile.appearanceFollowDesc': 'Follow the system theme',
@@ -1103,7 +1105,8 @@ const ja = {
   'settings.mobile.webdavTestOk': '接続成功',
   'settings.mobile.webdavTestFail': '接続失敗',
   'tab.pet': 'ペット',
-  'chat.clearHistory': '履歴を消去',
+  'chat.clearHistory': '履歴を消去',  'chat.sessionDefault': '新しい会話',
+
   'settings.mobile.appearanceLightDesc': 'ライトモード',
   'settings.mobile.appearanceDarkDesc': 'ダークモード',
   'settings.mobile.appearanceFollowDesc': 'システムテーマに追従',
@@ -1567,7 +1570,8 @@ const ko = {
   'settings.mobile.webdavTestOk': '연결 성공',
   'settings.mobile.webdavTestFail': '연결 실패',
   'tab.pet': '펫',
-  'chat.clearHistory': '기록 지우기',
+  'chat.clearHistory': '기록 지우기',  'chat.sessionDefault': '새 대화',
+
   'settings.mobile.appearanceLightDesc': '밝은 모드',
   'settings.mobile.appearanceDarkDesc': '어두운 모드',
   'settings.mobile.appearanceFollowDesc': '시스템 테마 따르기',
@@ -2031,7 +2035,8 @@ const zhTw = {
   'settings.mobile.webdavTestOk': '連線成功',
   'settings.mobile.webdavTestFail': '連線失敗',
   'tab.pet': '寵物',
-  'chat.clearHistory': '清除歷史',
+  'chat.clearHistory': '清除歷史',  'chat.sessionDefault': '新增對話',
+
   'settings.mobile.appearanceLightDesc': '明亮模式',
   'settings.mobile.appearanceDarkDesc': '暗黑模式',
   'settings.mobile.appearanceFollowDesc': '自動跟隨系統主題',

@@ -13,6 +13,7 @@
  * - 角色切换：多角色选择
  * - 语言：中/英/日/韩多语言
  */
+import { getVersion } from '@tauri-apps/api/app'
 import { useEffect, useState } from 'react'
 import {
   Sun, Moon, Monitor, Bell, RefreshCw, Cloud, Wifi,
@@ -168,6 +169,13 @@ export function MobileSettingsView() {
   const [section, setSection] = useState<SettingsSection>('main')
   // P2-11：静默模式切换后强制重渲染（manager 状态非响应式）
   const [, setSilentVersion] = useState(0)
+  // P3-5：关于页版本号动态读取（与桌面同源，禁止硬编码）
+  const [appVersion, setAppVersion] = useState<string>('')
+  useEffect(() => {
+    getVersion()
+      .then((v) => setAppVersion(v))
+      .catch(() => setAppVersion(''))
+  }, [])
   // 法律文档弹窗（隐私政策 / 用户协议）——与桌面端 SettingsWindow 的 legalDoc 同构
   const [legalDoc, setLegalDoc] = useState<'privacy' | 'terms' | null>(null)
   // 主题模式订阅制：初始快照可能早于 themeManager.init()（MobileApp useEffect），
@@ -538,7 +546,7 @@ export function MobileSettingsView() {
             icon={Info}
             iconBg="bg-ink/50"
             title={t('settings.mobile.about')}
-            subtitle="SpiritPal v0.1.0"
+            subtitle={appVersion ? `SpiritPal v${appVersion}` : 'SpiritPal'}
             chevronClass={chevronClass}
             cardBgClass={cardBgClass}
             cardBorderClass={cardBorderClass}
@@ -1072,7 +1080,7 @@ export function MobileSettingsView() {
       <div className="flex-1 overflow-y-auto px-4 py-6 text-center">
         <div className="mb-4 text-6xl">🐾</div>
         <h1 className="mb-1 text-xl font-bold">SpiritPal</h1>
-        <p className={`mb-4 text-sm ${subtitleClass}`}>v0.1.0</p>
+        <p className={`mb-4 text-sm ${subtitleClass}`}>{appVersion ? `v${appVersion}` : 'SpiritPal'}</p>
         <p className={`mx-auto max-w-xs text-sm ${subtitleClass}`}>
           {t('settings.mobile.aboutDesc')}
         </p>
