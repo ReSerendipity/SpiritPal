@@ -103,6 +103,8 @@ export class EmotionManager {
   private lastTriggeredAt = 0
   private callbacks: EmotionCallbacks
   private tickInterval: ReturnType<typeof setInterval> | null = null
+  /** P2-11：能力开关（false 时 tick 直接短路；桌面端外部定时器与自身 start() 双路径都安全） */
+  private capabilityEnabled: boolean = true
 
   // TTS 对齐状态
   private ttsAligned = false
@@ -130,6 +132,11 @@ export class EmotionManager {
   start(): void {
     if (this.tickInterval) return
     this.tickInterval = setInterval(() => this.tick(), 1000)
+  }
+
+  /** P2-11：设置能力开关（关闭时 tick 短路，情绪不再累积） */
+  setCapabilityEnabled(enabled: boolean): void {
+    this.capabilityEnabled = enabled
   }
 
   /** 停止情绪累积 */
@@ -188,6 +195,7 @@ export class EmotionManager {
    * 被 PetWindow 的 useEffect 定时器调用
    */
   tick(): void {
+    if (!this.capabilityEnabled) return
     const rate = this.threshold / this.frequencySeconds
     const actualRate = this.isHovered ? rate * HOVER_BONUS_MULTIPLIER : rate
     this.emotionValue = Math.min(this.emotionValue + actualRate, this.threshold * 1.5)

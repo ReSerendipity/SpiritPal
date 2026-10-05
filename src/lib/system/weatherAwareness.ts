@@ -192,7 +192,16 @@ export class WeatherAwarenessManager {
    * 启动定时刷新（每 30 分钟）。
    * 幂等：已运行时重复调用为 no-op，但首次启动会立即触发一次刷新。
    */
+  /** P2-11：能力开关（false 时 start() 为 no-op） */
+  private capabilityEnabled: boolean = true
+
+  setCapabilityEnabled(enabled: boolean): void {
+    this.capabilityEnabled = enabled
+    if (!enabled) this.stop()
+  }
+
   start(): void {
+    if (!this.capabilityEnabled) return
     if (this.timer) return
     // 立即触发一次，避免等待整个周期才更新状态
     void this.refresh()

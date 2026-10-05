@@ -17,7 +17,7 @@ import { useEffect, useState } from 'react'
 import {
   Sun, Moon, Monitor, Bell, RefreshCw, Cloud, Wifi,
   Type, Info, ChevronRight, Brain, Sparkles, Cpu,
-  FileText, ShieldCheck, CloudUpload, Database,
+  FileText, ShieldCheck, CloudUpload, Database, SlidersHorizontal,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { LegalDocument } from '@/components/LegalDocument'
@@ -26,6 +26,7 @@ import { LLM_PROVIDERS, getProvider } from '@/lib/ai/llmProviders'
 import { getAllCharacters } from '@/lib/data/characters'
 import { deleteApiKey, getApiKey, setApiKey } from '@/lib/data/secureStorage'
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from '@/lib/system/legalDocuments'
+import { getSilentModeManager } from '@/lib/system/silentModeManager'
 import { syncManager, type SyncConfig, type SyncStatus } from '@/lib/system/syncManager'
 import { themeManager, type ThemeMode } from '@/lib/system/themeManager'
 import type { WebDAVTestResult } from '@/lib/system/webdavClient'
@@ -36,7 +37,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { MobileDataPanel } from './MobileDataPanel'
 
 /** 设置页面分区类型 */
-type SettingsSection = 'main' | 'theme' | 'sync' | 'memory' | 'personality' | 'ondevice' | 'ai' | 'about' | 'data'
+type SettingsSection = 'main' | 'theme' | 'sync' | 'memory' | 'personality' | 'ondevice' | 'ai' | 'advanced' | 'about' | 'data'
 
 /** AI 配置在 localStorage 的键（与 SettingsWindow / MobileChatView 一致） */
 const AI_CONFIG_KEY = 'spiritpal-ai-config'
@@ -165,6 +166,8 @@ export function MobileSettingsView() {
   }
 
   const [section, setSection] = useState<SettingsSection>('main')
+  // P2-11：静默模式切换后强制重渲染（manager 状态非响应式）
+  const [, setSilentVersion] = useState(0)
   // 法律文档弹窗（隐私政策 / 用户协议）——与桌面端 SettingsWindow 的 legalDoc 同构
   const [legalDoc, setLegalDoc] = useState<'privacy' | 'terms' | null>(null)
   // 主题模式订阅制：初始快照可能早于 themeManager.init()（MobileApp useEffect），
@@ -515,6 +518,19 @@ export function MobileSettingsView() {
             cardBorderClass={cardBorderClass}
             subtitleClass={subtitleClass}
             onClick={() => setSection('personality')}
+          />
+
+          {/* P2-11：高级设置 */}
+          <SettingItem
+            icon={SlidersHorizontal}
+            iconBg="bg-tangerine"
+            title={t('settings.advanced.title')}
+            subtitle={t('settings.advanced.subtitle')}
+            chevronClass={chevronClass}
+            cardBgClass={cardBgClass}
+            cardBorderClass={cardBorderClass}
+            subtitleClass={subtitleClass}
+            onClick={() => setSection('advanced')}
           />
 
           {/* 关于 */}
@@ -924,6 +940,120 @@ export function MobileSettingsView() {
         </header>
         <div className="flex-1 overflow-hidden">
           <MobilePersonalityView />
+        </div>
+      </div>
+    )
+  }
+
+  // ===== 高级设置（P2-11）=====
+  if (section === 'advanced') {
+    // 静默模式当前状态（含计划/会议自动静默）
+    const silentActive = getSilentModeManager().getState().isActive
+    return (
+      <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
+        <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
+          <button onClick={() => setSection('main')} className="text-sm text-tangerine">
+            {t('settings.mobile.back')}
+          </button>
+          <h2 className="text-base font-semibold">{t('settings.advanced.title')}</h2>
+        </header>
+        <div className="flex-1 overflow-y-auto px-3 py-3">
+          {/* 宠物透明度（移动端实时生效：MobilePetView 消费 petOpacity） */}
+          <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-sm font-medium">{t('settings.advanced.petOpacity')}</span>
+              <span className="text-xs tabular-nums text-ink-muted">
+                {Math.round(settings.petOpacity * 100)}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0.3}
+              max={1}
+              step={0.05}
+              value={settings.petOpacity}
+              onChange={(e) => updateSettings({ petOpacity: parseFloat(e.target.value) })}
+              data-testid="pet-opacity-slider"
+              className="w-full accent-tangerine"
+            />
+          </div>
+
+          {/* 边缘吸附（移动端拖拽宠物时贴边） */}
+          <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">{t('settings.advanced.edgeSnap')}</span>
+              <input
+                type="checkbox"
+                checked={settings.edgeSnapEnabled}
+                onChange={(e) => updateSettings({ edgeSnapEnabled: e.target.checked })}
+                data-testid="edge-snap-toggle"
+                className="h-4 w-4 accent-tangerine"
+              />
+            </div>
+            <p className={`mt-1 text-xs ${subtitleClass}`}>{t('settings.advanced.edgeSnapHint')}</p>
+          </div>
+
+          {/* 静默模式（真实开关：silentModeManager.toggleSilentMode） */}
+          <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">{t('settings.advanced.silentMode')}</span>
+              <input
+                type="checkbox"
+                checked={silentActive}
+                onChange={() => {
+                  void getSilentModeManager().toggleSilentMode()
+                  // 触发一次重渲染以读取最新状态
+                  setSilentVersion((v) => v + 1)
+                }}
+                data-testid="silent-mode-toggle"
+                className="h-4 w-4 accent-tangerine"
+              />
+            </div>
+            <p className={`mt-1 text-xs ${subtitleClass}`}>{t('settings.advanced.silentModeHint')}</p>
+          </div>
+
+          {/* AI 能力开关（经 capabilityToggles 实时应用） */}
+          <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
+            <h3 className="mb-2 text-sm font-medium">{t('settings.advanced.capabilities')}</h3>
+            {([
+              { key: 'weatherEnabled', labelKey: 'settings.advanced.capWeather' },
+              { key: 'proactiveSpeakEnabled', labelKey: 'settings.advanced.capProactive' },
+              { key: 'emotionEnabled', labelKey: 'settings.advanced.capEmotion' },
+              { key: 'contextAwarenessEnabled', labelKey: 'settings.advanced.capContext' },
+            ] as const).map((cap) => (
+              <div key={cap.key} className="flex items-center justify-between py-1.5">
+                <span className="text-xs text-ink">{t(cap.labelKey)}</span>
+                <input
+                  type="checkbox"
+                  checked={settings[cap.key]}
+                  onChange={(e) => updateSettings({ [cap.key]: e.target.checked })}
+                  data-testid={`cap-${cap.key}`}
+                  className="h-4 w-4 accent-tangerine"
+                />
+              </div>
+            ))}
+            <p className={`mt-1 text-xs ${subtitleClass}`}>{t('settings.advanced.capHint')}</p>
+          </div>
+
+          {/* 桌面专属 / 系统托管：诚实禁用 + 说明 */}
+          <div className={`rounded-xl ${cardBgClass} border ${cardBorderClass} p-3 opacity-70`}>
+            <h3 className="mb-2 text-sm font-medium">{t('settings.advanced.desktopOnly')}</h3>
+            {([
+              { labelKey: 'settings.advanced.petForm', noteKey: 'settings.advanced.petFormMobileNote' },
+              { labelKey: 'settings.advanced.statusCard', noteKey: 'settings.advanced.statusCardMobileNote' },
+              { labelKey: 'settings.advanced.autoStart', noteKey: 'settings.advanced.autoStartMobileNote' },
+            ] as const).map((row) => (
+              <div key={row.labelKey} className="flex items-center justify-between py-1.5">
+                <div>
+                  <div className="text-xs text-ink">{t(row.labelKey)}</div>
+                  <div className="text-[10px] text-ink-faint">{t(row.noteKey)}</div>
+                </div>
+                <span className="rounded bg-ink/10 px-1.5 py-0.5 text-[10px] text-ink-faint">
+                  {t('settings.advanced.unavailable')}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     )
