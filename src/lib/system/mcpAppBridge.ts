@@ -7,6 +7,7 @@
  */
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import { isDesktopRuntime } from '@/lib/system/platform'
 import { executeMcpTool } from './mcpBridge'
 import { getMcpHooksManager } from './mcpHooks'
 
@@ -53,6 +54,8 @@ export async function handleMcpRequestPayload(payload: {
 
 /** 注册事件监听；返回取消函数（应在 app 启动/前端挂载时调用） */
 export function startMcpAppBridge(): (() => void) | null {
+  // P3-3：桥服务器仅桌面端启动（Rust 侧 #[cfg(desktop)]），移动端无需监听
+  if (!isDesktopRuntime()) return null
   let unlisten: UnlistenFn | null = null
   // 监听 Rust 侧发来的工具调用请求
   void listen<{ id: string; tool: string; arguments?: Record<string, unknown> }>(

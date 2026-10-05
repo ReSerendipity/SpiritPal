@@ -286,7 +286,11 @@ pub fn run() {
             // 现在统一由前端 initDB() 中的 invoke('decrypt_db_at_rest') 负责，确保解密完成后才 Database.load()
             // （lib.rs 的 spawn 解密保留注释说明，实际不执行）
 
-            // MCP 命令桥：在应用进程内宿主 spiritpal-mcp 的 bridge 服务器
+            // MCP 命令桥：在应用进程内宿主 spiritpal-mcp 的 bridge 服务器。
+            // P3-3：仅桌面端启用——桥绑定 127.0.0.1:3124，依赖同机外部 spiritpal-mcp
+            // 进程经 token 连接；Android 沙箱内不存在该外部进程，spawn 出的监听线程
+            // 纯空转（端口也永远不会有合法调用方），故移动端不再启动。
+            #[cfg(desktop)]
             mcp_bridge::spawn(app.handle());
 
             // =========================================
