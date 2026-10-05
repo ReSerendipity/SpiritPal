@@ -42,7 +42,14 @@ import { useSettingsStore } from '@/stores/settingsStore'
 // ============ 五维雷达图（SVG）============
 const DIM_KEYS: (keyof Personality)[] = ['warmth', 'liveliness', 'dependence', 'directness', 'rationality']
 
-function RadarChart({ personality }: { personality: Personality }) {
+function RadarChart({
+  personality,
+  highlight,
+}: {
+  personality: Personality
+  /** P2-8：滑块联动——当前拖动/聚焦的维度轴高亮 */
+  highlight: keyof Personality | null
+}) {
   const size = 220
   const cx = size / 2
   const cy = size / 2
@@ -105,7 +112,7 @@ function RadarChart({ personality }: { personality: Personality }) {
   })
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="mx-auto">
+    <svg data-testid="radar-svg" width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="mx-auto">
       {/* 网格五边形 */}
       {[1, 2, 3, 4, 5].map((lv) => (
         <path
@@ -116,15 +123,18 @@ function RadarChart({ personality }: { personality: Personality }) {
           strokeWidth={1}
         />
       ))}
-      {/* 轴线 */}
-      {axes.map((a, i) => (
-        <line
-          key={i}
-          x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2}
-          stroke="rgba(74,54,38,0.12)"
-          strokeWidth={1}
-        />
-      ))}
+      {/* 轴线（高亮当前拖动的维度轴） */}
+      {axes.map((a, i) => {
+        const isHot = DIM_KEYS[i] === highlight
+        return (
+          <line
+            key={i}
+            x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2}
+            stroke={isHot ? 'rgb(234,88,12)' : 'rgba(74,54,38,0.12)'}
+            strokeWidth={isHot ? 2 : 1}
+          />
+        )
+      })}
       {/* 数据填充 */}
       <path
         d={dataPath}
@@ -132,25 +142,28 @@ function RadarChart({ personality }: { personality: Personality }) {
         stroke="rgb(251,191,36)"
         strokeWidth={2}
       />
-      {/* 数据点 */}
+      {/* 数据点（高亮维度放大） */}
       {DIM_KEYS.map((key, i) => {
         const p = pointOf(i, personality[key])
+        const isHot = key === highlight
         return (
           <circle
             key={key}
-            cx={p.x} cy={p.y} r={3}
-            fill="rgb(251,191,36)"
+            cx={p.x} cy={p.y} r={isHot ? 5 : 3}
+            fill={isHot ? 'rgb(234,88,12)' : 'rgb(251,191,36)'}
           />
         )
       })}
-      {/* 维度标签 */}
+      {/* 维度标签（高亮维度加粗着色） */}
       {labels.map((l) => (
         <text
           key={l.key}
           x={l.x} y={l.y}
           textAnchor={l.anchor as 'middle' | 'start' | 'end'}
           dominantBaseline="middle"
-          className="fill-ink-muted text-[10px]"
+          className={`text-[10px] ${
+            l.key === highlight ? 'fill-tangerine-deep font-bold' : 'fill-ink-muted'
+          }`}
         >
           {l.label}
         </text>
@@ -163,20 +176,32 @@ function RadarChart({ personality }: { personality: Personality }) {
 
 // ============ 五维滑块 ============
 function PersonalitySliders({
-  personality, onChange,
+  personality,
+  onChange,
+  activeKey,
+  onActivate,
 }: {
   personality: Personality
   onChange: (key: keyof Personality, value: number) => void
+  /** P2-8：联动——把当前操作的维度上报给父组件驱动雷达高亮 */
+  activeKey: keyof Personality | null
+  onActivate: (key: keyof Personality | null) => void
 }) {
   return (
     <div className="space-y-3">
       {DIM_KEYS.map((key) => {
         const info = PERSONALITY_LABELS[key]
         const val = personality[key]
+        const isHot = key === activeKey
         return (
           <div key={key}>
             <div className="mb-1 flex items-center justify-between">
-              <label className="text-xs text-ink-muted">{info.label}</label>
+              <label
+                htmlFor={`pslider-${key}`}
+                className={`text-xs ${isHot ? 'font-semibold text-tangerine-deep' : 'text-ink-muted'}`}
+              >
+                {info.label}
+              </label>
               <span className="text-xs text-ink-muted">
                 {val < -0.1 ? info.min : val > 0.1 ? info.max : '中性'}
                 <span className="ml-2 tabular-nums text-ink-faint">{val.toFixed(1)}</span>
@@ -185,12 +210,19 @@ function PersonalitySliders({
             <div className="flex items-center gap-2">
               <span className="w-10 text-right text-[10px] text-ink-muted">{info.min}</span>
               <input
+                id={`pslider-${key}`}
                 type="range"
                 min={-1}
                 max={1}
                 step={0.1}
                 value={val}
-                onChange={(e) => onChange(key, parseFloat(e.target.value))}
+                onChange={(e) => {
+                  onActivate(key)
+                  onChange(key, parseFloat(e.target.value))
+                }}
+                onFocus={() => onActivate(key)}
+                onBlur={() => onActivate(null)}
+                data-testid={`pslider-${key}`}
                 className="flex-1 accent-tangerine"
               />
               <span className="w-10 text-[10px] text-ink-muted">{info.max}</span>
@@ -550,6 +582,9 @@ export function PersonalityEditor() {
     setConfig((prev) => ({ ...prev, personality: { ...prev.personality, [key]: value } }))
   }, [])
 
+  // P2-8：雷达↔滑块联动——记录当前操作的维度，驱动雷达轴/顶点/标签高亮
+  const [activeDim, setActiveDim] = useState<keyof Personality | null>(null)
+
   const handleSpeakingStyle = useCallback((style: SpeakingStyle) => {
     setConfig((prev) => ({ ...prev, speakingStyle: style }))
   }, [])
@@ -631,10 +666,15 @@ export function PersonalityEditor() {
       <div className="grid grid-cols-2 gap-4 rounded-xl bg-surface/50 p-4">
         <div>
           <div className="mb-2 text-center text-xs font-semibold text-tangerine-deep">五维性格雷达图</div>
-          <RadarChart personality={config.personality} />
+          <RadarChart personality={config.personality} highlight={activeDim} />
         </div>
         <div className="flex flex-col justify-center">
-          <PersonalitySliders personality={config.personality} onChange={handleSlider} />
+          <PersonalitySliders
+            personality={config.personality}
+            onChange={handleSlider}
+            activeKey={activeDim}
+            onActivate={setActiveDim}
+          />
         </div>
       </div>
 
