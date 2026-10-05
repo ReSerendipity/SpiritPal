@@ -44,6 +44,8 @@ import Markdown from 'react-markdown'
 // SECURITY R-02 对齐：与桌面端 ChatWindow 使用同一套 rehype-sanitize 配置，
 // 阻断 AI 输出型 XSS（此前移动端直接渲染 Markdown，无任何消毒）
 import rehypeSanitize from 'rehype-sanitize'
+// P2-14：消息指标条（复用桌面端组件，可展开查看 tokens/TTFT/速率）
+import { MessageMetricsBar } from '@/components/chat/MessageMetricsBar'
 import { composeFullSystemPrompt, getEffectivePersonality } from '@/lib/ai/personalityEngine'
 import { getCharacter } from '@/lib/data/characters'
 import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
@@ -72,6 +74,8 @@ export function MobileChatView() {
   const setLoading = useChatStore((s) => s.setLoading)
   const setMessageStatus = useChatStore((s) => s.setMessageStatus)
   const updateMessageContent = useChatStore((s) => s.updateMessageContent)
+  // P2-14：消息指标回写（tokens/TTFT/速率）
+  const setMessageMetrics = useChatStore((s) => s.setMessageMetrics)
   // P1-1: 多会话管理
   const createSession = useChatStore((s) => s.createSession)
   const switchSession = useChatStore((s) => s.switchSession)
@@ -290,13 +294,43 @@ export function MobileChatView() {
       apiMessages.push(...history)
       apiMessages.push({ id: 'user', role: 'user', content: text, timestamp: Date.now() })
 
+      // P2-14：消息指标采集起点（TTFT / 总耗时 / tokens）
+      const requestStartTs = Date.now()
+      let firstTokenTs: number | undefined
       const fullText = await client.chat(
         apiMessages,
         (chunk: string) => {
+          if (firstTokenTs === undefined) firstTokenTs = Date.now()
           appendAssistantChunk(assistantId, chunk)
         },
         abortController.signal,
       )
+
+      // P2-14：指标回写（与桌面端同构：tokens / TTFT / 速率 / 模型）。
+      // 遥测属非关键路径：任何异常都不能影响回复本身，故整体 try/catch。
+      try {
+        const responseEndTs = Date.now()
+        const usage = client.lastCallUsage
+        const metricsDurationMs = responseEndTs - requestStartTs
+        const completionTokens = usage?.output ?? 0
+        setMessageMetrics(assistantId, {
+          promptTokens: usage?.input ?? 0,
+          completionTokens,
+          requestStartTs,
+          firstTokenTs,
+          responseEndTs,
+          durationMs: metricsDurationMs,
+          ttftMs: firstTokenTs !== undefined ? firstTokenTs - requestStartTs : undefined,
+          tokensPerSec:
+            completionTokens > 0 && metricsDurationMs > 0
+              ? Math.round(completionTokens / (metricsDurationMs / 1000))
+              : undefined,
+          model: client.getConfig().model,
+          provider: client.getConfig().provider,
+        })
+      } catch {
+        // 指标采集失败不影响对话
+      }
 
       // D8：移动端写入记忆
       try {
@@ -548,6 +582,10 @@ export function MobileChatView() {
                   {/* 陈旧 pending：App 重启后持久化残留的发送中状态（无流式进行）＝失败 */}
                   {msg.sendStatus === 'pending' && !msg.isStreaming && (
                     <div className="mt-1 text-[11px] text-error">{t('chat.statusFailed')}</div>
+                  )}
+                  {/* P2-14：消息指标条（仅助手已完成消息且有指标时可展开查看） */}
+                  {msg.role === 'assistant' && !msg.isStreaming && msg.metrics && (
+                    <MessageMetricsBar metrics={msg.metrics} />
                   )}
                 </>
               ) : (
