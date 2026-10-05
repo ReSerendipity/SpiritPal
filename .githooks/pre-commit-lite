@@ -71,7 +71,8 @@ else
 fi
 
 if [ "$FAILED" -ne 0 ]; then
-    echo "[pre-commit] 未通过。紧急绕过：git commit --no-verify" >&2
+    echo "[pre-commit] 未通过。本路径无框架，单项豁免不可用；请修复上述各项后重提。" >&2
+    echo "[pre-commit] 整链绕过（git commit --no-verify）属须仓库所有者明确批准的例外：它会同时关掉大文件/密钥/冲突标记与根目录守卫，且 post-commit 会把这类提交记为 gate-bypass suspected。" >&2
     exit 1
 fi
 echo "[pre-commit] 通过"

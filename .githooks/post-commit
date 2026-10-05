@@ -1,0 +1,13 @@
+#!/bin/sh
+# post-commit：核对本次提交是否真的走过 pre-commit 全链（尽力而为，绝不阻断）。
+#
+# 为什么放在 post-commit：`git commit --no-verify` 只跳过 pre-commit 与 commit-msg，
+# **不跳过 post-***。于是「整链绕过」不再是无痕操作 —— pre-commit 通过时会以 index tree
+# 落一份凭据（lib-gate.sh: gate_attest），这里比对 HEAD 的 tree：没有凭据即写一条
+# `gate-bypass suspected:` 留痕并告警。--no-verify 因此降级为「须人工明确批准的例外」。
+if [ -f "$(dirname "$0")/lib-gate.sh" ]; then
+    . "$(dirname "$0")/lib-gate.sh"
+    gate_check_chain
+    gate_clear_skip_marker
+fi
+exit 0

@@ -3,10 +3,21 @@
 #   1) 仓库有 .pre-commit-config.yaml 且 pre-commit 框架可用 -> 交给框架
 #   2) 否则 -> 交给同目录的 pre-commit-lite（大文件/密钥/冲突标记 + 根目录守卫）
 # 0) 路径可移植性检查：阻止本机绝对路径入库（规则见 docs/CODING_STANDARDS.md 第 1 节）
+# 0c) 全链凭据 + 单项降级留痕（见 lib-gate.sh）：本分发器**不**提供整链绕过的建议口令，
+#     单项豁免走 SKIP=<hook-id>，整链绕过（--no-verify）属须仓库所有者明确批准的例外。
 # 本地层治理文档快照（AGENTS.md + docs/agents/，尽力而为，不阻断提交）
 if [ -f "$(dirname "$0")/lib-snapshot.sh" ]; then
     . "$(dirname "$0")/lib-snapshot.sh"
     snapshot_docs
+fi
+# 门禁留痕 / 凭据 共用函数（尽力而为；库缺失时降级为空实现，钩子本体照常运行）
+if [ -f "$(dirname "$0")/lib-gate.sh" ]; then
+    . "$(dirname "$0")/lib-gate.sh"
+fi
+if [ -z "$GATE_LIB_LOADED" ]; then
+    gate_attest() { return 0; }
+    gate_record_skip() { return 0; }
+    GATE_BYPASS_HINT="[gate] 整链绕过（git commit --no-verify）属须仓库所有者明确批准的例外，代理不得自行使用。"
 fi
 # 0b) 机械守卫：merge 进行中 / 存在未解决冲突 -> 拒绝提交（多代理并发会话须独占 git worktree）
 #     刻意置于下方 pre-commit 框架分支「提前 exit 0 / exec」之前——否则装了 .pre-commit-config.yaml
@@ -27,7 +38,7 @@ if [ "$IN_MERGE" -eq 1 ] || [ -n "$UNMERGED" ]; then
     fi
     echo "[pre-commit] 多代理并发会话须各自独占 git worktree + 分支，禁止在共享工作树并发 merge/commit（会互相踩踏暂存区与合并态）。" >&2
     echo "[pre-commit] 隔离方法：git worktree add ../<分支名>-wt <分支>（用完 git worktree remove ../<分支名>-wt；详见 AGENTS.md「多代理会话工作树隔离约定」/ docs/agents/SOPS.md SOP-5）" >&2
-    echo "[pre-commit] 紧急绕过：git commit --no-verify" >&2
+    echo "$GATE_BYPASS_HINT" >&2
     exit 1
 fi
 if [ -f scripts/check_no_hardcoded_paths.py ]; then
@@ -37,11 +48,19 @@ if [ -f scripts/check_no_hardcoded_paths.py ]; then
     done
     if [ -n "$PY_BIN" ]; then
         if ! "$PY_BIN" scripts/check_no_hardcoded_paths.py; then
-            echo "[pre-commit] 检测到本机绝对路径（C:\Users\... 等），提交已拒绝。绕过：git commit --no-verify" >&2
+            echo "[pre-commit] 检测到本机绝对路径（C:\Users\... 等），提交已拒绝（规则见 docs/CODING_STANDARDS.md 第 1 节）。" >&2
+            echo "$GATE_BYPASS_HINT" >&2
             exit 1
         fi
     fi
 fi
+# 0c) 单项豁免只走 pre-commit 框架自带的 SKIP 机制（须人工明确批准），并在这里机械留痕。
+#     这样「跳过某一项」与「整链绕过」被彻底分开：前者只影响那一个钩子、其余照常跑、且有据可查。
+case ",${SKIP}," in
+    *,capability-lint,*)
+        gate_record_skip "capability-lint skipped: 人工经 SKIP 环境变量批准跳过（非环境性降级，其余钩子照常执行）"
+        ;;
+esac
 if [ -f .pre-commit-config.yaml ]; then
     PY=""
     for cand in ".venv/Scripts/python.exe" ".venv/bin/python"; do
@@ -55,19 +74,26 @@ if [ -f .pre-commit-config.yaml ]; then
     if [ -n "$PY" ] && $PY -m pre_commit --version >/dev/null 2>&1; then
         echo "[pre-commit] 使用 pre-commit 框架（.pre-commit-config.yaml）"
         if ! $PY -m pre_commit run --config .pre-commit-config.yaml; then
-            echo "[pre-commit] 框架检查未通过。紧急绕过：git commit --no-verify" >&2
+            echo "[pre-commit] 框架检查未通过。单项豁免：SKIP=<hook-id> git commit ...（只跳过该钩子）" >&2
+            echo "$GATE_BYPASS_HINT" >&2
             exit 1
         fi
+        gate_attest
         exit 0
     fi
     # 回退：pre-commit 控制台命令（uv tool / pipx / PATH 安装，无 venv 时保证框架仍生效）
     if command -v pre-commit >/dev/null 2>&1; then
         echo "[pre-commit] 使用 pre-commit 框架（控制台命令）"
         if ! pre-commit run --config .pre-commit-config.yaml; then
-            echo "[pre-commit] 框架检查未通过。紧急绕过：git commit --no-verify" >&2
+            echo "[pre-commit] 框架检查未通过。单项豁免：SKIP=<hook-id> git commit ...（只跳过该钩子）" >&2
+            echo "$GATE_BYPASS_HINT" >&2
             exit 1
         fi
+        gate_attest
         exit 0
     fi
 fi
-exec "$(dirname "$0")/pre-commit-lite"
+# 无框架路径：交给 pre-commit-lite。刻意不用 exec —— 需要在它通过后落全链凭据。
+"$(dirname "$0")/pre-commit-lite" || exit 1
+gate_attest
+exit 0
