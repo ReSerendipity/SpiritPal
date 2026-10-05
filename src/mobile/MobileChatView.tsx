@@ -51,6 +51,7 @@ import { getCharacter } from '@/lib/data/characters'
 import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 import { getOwnerFactsManager } from '@/lib/memory/ownerFacts'
 import { getCommitmentTracker } from '@/lib/nurture/commitmentTracker'
+import { getContextEpisodeManager } from '@/lib/memory/contextEpisodeManager'
 import { MobileCommitmentBar } from '@/mobile/MobileCommitmentBar'
 import { useChatStore } from '@/stores/chatStore'
 import { usePetStore } from '@/stores/petStore'
@@ -294,6 +295,15 @@ export function MobileChatView() {
       apiMessages.push(...history)
       apiMessages.push({ id: 'user', role: 'user', content: text, timestamp: Date.now() })
 
+      // P3-6：移动端情境片段——以「对话轮」为 episode 边界。
+      // 桌面端靠 get_idle_time（仅桌面注册）驱动工作状态变迁；移动端拿不到系统空闲时间，
+      // 改为每轮对话开/闭一个 chatting episode（recordStateChange 变迁检测去重）。
+      void getContextEpisodeManager(currentCharacterId)
+        .recordStateChange('chatting')
+        .catch(() => {
+          /* 情境记录失败不影响回复 */
+        })
+
       // P2-14：消息指标采集起点（TTFT / 总耗时 / tokens）
       const requestStartTs = Date.now()
       let firstTokenTs: number | undefined
@@ -401,6 +411,11 @@ export function MobileChatView() {
         // P0-3: 成功送达 → 清除 pending（sendStatus 回到缺省「已成功」）
         setMessageStatus(assistantId, undefined)
       }
+      void getContextEpisodeManager(currentCharacterId)
+        .recordStateChange('idle')
+        .catch(() => {
+          /* 情境记录失败不影响回复 */
+        })
       finishStreaming(assistantId)
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err)
