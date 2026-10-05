@@ -477,6 +477,7 @@ pub fn run() {
                     sqlite::sp_inventory_list,
                     sqlite::sp_schedules_save,
                     sqlite::sp_schedules_list,
+                    sqlite::sp_schedules_delete,
                     // B2-2: 健康检查/快照/清理/约定/上下文/实体图/schema/dirty
                     sqlite::sp_db_integrity,
                     sqlite::sp_db_snapshot,
@@ -635,6 +636,7 @@ pub fn run() {
                     sqlite::sp_inventory_list,
                     sqlite::sp_schedules_save,
                     sqlite::sp_schedules_list,
+                    sqlite::sp_schedules_delete,
                     // B2-2: 健康检查/快照/清理/约定/上下文/实体图/schema/dirty
                     sqlite::sp_db_integrity,
                     sqlite::sp_db_snapshot,

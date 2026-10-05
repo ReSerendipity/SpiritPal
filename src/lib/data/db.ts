@@ -886,6 +886,12 @@ export async function getSchedules(): Promise<Array<Record<string, unknown>>> {
   return invoke('sp_schedules_list')
 }
 
+/** P3-1 收尾：删除指定日程（removeEvent 镜像，避免 DB 残留行复活） */
+export async function deleteSchedule(id: string): Promise<void> {
+  await ensureReady()
+  await invoke('sp_schedules_delete', { id })
+}
+
 // ============ Zustand 持久化存储适配器 ============
 //
 // 将 zustand persist 的 storage 桥接到 SQLite settings 表。

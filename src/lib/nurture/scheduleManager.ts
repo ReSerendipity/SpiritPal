@@ -30,7 +30,7 @@ import {
   requestPermission,
 } from '@tauri-apps/plugin-notification'
 import { generateId } from '@/lib/data/commonUtils'
-import { getSchedules, saveSchedule } from '@/lib/data/db'
+import { deleteSchedule, getSchedules, saveSchedule } from '@/lib/data/db'
 import { useSettingsStore } from '@/stores/settingsStore'
 
 // ============ 日程事件类型 ============
@@ -369,9 +369,7 @@ export class ScheduleManager {
    * 1. 首次运行：以 localStorage 种子逐条 upsert 到 schedules 表（一次性迁移）；
    * 2. 已迁移且 localStorage 为空（清存储/换机/重装）：以 DB 为源恢复日程
    *    ——日程从此纳入 P1-4 的备份/加密体系，不再只活在 localStorage。
-   * 局限：sp_schedules_save 仅 upsert，无删除命令——removeEvent 后 DB 中的残留行
-   * 仅在「localStorage 为空且从 DB 恢复」的边界场景可能复活；彻底解决需新增
-   * delete 命令（Rust 改动），不在本单范围。
+   * 删除已由 sp_schedules_delete 镜像（P3-1 收尾），不再有残留行复活问题。
    */
   private async initDbSync(): Promise<void> {
     try {
@@ -614,6 +612,10 @@ export class ScheduleManager {
     if (idx !== -1) {
       this.events.splice(idx, 1)
       this.scheduleSave()
+      // P3-1 收尾：DB 镜像删除（sp_schedules_delete），杜绝残留行在空恢复场景复活
+      void deleteSchedule(id).catch(() => {
+        /* DB 不可用时静默（本地已删，DB 残留仅影响空恢复边界场景） */
+      })
     }
   }
 
