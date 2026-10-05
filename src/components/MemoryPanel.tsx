@@ -16,7 +16,7 @@ import EntityGraphView from '@/components/memory/EntityGraphView'
 import MemoryVisualizer from '@/components/MemoryVisualizer'
 import { createBatchManager } from '@/lib/data/batchOperationManager'
 import { exportMemories } from '@/lib/memory/memoryExporter'
-import { getOwnerFactsManager, type OwnerFact } from '@/lib/memory/ownerFacts'
+import { factKeyLabel, getOwnerFactsManager, type OwnerFact } from '@/lib/memory/ownerFacts'
 import { getDiarySystemManager, type DiaryEntry } from '@/lib/nurture/diarySystem'
 import { getPetExperienceManager, type PetExperience } from '@/lib/nurture/petExperience'
 import { usePetStore } from '@/stores/petStore'
@@ -299,10 +299,18 @@ export function MemoryPanel() {
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-ink-faint">{fact.key}</span>
-                      {fact.userProvided && (
-                        <span className="rounded bg-tangerine/10 px-1 text-[10px] text-tangerine">手动</span>
-                      )}
+                      {/* P2-7：中文标签（未知 key 原样显示），title 保留原始 key 便于编辑定位 */}
+                      <span className="text-xs font-medium text-ink-faint" title={fact.key}>
+                        {factKeyLabel(fact.key)}
+                      </span>
+                      {/* P2-7：来源标识——手动提供 vs 自动抽取（规则/LLM） */}
+                      <span
+                        className={`rounded px-1 text-[10px] ${
+                          fact.userProvided ? 'bg-tangerine/10 text-tangerine' : 'bg-ink/5 text-ink-muted'
+                        }`}
+                      >
+                        {fact.userProvided ? '手动' : '自动抽取'}
+                      </span>
                       <span className="text-[10px] text-ink-faint">置信度 {Math.round(fact.confidence * 100)}%</span>
                     </div>
                     <div className="mt-0.5 text-sm text-ink">{fact.value}</div>
