@@ -37,3 +37,42 @@ python scripts/snapshot_local_docs.py list                       # 查看全部�
 python scripts/snapshot_local_docs.py restore --dest <临时目录>   # 演练恢复（先校验哈希，不动工作树）
 python scripts/snapshot_local_docs.py restore                    # 确认无误后就地恢复到工作树
 ```
+
+## 跨机异地落地
+
+`snapshot` 子命令**可选**地把同一份快照额外镜像到一个**仓库外**目录，给上面的本机快照
+（同机同盘、又被 gitignore）补上跨机维度。镜像根布局与 `backups/agents-snapshots/` 相同：
+`<时间戳>/` + 全部子文档 + `MANIFEST.json`。
+
+触发优先级（三者都不设 = 与旧版逐字节一致，只写本机、绝不写任何仓库外路径）：
+
+1. `snapshot --mirror DIR`（一次性，最高优先级）
+2. 环境变量 `SPIRITPAL_SNAPSHOT_MIRROR=DIR`（当前 shell）
+3. `git config spiritpal.snapshotMirror DIR`（本仓库长期生效，推荐）
+
+```sh
+python scripts/snapshot_local_docs.py snapshot --mirror <仓库外目录>
+git config spiritpal.snapshotMirror <仓库外目录>
+```
+
+钩子接线：`lib-snapshot.sh` 只调用不带 `--mirror` 的 `snapshot` 子命令，环境变量与
+ git config 由脚本自身读取——设了任一者即自动附带异地镜像，无需改动钩子；沿用「尽力
+而为、失败只 WARN 不阻断」语义（镜像失败置本次 rc=1，但**不回滚**已建好的本机快照，
+本机恢复永远优先）。内容无变化的「跳过新建」分支仍会幂等补齐异地（覆盖「先配本机、
+后配异地」与「异地目录被清空」两种情形）。
+
+🛡 防泄露铁律：镜像目标解析后若落在仓库工作树内（等于仓库根或子目录；Windows 用
+`os.path.normcase` 归一后比对，无法解析的路径一律按不安全处理）`exit 1` 拒绝——禁止把
+本地层文档复制进可被 Git 跟踪的区域、变相纳入版本控制。刻意不提供任何硬编码默认路径
+（守可移植性），必须显式 opt-in。
+
+跨机恢复（`list` 与 `restore` 都接受 `--from DIR`，默认仍读本机 `backups/agents-snapshots/`）：
+
+```sh
+python scripts/snapshot_local_docs.py list --from <异地目录>                        # 查看异地副本
+python scripts/snapshot_local_docs.py restore --from <异地目录> --dest <临时目录>   # 演练恢复
+python scripts/snapshot_local_docs.py restore --from <异地目录>                     # 就地恢复到工作树
+```
+
+> 异地镜像只是「两台机器各留一份」的最小落地，仍**不替代正式异地备份**（对象存储 /
+> 离线介质）。
