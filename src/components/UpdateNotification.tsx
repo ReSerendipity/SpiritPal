@@ -303,7 +303,7 @@ export function UpdateNotification({ autoCheck = true, autoCheckDelay = 30000, o
             </div>
             <div className="w-full h-2 bg-ink/15 rounded-full overflow-hidden">
               <div
-                className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                className="h-full bg-tangerine rounded-full transition-all duration-300"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -339,7 +339,7 @@ export function UpdateNotification({ autoCheck = true, autoCheckDelay = 30000, o
           {view.phase === 'error' || view.phase === 'up-to-date' ? (
             <button
               onClick={handleClose}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm font-medium text-white bg-tangerine hover:bg-tangerine-deep rounded-lg transition-colors"
             >
               确定
             </button>
@@ -353,7 +353,7 @@ export function UpdateNotification({ autoCheck = true, autoCheckDelay = 30000, o
               </button>
               <button
                 onClick={handleUpdateNow}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-tangerine hover:bg-tangerine-deep rounded-lg transition-colors"
               >
                 立即更新
               </button>
