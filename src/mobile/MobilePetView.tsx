@@ -24,6 +24,7 @@
  * @see {@link ../lib/behaviorEngine} 行为引擎
  */
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import { ChevronDown, ChevronUp, ImageOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DecorationLayer } from '@/components/DecorationLayer'
 import { Live2DRenderer, getMotionGroupForState } from '@/components/Live2DRenderer'
@@ -136,6 +137,26 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
   const [pos, setPos] = useState({ x: 0, y: 0 })
   const [live2dModelPath, setLive2dModelPath] = useState<string | null>(null)
   const [live2dFailed, setLive2dFailed] = useState(false)
+  // P2-10：HUD 可折叠（持久化，避免每次进宠物页都要重新收起）
+  const [hudCollapsed, setHudCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('spiritpal:hud-collapsed') === '1'
+    } catch {
+      return false
+    }
+  })
+
+  const toggleHud = useCallback(() => {
+    setHudCollapsed((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem('spiritpal:hud-collapsed', next ? '1' : '0')
+      } catch {
+        /* 存储不可用时仅本次会话生效 */
+      }
+      return next
+    })
+  }, [])
 
   const live2dRef = useRef<Live2DRendererHandle>(null)
   const live2dPathCacheRef = useRef<Map<string, string | null>>(new Map())
@@ -570,23 +591,48 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
       onTouchEnd={handleTouchEnd}
       style={{ touchAction: 'none' }}
     >
-      {/* 状态栏（左上角） */}
+      {/* 状态栏（左上角，P2-10：可折叠——折叠后仅剩展开按钮，不再遮挡宠物/场景） */}
       <div className={`absolute left-2 top-2 z-30 flex flex-col gap-1 rounded-lg ${statusBgClass} px-2 py-1.5 text-[11px] text-white backdrop-blur-sm`}>
-        <div className="flex items-center gap-1.5">
-          <span className={`h-2 w-2 rounded-full ${tierColor[hungerTier]}`} />
-          <span>{t('stat.hunger')} {Math.round(stats.hunger)}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className={`h-2 w-2 rounded-full ${tierColor[moodTier]}`} />
-          <span>{t('stat.mood')} {Math.round(stats.mood)}</span>
-        </div>
-        <div className="flex items-center gap-1.5 text-tangerine-soft">
-          🪙 <span className="tabular-nums">{sharedCoins}</span>
-        </div>
-        <div className="flex items-center gap-1.5 text-tangerine-soft">
-          ❤️ <span className="tabular-nums">Lv.{stats.level}</span>
-        </div>
+        <button
+          onClick={toggleHud}
+          aria-label={hudCollapsed ? t('mobile.hud.expand') : t('mobile.hud.collapse')}
+          aria-expanded={!hudCollapsed}
+          data-testid="hud-toggle"
+          className="flex h-7 w-7 items-center justify-center self-start rounded hover:bg-white/10"
+        >
+          {hudCollapsed ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
+        </button>
+        {!hudCollapsed && (
+          <>
+            <div className="flex items-center gap-1.5">
+              <span className={`h-2 w-2 rounded-full ${tierColor[hungerTier]}`} />
+              <span>{t('stat.hunger')} {Math.round(stats.hunger)}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className={`h-2 w-2 rounded-full ${tierColor[moodTier]}`} />
+              <span>{t('stat.mood')} {Math.round(stats.mood)}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-tangerine-soft">
+              🪙 <span className="tabular-nums">{sharedCoins}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-tangerine-soft">
+              ❤️ <span className="tabular-nums">Lv.{stats.level}</span>
+            </div>
+          </>
+        )}
       </div>
+
+      {/* P2-10：Live2D 回退标注——Cubism Core 缺失/模型加载失败时明确告知已降级 2D 精灵 */}
+      {live2dFailed && (
+        <div
+          className="absolute right-2 top-2 z-30 flex max-w-[45%] items-center gap-1 rounded-lg bg-ink/45 px-2 py-1 text-[10px] leading-3 text-white/85 backdrop-blur-sm"
+          data-testid="live2d-fallback-badge"
+          title={t('mobile.pet.live2dFallbackTitle')}
+        >
+          <ImageOff size={11} className="shrink-0" />
+          <span>{t('mobile.pet.live2dFallback')}</span>
+        </div>
+      )}
 
       {/* 宠物容器 */}
       <div
