@@ -396,9 +396,10 @@ export function MemoryPanel({ variant = 'full' }: MemoryPanelProps) {
               experiences.map((exp) => (
                 <div key={exp.id} className="rounded-lg border border-ink/10 bg-surface px-3 py-2">
                   <div className="flex items-center gap-2">
+                    {/* P2-4：情感点改语义色 token（原 bg-green-400/bg-red-400 为裸色值） */}
                     <span className={`h-2 w-2 rounded-full ${
-                      exp.sentiment === 'positive' ? 'bg-green-400' :
-                      exp.sentiment === 'negative' ? 'bg-red-400' : 'bg-ink/30'
+                      exp.sentiment === 'positive' ? 'bg-stat-good' :
+                      exp.sentiment === 'negative' ? 'bg-error' : 'bg-ink/30'
                     }`} />
                     <span className="text-[10px] font-medium uppercase text-ink-faint">{exp.type}</span>
                     <span className="ml-auto text-[10px] text-ink-faint">

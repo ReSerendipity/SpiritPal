@@ -153,7 +153,8 @@ export const BADGE_NAMES: Record<BadgeTier, string> = {
 export const BADGE_COLORS: Record<BadgeTier, string> = {
   none: '#6b7280',
   star: '#facc15',
-  moon: '#a5b4fc',
+  // P2-4：moon 原为 #a5b4fc（靛蓝）——与暖橙主题冲突的杂色，改为暖银灰
+  moon: '#d6d3d1',
   sun: '#fb923c',
   crown: '#fcd34d',
 }

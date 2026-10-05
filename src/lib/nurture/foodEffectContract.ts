@@ -190,14 +190,16 @@ export const RARITY_NAMES: Record<number, string> = {
   5: '神话',
 }
 
-/** 稀有度等级 → Tailwind 颜色类 */
+/** 稀有度等级 → Tailwind 颜色类。
+ * P2-4：1/2 档原为 blue/purple（蓝紫杂色，与暖橙主题冲突），
+ * 全表改为暖色阶梯：灰 → 黄 → 琥珀 → 橙 → 深橙 → 红，保持六档可辨。 */
 export const RARITY_COLORS: Record<number, { text: string; bg: string; border: string }> = {
   0: { text: 'text-ink-muted', bg: 'bg-ink/10', border: 'border-ink/20' },
-  1: { text: 'text-blue-400', bg: 'bg-blue-500/20', border: 'border-blue-500/30' },
-  2: { text: 'text-purple-400', bg: 'bg-purple-500/20', border: 'border-purple-500/30' },
-  3: { text: 'text-amber-400', bg: 'bg-amber-500/20', border: 'border-amber-500/30' },
-  4: { text: 'text-orange-400', bg: 'bg-orange-500/20', border: 'border-orange-500/30' },
-  5: { text: 'text-red-400', bg: 'bg-red-500/20', border: 'border-red-500/30' },
+  1: { text: 'text-yellow-600', bg: 'bg-yellow-500/20', border: 'border-yellow-500/30' },
+  2: { text: 'text-amber-600', bg: 'bg-amber-500/20', border: 'border-amber-500/30' },
+  3: { text: 'text-orange-500', bg: 'bg-orange-500/20', border: 'border-orange-500/30' },
+  4: { text: 'text-orange-600', bg: 'bg-orange-600/20', border: 'border-orange-600/30' },
+  5: { text: 'text-red-500', bg: 'bg-red-500/20', border: 'border-red-500/30' },
 }
 
 /**
