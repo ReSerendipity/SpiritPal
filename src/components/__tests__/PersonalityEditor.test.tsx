@@ -231,3 +231,35 @@ describe('PersonalityEditor', () => {
     expect(selects.length).toBeGreaterThanOrEqual(2)
   })
 })
+
+// ============ P2-8：雷达↔滑块联动高亮 ============
+
+describe('PersonalityEditor 雷达联动（P2-8）', () => {
+  it('聚焦/拖动滑块时，雷达对应轴与顶点高亮；失焦后恢复', () => {
+    render(<PersonalityEditor />)
+    const svg = document.querySelector('[data-testid="radar-svg"]')
+    expect(svg).toBeTruthy()
+
+    const hotLines = () =>
+      Array.from(svg!.querySelectorAll('line')).filter(
+        (l) => l.getAttribute('stroke') === 'rgb(234,88,12)',
+      )
+
+    // 聚焦前无高亮轴
+    expect(hotLines().length).toBe(0)
+
+    // 聚焦「温度」滑块 → 对应轴高亮
+    const slider = document.getElementById('pslider-warmth') as HTMLInputElement | null
+    expect(slider).toBeTruthy()
+    fireEvent.focus(slider!)
+    expect(hotLines().length).toBe(1)
+
+    // 拖动也保持高亮（onChange 上报 activeDim）
+    fireEvent.change(slider!, { target: { value: '0.6' } })
+    expect(hotLines().length).toBe(1)
+
+    // 失焦恢复
+    fireEvent.blur(slider!)
+    expect(hotLines().length).toBe(0)
+  })
+})
