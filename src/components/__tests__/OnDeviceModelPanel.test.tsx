@@ -139,3 +139,36 @@ describe('OnDeviceModelPanel', () => {
     expect(mockInvoke).not.toHaveBeenCalled()
   })
 })
+
+// ============ P2-12-be/fe：设备分级接入 + 降级提示 ============
+
+describe('OnDeviceModelPanel 设备分级（P2-12）', () => {
+  afterEach(() => cleanup())
+
+  it('展示 Rust detect_device_tier 的分级结果（tier 徽章 + note）', async () => {
+    setupModels([])
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === 'detect_device_tier') return Promise.resolve({ tier: 'T1', llm_allowed: true, note: '8GB RAM / 4 cores' })
+      if (cmd === 'ondevice_models_dir') return Promise.resolve({ dir: DIR })
+      if (cmd === 'ondevice_list_models') return Promise.resolve([])
+      return Promise.resolve(undefined)
+    })
+    render(<OnDeviceModelPanel />)
+    const card = await screen.findByTestId('device-tier-card')
+    expect(card.textContent).toContain('T1')
+    expect(card.textContent).toContain('8GB RAM / 4 cores')
+  })
+
+  it('T0（llm_allowed=false）显示自动回退云端提示，且不显示推荐配置', async () => {
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === 'detect_device_tier') return Promise.resolve({ tier: 'T0', llm_allowed: false, note: '4GB RAM / 2 cores' })
+      if (cmd === 'ondevice_models_dir') return Promise.resolve({ dir: DIR })
+      if (cmd === 'ondevice_list_models') return Promise.resolve([])
+      return Promise.resolve(undefined)
+    })
+    render(<OnDeviceModelPanel />)
+    expect(await screen.findByTestId('ondevice-fallback')).toBeTruthy()
+    expect(screen.getByTestId('ondevice-fallback').textContent).toContain('云端')
+    expect(screen.queryByText(/推荐配置/)).toBeNull()
+  })
+})
