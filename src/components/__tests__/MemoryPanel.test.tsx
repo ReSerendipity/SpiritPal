@@ -8,7 +8,7 @@
  *  3. 切回「精简」→ 恢复精简内容
  */
 
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryPanel } from '@/components/MemoryPanel'
 
@@ -82,6 +82,24 @@ describe('MemoryPanel', () => {
 
     fireEvent.click(screen.getByText('精简'))
     expect(screen.queryByTestId('memory-visualizer')).toBeNull()
+    expect(screen.getByText('导出记忆')).toBeTruthy()
+  })
+})
+
+// ============ P2-6：embedded 变体（宿主已有视图选择器时不重复渲染切换条） ============
+
+describe('MemoryPanel embedded 变体（P2-6）', () => {
+  beforeEach(() => {
+    cleanup()
+  })
+
+  it('embedded：不渲染「精简/可视化/图谱」切换条，直接呈现内容', () => {
+    render(<MemoryPanel variant="embedded" />)
+    expect(screen.queryByText('精简')).toBeNull()
+    expect(screen.queryByText('可视化')).toBeNull()
+    expect(screen.queryByText('图谱')).toBeNull()
+    // 内容仍在：事实 Tab 与导出工具条
+    expect(screen.getByText('主人画像')).toBeTruthy()
     expect(screen.getByText('导出记忆')).toBeTruthy()
   })
 })
