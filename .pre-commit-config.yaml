@@ -22,9 +22,12 @@ repos:
         always_run: true
         stages: [pre-commit, pre-push]
       # P2-1: capability 最小授权 lint（报告2 §二）
+      # 入口是 gate 而非 lint 本体：受限沙箱里子进程被击杀/超时时只降级本项并机械留痕
+      # （scripts/capability-lint-gate.mjs），不再逼出 `git commit --no-verify` 整链绕过；
+      # 真实违规仍硬失败，CI 的 layout job 直调原脚本、不降级。
       - id: capability-lint
         name: Capability Lint (minimal permissions)
-        entry: node scripts/lint-capabilities.mjs
+        entry: node scripts/capability-lint-gate.mjs
         language: system
         pass_filenames: false
         always_run: true

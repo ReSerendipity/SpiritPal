@@ -1,10 +1,33 @@
 #!/bin/sh
 # 自动为提交信息追加 DCO 签名 Signed-off-by（幂等），让 CI 的 DCO 门禁不会失败。
 # 不阻断提交；如已存在签名或来源为 merge/squash 则跳过。
+# 另：消费 capability-lint 单项降级便签 —— 把「capability-lint skipped: <原因>」机械写进本笔提交说明，
+# 让受限沙箱里的降级跳过在 Git 历史里直接可查（详单见 .git/spiritpal-gate-skips.log）。
 MSG="$1"
 SRC="$2"
 [ -z "$MSG" ] && exit 0
 [ -f "$MSG" ] || exit 0
+if [ -f "$(dirname "$0")/lib-gate.sh" ]; then
+    . "$(dirname "$0")/lib-gate.sh"
+fi
+if [ -n "$GATE_LIB_LOADED" ]; then
+    # 便签读后即删（见 lib-gate.sh），不会串到下一笔提交。
+    NOTE="$(gate_take_skip_note)"
+    if [ -n "$NOTE" ] && ! grep -qF 'capability-lint skipped:' "$MSG"; then
+        # 用 head/tail 拼接而非 awk -v：awk 会把变量值里的反斜杠当转义序列，
+        # Windows 路径递进去会被拼成乱码（实测 \t 变制表符、\g \s 直接消失）。
+        CMTLINE=$(grep -n '^#' "$MSG" | head -1 | cut -d: -f1)
+        if [ -n "$CMTLINE" ]; then
+            {
+                head -n "$((CMTLINE - 1))" "$MSG"
+                printf '%s\n' "$NOTE"
+                tail -n "+$CMTLINE" "$MSG"
+            } > "$MSG.gate.tmp" && mv "$MSG.gate.tmp" "$MSG"
+        else
+            { cat "$MSG"; printf '\n%s\n' "$NOTE"; } > "$MSG.gate.tmp" && mv "$MSG.gate.tmp" "$MSG"
+        fi
+    fi
+fi
 case "$SRC" in
     merge|squash) exit 0 ;;
 esac
