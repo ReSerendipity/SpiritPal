@@ -3,9 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getSchedules, saveSchedule } from '@/lib/data/db'
 import { ScheduleManager } from '@/lib/nurture/scheduleManager'
 
+const deleteScheduleMock = vi.fn((_id: string) => Promise.resolve())
 vi.mock('@/lib/data/db', () => ({
   getSchedules: vi.fn(() => Promise.resolve([])),
   saveSchedule: vi.fn(() => Promise.resolve()),
+  deleteSchedule: (id: string) => deleteScheduleMock(id),
 }))
 
 // 通知插件（构造/checking 依赖）
@@ -77,6 +79,26 @@ describe('schedules 表接线（P3-1）', () => {
     // 恢复后回写 localStorage
     const raw = JSON.parse(localStorage.getItem('spiritpal-schedules') ?? '[]')
     expect(raw).toHaveLength(1)
+  })
+
+  it('removeEvent 镜像调用 sp_schedules_delete（P3-1 收尾）', async () => {
+    localStorage.setItem('spiritpal-schedules-db-migrated', '1')
+    const mgr = new ScheduleManager()
+    const id = mgr.addEvent({
+      title: '待删除日程',
+      triggerTime: Date.now() + 3600_000,
+      reminderMinutes: [],
+      source: 'manual',
+    })
+    await vi.waitFor(() => {
+      expect(saveSchedule).toHaveBeenCalled()
+    })
+    vi.mocked(saveSchedule).mockClear()
+    mgr.removeEvent(id)
+    await vi.waitFor(() => {
+      expect(deleteScheduleMock).toHaveBeenCalledWith(id)
+    })
+    expect(mgr.getEvents()).toHaveLength(0)
   })
 
   it('非法 DB 行（缺字段）被过滤，不进内存', async () => {

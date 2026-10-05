@@ -1740,6 +1740,16 @@ pub async fn sp_schedules_list(app: AppHandle) -> Result<Vec<JsonValue>, String>
     .await
 }
 
+/// 删除指定日程（P3-1 收尾：scheduleManager.removeEvent 镜像删除，避免 DB 残留行复活）
+#[tauri::command]
+pub async fn sp_schedules_delete(app: AppHandle, id: String) -> Result<(), String> {
+    with_conn(app, move |conn| {
+        exec(conn, "DELETE FROM schedules WHERE id = ?1", &[sq(&id)])?;
+        Ok(())
+    })
+    .await
+}
+
 // ============ 健康检查 / 完整性 / 快照（healthCheck / dbBackup） ============
 
 /// PRAGMA integrity_check 全量行（健康检查 / 启动完整性探针）
