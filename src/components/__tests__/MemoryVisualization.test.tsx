@@ -321,3 +321,43 @@ describe('MemoryPanel 可视化模式集成', () => {
     expect(svgs.length).toBeGreaterThan(0)
   })
 })
+
+// ============ P2-3：图表可读性（刻度/数值/结论） ============
+
+describe('图表可读性（P2-3）', () => {
+  beforeEach(() => {
+    cleanup()
+  })
+
+  it('标签云：层级说明（字号/颜色 = 提及频次）', () => {
+    render(<TagCloud memories={sampleMemories} />)
+    const legend = screen.getByTestId('tagcloud-legend')
+    // 「开心」出现 3 次是最高频
+    expect(legend.textContent).toContain('最高 3 条')
+    expect(legend.textContent).toContain('点击标签可筛选')
+  })
+
+  it('情感曲线：y 轴刻度（含峰值与 0）+ 结论副标题（峰值标注）', () => {
+    render(<EmotionCurve memories={sampleMemories} />)
+    // y 轴刻度：顶部 = 峰值均值，底部 = 0.00
+    const ticks = screen.getByTestId('emotion-y-ticks')
+    expect(ticks.textContent).toContain('0.00')
+    // 结论：峰值 = 最高日均强度（mem-5 的 0.95 与 mem-1 的 0.8 不同天，日均峰值 0.95）
+    const conclusion = screen.getByTestId('emotion-conclusion')
+    expect(conclusion.textContent).toMatch(/纵轴 = 当日平均情感强度（0~1）/)
+    expect(conclusion.textContent).toMatch(/峰值 0\.95（\d+\/\d+）/)
+    expect(conclusion.textContent).toMatch(/共 \d+ 天有记忆/)
+  })
+
+  it('记忆密度：柱顶数值 + 结论副标题（峰值月/合计）', () => {
+    render(<TimeDensityChart memories={sampleMemories} onSelectMonth={vi.fn()} />)
+    // 每根柱子都有数值标注
+    const counts = screen.getAllByTestId('density-count')
+    expect(counts.length).toBeGreaterThan(0)
+    expect(counts.map((c) => c.textContent).every((t) => /^\d+$/.test(t ?? ''))).toBe(true)
+    // 结论：峰值月 + 合计
+    const conclusion = screen.getByTestId('density-conclusion')
+    expect(conclusion.textContent).toMatch(/峰值 \d{4}-\d{2}（\d+ 条）/)
+    expect(conclusion.textContent).toMatch(/合计 5 条记忆/)
+  })
+})
