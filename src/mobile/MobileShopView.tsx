@@ -12,6 +12,16 @@
  */
 import { useMemo, useState } from 'react'
 import { Coins, Search } from 'lucide-react'
+import {
+  UtensilsCrossed,
+  Gamepad2,
+  Pill,
+  Gem,
+  Trophy,
+  MessageCircle,
+  PawPrint,
+  type LucideIcon,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { AnchorPoint, InventoryItem, WornDecoration } from '@/lib/data/types'
 import { getRarityDisplay } from '@/lib/nurture/foodEffectContract'
@@ -19,14 +29,15 @@ import { getShopManager, ShopLockState, type ShopCategory } from '@/lib/nurture/
 import { usePetStore } from '@/stores/petStore'
 
 /** 商店七分类配置 */
-const CATEGORIES: { id: ShopCategory; labelKey: string; icon: string }[] = [
-  { id: 'food', labelKey: 'shop.food', icon: '🍖' },
-  { id: 'toy', labelKey: 'shop.toy', icon: '🧸' },
-  { id: 'medicine', labelKey: 'shop.medicine', icon: '💊' },
-  { id: 'accessory', labelKey: 'shop.decoration', icon: '🎀' },
-  { id: 'collection', labelKey: 'shop.collection', icon: '🏆' },
-  { id: 'dialogue', labelKey: 'shop.dialogue', icon: '💬' },
-  { id: 'subpet', labelKey: 'shop.subpet', icon: '🐾' },
+// P2-5：分类图标 emoji → 单色线性图标
+const CATEGORIES: { id: ShopCategory; labelKey: string; icon: LucideIcon }[] = [
+  { id: 'food', labelKey: 'shop.food', icon: UtensilsCrossed },
+  { id: 'toy', labelKey: 'shop.toy', icon: Gamepad2 },
+  { id: 'medicine', labelKey: 'shop.medicine', icon: Pill },
+  { id: 'accessory', labelKey: 'shop.decoration', icon: Gem },
+  { id: 'collection', labelKey: 'shop.collection', icon: Trophy },
+  { id: 'dialogue', labelKey: 'shop.dialogue', icon: MessageCircle },
+  { id: 'subpet', labelKey: 'shop.subpet', icon: PawPrint },
 ]
 
 /** 装饰品穿戴锚点 */
@@ -163,7 +174,7 @@ export function MobileShopView() {
               tab === c.id ? 'bg-tangerine text-white' : 'bg-cream-deep text-ink-muted'
             }`}
           >
-            <span>{c.icon}</span>
+            <c.icon size={13} />
             {t(c.labelKey)}
           </button>
         ))}
