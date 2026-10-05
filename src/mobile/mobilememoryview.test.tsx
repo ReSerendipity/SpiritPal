@@ -1,5 +1,5 @@
 // MobileMemoryView smoke 测试 — 可视化 / 记忆列表子页导航
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MobileMemoryView } from '@/mobile/MobileMemoryView'
 
@@ -10,6 +10,26 @@ vi.mock('@/lib/memory/enhancedMemory', () => ({
     getAllMemories: vi.fn(() => []),
   })),
   EnhancedMemoryManager: class {},
+}))
+
+// P3-7：语义事实读取走 db（jsdom 无 Tauri），mock 固定数据
+const { semanticFactsMock } = vi.hoisted(() => ({
+  semanticFactsMock: [
+    {
+      id: 1,
+      character_id: 'doro',
+      fact_key: '喜好',
+      fact_value: '主人喜欢爬山',
+      source_memory_ids: ['m1', 'm2'],
+      importance: 80,
+      created_at: Date.now(),
+      updated_at: Date.now(),
+      is_autobiographical: 0,
+    },
+  ],
+}))
+vi.mock('@/lib/data/db', () => ({
+  getSemanticFacts: vi.fn(() => Promise.resolve(semanticFactsMock)),
 }))
 
 // mock MemoryPanel：list 子页复用桌面面板，仅验证导航外壳
@@ -38,6 +58,19 @@ describe('MobileMemoryView', () => {
     await screen.findByText('暂无标签数据')
     fireEvent.click(screen.getByRole('button', { name: /记忆列表/i }))
     expect(screen.getByTestId('memory-panel')).toBeInTheDocument()
+  })
+
+  it('P3-7：语义事实子页渲染只读列表（key/重要性/来源数）', async () => {
+    render(<MobileMemoryView />)
+    await screen.findByText('暂无标签数据')
+    fireEvent.click(screen.getByRole('button', { name: /语义事实/i }))
+    await waitFor(() => {
+      expect(screen.getByTestId('semantic-fact-card')).toBeInTheDocument()
+    })
+    expect(screen.getByText('主人喜欢爬山')).toBeInTheDocument()
+    expect(screen.getByText('喜好')).toBeInTheDocument()
+    expect(screen.getByText('重要性 80')).toBeInTheDocument()
+    expect(screen.getByText('关联记忆 2 条')).toBeInTheDocument()
   })
 
   it('P1-3-fe：实体图谱子页渲染画布与诚实占位说明', async () => {
