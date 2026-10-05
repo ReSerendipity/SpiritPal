@@ -18,7 +18,8 @@ import { useEffect, useState } from 'react'
 import {
   Sun, Moon, Monitor, Bell, RefreshCw, Cloud, Wifi,
   Type, Info, ChevronRight, Brain, Sparkles, Cpu,
-  FileText, ShieldCheck, CloudUpload, Database, SlidersHorizontal,
+  FileText, ShieldCheck, CloudUpload, Database, SlidersHorizontal, UserPlus,
+  Loader2, CheckCircle2, AlertTriangle,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { LegalDocument } from '@/components/LegalDocument'
@@ -26,6 +27,7 @@ import { OnDeviceModelPanel } from '@/components/OnDeviceModelPanel'
 import { LLM_PROVIDERS, getProvider } from '@/lib/ai/llmProviders'
 import { getAllCharacters } from '@/lib/data/characters'
 import { deleteApiKey, getApiKey, setApiKey } from '@/lib/data/secureStorage'
+import { importCharacter, type UnifiedImportResult } from '@/lib/nurture/characterImportService'
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from '@/lib/system/legalDocuments'
 import { getSilentModeManager } from '@/lib/system/silentModeManager'
 import { syncManager, type SyncConfig, type SyncStatus } from '@/lib/system/syncManager'
@@ -38,7 +40,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { MobileDataPanel } from './MobileDataPanel'
 
 /** 设置页面分区类型 */
-type SettingsSection = 'main' | 'theme' | 'sync' | 'memory' | 'personality' | 'ondevice' | 'ai' | 'advanced' | 'about' | 'data'
+type SettingsSection = 'main' | 'theme' | 'sync' | 'memory' | 'personality' | 'ondevice' | 'ai' | 'advanced' | 'import' | 'about' | 'data'
 
 /** AI 配置在 localStorage 的键（与 SettingsWindow / MobileChatView 一致） */
 const AI_CONFIG_KEY = 'spiritpal-ai-config'
@@ -169,6 +171,28 @@ export function MobileSettingsView() {
   const [section, setSection] = useState<SettingsSection>('main')
   // P2-11：静默模式切换后强制重渲染（manager 状态非响应式）
   const [, setSilentVersion] = useState(0)
+  // P3-8：角色包导入状态
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState<UnifiedImportResult | null>(null)
+
+  /** 选择文件 → 按扩展名判定来源 → importCharacter（File 源平台中立，Android WebView 唤起系统文件选择器） */
+  const handleImportPick = async (file: File) => {
+    setImporting(true)
+    setImportResult(null)
+    try {
+      const kind = /\.png$/i.test(file.name) || file.type === 'image/png' ? 'png-file' : 'json-file'
+      const result = await importCharacter({ kind, file })
+      setImportResult(result)
+    } catch (e) {
+      setImportResult({
+        ok: false,
+        errors: [e instanceof Error ? e.message : String(e)],
+        warnings: [],
+      })
+    } finally {
+      setImporting(false)
+    }
+  }
   // P3-5：关于页版本号动态读取（与桌面同源，禁止硬编码）
   const [appVersion, setAppVersion] = useState<string>('')
   useEffect(() => {
@@ -526,6 +550,19 @@ export function MobileSettingsView() {
             cardBorderClass={cardBorderClass}
             subtitleClass={subtitleClass}
             onClick={() => setSection('personality')}
+          />
+
+          {/* P3-8：角色包导入（单文件，经系统文件选择器） */}
+          <SettingItem
+            icon={UserPlus}
+            iconBg="bg-tangerine"
+            title={t('settings.import.title')}
+            subtitle={t('settings.import.subtitle')}
+            chevronClass={chevronClass}
+            cardBgClass={cardBgClass}
+            cardBorderClass={cardBorderClass}
+            subtitleClass={subtitleClass}
+            onClick={() => setSection('import')}
           />
 
           {/* P2-11：高级设置 */}
@@ -948,6 +985,90 @@ export function MobileSettingsView() {
         </header>
         <div className="flex-1 overflow-hidden">
           <MobilePersonalityView />
+        </div>
+      </div>
+    )
+  }
+
+  // ===== 角色包导入（P3-8：单文件 json/png，经系统文件选择器）=====
+  if (section === 'import') {
+    return (
+      <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
+        <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
+          <button onClick={() => setSection('main')} className="text-sm text-tangerine">
+            {t('settings.mobile.back')}
+          </button>
+          <h2 className="text-base font-semibold">{t('settings.import.title')}</h2>
+        </header>
+        <div className="flex-1 overflow-y-auto px-3 py-3">
+          <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-4`}>
+            <p className={`mb-3 text-xs leading-relaxed ${subtitleClass}`}>
+              {t('settings.import.hint')}
+            </p>
+            <label
+              data-testid="import-pick"
+              className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-tangerine py-2.5 text-sm font-medium text-white ${
+                importing ? 'opacity-50' : ''
+              }`}
+            >
+              {importing ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
+              {t('settings.import.pick')}
+              <input
+                type="file"
+                accept=".json,application/json,.png,image/png"
+                className="hidden"
+                data-testid="import-file-input"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  e.target.value = ''
+                  if (f) void handleImportPick(f)
+                }}
+              />
+            </label>
+          </div>
+
+          {importResult?.ok && importResult.profile && (
+            <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-4`} data-testid="import-result-ok">
+              <div className="mb-1 flex items-center gap-2 text-sm font-medium text-success-deep">
+                <CheckCircle2 size={16} />
+                {t('settings.import.success')}
+              </div>
+              <div className="text-sm text-ink">{importResult.profile.displayName}</div>
+              {importResult.warnings.length > 0 && (
+                <ul className="mt-1 list-inside list-disc text-[11px] text-warning">
+                  {importResult.warnings.map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
+              )}
+              <button
+                onClick={() => {
+                  const id = importResult.characterId!
+                  switchSettingsChar(id)
+                  switchPetChar(id)
+                  setSection('main')
+                }}
+                data-testid="import-switch"
+                className="mt-3 w-full rounded-lg bg-tangerine py-2 text-sm font-medium text-white"
+              >
+                {t('settings.import.switchTo')}
+              </button>
+            </div>
+          )}
+
+          {importResult && !importResult.ok && (
+            <div className={`rounded-xl ${cardBgClass} border border-error/40 p-4`} data-testid="import-result-fail">
+              <div className="mb-1 flex items-center gap-2 text-sm font-medium text-error">
+                <AlertTriangle size={16} />
+                {t('settings.import.failed')}
+              </div>
+              <ul className="list-inside list-disc space-y-0.5 text-xs text-error">
+                {importResult.errors.map((e, i) => (
+                  <li key={i}>{e}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </div>
     )
