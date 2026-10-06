@@ -91,6 +91,17 @@
 
 ---
 
+## 里程碑 5 · VR-5/6/7 执行结果（2026-10-06 增补，工单源已更新）
+
+| 工单 | 处置 | 提交 | 实机复验 |
+|---|---|---|---|
+| VR-5 图谱可读性 | ✅ `computeGraphDisplayParams`（纯函数）反向补偿：390px → minRadius≈36/labelFont≈31 逻辑值（显示 ≈14px/12px）；挂载+resize 测量；桌面 k=1 不回退 | `3ec975a` | 截图 vr-41：节点/标签清晰可读 ✓ |
+| VR-6 触控命中区 | ✅ HUD 折叠钮 28+inset-2.5→**48dp**；会话抽屉关闭钮 36+inset-2→52dp；其余 36dp 复核（主题钮本就有扩展、容器 div 非交互不涉及） | `2b9fdcc`（amend 后 `ed714e7` 系） | CDP 类断言 + 截图 |
+| VR-7 性格编辑器 i18n | ✅ personality.* 59 键 × 5 语言；六个子组件接入 useTranslation；TemplateButtons map 参数 t→tpl 消除遮蔽；引擎 PERSONALITY_LABELS 数据不动（prompt 合成不受影响） | `9df8752` | 实机 en 模式扫描：UI 层零中文残留（唯一「口头禅」来自 Doro 角色 systemPrompt 数据预览，非缺陷）✓ |
+
+注：韩语 msgCount 遗漏由审核线 `6fe943c` 补修（5/5 语言已单括号）。Capability Lint 经
+`e1dd83b`/`a6fdb59` 修复后已可在沙箱内通过——本节后续提交已回归常规 pre-commit 全链。
+
 ## 发现汇总（回给研发）
 
 | # | 屏 | 现象 | 严重度 | 处置 | 提交 |
