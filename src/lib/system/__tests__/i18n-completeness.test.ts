@@ -50,7 +50,9 @@ describe('i18n 五语言齐备性 (VR-9)', () => {
   it('以 zh 为基准，各语言键集一致（除已登记的 char.* 既有翻译债）', () => {
     // 已知债务：角色显示名 char.* 目前仅 zh 落地，其余语言待翻译（非本轮引入，单独排期）。
     // 除此之外任何缺键/多键都视为回归，直接失败。
-    const KNOWN_DEBT_PREFIXES = ['char.']
+    // VR-10：char.* 90 键五语言已补齐（2026-10-06），守卫转严格；
+    // characters.ts 的 defaultValue 回退保留为未知角色兜底
+    const KNOWN_DEBT_PREFIXES: string[] = []
     const isKnownDebt = (k: string) => KNOWN_DEBT_PREFIXES.some((p) => k.startsWith(p))
     const ref = flatten(bundle('zh'))
     for (const lang of LANGS) {

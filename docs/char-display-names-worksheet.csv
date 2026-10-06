@@ -1,91 +1,91 @@
 ﻿key,zh,en,ja,ko,zh-TW
 char.doro,多罗（内置）,Doro,ドロ,도로,多羅
 char.feibi,菲比,Feibi,フィビー,피비,菲比
-char.68,六八,,,,
-char.albedo,阿贝多,,,,
-char.apple-scholar,学霸苹果,,,,
-char.ayaka,神里绫华,,,,
-char.backpack-buddy,背包伙伴,,,,
-char.banana-skater,滑板香蕉,,,,
-char.blooky-shimeji,布露姬,,,,
-char.book-stack-buddy,书堆伙伴,,,,
-char.bookworm-reader,书虫读者,,,,
-char.brain-trainer,大脑训练师,,,,
-char.bubble-flask,泡泡烧瓶,,,,
-char.calculator-buddy,计算器伙伴,,,,
-char.chalkboard-buddy,黑板伙伴,,,,
-char.childe,达达利亚,,,,
-char.chongyun,重云,,,,
-char.chriskitty,克里斯猫,,,,
-char.dearla,迪亚拉,,,,
-char.desk-lamp-buddy,台灯伙伴,,,,
-char.doro-codex,多罗·Codex（社区版）,,,,
-char.elaina-2,艾莱娜,,,,
-char.electro-childe,雷公子,,,,
-char.eraser-buddy,橡皮伙伴,,,,
-char.ganyu,甘雨,,,,
-char.gengar-shimeji,耿鬼,,,,
-char.globe-buddy,地球仪伙伴,,,,
-char.glue-bottle-buddy,胶水瓶伙伴,,,,
-char.growlithe,卡蒂狗,,,,
-char.homie,铁哥们,,,,
-char.honey-churros,蜂蜜吉事果,,,,
-char.hoodie-cat,连帽衫猫,,,,
-char.hu-tao,胡桃,,,,
-char.jotaro,空条承太郎,,,,
-char.kamado-nezuko,灶门祢豆子,,,,
-char.kazuha,枫原万叶,,,,
-char.kazuha-xll,枫原万叶·xll,,,,
-char.kitty,小猫,,,,
-char.kizuna-ai-ver1,绊爱 ver1,,,,
-char.klee,可莉,,,,
-char.kuro,克洛,,,,
-char.lavender-town-ghost,紫苑镇幽灵,,,,
-char.linnea-2,林妮娅,,,,
-char.lumine-xll,荧·xll,,,,
-char.mambo,曼波,,,,
-char.marisa,魔理沙,,,,
-char.music-player-buddy,音乐播放器伙伴,,,,
-char.nahida,纳西妲,,,,
-char.naruto,鸣人,,,,
-char.nezuko,祢豆子（OC-Claw 社区版）,,,,
-char.notebook-buddy,笔记本伙伴,,,,
-char.paper-ball-buddy,纸团伙伴,,,,
-char.paper-plane-pal,纸飞机伙伴,,,,
-char.pencil-case-pal,笔袋伙伴,,,,
-char.pencil-pal,铅笔伙伴,,,,
-char.phoebe-codex,菲比·Codex（社区版）,,,,
-char.pixel-terminal,像素终端,,,,
-char.punishing-bird,惩罚鸟,,,,
-char.puro-the-latex-wolf-shimeji,普罗·拉泰克斯狼,,,,
-char.pusheen,胖吉猫,,,,
-char.reminder-note,便签提醒,,,,
-char.rosaria-xll,罗莎莉亚·xll,,,,
-char.sanji,山治,,,,
-char.scissors-buddy,剪刀伙伴,,,,
-char.shimeji-caneko,猫子,,,,
-char.shimeji-germouser,啮齿鼠,,,,
-char.shimeji-koreacat,韩国猫咪,,,,
-char.shimeji-nekojapan,日本猫咪,,,,
-char.shimeji-turkat,土耳其猫咪,,,,
-char.skirk-2,丝柯克,,,,
-char.slugcat,雨世界猫崽,,,,
-char.spider-man,蜘蛛侠,,,,
-char.spongebob,海绵宝宝,,,,
-char.starphin-shimeji,星海豚,,,,
-char.study-fuel,学习能量,,,,
-char.taffy,太妃糖,,,,
-char.tamamo,玉藻,,,,
-char.the-chosen-one,天选之子,,,,
-char.the-king,国王,,,,
-char.thoma,托马,,,,
-char.venti-ys,温迪·ys,,,,
-char.wukong,孙悟空,,,,
-char.xiang-qie,香企鹅（OC-Claw 社区版）,,,,
-char.xiaocat,魈猫猫,,,,
-char.xingqiu-xll,行秋·xll,,,,
-char.yoimiya-ys,宵宫·ys,,,,
-char.yuan-ji,元吉,,,,
-char.zhongli-1,钟离,,,,
-char.zhongli-ys,钟离·ys,,,,
-char.zuo-ci,佐慈,,,,
+char.68,六八,68,68,68,六八
+char.albedo,阿贝多,Albedo,アルベド,알베도,阿貝多
+char.apple-scholar,学霸苹果,Scholar Apple,勉強リンゴ,공부 사과,學霸蘋果
+char.ayaka,神里绫华,Kamisato Ayaka,神里綾華,카미사토 아야카,神里綾華
+char.backpack-buddy,背包伙伴,Backpack Buddy,バックパックバディ,백팩 버디,背包夥伴
+char.banana-skater,滑板香蕉,Skater Banana,スケバンバナナ,스케이트 바나나,滑板香蕉
+char.blooky-shimeji,布露姬,Blooky,ブルーキー,블루키,布露姬
+char.book-stack-buddy,书堆伙伴,Book Stack Buddy,本スタックバディ,책더미 버디,書堆夥伴
+char.bookworm-reader,书虫读者,Bookworm Reader,본웜 리더,책벌레 리더,書蟲讀者
+char.brain-trainer,大脑训练师,Brain Trainer,ブレイントレーナー,브레인 트레이너,大腦訓練師
+char.bubble-flask,泡泡烧瓶,Bubble Flask,バブルフラスコ,버블 플라스크,泡泡燒瓶
+char.calculator-buddy,计算器伙伴,Calculator Buddy,電卓バディ,계산기 버디,計算器夥伴
+char.chalkboard-buddy,黑板伙伴,Chalkboard Buddy,칠판 버디,칠판 버디,黑板夥伴
+char.childe,达达利亚,Childe,タルタリヤ,타르탈리야,達達利亞
+char.chongyun,重云,Chongyun,重雲,중운,重雲
+char.chriskitty,克里斯猫,Chris Kitty,クリスキャット,크리스 고양이,克里斯貓
+char.dearla,迪亚拉,Diarla,ディアラ,디아라,迪亞拉
+char.desk-lamp-buddy,台灯伙伴,Desk Lamp Buddy,デスクランプバディ,책상 램프 버디,檯燈夥伴
+char.doro-codex,多罗·Codex（社区版）,Doro Codex,ドロ・コデックス,도로 코덱스,多羅·Codex（社區版）
+char.elaina-2,艾莱娜,Elaina,イレイナ,엘레이나,艾萊娜
+char.electro-childe,雷公子,Electro Childe,タルタリヤ(雷),타르탈리야(번개),雷公子
+char.eraser-buddy,橡皮伙伴,Eraser Buddy,消しゴムバディ,지우개 버디,橡皮夥伴
+char.ganyu,甘雨,Ganyu,甘雨,감우,甘雨
+char.gengar-shimeji,耿鬼,Gengar,ゲンガー,팬텀,耿鬼
+char.globe-buddy,地球仪伙伴,Globe Buddy,地球儀バディ,지구본 버디,地球儀夥伴
+char.glue-bottle-buddy,胶水瓶伙伴,Glue Bottle Buddy,のりバディ,풀 버디,膠水瓶夥伴
+char.growlithe,卡蒂狗,Growlithe,ガーディ,가디,卡蒂狗
+char.homie,铁哥们,Homie,ホーミー,호미,鐵哥們
+char.honey-churros,蜂蜜吉事果,Honey Churros,はちみつチュロス,허니 츄러스,蜂蜜吉事果
+char.hoodie-cat,连帽衫猫,Hoodie Cat,フーディキャット,후디 고양이,連帽衫貓
+char.hu-tao,胡桃,Hu Tao,胡桃,호두,胡桃
+char.jotaro,空条承太郎,Jotaro Kujo,空条承太郎,쿠죠 조타로,空條承太郎
+char.kamado-nezuko,灶门祢豆子,Nezuko Kamado,竈門禰豆子,카마도 네즈코,竈門禰豆子
+char.kazuha,枫原万叶,Kaedehara Kazuha,楓原万葉,카에데하라 카즈하,楓原萬葉
+char.kazuha-xll,枫原万叶·xll,Kaedehara Kazuha,楓原万葉,카에데하라 카즈하,楓原萬葉·xll
+char.kitty,小猫,Kitty,キティ,키티,小貓
+char.kizuna-ai-ver1,绊爱 ver1,Kizuna AI,キズナアイ,키즈나 아이,絆愛 ver1
+char.klee,可莉,Klee,クレー,클레,可莉
+char.kuro,克洛,Kuro,クロ,쿠로,克洛
+char.lavender-town-ghost,紫苑镇幽灵,Lavender Town Ghost,シオンタウンゴースト,라벤더 타운 유령,紫苑鎮幽靈
+char.linnea-2,林妮娅,Linnea,リンネア,린네아,林妮婭
+char.lumine-xll,荧·xll,Lumine,蛍,루미네,螢
+char.mambo,曼波,Manbo,マンボ,만보,曼波
+char.marisa,魔理沙,Marisa Kirisame,霧雨魔理沙,키리사메 마리사,霧雨魔理沙
+char.music-player-buddy,音乐播放器伙伴,Music Player Buddy,ミュージックプレーヤーバディ,뮤직 플레이어 버디,音樂播放器夥伴
+char.nahida,纳西妲,Nahida,ナヒーダ,나히다,納西妲
+char.naruto,鸣人,Naruto Uzumaki,うずまきナルト,우즈마키 나루토,鳴人
+char.nezuko,祢豆子（OC-Claw 社区版）,Nezuko,ネズコ,네즈코,祢豆子
+char.notebook-buddy,笔记本伙伴,Notebook Buddy,ノートバディ,노트 버디,筆記本夥伴
+char.paper-ball-buddy,纸团伙伴,Paper Ball Buddy,紙玉バディ,종이공 버디,紙團夥伴
+char.paper-plane-pal,纸飞机伙伴,Paper Plane Pal,ペーパープレーンパル,종이비행기 친구,紙飛機夥伴
+char.pencil-case-pal,笔袋伙伴,Pencil Case Pal,ペンケースパル,필통 친구,筆袋夥伴
+char.pencil-pal,铅笔伙伴,Pencil Pal,ペンシルパル,연필 친구,鉛筆夥伴
+char.phoebe-codex,菲比·Codex（社区版）,Phoebe,フェービ,페이비,菲比
+char.pixel-terminal,像素终端,Pixel Terminal,ピクセルターミナル,픽셀 터미널,像素終端
+char.punishing-bird,惩罚鸟,Punishing Bird,懲罰鳥,징벌새,懲罰鳥
+char.puro-the-latex-wolf-shimeji,普罗·拉泰克斯狼,Puro,プロ,푸로,普羅·拉泰克斯狼
+char.pusheen,胖吉猫,Pusheen,プシーン,푸신,胖吉貓
+char.reminder-note,便签提醒,Reminder Note,リマインダーノート,리마인더 노트,便簽提醒
+char.rosaria-xll,罗莎莉亚·xll,Rosaria,ロサリア,로자리아,羅莎莉亞
+char.sanji,山治,Sanji,サンジ,상디,山治
+char.scissors-buddy,剪刀伙伴,Scissors Buddy,ハサミバディ,가위 버디,剪刀夥伴
+char.shimeji-caneko,猫子,Caneko,カネコ,카네코,貓子
+char.shimeji-germouser,啮齿鼠,Germouser,ゲルマウザー,게르마우저,齧齒鼠
+char.shimeji-koreacat,韩国猫咪,Korean Cat,コリアンキャット,한국 고양이,韓國貓咪
+char.shimeji-nekojapan,日本猫咪,Japan Cat,ジャパンキャット,일본 고양이,日本貓咪
+char.shimeji-turkat,土耳其猫咪,Turkat,ターキャット,터키 고양이,土耳其貓咪
+char.skirk-2,丝柯克,Skirk,スカーク,스커크,絲柯克
+char.slugcat,雨世界猫崽,Slugcat,スラグキャット,슬러그캣,雨世界貓崽
+char.spider-man,蜘蛛侠,Spider-Man,スパイダーマン,스파이더맨,蜘蛛人
+char.spongebob,海绵宝宝,SpongeBob,スポンジ・ボブ,스폰지밥,海綿寶寶
+char.starphin-shimeji,星海豚,Starphin,スターフィン,스타핀,星海豚
+char.study-fuel,学习能量,Study Fuel,勉強燃料,공부 연료,學習能量
+char.taffy,太妃糖,Taffy,タフィー,태피,太妃糖
+char.tamamo,玉藻,Tamamo,タマモ,타마모,玉藻
+char.the-chosen-one,天选之子,The Chosen One,ジ・チョーゼン・ワン,선택받은 자,天選之子
+char.the-king,国王,The King,ザ・キング,더 킹,國王
+char.thoma,托马,Thoma,トーマ,토마,托馬
+char.venti-ys,温迪·ys,Venti,ウェンティ,벤티,溫迪
+char.wukong,孙悟空,Sun Wukong,孫悟空,손오공,孫悟空
+char.xiang-qie,香企鹅（OC-Claw 社区版）,Scented Penguin,シャーペン,향기 펭귄,香企鵝
+char.xiaocat,魈猫猫,Xiao Kitty,シャオニャン,샤오 고양이,魈貓貓
+char.xingqiu-xll,行秋·xll,Xingqiu,行秋,행추,行秋
+char.yoimiya-ys,宵宫·ys,Yoimiya,宵宮,요이미야,宵宮
+char.yuan-ji,元吉,Yuan Ji,ユアンジー,위안지,元吉
+char.zhongli-1,钟离,Zhongli,鍾離,종려,鍾離
+char.zhongli-ys,钟离·ys,Zhongli,鍾離,종려,鍾離
+char.zuo-ci,佐慈,Zuo Ci,ズオツー,좌자,佐慈
