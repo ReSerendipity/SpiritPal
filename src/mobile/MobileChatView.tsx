@@ -813,7 +813,7 @@ export function MobileChatView() {
                       <span className="flex-1 truncate text-sm font-medium text-ink">{s.title}</span>
                     </div>
                     <div className="mt-0.5 text-[10px] text-ink-faint">
-                      {t('chat.sessions.msgCount', { count: s.messageCount })} ·{' '}
+                      {t('chat.sessions.msgCount', { count: s.messageCount ?? 0 })} ·{' '}
                       {new Date(s.updatedAt).toLocaleDateString()}
                     </div>
                   </button>
