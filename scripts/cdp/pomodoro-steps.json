@@ -1,0 +1,18 @@
+[
+  { "label": "同意协议-勾选", "expr": "(() => { const cb = document.querySelector('input[type=checkbox]'); if (cb) cb.click(); return !!cb })()", "wait": 600 },
+  { "label": "同意协议-按钮", "expr": "(() => { const b = [...document.querySelectorAll('button')].find(x => x.textContent.includes('同意并开始')); if (b) b.click(); return b ? b.textContent.trim() : null })()", "wait": 2500 },
+  { "label": "切到养成Tab", "expr": "(() => { const b = [...document.querySelectorAll('button')].find(x => x.textContent.trim() === '养成'); if (b) b.click(); return b ? 'clicked' : 'notfound' })()", "wait": 1200 },
+  { "label": "切到专注子页", "expr": "(() => { const b = [...document.querySelectorAll('button')].find(x => x.textContent.trim() === '专注'); if (b) b.click(); return b ? 'clicked' : 'notfound' })()", "wait": 1200 },
+  { "label": "专注页文本", "expr": "document.body.innerText.replace(/\\n+/g, ' | ').slice(0, 300)", "wait": 500 },
+  { "label": "选15分钟", "expr": "(() => { const b = [...document.querySelectorAll('button')].find(x => x.textContent.trim() === '15'); if (b) b.click(); return 'clicked' })()", "wait": 400 },
+  { "label": "点开始专注", "expr": "(() => { const b = [...document.querySelectorAll('button')].find(x => x.textContent.includes('开始专注')); if (b) b.click(); return b ? 'clicked' : 'notfound' })()", "wait": 1500 },
+  { "label": "倒计时T0", "expr": "(() => [...document.querySelectorAll('div')].map(d => d.textContent).find(t => /^\\d{2}:\\d{2}$/.test(t ?? '')) ?? 'no-timer')()", "wait": 5000 },
+  { "label": "倒计时T+5s", "expr": "(() => [...document.querySelectorAll('div')].map(d => d.textContent).find(t => /^\\d{2}:\\d{2}$/.test(t ?? '')) ?? 'no-timer')()", "wait": 1000 },
+  { "label": "点暂停", "expr": "(() => { const b = [...document.querySelectorAll('button')].find(x => x.textContent.includes('暂停')); if (b) b.click(); return b ? 'clicked' : 'notfound' })()", "wait": 1200 },
+  { "label": "暂停后文本", "expr": "document.body.innerText.replace(/\\n+/g, ' | ').slice(0, 300)", "wait": 6000 },
+  { "label": "暂停6s后倒计时", "expr": "(() => [...document.querySelectorAll('div')].map(d => d.textContent).find(t => /^\\d{2}:\\d{2}$/.test(t ?? '')) ?? 'no-timer')()", "wait": 1000 },
+  { "label": "点继续", "expr": "(() => { const b = [...document.querySelectorAll('button')].find(x => x.textContent.includes('继续')); if (b) b.click(); return b ? 'clicked' : 'notfound' })()", "wait": 4000 },
+  { "label": "继续4s后倒计时", "expr": "(() => [...document.querySelectorAll('div')].map(d => d.textContent).find(t => /^\\d{2}:\\d{2}$/.test(t ?? '')) ?? 'no-timer')()", "wait": 1000 },
+  { "label": "点结束", "expr": "(() => { const b = [...document.querySelectorAll('button')].find(x => x.textContent.includes('结束')); if (b) b.click(); return b ? 'clicked' : 'notfound' })()", "wait": 1200 },
+  { "label": "结束后的文本", "expr": "document.body.innerText.replace(/\\n+/g, ' | ').slice(0, 300)", "wait": 800 }
+]
