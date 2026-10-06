@@ -21,6 +21,7 @@ import {
 import {
   simulateForceLayout,
   memoryCountToRadius,
+  computeGraphDisplayParams,
   type LaidOutNode,
 } from '@/lib/memory/forceLayout'
 import { usePetStore } from '@/stores/petStore'
@@ -84,6 +85,8 @@ export function EntityGraphView({ entities, edges, emptyTitle, emptyHint }: Enti
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const positionsRef = useRef<Map<string, LaidOutNode>>(new Map())
   const transformRef = useRef<ViewTransform>({ scale: 1, tx: 0, ty: 0 })
+  // VR-5：移动端可读性——按显示宽度反推节点最小半径/标签字号（k≈0.39 时逻辑半径需 ~36）
+  const displayParamsRef = useRef(computeGraphDisplayParams(0))
   const entityByIdRef = useRef<Map<string, GraphEntity>>(new Map())
   const edgesRef = useRef<GraphEdge[]>([])
   const selectedIdRef = useRef<string | null>(null)
@@ -96,6 +99,17 @@ export function EntityGraphView({ entities, edges, emptyTitle, emptyHint }: Enti
     startY: number
     moved: number
   }>({ kind: null, nodeId: null, offX: 0, offY: 0, startX: 0, startY: 0, moved: 0 })
+
+  // ---------- 显示宽度测量（VR-5） ----------
+  useEffect(() => {
+    const measure = () => {
+      const rect = canvasRef.current?.getBoundingClientRect()
+      displayParamsRef.current = computeGraphDisplayParams(rect?.width ?? 0)
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [entitiesList.length])
 
   // ---------- 渲染 ----------
   const draw = useCallback(() => {
@@ -135,7 +149,8 @@ export function EntityGraphView({ entities, edges, emptyTitle, emptyHint }: Enti
         ctx.stroke()
       }
       ctx.fillStyle = '#444'
-      ctx.font = '11px sans-serif'
+      // VR-5：按显示缩放反向补偿字号，保证移动端标签可读（桌面 k=1 → 12px，与原 11px 基本一致）
+      ctx.font = `${displayParamsRef.current.labelFont}px sans-serif`
       ctx.textAlign = 'center'
       ctx.fillText(ent ? ent.name : id, p.x, p.y + p.radius + 12)
     }
@@ -151,7 +166,7 @@ export function EntityGraphView({ entities, edges, emptyTitle, emptyHint }: Enti
       edgesRef.current = eds
       const simNodes = ents.map((e) => ({
         id: e.id,
-        radius: memoryCountToRadius(e.memoryCount),
+        radius: Math.max(displayParamsRef.current.minRadius, memoryCountToRadius(e.memoryCount)),
       }))
       const simLinks = eds.map((e) => ({
         source: e.source,

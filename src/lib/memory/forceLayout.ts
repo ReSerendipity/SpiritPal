@@ -176,3 +176,29 @@ export function memoryCountToRadius(memoryCount: number, base = 9, step = 3.5, m
   const r = base + Math.sqrt(Math.max(0, memoryCount)) * step
   return Math.min(max, Math.max(base, r))
 }
+
+/**
+ * VR-5：按画布实际显示宽度反推节点最小半径与标签字号（移动端可读性）。
+ *
+ * 画布逻辑尺寸固定 LOGICAL_W×LOGICAL_H，CSS 等比缩到容器宽——手机 390px 时
+ * 缩放比 k≈0.39，逻辑半径 12.5 只剩 ~5px、标签 11px 只剩 ~4.3px，不可读。
+ * 反向补偿：逻辑值 = 目标显示值 / k。
+ *
+ * @param displayWidth 画布 CSS 显示宽度（px）；≤0 视为桌面全宽（k=1）
+ * @param logicalW     画布逻辑宽
+ * @param minScreenRadius 节点目标显示半径下限（px）
+ * @param minScreenFont   标签目标显示字号下限（px）
+ */
+export function computeGraphDisplayParams(
+  displayWidth: number,
+  logicalW = 1000,
+  minScreenRadius = 14,
+  minScreenFont = 12,
+): { k: number; minRadius: number; labelFont: number } {
+  const k = displayWidth > 0 ? displayWidth / logicalW : 1
+  return {
+    k,
+    minRadius: Math.max(10, minScreenRadius / k),
+    labelFont: Math.max(11, minScreenFont / k),
+  }
+}
