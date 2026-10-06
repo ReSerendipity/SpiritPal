@@ -130,6 +130,15 @@
   建议重启 Windows 后再验）；本地化机制（withLocalizedName → t）此前已实机验证工作正常，
   本次为纯数据扩充，回归风险低
 
+## VR-10 实机走查 + P0-1 验收补录（2026-10-07 00:4x）
+
+- **VR-10 实机走查 PASS**：英文模式下当前角色显示 `Doro`（非「多罗（内置）」），char.* 本地化路径
+  生效；Personality 编辑器全英文零中文残留（截图 vr-44/45/47：One-tap personality templates/
+  Soft~Tsundere/Five-dimension radar/Warmth~Rationality/Speaking style/Catchphrases placeholder）
+- **P0-1 实机验收三项全过**：冷启无 decrypt 错 ✓；`spiritpal.db.enc` 生成 ✓；
+  `backup_db_at_rest` 产出 546KB 备份且 `list_db_backups` 非空 ✓ → review 包见
+  `docs/P0-1-人工review包.md`（余两点合规判断待所有者签字）
+
 ## 发现汇总（回给研发）
 
 | # | 屏 | 现象 | 严重度 | 处置 | 提交 |
