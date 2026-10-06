@@ -11,7 +11,8 @@
  *    —— 反向即「声明了权限/命令但无消费/无实现」的失效授权
  *
  * 用法：
- *   node scripts/lint-capabilities.mjs [--capabilities-dir <dir>]
+ *   node scripts/lint-capabilities.mjs [--capabilities-dir <dir>] [--frontend-src <dir>] [--trace]
+ *   --trace：向 stderr 逐文件打印扫描进度；若卡死，最后一条即元凶文件/目录
  *
  * 退出码：0 = 通过；1 = 发现违规（硬失败，供 CI/pre-commit 阻断）
  */
@@ -32,6 +33,14 @@ const FRONTEND_SRC = srcArgIdx !== -1 ? resolve(process.cwd(), process.argv[srcA
 const RUST_SRC = join(REPO_ROOT, 'src-tauri', 'src')
 const CARGO_TOML = join(REPO_ROOT, 'src-tauri', 'Cargo.toml')
 const PKG_JSON = join(REPO_ROOT, 'package.json')
+
+// ============ 诊断（--trace）============
+// 纯 fs 扫描理论上不应挂起；若在某些环境（沙箱 FS 拦截 / 异常大文件 / 目录环）卡死，
+// 开启 --trace 会把每个正在读取的文件打到 stderr，最后一条即卡点。默认关闭，零噪声。
+const TRACE = process.argv.includes('--trace')
+const trace = (msg) => {
+  if (TRACE) process.stderr.write(`[trace] ${msg}\n`)
+}
 
 // ============ 硬拒绝黑名单 ============
 
@@ -109,6 +118,7 @@ function collectRegisteredCommands() {
       } else if (entry.name.endsWith('.rs')) {
         if (seen.has(p)) continue
         seen.add(p)
+        trace('rs ' + p)
         const src = readText(p)
         // 捕获 #[tauri::command] 修饰的函数名
         const re = /#\[tauri::command\][\s\S]{0,200}?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)/g
@@ -117,15 +127,14 @@ function collectRegisteredCommands() {
       }
     }
   }
+  trace(`collectRegisteredCommands scan start: ${RUST_SRC}`)
   scan(RUST_SRC)
   // sp_* 语义命令在 sqlite.rs 中批量注册（前缀 sp_）
   const sqliteSrc = readText(join(RUST_SRC, 'sqlite.rs'))
   const spRe = /fn\s+(sp_[a-zA-Z0-9_]+)\s*\(/g
   let sm
-  while (spRe.exec(sqliteSrc) !== null) {
-    // eslint-disable-next-line no-cond-assign
-    if ((sm = spRe.exec(sqliteSrc)) !== null) registered.add(sm[1])
-  }
+  while ((sm = spRe.exec(sqliteSrc)) !== null) registered.add(sm[1])
+  trace(`collectRegisteredCommands done: ${registered.size} cmds`)
   return registered
 }
 
@@ -144,6 +153,7 @@ function collectInvokeCalls() {
       } else if (/\.(ts|tsx)$/.test(entry.name)) {
         if (seen.has(p)) continue
         seen.add(p)
+        trace('fe ' + p)
         const src = readText(p)
         // invoke('xxx') / invoke("xxx")
         const re = /invoke\(\s*['"]([a-zA-Z_][a-zA-Z0-9_]*|plugin:[a-zA-Z0-9_|]+)['"]\s*,?/g
@@ -152,7 +162,9 @@ function collectInvokeCalls() {
       }
     }
   }
+  trace(`collectInvokeCalls scan start: ${FRONTEND_SRC}`)
   scan(FRONTEND_SRC)
+  trace(`collectInvokeCalls done: ${commands.size} invoke cmds`)
   return commands
 }
 
