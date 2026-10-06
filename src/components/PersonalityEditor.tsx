@@ -249,16 +249,16 @@ function PersonalitySliders({
 }
 
 // ============ 说话风格编辑器 ============
-const TONE_OPTIONS: { value: Tone; label: string }[] = [
-  { value: 'gentle', label: '温柔' },
-  { value: 'lively', label: '活泼' },
-  { value: 'cold', label: '冷淡' },
-  { value: 'enthusiastic', label: '热情' },
+const TONE_OPTIONS: { value: Tone }[] = [
+  { value: 'gentle' },
+  { value: 'lively' },
+  { value: 'cold' },
+  { value: 'enthusiastic' },
 ]
-const WORD_OPTIONS: { value: WordPreference; label: string }[] = [
-  { value: 'formal', label: '正式' },
-  { value: 'colloquial', label: '口语' },
-  { value: 'internet', label: '网络用语' },
+const WORD_OPTIONS: { value: WordPreference }[] = [
+  { value: 'formal' },
+  { value: 'colloquial' },
+  { value: 'internet' },
 ]
 
 function SpeakingStyleEditor({
@@ -350,10 +350,10 @@ function SpeakingStyleEditor({
 }
 
 // ============ 互动偏好编辑器 ============
-const FREQ_OPTIONS: { value: InteractionFrequency; label: string }[] = [
-  { value: 'high', label: '高' },
-  { value: 'medium', label: '中' },
-  { value: 'low', label: '低' },
+const FREQ_OPTIONS: { value: InteractionFrequency }[] = [
+  { value: 'high' },
+  { value: 'medium' },
+  { value: 'low' },
 ]
 
 function InteractionPrefsEditor({
