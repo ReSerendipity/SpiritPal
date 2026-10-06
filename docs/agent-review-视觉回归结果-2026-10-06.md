@@ -113,6 +113,23 @@
 注：韩语 msgCount 遗漏由审核线 `6fe943c` 补修（5/5 语言已单括号）。Capability Lint 经
 `e1dd83b`/`a6fdb59` 修复后已可在沙箱内通过——本节后续提交已回归常规 pre-commit 全链。
 
+## VR-10 · 角色显示名五语言补全（2026-10-06 晚间，用户委托代替完成）
+
+- **落地**（`9a922a4`）：en/ja/ko/zh-TW 各补 88 键（doro/feibi 保留现值）→ char.* **5×90 全满**；
+  `KNOWN_DEBT_PREFIXES` 移除 `'char.'` → i18n-completeness 守卫转严格（3 passed）；
+  characters.ts defaultValue 兜底保留
+- **译名来源**（用户委托确认）：原神 17 角色用官方 localized 名（Albedo/神里綾華/タルタリヤ/…
+  ko 官方韩文名）；其它 IP 用官方/通行名（Gengar/竈門禰豆子/空条承太郎/サンジ/Pusheen/
+  Spider-Man/Slugcat/Kizuna AI/Puro 等）；原创素材（学习伙伴系列/猫咪系列）直译或既定转写；
+  溯源记录=工作表 CSV（已回填后入库）
+- **门禁**：tsc 0 错、eslint 0e0w、vitest 2872 passed / 11 skipped（226 文件，含转严守卫）
+- **环境插曲**：出包一度被 rustix 构建探针 panic 阻断（Windows 管道资源 231，长会话劣化）；
+  处置=`src-tauri/patches/rustix`（探针失败降级为特性关闭）+ `[patch.crates-io]` 接线
+  （本地路径源不校验 checksum，不会被 cargo 重解压覆盖）→ 出包 BUILD SUCCESSFUL。
+  **实机切语言走查因模拟器多次崩溃暂缓**（AVD LawnchairApi35 反复 adbd offline/qemu 退出，
+  建议重启 Windows 后再验）；本地化机制（withLocalizedName → t）此前已实机验证工作正常，
+  本次为纯数据扩充，回归风险低
+
 ## 发现汇总（回给研发）
 
 | # | 屏 | 现象 | 严重度 | 处置 | 提交 |
