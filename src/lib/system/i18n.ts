@@ -1737,7 +1737,7 @@ const ko = {
   'chat.sessions.pin': '세션 고정',
   'chat.sessions.unpin': '고정 해제',
   'chat.sessions.empty': '아직 세션이 없습니다. 위의 버튼으로 만들어 주세요',
-  'chat.sessions.msgCount': '메시지 {{count}}개',
+  'chat.sessions.msgCount': '메시지 {count}개',
   'chat.sessions.searchPlaceholder': '모든 세션 메시지 검색…',
   'chat.sessions.searchNoHit': '일치하는 메시지가 없습니다',
   'chat.thinkTitle': '속마음',
