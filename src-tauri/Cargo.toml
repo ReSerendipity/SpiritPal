@@ -13,12 +13,21 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+# 强制 indexmap 在 build-dependency 图里启用 std（tauri-build→tauri→schemars 链
+# 需要 indexmap 的 `IndexMap<K,V,S=RandomState>`，否则 schemars 0.8.22 的
+# `Map<K,V> = indexmap::IndexMap<K,V>` 在 no_std 变体下报 E0107）。
+# 注：indexmap 1.9.3 已移除 default=["std"]，schemars 0.8.22 仅开 serde-1，
+# 故需在此显式开启 std。
+indexmap = { version = "1.9.3", features = ["std"] }
 
 [dependencies]
 # 以下依赖均为跨平台通用依赖，不包含 Windows-only crate。
 # Windows 专用依赖（windows crate）见下方 [target.'cfg(windows)'.dependencies]。
 serde_json = "1"
 serde = { version = "1", features = ["derive"] }
+# 同 build-dependencies：强制 indexmap 在 normal 图里启用 std，
+# 否则 spiritpal-app→tauri→schemars 链里的 schemars 0.8.22 编不过（E0107）。
+indexmap = { version = "1.9.3", features = ["std"] }
 log = "0.4"
 tauri-plugin-log = "2"
 tauri-plugin-store = "2"
