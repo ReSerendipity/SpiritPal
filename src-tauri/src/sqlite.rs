@@ -426,6 +426,9 @@ fn ensure_schema(conn: &Connection) -> Result<(), String> {
         &[],
     )?;
     for idx in [
+        // P3-7 修复：sp_sem_facts_upsert 的 ON CONFLICT(character_id, fact_key) 需要唯一约束支撑，
+        // 否则语句编译期即失败——语义事实此前在生产环境一条都写不进去
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_semantic_facts_char_key ON memory_semantic_facts(character_id, fact_key)",
         "CREATE INDEX IF NOT EXISTS idx_semantic_facts_char ON memory_semantic_facts(character_id)",
         "CREATE INDEX IF NOT EXISTS idx_semantic_facts_key ON memory_semantic_facts(character_id, fact_key)",
         "CREATE INDEX IF NOT EXISTS idx_semantic_facts_importance ON memory_semantic_facts(character_id, importance DESC)",

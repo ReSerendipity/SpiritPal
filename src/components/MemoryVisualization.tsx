@@ -143,23 +143,27 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
     if (recentMemories.length === 0) return []
 
     // 按天聚合
-    const dailyMap = new Map<string, { total: number; count: number; maxIntensity: number }>()
+    const dailyMap = new Map<string, { total: number; count: number; maxIntensity: number; ts: number }>()
     for (const mem of recentMemories) {
       const date = new Date(mem.created_at)
       const key = `${date.getMonth() + 1}/${date.getDate()}`
-      const existing = dailyMap.get(key) ?? { total: 0, count: 0, maxIntensity: 0 }
+      const existing = dailyMap.get(key) ?? { total: 0, count: 0, maxIntensity: 0, ts: date.getTime() }
       existing.total += mem.emotionalIntensity
       existing.count += 1
       existing.maxIntensity = Math.max(existing.maxIntensity, mem.emotionalIntensity)
       dailyMap.set(key, existing)
     }
 
-    return Array.from(dailyMap.entries()).map(([date, stats]) => ({
-      date,
-      avgIntensity: stats.count > 0 ? stats.total / stats.count : 0,
-      maxIntensity: stats.maxIntensity,
-      count: stats.count,
-    }))
+    // 视觉回归发现 #2：Map 按插入序， memories 数组顺序≠时间序 → x 轴标签乱序；按日期升序
+    return Array.from(dailyMap.entries())
+      .map(([date, stats]) => ({
+        date,
+        ts: stats.ts,
+        avgIntensity: stats.count > 0 ? stats.total / stats.count : 0,
+        maxIntensity: stats.maxIntensity,
+        count: stats.count,
+      }))
+      .sort((a, b) => a.ts - b.ts)
   }, [memories, now])
 
   if (chartData.length === 0) {
