@@ -226,3 +226,20 @@ public/pets/
 # 已提交的 4 个 android 占位符与 windows-msvc 占位脚本不受影响（名字不同）。
 src-tauri/binaries/spiritpal-mcp-*-unknown-linux-gnu
 src-tauri/binaries/spiritpal-mcp-*-apple-darwin
+
+# --- 敏感信息防泄露（Git 版本控制安全工程与防泄露最佳实践指南 v1.1 第二章/第八章）---
+# 本仓已有 .env / *.pem / *.key / logs/ 规则；补齐私有钥命名、凭据文件与本地库。
+# 不加 .env.* —— 它会连 .env.example 一起匹配，与仓内 !.env.example 语义冲突。
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+credentials.json
+credentials.yaml
+credentials.yml
+secrets.json
+secrets.yaml
+secrets.yml
+*.sqlite
+*.sqlite3
+*.db
