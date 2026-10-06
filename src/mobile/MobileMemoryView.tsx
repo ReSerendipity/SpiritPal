@@ -161,7 +161,18 @@ export function MobileMemoryView() {
                 </div>
                 <div className="mt-1 text-sm text-ink">{fact.fact_value}</div>
                 <div className="mt-0.5 text-[10px] text-ink-faint">
-                  {t('memory.semanticSources', { count: fact.source_memory_ids.length })}
+                  {t('memory.semanticSources', {
+                    count: (() => {
+                      // P3-7 实机发现：DB 读回的 source_memory_ids 是 JSON 字符串，.length 会取字符数
+                      if (Array.isArray(fact.source_memory_ids)) return fact.source_memory_ids.length
+                      try {
+                        const parsed = JSON.parse(fact.source_memory_ids as unknown as string)
+                        return Array.isArray(parsed) ? parsed.length : 0
+                      } catch {
+                        return 0
+                      }
+                    })(),
+                  })}
                 </div>
               </div>
             ))
