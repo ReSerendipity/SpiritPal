@@ -611,7 +611,7 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
           aria-label={hudCollapsed ? t('mobile.hud.expand') : t('mobile.hud.collapse')}
           aria-expanded={!hudCollapsed}
           data-testid="hud-toggle"
-          className="flex h-7 w-7 items-center justify-center self-start rounded hover:bg-white/10"
+          className="relative flex h-7 w-7 items-center justify-center self-start rounded hover:bg-white/10 after:absolute after:-inset-2.5 after:content-['']"
         >
           {hudCollapsed ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
         </button>

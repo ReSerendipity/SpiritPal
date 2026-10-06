@@ -683,7 +683,7 @@ export function MobileChatView() {
             <button
               onClick={() => setSessionsOpen(false)}
               aria-label={t('app.close')}
-              className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-ink/5"
+              className="relative flex h-9 w-9 items-center justify-center rounded-full hover:bg-ink/5 after:absolute after:-inset-2 after:content-['']"
             >
               <X size={18} />
             </button>
