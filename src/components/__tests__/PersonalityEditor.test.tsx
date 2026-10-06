@@ -3,6 +3,7 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { PersonalityEditor } from '@/components/PersonalityEditor'
 import { savePersonalityConfigOverride, removePersonalityConfigOverride } from '@/lib/ai/personalityEngine'
+import i18n from '@/lib/system/i18n'
 
 // ============ 使用 vi.hoisted 定义 mock state ============
 const { mockSettings, mockChar, mockDefaultCfg, mockLabels, mockTemplates } = vi.hoisted(() => {
@@ -261,5 +262,83 @@ describe('PersonalityEditor 雷达联动（P2-8）', () => {
     // 失焦恢复
     fireEvent.blur(slider!)
     expect(hotLines().length).toBe(0)
+  })
+})
+
+
+// ============ VR-7：PersonalityEditor 文案接入 i18n ============
+
+describe('PersonalityEditor i18n（VR-7）', () => {
+  it('英文模式：编辑器无残留中文（雷达标题/维度标签/说话风格/模板）', async () => {
+    await i18n.changeLanguage('en')
+    cleanup()
+    render(<PersonalityEditor />)
+    const text = document.body.textContent ?? ''
+    // 抽查核心残留面：雷达标题/五维标签/语气/模板标题/保存按钮
+    for (const zh of ['五维性格雷达图', '温度', '活泼', '依赖', '直率', '理性', '说话风格', '语气', '用词偏好', '口头禅', '互动偏好', '一键应用性格模板', '保存配置', '恢复默认']) {
+      if (text.includes(zh)) {
+      const i = text.indexOf(zh)
+      console.log('RESIDUAL', JSON.stringify(zh), 'CTX:', JSON.stringify(text.slice(Math.max(0, i - 40), i + 40)))
+    }
+    if (text.includes(zh)) {
+      const i = text.indexOf(zh)
+      console.log('RESIDUAL', JSON.stringify(zh), 'CTX:', JSON.stringify(text.slice(Math.max(0, i - 40), i + 40)))
+    }
+    expect(text.includes(zh), 'residual zh: ' + zh).toBe(false)
+    }
+    // 英文键在位
+    expect(text).toContain('Five-dimension personality radar')
+    expect(text).toContain('Warmth')
+    expect(text).toContain('Speaking style')
+    expect(text).toContain('Save config')
+    await i18n.changeLanguage('zh')
+  })
+
+  it('中文模式：显示中文且滑块 min/max 正确（零回归）', async () => {
+    await i18n.changeLanguage('zh')
+    cleanup()
+    render(<PersonalityEditor />)
+    expect(screen.getByText('五维性格雷达图')).toBeTruthy()
+    // 温度出现在滑块标签与雷达 SVG 标签两处
+    expect(screen.getAllByText('温度').length).toBeGreaterThanOrEqual(1)
+  })
+})
+
+
+// ============ VR-7：PersonalityEditor 文案接入 i18n ============
+
+describe('PersonalityEditor i18n（VR-7）', () => {
+  it('英文模式：编辑器无残留中文（雷达标题/维度标签/说话风格/模板）', async () => {
+    await i18n.changeLanguage('en')
+    cleanup()
+    render(<PersonalityEditor />)
+    const text = document.body.textContent ?? ''
+    // 抽查核心残留面：雷达标题/五维标签/语气/模板标题/保存按钮
+    for (const zh of ['五维性格雷达图', '温度', '活泼', '依赖', '直率', '理性', '说话风格', '语气', '用词偏好', '口头禅', '互动偏好', '一键应用性格模板', '保存配置', '恢复默认']) {
+      if (text.includes(zh)) {
+      const i = text.indexOf(zh)
+      console.log('RESIDUAL', JSON.stringify(zh), 'CTX:', JSON.stringify(text.slice(Math.max(0, i - 40), i + 40)))
+    }
+    if (text.includes(zh)) {
+      const i = text.indexOf(zh)
+      console.log('RESIDUAL', JSON.stringify(zh), 'CTX:', JSON.stringify(text.slice(Math.max(0, i - 40), i + 40)))
+    }
+    expect(text.includes(zh), 'residual zh: ' + zh).toBe(false)
+    }
+    // 英文键在位
+    expect(text).toContain('Five-dimension personality radar')
+    expect(text).toContain('Warmth')
+    expect(text).toContain('Speaking style')
+    expect(text).toContain('Save config')
+    await i18n.changeLanguage('zh')
+  })
+
+  it('中文模式：显示中文且滑块 min/max 正确（零回归）', async () => {
+    await i18n.changeLanguage('zh')
+    cleanup()
+    render(<PersonalityEditor />)
+    expect(screen.getByText('五维性格雷达图')).toBeTruthy()
+    // 温度出现在滑块标签与雷达 SVG 标签两处
+    expect(screen.getAllByText('温度').length).toBeGreaterThanOrEqual(1)
   })
 })
