@@ -1,0 +1,18 @@
+# SpiritPal · gitleaks 路径级豁免表（Git 合规检查 2026-10-07 定性）
+# 原则：只豁免「已定性为误报/已归档」的路径，永不豁免未来新增的真实凭据。
+# 口径来源：gitleaks 全历史扫描 172 条 → 163 条 gh-research 归档网页（已移出当前树），
+#          7 条测试夹具假凭据（redact/记忆测试），1 条已撤销的 sk- key（用户已确认删除）。
+# 若在这些路径外出现新命中，门禁仍会拦截并要求登记。
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "已定性的历史命中：归档研究网页 + 测试夹具 + 已撤销 key 的分析文档"
+paths = [
+  '''docs/gh-research/''',
+  '''docs/project/生成桌面宠物项目技术分析报告\.md''',
+  '''src/lib/__tests__/redactErrorText\.test\.ts''',
+  '''src/lib/__tests__/enhancedMemory-misc\.test\.ts''',
+  '''src/lib/__tests__/enhancedMemory\.test\.ts''',
+]
