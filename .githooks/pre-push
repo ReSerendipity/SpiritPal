@@ -6,7 +6,7 @@
 #   2) 否则 -> 退回根目录守卫 structure-guard
 if command -v gitleaks >/dev/null 2>&1; then
     echo "[pre-push] gitleaks 推送前密钥扫描 ..."
-    if ! gitleaks git pre-push; then
+    if ! gitleaks git --no-banner; then
         echo "[pre-push] gitleaks 检出敏感内容，推送被拦。修复后重推，或 --no-verify（需显式授权）" >&2
         exit 1
     fi
