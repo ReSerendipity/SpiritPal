@@ -2,8 +2,8 @@
 """分支保护漂移检测 / 幂等应用（单一来源 docs/ci/branch-protection.json）。
 
 用法：
-    python scripts/apply_branch_protection.py            # 只读漂移检测
-    python scripts/apply_branch_protection.py --apply     # 幂等写入远端
+    python docs/ci/apply_branch_protection.py            # 只读漂移检测（默认）
+    python docs/ci/apply_branch_protection.py --apply     # 显式幂等写入远端
 """
 
 from __future__ import annotations

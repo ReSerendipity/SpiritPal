@@ -1,10 +1,10 @@
 {
-  "_comment": "分支保护单一来源。改这里 → 跑 scripts/apply_branch_protection.py --apply。",
+  "_comment": "分支保护单一来源。改这里 → 先跑 python docs/ci/apply_branch_protection.py 做只读漂移检测（默认，不写远端），确认无误后再显式加 --apply 幂等写入。",
   "owner": "ReSerendipity",
   "repo": "SpiritPal",
   "branch": "main",
   "policy": {
-    "required_approving_review_count": 0,
+    "required_approving_review_count": 1,
     "dismiss_stale_reviews": true,
     "require_code_owner_reviews": false,
     "require_last_push_approval": false,
