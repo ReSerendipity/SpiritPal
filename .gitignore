@@ -255,3 +255,7 @@ service-account.json
 .gcloud/
 *.p12
 *.pfx
+
+# vendored 补丁 crate 自带的 Cargo.lock：实际解析由 workspace 根 src-tauri/Cargo.lock 决定，
+# 该文件不参与构建；提交它只会让 Dependabot 误扫其中未使用的传递依赖（如 atty）。不入库（2026-10-08）。
+src-tauri/patches/**/Cargo.lock
