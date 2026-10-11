@@ -4,6 +4,8 @@ MSG="$1"
 [ -z "$MSG" ] && exit 0
 [ -f "$MSG" ] || exit 0
 SUBJECT=$(grep -v '^#' "$MSG" | grep -v '^[[:space:]]*$' | head -1)
+# 防御：剥离 UTF-8 BOM（某些编辑器写的提交信息文件带 BOM，会破坏 ^ 锚点匹配）
+SUBJECT=$(printf '%s' "$SUBJECT" | sed '1s/^\xEF\xBB\xBF//')
 case "$SUBJECT" in
     Merge*|Revert*|"fixup!"*|"squash!"*) exit 0 ;;
 esac
@@ -17,7 +19,14 @@ LEN=$(printf '%s' "$SUBJECT" | wc -m | tr -d ' ')
 if [ "${LEN:-0}" -gt 72 ] 2>/dev/null; then
     echo "[commit-msg] 提示：标题 ${LEN} 字符，建议不超过 72。"
 fi
+# P2-6：conventional 格式硬校验（评估报告建议：软提示升级为硬拦截）。
+# 仓库历史提交实际遵循度已高（git log 全为 feat/fix/chore/docs/refactor + scope 规范），
+# 升级为硬校验不会阻碍正常提交流程；Merge/Revert/fixup!/squash! 已在上方豁免。
 if ! printf '%s' "$SUBJECT" | grep -qE '^[A-Za-z]+(\([^)]*\))?!?: .+'; then
-    echo "[commit-msg] 提示：标题建议用 conventional 格式，如 feat(core): 描述"
+    echo "[commit-msg] 提交标题必须使用 conventional 格式。" >&2
+    echo "  示例：feat(core): 添加新功能 / fix(ipc): 修复超时 / refactor(pet): 拆分面板 / docs(ci): 更新说明" >&2
+    echo "  修复：git commit --amend -m 'feat(scope): 描述'" >&2
+    echo "  绕过：git commit --no-verify (不推荐)" >&2
+    exit 1
 fi
 exit 0
