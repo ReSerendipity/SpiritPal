@@ -34,7 +34,7 @@
  * - @tauri-apps/api/core: Tauri invoke API
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 import { isMobileRuntime } from './platform'
 
 // ============ Widget 状态接口 ============
@@ -132,7 +132,7 @@ export function parseWidgetDeepLink(url: string): WidgetDeepLink | null {
 export async function syncWidgetState(state: WidgetState): Promise<void> {
   try {
     // 使用 Tauri invoke 调用 Rust 后端写入共享文件
-    await invoke('sync_widget_state', { state: JSON.stringify(state) })
+    await tauriInvokeNoRetry('sync_widget_state', { state: JSON.stringify(state) })
   } catch (e) {
     // Widget 同步失败不应阻断主应用，静默忽略
     console.warn('[widgetState] syncWidgetState failed:', e)
@@ -146,7 +146,7 @@ export async function syncWidgetState(state: WidgetState): Promise<void> {
  */
 export async function readWidgetState(): Promise<WidgetState | null> {
   try {
-    const raw = await invoke<string>('read_widget_state')
+    const raw = await tauriInvokeNoRetry<string>('read_widget_state')
     if (!raw) return null
     return JSON.parse(raw) as WidgetState
   } catch {
@@ -225,9 +225,7 @@ export async function handleWidgetDeepLink(url: string): Promise<boolean> {
       // 小组件传来的 item_id（如 apple）仅是提示：背包无精确匹配时回退首个可消耗食物。
       const { usePetStore } = await import('@/stores/petStore')
       const st = usePetStore.getState()
-      const exact = link.itemId
-        ? st.inventory.find((i) => i.id === link.itemId && i.count > 0)
-        : undefined
+      const exact = link.itemId ? st.inventory.find((i) => i.id === link.itemId && i.count > 0) : undefined
       const target = exact ?? st.inventory.find((i) => i.type === 'food' && i.count > 0)
       if (!target) return false
       st.useItem(target.id)
@@ -235,7 +233,7 @@ export async function handleWidgetDeepLink(url: string): Promise<boolean> {
     }
     case 'pet': {
       // 激活宠物窗口（Rust 端真实存在的命令：lib.rs show_pet_window）
-      await invoke('show_pet_window')
+      await tauriInvokeNoRetry('show_pet_window')
       return true
     }
     case 'open_chat':
@@ -278,10 +276,7 @@ let syncInterval: ReturnType<typeof setInterval> | null = null
  * @param getState 获取最新状态的函数
  * @param intervalMs 同步间隔（毫秒），默认 30 秒
  */
-export function startWidgetAutoSync(
-  getState: () => WidgetState,
-  intervalMs = 30_000,
-): void {
+export function startWidgetAutoSync(getState: () => WidgetState, intervalMs = 30_000): void {
   // 清除之前的监听器
   stopWidgetAutoSync()
 

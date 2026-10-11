@@ -3,8 +3,8 @@
  * @description 加密 Storage 适配器 — 为 Zustand persist 中间件提供 AES-256-GCM 加密的 localStorage
  *
  * 安全设计：
- * - 写入时：JSON.stringify → invoke('encrypt_data') → localStorage.setItem(密文)
- * - 读取时：localStorage.getItem(密文) → invoke('decrypt_data') → JSON.parse(明文)
+ * - 写入时：JSON.stringify → tauriInvokeNoRetry<string>('encrypt_data') → localStorage.setItem(密文)
+ * - 读取时：localStorage.getItem(密文) → tauriInvoke<string>('decrypt_data') → JSON.parse(明文)
  * - 密钥来源：Rust 端使用机器 ID 派生（PBKDF2-HMAC-SHA256，100,000 次迭代）
  * - 降级策略：Tauri 环境不可用时（如测试环境）回退到明文 localStorage + console.warn
  *
@@ -18,7 +18,8 @@
  * @module lib/encryptedStorage
  */
 
-import { invoke, isTauri } from '@tauri-apps/api/core'
+import { isTauri } from '@tauri-apps/api/core'
+import { tauriInvoke, tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 import type { StateStorage } from 'zustand/middleware'
 
 /**
@@ -75,7 +76,7 @@ export const encryptedStorage: StateStorage = {
         return null
       }
       try {
-        const decrypted = await invoke<string>('decrypt_data', { encrypted: raw, password: '' })
+        const decrypted = await tauriInvoke<string>('decrypt_data', { encrypted: raw, password: '' })
         return decrypted
       } catch (e) {
         console.error('[encryptedStorage] Decryption failed:', e)
@@ -102,7 +103,7 @@ export const encryptedStorage: StateStorage = {
     }
 
     try {
-      const encrypted = await invoke<string>('encrypt_data', { data: value, password: '' })
+      const encrypted = await tauriInvokeNoRetry<string>('encrypt_data', { data: value, password: '' })
       localStorage.setItem(name, encrypted)
     } catch (e) {
       console.error('[encryptedStorage] Encryption failed, falling back to plaintext:', e)

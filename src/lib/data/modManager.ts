@@ -31,11 +31,11 @@
  * └── sprites/         # 精灵图资源
  */
 
-import { invoke } from '@tauri-apps/api/core'
 import { appDataDir, join } from '@tauri-apps/api/path'
 import { open as openDialog, ask as askDialog } from '@tauri-apps/plugin-dialog'
 import { readTextFile, exists } from '@tauri-apps/plugin-fs'
 import { DEFAULT_ANIMATIONS, type AnimationDef } from '@/lib/ai/behaviorEngine'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 import { saveMod, getMods, deleteMod, updateModEnabled } from './db'
 import { detectModConflicts, type ModConflict } from './modConflictResolver'
 import type { CharacterProfile, Personality, InventoryItem } from './types'
@@ -532,7 +532,7 @@ export class ModManager {
   async scanLocalMods(dirPath?: string): Promise<ScannedModInfo[]> {
     try {
       const targetDir = dirPath ?? (await this.getModsDir())
-      const result = await invoke<{ mods: ScannedModInfo[] }>('scan_mods_directory', {
+      const result = await tauriInvokeNoRetry<{ mods: ScannedModInfo[] }>('scan_mods_directory', {
         dirPath: targetDir,
       })
       return result.mods
@@ -593,7 +593,7 @@ export class ModManager {
     // 3. 调用后端解压 + 校验
     let importResult: { success: boolean; modId: string; sha256: string; error?: string }
     try {
-      importResult = await invoke<{
+      importResult = await tauriInvokeNoRetry<{
         success: boolean
         modId: string
         sha256: string
@@ -771,7 +771,7 @@ export class ModManager {
    */
   async computeSha256(filePath: string): Promise<string | null> {
     try {
-      return await invoke<string>('compute_sha256', { filePath })
+      return await tauriInvokeNoRetry<string>('compute_sha256', { filePath })
     } catch (e) {
       console.error('[modManager] computeSha256 failed:', e)
       return null
@@ -859,9 +859,7 @@ export function createModTemplate(): CharacterMod {
     },
     dialogueConf: {
       systemPrompt: '你是一个可爱的虚拟宠物，请用温暖可爱的语气回答主人。',
-      fewShotExamples: [
-        { user: '你好', assistant: '你好呀！很高兴见到你！' },
-      ],
+      fewShotExamples: [{ user: '你好', assistant: '你好呀！很高兴见到你！' }],
       bubbleMessages: {
         idle: ['在想什么呢～', '今天也要加油哦！'],
         hungry: ['肚子饿了……'],

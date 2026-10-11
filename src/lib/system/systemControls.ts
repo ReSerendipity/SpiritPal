@@ -30,7 +30,7 @@
  * PRD Phase 4: 音量/亮度快捷控制
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 
 /** localStorage 存储键 */
 const STORAGE_KEY = 'spiritpal-system-controls'
@@ -73,7 +73,9 @@ class SystemControlsManager {
         const parsed = JSON.parse(raw)
         this.state = { ...this.state, ...parsed }
       }
-    } catch { /* 忽略解析错误 */ }
+    } catch {
+      /* 忽略解析错误 */
+    }
   }
 
   /**
@@ -82,7 +84,9 @@ class SystemControlsManager {
   private save(): void {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state))
-    } catch { /* 忽略存储错误 */ }
+    } catch {
+      /* 忽略存储错误 */
+    }
     this.notifyListeners()
   }
 
@@ -123,7 +127,7 @@ class SystemControlsManager {
     this.save()
     // [Tauri Review] 注意：set_system_volume 命令尚未在 Rust 端实现，当前仅更新本地状态
     try {
-      await invoke('set_system_volume', { volume: clamped })
+      await tauriInvokeNoRetry('set_system_volume', { volume: clamped })
     } catch {
       // Tauri 命令不可用时仅更新本地状态
     }
@@ -150,8 +154,10 @@ class SystemControlsManager {
     }
     this.save()
     try {
-      await invoke('set_system_volume', { volume: this.state.volume })
-    } catch { /* 忽略 Tauri 命令错误 */ }
+      await tauriInvokeNoRetry('set_system_volume', { volume: this.state.volume })
+    } catch {
+      /* 忽略 Tauri 命令错误 */
+    }
   }
 
   // ============ 亮度控制 ============
@@ -166,7 +172,7 @@ class SystemControlsManager {
     this.save()
     // [Tauri Review] 注意：set_system_brightness 命令尚未在 Rust 端实现，当前仅更新本地状态
     try {
-      await invoke('set_system_brightness', { brightness: clamped })
+      await tauriInvokeNoRetry('set_system_brightness', { brightness: clamped })
     } catch {
       // Tauri 命令不可用时仅更新本地状态
     }

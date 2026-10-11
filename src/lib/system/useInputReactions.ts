@@ -13,9 +13,9 @@
  * 全局监听由 Rust 端 start_device_listening 提供（幂等）；权限未授予时静默降级。
  */
 
-import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { useEffect, useRef } from 'react'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 
 export interface InputReactionHandlers {
   /** 光标移动（~60ms 节流；x/y 归一化到屏幕中心，范围 -1..1） */
@@ -45,7 +45,7 @@ export function useInputReactions(handlers: InputReactionHandlers = {}): void {
     let active = true
 
     // 确保 Rust 端全局监听已启动（macOS 需授权「输入监视」，未授权时静默）
-    invoke('start_device_listening').catch(() => {
+    tauriInvokeNoRetry('start_device_listening').catch(() => {
       /* 权限未授予时静默降级 */
     })
 

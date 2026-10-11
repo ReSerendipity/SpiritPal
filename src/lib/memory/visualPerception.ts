@@ -31,7 +31,7 @@
  * - @tauri-apps/api/core: Tauri invoke API（调用 Rust 后端截屏/窗口检测）
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 
 // ============ 配置常量 ============
 
@@ -112,7 +112,10 @@ export interface VisualCallbacks {
   /** 自定义截屏函数（用于测试或不同平台） */
   onCaptureScreen?: () => Promise<string>
   /** 自定义 LLM Vision 分析函数 */
-  onLLMAnalyze?: (imageBase64: string, windowInfo: ActiveWindowInfo) => Promise<{
+  onLLMAnalyze?: (
+    imageBase64: string,
+    windowInfo: ActiveWindowInfo,
+  ) => Promise<{
     userActivity: string
     inferredWorkState: string
     relevantTopics: string[]
@@ -159,10 +162,7 @@ export class VisualPerceptionManager {
    * @param callbacks 回调配置
    * @param options 配置选项
    */
-  constructor(
-    callbacks: VisualCallbacks = {},
-    options: { captureIntervalMs?: number } = {},
-  ) {
+  constructor(callbacks: VisualCallbacks = {}, options: { captureIntervalMs?: number } = {}) {
     this.callbacks = callbacks
     this.intervalMs = options.captureIntervalMs ?? DEFAULT_CAPTURE_INTERVAL_MS
   }
@@ -218,9 +218,8 @@ export class VisualPerceptionManager {
     if (!this.isRunning) return
 
     // 根据失败次数调整间隔
-    const delay = this.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES
-      ? this.intervalMs + DEGRADATION_DELAY_MS
-      : this.intervalMs
+    const delay =
+      this.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES ? this.intervalMs + DEGRADATION_DELAY_MS : this.intervalMs
 
     this.captureTimer = setTimeout(() => {
       this.performCapture().finally(() => {
@@ -258,11 +257,7 @@ export class VisualPerceptionManager {
       let analysis: VisualAnalysis
       if (this.callbacks.onVisionAnalyzeEnhanced) {
         // P2: Vision LLM 增强分析（含活动历史）
-        const result = await this.callbacks.onVisionAnalyzeEnhanced(
-          imageBase64,
-          windowInfo,
-          this.activityHistory,
-        )
+        const result = await this.callbacks.onVisionAnalyzeEnhanced(imageBase64, windowInfo, this.activityHistory)
         analysis = {
           ...result,
           window: windowInfo,
@@ -330,7 +325,7 @@ export class VisualPerceptionManager {
 
     // 默认实现：通过 Rust 后端截屏（C 类: system_tools.rs 已实现）
     try {
-      const result = await invoke<{ image_data: string; width: number; height: number }>(
+      const result = await tauriInvokeNoRetry<{ image_data: string; width: number; height: number }>(
         'take_screenshot',
         { maxWidth: 512, quality: 30 },
       )
@@ -350,7 +345,7 @@ export class VisualPerceptionManager {
    */
   private async getActiveWindow(): Promise<ActiveWindowInfo> {
     try {
-      const info = await invoke<{ title: string; process_name: string }>('get_active_window')
+      const info = await tauriInvokeNoRetry<{ title: string; process_name: string }>('get_active_window')
       return {
         title: info.title,
         processName: info.process_name,
@@ -419,14 +414,12 @@ export class VisualPerceptionManager {
     }
 
     // 切换到编程工作
-    if (analysis.inferredWorkState === 'coding' &&
-        this.lastAnalysis?.inferredWorkState !== 'coding') {
+    if (analysis.inferredWorkState === 'coding' && this.lastAnalysis?.inferredWorkState !== 'coding') {
       return true
     }
 
     // 切换到会议
-    if (analysis.inferredWorkState === 'meeting' &&
-        this.lastAnalysis?.inferredWorkState !== 'meeting') {
+    if (analysis.inferredWorkState === 'meeting' && this.lastAnalysis?.inferredWorkState !== 'meeting') {
       return true
     }
 
@@ -459,8 +452,8 @@ export class VisualPerceptionManager {
 
       // 检测窗口变化（进程名或标题变化）
       const processChanged = currentWindow.processName !== this.lastWindow.processName
-      const titleChanged = currentWindow.title !== this.lastWindow.title
-        && currentWindow.processName === this.lastWindow.processName
+      const titleChanged =
+        currentWindow.title !== this.lastWindow.title && currentWindow.processName === this.lastWindow.processName
 
       if (processChanged || titleChanged) {
         const oldWindow = { ...this.lastWindow }
@@ -548,7 +541,7 @@ export class VisualPerceptionManager {
     topProcess: string
   } {
     const cutoff = Date.now() - minutes * 60_000
-    const recent = this.activityHistory.filter(r => r.timestamp >= cutoff)
+    const recent = this.activityHistory.filter((r) => r.timestamp >= cutoff)
 
     // 状态分布
     const stateCount: Record<string, number> = {}

@@ -18,6 +18,7 @@
 
 import { saveCustomCharacter } from '@/lib/data/characters'
 import type { CharacterProfile } from '@/lib/data/types'
+import { tauriInvoke } from '@/lib/system/tauriInvoker'
 import {
   extractCharCardFromPNG,
   parseCharCardFromJSON,
@@ -232,10 +233,8 @@ async function importFromSillyTavernCard(card: SillyTavernCharacterCard): Promis
 async function importFromDirectory(dirPath: string): Promise<UnifiedImportResult> {
   try {
     // 动态 import 避免在非 Tauri 环境报错
-    const { invoke } = await import('@tauri-apps/api/core')
-
     // 1. 扫描目录
-    const dirs: string[] = await invoke('scan_character_directory', { path: dirPath })
+    const dirs: string[] = await tauriInvoke('scan_character_directory', { path: dirPath })
 
     if (!dirs || dirs.length === 0) {
       return {
@@ -247,7 +246,7 @@ async function importFromDirectory(dirPath: string): Promise<UnifiedImportResult
 
     // 2. 读取第一个 pet.json（单次导入，批量留给后续迭代）
     const firstDir = dirs[0]!
-    const petJsonStr: string = await invoke('read_text_file', { path: `${firstDir}/pet.json` })
+    const petJsonStr: string = await tauriInvoke('read_text_file', { path: `${firstDir}/pet.json` })
 
     // 3. 解析
     const packResult = parseCharacterPackFromJSON(petJsonStr)

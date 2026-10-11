@@ -30,7 +30,7 @@
  * - API Key 的 key 格式：api-key-${providerId}
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 
 // ============ 底层 Keychain 封装 ============
 
@@ -42,7 +42,7 @@ import { invoke } from '@tauri-apps/api/core'
  * @throws 调用 Tauri 命令失败时抛出异常
  */
 export async function setSecret(key: string, value: string): Promise<void> {
-  await invoke('set_secret', { key, value })
+  await tauriInvokeNoRetry('set_secret', { key, value })
 }
 
 /**
@@ -52,7 +52,7 @@ export async function setSecret(key: string, value: string): Promise<void> {
  * @throws 调用 Tauri 命令失败时抛出异常
  */
 export async function getSecret(key: string): Promise<string | null> {
-  return await invoke<string | null>('get_secret', { key })
+  return await tauriInvokeNoRetry<string | null>('get_secret', { key })
 }
 
 /**
@@ -62,7 +62,7 @@ export async function getSecret(key: string): Promise<string | null> {
  * @throws 调用 Tauri 命令失败时抛出异常
  */
 export async function deleteSecret(key: string): Promise<void> {
-  await invoke('delete_secret', { key })
+  await tauriInvokeNoRetry('delete_secret', { key })
 }
 
 // ============ API Key 专用封装 ============

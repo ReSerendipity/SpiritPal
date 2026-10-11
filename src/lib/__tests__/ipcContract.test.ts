@@ -375,7 +375,10 @@ function extractRustCommandParams(): Map<string, RustCommandInfo> {
           // 支持各种参数模式: name: Type, name: &str, app_handle: AppHandle, state: State<'_, T>
           const params: string[] = []
           if (paramsStr) {
-            const paramParts = paramsStr.split(',').map(p => p.trim()).filter(p => p)
+            const paramParts = paramsStr
+              .split(',')
+              .map((p) => p.trim())
+              .filter((p) => p)
             for (const param of paramParts) {
               // 提取参数名（冒号前的部分）
               const colonIdx = param.indexOf(':')
@@ -402,6 +405,11 @@ function extractRustCommandParams(): Map<string, RustCommandInfo> {
 // 辅助函数：从前端源码中提取 invoke('...') 调用的命令名
 // ============================================================
 
+/** 剥离 TS/JS 注释（单行 // 与块级注释），避免文档示例被误认为真实调用 */
+function stripComments(src: string): string {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+}
+
 function extractFrontendInvokeCalls(): Map<string, string[]> {
   const calls = new Map<string, string[]>()
   const srcDir = path.resolve(__dirname, '../../')
@@ -414,9 +422,11 @@ function extractFrontendInvokeCalls(): Map<string, string[]> {
         if (entry.name === '__tests__' || entry.name === 'node_modules') continue
         scanDir(fullPath)
       } else if (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) {
-        const content = fs.readFileSync(fullPath, 'utf-8')
+        const content = stripComments(fs.readFileSync(fullPath, 'utf-8'))
         // 支持 TypeScript 泛型：invoke<T>('cmd') 和 invoke<{ key: T }>('cmd')
-        const regex = /invoke\s*(?:<[^>]*>)?\s*\(\s*['"]([^'"]+)['"]/g
+        // 评估 P0-1 后调用方迁移到 tauriInvoke/tauriInvokeNoRetry 封装，此处一并匹配三种调用形式，
+        // 否则契约测试会漏检封装后的命令（静默削弱门禁）。
+        const regex = /(?:invoke|tauriInvoke|tauriInvokeNoRetry)\s*(?:<[^>]*>)?\s*\(\s*['"]([^'"]+)['"]/g
         let match: RegExpExecArray | null
         while ((match = regex.exec(content)) !== null) {
           const cmd = match[1]
@@ -460,10 +470,11 @@ function extractFrontendInvokeParams(): Map<string, string[]> {
         if (entry.name === '__tests__' || entry.name === 'node_modules') continue
         scanDir(fullPath)
       } else if (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) {
-        const content = fs.readFileSync(fullPath, 'utf-8')
-        // 匹配 invoke('cmd', { key1: val1, key2: val2 }) 的参数名
-        // 也匹配 invoke('cmd') 无参数的情况
-        const regex = /invoke\s*(?:<[^>]*>)?\s*\(\s*['"]([^'"]+)['"]\s*(?:,\s*\{([^}]*)\})?\s*\)/g
+        const content = stripComments(fs.readFileSync(fullPath, 'utf-8'))
+        // 匹配 invoke/tauriInvoke/tauriInvokeNoRetry('cmd', { key1: val1, key2: val2 }) 的参数名
+        // 也匹配 invoke('cmd') 无参数的情况（评估 P0-1 迁移后三种调用形式一并采集）
+        const regex =
+          /(?:invoke|tauriInvoke|tauriInvokeNoRetry)\s*(?:<[^>]*>)?\s*\(\s*['"]([^'"]+)['"]\s*(?:,\s*\{([^}]*)\})?\s*\)/g
         // Gotcha #46 盲区修复：别名解构的 invoke 调用一并采集参数
         const aliasRegex = /const\s*\{\s*invoke\s*:\s*(\w+)\s*\}/g
         const aliases = new Set<string>()
@@ -476,23 +487,23 @@ function extractFrontendInvokeParams(): Map<string, string[]> {
           )
         }
         for (const callRegex of callRegexes) {
-        let match: RegExpExecArray | null
-        while ((match = callRegex.exec(content)) !== null) {
-          const cmd = match[1]
-          const paramsStr = match[2] || ''
-          const params: string[] = []
-          if (paramsStr.trim()) {
-            // 提取对象字面量的键名
-            const keyRegex = /(\w+)\s*:/g
-            let keyMatch: RegExpExecArray | null
-            while ((keyMatch = keyRegex.exec(paramsStr)) !== null) {
-              params.push(keyMatch[1])
+          let match: RegExpExecArray | null
+          while ((match = callRegex.exec(content)) !== null) {
+            const cmd = match[1]
+            const paramsStr = match[2] || ''
+            const params: string[] = []
+            if (paramsStr.trim()) {
+              // 提取对象字面量的键名
+              const keyRegex = /(\w+)\s*:/g
+              let keyMatch: RegExpExecArray | null
+              while ((keyMatch = keyRegex.exec(paramsStr)) !== null) {
+                params.push(keyMatch[1])
+              }
             }
-          }
-          // 如果命令已存在，合并参数（取并集）
-          const existing = paramMap.get(cmd) || []
-          const merged = [...new Set([...existing, ...params])]
-          paramMap.set(cmd, merged)
+            // 如果命令已存在，合并参数（取并集）
+            const existing = paramMap.get(cmd) || []
+            const merged = [...new Set([...existing, ...params])]
+            paramMap.set(cmd, merged)
           }
         }
       }
@@ -603,7 +614,9 @@ describe('IPC 契约测试', () => {
     }
 
     if (unregistered.length > 0) {
-      console.warn('以下 #[tauri::command] 未在 generate_handler 中注册:\n' + unregistered.map(c => `  ${c}`).join('\n'))
+      console.warn(
+        '以下 #[tauri::command] 未在 generate_handler 中注册:\n' + unregistered.map((c) => `  ${c}`).join('\n'),
+      )
     }
     expect(unregistered.length).toBeLessThan(rustCommands.size * 0.3)
   })
@@ -682,7 +695,7 @@ describe('IPC 契约测试', () => {
           const rustInfo = rustCommandParams.get(contract.command)
           expect(rustInfo).toBeDefined()
           if (rustInfo) {
-            const expectedParamNames = contract.expectedParams.map(p => p.name)
+            const expectedParamNames = contract.expectedParams.map((p) => p.name)
             const rustParamNames = rustInfo.params
 
             // T-02: 验证预期参数在 Rust 参数列表中（宽松校验）
@@ -691,7 +704,7 @@ describe('IPC 契约测试', () => {
               // 检查参数名是否匹配（允许 camelCase ↔ snake_case 转换）
               const camelVersion = expectedParam.replace(/_([a-z])/g, (_, c) => c.toUpperCase())
               const hasMatch = rustParamNames.some(
-                p => p === expectedParam || p === camelVersion || p.toLowerCase() === expectedParam.toLowerCase()
+                (p) => p === expectedParam || p === camelVersion || p.toLowerCase() === expectedParam.toLowerCase(),
               )
               if (!hasMatch && rustParamNames.length === 0) {
                 // 参数可能通过 Tauri 宏自动从 serde rename 绑定，rustParamNames 为空时跳过
@@ -737,7 +750,7 @@ describe('IPC 契约测试', () => {
       for (const cmd of sensitiveCommands) {
         const frontendParams = frontendInvokeParams.get(cmd) || []
         for (const param of frontendParams) {
-          if (sensitiveParamNames.some(s => param.toLowerCase().includes(s))) {
+          if (sensitiveParamNames.some((s) => param.toLowerCase().includes(s))) {
             foundSensitive = true
           }
         }
@@ -754,37 +767,38 @@ describe('IPC 契约测试', () => {
       // 验证所有 COMMAND_CONTRACTS 中的命令都有明确的返回类型
       for (const contract of COMMAND_CONTRACTS) {
         expect(contract.expectedReturnType).toBeDefined()
-        expect(['string', 'number', 'boolean', 'object', 'array', 'null', 'void', 'unknown'])
-          .toContain(contract.expectedReturnType)
+        expect(['string', 'number', 'boolean', 'object', 'array', 'null', 'void', 'unknown']).toContain(
+          contract.expectedReturnType,
+        )
       }
     })
 
     it('加密命令返回字符串类型', () => {
-      const encryptContract = COMMAND_CONTRACTS.find(c => c.command === 'encrypt_data')
+      const encryptContract = COMMAND_CONTRACTS.find((c) => c.command === 'encrypt_data')
       expect(encryptContract).toBeDefined()
       expect(encryptContract!.expectedReturnType).toBe('string')
 
-      const decryptContract = COMMAND_CONTRACTS.find(c => c.command === 'decrypt_data')
+      const decryptContract = COMMAND_CONTRACTS.find((c) => c.command === 'decrypt_data')
       expect(decryptContract).toBeDefined()
       expect(decryptContract!.expectedReturnType).toBe('string')
     })
 
     it('系统查询命令返回正确类型', () => {
-      const idleContract = COMMAND_CONTRACTS.find(c => c.command === 'get_idle_time')
+      const idleContract = COMMAND_CONTRACTS.find((c) => c.command === 'get_idle_time')
       expect(idleContract).toBeDefined()
       expect(idleContract!.expectedReturnType).toBe('number')
 
-      const windowContract = COMMAND_CONTRACTS.find(c => c.command === 'get_active_window')
+      const windowContract = COMMAND_CONTRACTS.find((c) => c.command === 'get_active_window')
       expect(windowContract).toBeDefined()
       expect(windowContract!.expectedReturnType).toBe('object')
     })
 
     it('Keychain 命令返回类型正确', () => {
-      const getSecretContract = COMMAND_CONTRACTS.find(c => c.command === 'get_secret')
+      const getSecretContract = COMMAND_CONTRACTS.find((c) => c.command === 'get_secret')
       expect(getSecretContract).toBeDefined()
       expect(getSecretContract!.expectedReturnType).toBe('null') // 未存储时返回 null
 
-      const setSecretContract = COMMAND_CONTRACTS.find(c => c.command === 'set_secret')
+      const setSecretContract = COMMAND_CONTRACTS.find((c) => c.command === 'set_secret')
       expect(setSecretContract).toBeDefined()
       expect(setSecretContract!.expectedReturnType).toBe('void')
     })
@@ -795,7 +809,7 @@ describe('IPC 契约测试', () => {
 
     it('加密命令应对空字符串返回有效密文', () => {
       // 契约验证：encrypt_data('') 应返回 ENC1: 前缀的字符串
-      const contract = COMMAND_CONTRACTS.find(c => c.command === 'encrypt_data')
+      const contract = COMMAND_CONTRACTS.find((c) => c.command === 'encrypt_data')
       expect(contract).toBeDefined()
       expect(contract!.expectedParams[0].type).toBe('string')
       expect(contract!.expectedReturnType).toBe('string')
@@ -803,7 +817,7 @@ describe('IPC 契约测试', () => {
 
     it('解密命令应对无效密文返回错误或空', () => {
       // 契约验证：decrypt_data('invalid') 应返回空字符串或抛出错误
-      const contract = COMMAND_CONTRACTS.find(c => c.command === 'decrypt_data')
+      const contract = COMMAND_CONTRACTS.find((c) => c.command === 'decrypt_data')
       expect(contract).toBeDefined()
       expect(contract!.expectedParams[0].type).toBe('string')
       // 解密失败时的行为：Rust 端返回空字符串（而非抛出异常）
@@ -812,7 +826,7 @@ describe('IPC 契约测试', () => {
 
     it('open_application 应对含 shell 元字符的输入拒绝', () => {
       // 契约验证：open_application 参数应为纯应用名/URL，不含 shell 元字符
-      const contract = COMMAND_CONTRACTS.find(c => c.command === 'open_application')
+      const contract = COMMAND_CONTRACTS.find((c) => c.command === 'open_application')
       expect(contract).toBeDefined()
       expect(contract!.expectedParams[0].name).toBe('app_name')
       expect(contract!.expectedParams[0].type).toBe('string')

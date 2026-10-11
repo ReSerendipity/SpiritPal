@@ -17,8 +17,8 @@
  * - VisionPerceptionManager.getRecentContext(): 获取近期视觉上下文
  */
 
-import { invoke } from '@tauri-apps/api/core'
 import { getPrompt } from '@/lib/ai/promptRegistry'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 import { getKeyframeMemory } from './keyframeMemory'
 import type { KeyframeMemory } from './keyframeMemory'
 
@@ -52,8 +52,7 @@ export interface ScreenshotResult {
 
 /** Vision LLM 的多模态内容块（OpenAI chat 风格：文本段或 base64 图片） */
 type VisionContentPart =
-  | { type: 'text'; text: string }
-  | { type: 'image_url'; image_url: { url: string; detail: 'auto' } }
+  { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string; detail: 'auto' } }
 
 /** 视觉分析结果 */
 export interface VisualAnalysisResult {
@@ -130,7 +129,7 @@ export class VisionPerceptionManager {
 
   /**
    * 截取全屏
-   * 调用 Rust 后端 invoke('take_screenshot')
+   * 调用 Rust 后端 tauriInvokeNoRetry<{ image_data: string; width: number; height: number }>('take_screenshot')
    */
   async screenshotFull(): Promise<ScreenshotResult> {
     return this.screenshotRegion({ x: 0, y: 0, width: 0, height: 0 })
@@ -151,7 +150,7 @@ export class VisionPerceptionManager {
 
       // 调用 Rust 后端截屏
       const result = await Promise.race([
-        invoke<{ image_data: string; width: number; height: number }>('take_screenshot', {
+        tauriInvokeNoRetry<{ image_data: string; width: number; height: number }>('take_screenshot', {
           region: reqRegion,
         }),
         new Promise<null>((_, reject) =>
@@ -192,7 +191,7 @@ export class VisionPerceptionManager {
    * @param screenshot 截图数据（可选，未提供时自动截取）
    */
   async analyzeScreen(screenshot?: ScreenshotResult): Promise<VisualAnalysisResult> {
-    const img = screenshot || await this.screenshotFull()
+    const img = screenshot || (await this.screenshotFull())
     const cacheKey = img.timestamp
 
     // 检查缓存
@@ -205,7 +204,7 @@ export class VisionPerceptionManager {
       const messages = this.buildVisionPrompt(img)
 
       const result = await Promise.race([
-        invoke<VisualAnalysisResult>('analyze_screen_content', {
+        tauriInvokeNoRetry<VisualAnalysisResult>('analyze_screen_content', {
           messages,
           config: this.config,
         }),
@@ -267,7 +266,7 @@ export class VisionPerceptionManager {
    */
   private async fallbackAnalysis(_screenshot: ScreenshotResult): Promise<VisualAnalysisResult> {
     try {
-      const win = await invoke<{ title: string; processName: string }>('get_active_window')
+      const win = await tauriInvokeNoRetry<{ title: string; processName: string }>('get_active_window')
       if (win?.title) {
         return {
           description: `屏幕上有内容，你似乎在用「${win.title}」`,
@@ -363,9 +362,7 @@ export class VisionPerceptionManager {
 
 let instance: VisionPerceptionManager | null = null
 
-export function getVisionPerceptionManager(
-  config?: Partial<VisionAnalysisConfig>,
-): VisionPerceptionManager {
+export function getVisionPerceptionManager(config?: Partial<VisionAnalysisConfig>): VisionPerceptionManager {
   if (!instance) {
     instance = new VisionPerceptionManager(config)
     // 自动关联关键帧记忆

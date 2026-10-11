@@ -11,7 +11,7 @@
  * 用法：在 App 挂载时调用 setupExternalLinkInterceptor()（全局一次即可，
  * 覆盖 SettingsWindow / MobileSettingsView / LegalDocument 等所有 target=_blank 链接）。
  */
-import { invoke } from '@tauri-apps/api/core'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 
 /** 是否在 Tauri 运行时内（纯浏览器 / vitest jsdom 下为 false，保持默认行为） */
 export function isTauriEnvironment(): boolean {
@@ -22,10 +22,7 @@ export function isTauriEnvironment(): boolean {
  * 判断一次锚点点击是否应交给系统浏览器。
  * 返回需要打开的绝对 URL；不应拦截时返回 null。
  */
-export function resolveExternalHref(
-  anchor: HTMLAnchorElement,
-  currentOrigin: string,
-): string | null {
+export function resolveExternalHref(anchor: HTMLAnchorElement, currentOrigin: string): string | null {
   const href = anchor.href
   if (!href || !/^https?:\/\//i.test(href)) return null
 
@@ -73,7 +70,7 @@ export function setupExternalLinkInterceptor(): () => void {
       window.open(href, '_blank', 'noopener,noreferrer')
       return
     }
-    invoke('open_application', { appName: href }).catch(() => {
+    tauriInvokeNoRetry('open_application', { appName: href }).catch(() => {
       window.open(href, '_blank', 'noopener,noreferrer')
     })
   }

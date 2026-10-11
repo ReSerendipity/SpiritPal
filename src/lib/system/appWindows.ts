@@ -8,9 +8,9 @@
  * 消除「前端与 Rust 两处各自维护窗口参数」的双源漂移
  * （曾导致前端创建的窗口无法最大化/边缘缩放的历史 bug）。
  */
-import { invoke } from '@tauri-apps/api/core'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { getAllWindows, getCurrentWindow, type Window } from '@tauri-apps/api/window'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 
 /**
  * 安全获取当前窗口实例。
@@ -48,7 +48,7 @@ export interface WindowConfig {
 /** 从 Rust 权威表查询窗口配置（不存在时返回 null） */
 export async function getWindowConfig(label: string): Promise<WindowConfig | null> {
   try {
-    return await invoke<WindowConfig | null>('get_window_config', { label })
+    return await tauriInvokeNoRetry<WindowConfig | null>('get_window_config', { label })
   } catch {
     return null
   }

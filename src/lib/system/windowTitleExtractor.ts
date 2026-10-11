@@ -11,7 +11,7 @@
  * 参考：Live2DPet active_window.py / OpenPets packages/window/
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 
 // ============ 类型定义 ============
 
@@ -113,7 +113,7 @@ export class WindowTitleExtractor {
     }
 
     try {
-      const rawInfo = await invoke<{ title: string; process_name: string }>('get_active_window')
+      const rawInfo = await tauriInvokeNoRetry<{ title: string; process_name: string }>('get_active_window')
 
       const title = rawInfo?.title ?? ''
       const processName = rawInfo?.process_name ?? ''
@@ -144,19 +144,19 @@ export class WindowTitleExtractor {
    */
   inferAppName(processName: string): string | undefined {
     const mapping: Record<string, string> = {
-      'Code': 'Visual Studio Code',
-      'idea': 'IntelliJ IDEA',
-      'webstorm': 'WebStorm',
-      'pycharm': 'PyCharm',
-      'chrome': 'Google Chrome',
-      'firefox': 'Mozilla Firefox',
-      'msedge': 'Microsoft Edge',
-      'safari': 'Safari',
-      'zoom': 'Zoom',
-      'Teams': 'Microsoft Teams',
-      'WeChat': '微信',
-      'Lark': '飞书',
-      'DingTalk': '钉钉',
+      Code: 'Visual Studio Code',
+      idea: 'IntelliJ IDEA',
+      webstorm: 'WebStorm',
+      pycharm: 'PyCharm',
+      chrome: 'Google Chrome',
+      firefox: 'Mozilla Firefox',
+      msedge: 'Microsoft Edge',
+      safari: 'Safari',
+      zoom: 'Zoom',
+      Teams: 'Microsoft Teams',
+      WeChat: '微信',
+      Lark: '飞书',
+      DingTalk: '钉钉',
     }
 
     const lowerProcess = processName.toLowerCase()
@@ -178,13 +178,13 @@ export class WindowTitleExtractor {
     }
 
     // 提取 URL
-    const urlMatch = title.match(HIGHLIGHT_PATTERNS.find(p => p.type === 'url')!.pattern)
+    const urlMatch = title.match(HIGHLIGHT_PATTERNS.find((p) => p.type === 'url')!.pattern)
     if (urlMatch) {
       info.url = urlMatch[0]
     }
 
     // 提取文件路径
-    const pathMatch = title.match(HIGHLIGHT_PATTERNS.find(p => p.type === 'filepath')!.pattern)
+    const pathMatch = title.match(HIGHLIGHT_PATTERNS.find((p) => p.type === 'filepath')!.pattern)
     if (pathMatch) {
       info.filePath = pathMatch[0]
     }
@@ -231,15 +231,13 @@ export class WindowTitleExtractor {
     // 通用关键词提取（去除分隔符后的片段）
     const separators = [' - ', ' — ', ' | ', ': ', ' @ ']
     let cleanTitle = title
-    separators.forEach(sep => {
+    separators.forEach((sep) => {
       cleanTitle = cleanTitle.replace(new RegExp(`\\${sep}`, 'g'), ' ')
     })
 
     // 提取有意义的单词（排除常用停用词）
     const stopWords = new Set(['and', 'the', 'of', 'in', 'on', 'at', 'to', 'for', 'with'])
-    const words = cleanTitle
-      .split(/\s+/)
-      .filter(w => w.length > 2 && !stopWords.has(w.toLowerCase()))
+    const words = cleanTitle.split(/\s+/).filter((w) => w.length > 2 && !stopWords.has(w.toLowerCase()))
 
     info.keywords = words.slice(0, 5)
 
@@ -258,11 +256,11 @@ export class WindowTitleExtractor {
 
     // 函数/方法调用（包含括号）
     const functions = title.match(/\b[a-zA-Z_][a-zA-Z0-9_]*\s*\(/g) || []
-    entities.push(...functions.map(f => f.trim().slice(0, -1)).slice(0, 3))
+    entities.push(...functions.map((f) => f.trim().slice(0, -1)).slice(0, 3))
 
     // 导入语句：用捕获组一次取准模块名，双引号形式不再残留引号
     const imports = [...title.matchAll(/from\s+['"]([^'"]+)['"]/gi)]
-    entities.push(...imports.map(i => i[1]).slice(0, 2))
+    entities.push(...imports.map((i) => i[1]).slice(0, 2))
 
     return [...new Set(entities)] // 去重
   }

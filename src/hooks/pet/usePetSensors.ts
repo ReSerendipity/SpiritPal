@@ -15,7 +15,6 @@
  * - 闲置检测
  */
 
-import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { useEffect, useRef, useState } from 'react'
 import {
@@ -31,6 +30,7 @@ import { animationIdToPetState, type AnimationId } from '@/lib/render/animationC
 import { getBubbleManager, MessagePriority } from '@/lib/render/bubbleManager'
 import { getEventSystemManager } from '@/lib/system/eventSystem'
 import { getMusicAwarenessManager } from '@/lib/system/musicAwareness'
+import { tauriInvoke } from '@/lib/system/tauriInvoker'
 import { getWeatherAwarenessManager, type WeatherAction } from '@/lib/system/weatherAwareness'
 
 export interface UsePetSensorsOptions {
@@ -177,7 +177,8 @@ export function usePetSensors(options: UsePetSensorsOptions): UsePetSensorsRetur
     const unsubSched = schedMgr.onReminder((event) => {
       // R5：提醒气泡走更自然的文案，并通过 BubbleManager 统一发送
       const hour = new Date().getHours()
-      const greeting = hour >= 6 && hour < 12 ? '早安' : hour >= 12 && hour < 18 ? '下午好' : hour >= 18 && hour < 22 ? '晚上好' : ''
+      const greeting =
+        hour >= 6 && hour < 12 ? '早安' : hour >= 12 && hour < 18 ? '下午好' : hour >= 18 && hour < 22 ? '晚上好' : ''
       const message = `${greeting ? greeting + '～' : ''}到点啦～你之前说${event.title}的`
       getBubbleManager().sendMessage(message, MessagePriority.Proactive)
       setPetState('happy')
@@ -216,7 +217,9 @@ export function usePetSensors(options: UsePetSensorsOptions): UsePetSensorsRetur
         setCurrentAnimId(lastEvt.expression.animationId as AnimationId)
         setPetState(renderState)
       }
-    }).then((unsub) => { unsubMcpSayCleanup = unsub })
+    }).then((unsub) => {
+      unsubMcpSayCleanup = unsub
+    })
 
     // 情绪管理器回调
     const emotionMgr = getEmotionManager({
@@ -235,7 +238,7 @@ export function usePetSensors(options: UsePetSensorsOptions): UsePetSensorsRetur
     let idleCheckTimer = 0
     const checkIdle = async () => {
       try {
-        const idleMs = await invoke<number>('get_idle_time')
+        const idleMs = await tauriInvoke<number>('get_idle_time')
         const idleMin = idleMs / 60000
         if (idleMin >= 5) {
           setPetState('sleep')

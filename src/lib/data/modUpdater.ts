@@ -34,9 +34,9 @@
  * ]
  */
 
-import { invoke } from '@tauri-apps/api/core'
 import { appDataDir, appCacheDir, join } from '@tauri-apps/api/path'
 import { safeFetch } from '@/lib/system/ssrfProtection'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 import { compareSemVer } from './modManager'
 
 // ============ 类型定义 ============
@@ -71,14 +71,7 @@ export interface ModUpdateCheckResult {
 
 /** 一次升级的状态转换记录（用于观测/测试） */
 export type ModUpdateStage =
-  | 'backup-start'
-  | 'backup-done'
-  | 'temp-saved'
-  | 'install-start'
-  | 'install-done'
-  | 'rollback'
-  | 'cleanup'
-  | 'failed'
+  'backup-start' | 'backup-done' | 'temp-saved' | 'install-start' | 'install-done' | 'rollback' | 'cleanup' | 'failed'
 
 /**
  * 升级器 IO 传输层
@@ -147,7 +140,7 @@ const defaultTransport: ModUpdaterTransport = {
 
   async installPackage(packagePath) {
     const modsDir = await getModsDir()
-    return await invoke<{ modId: string; version: string }>('install_petmod', {
+    return await tauriInvokeNoRetry<{ modId: string; version: string }>('install_petmod', {
       packagePath,
       targetDir: modsDir,
       overwrite: true,

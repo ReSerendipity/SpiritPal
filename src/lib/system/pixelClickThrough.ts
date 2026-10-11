@@ -28,9 +28,9 @@
  * 7. z-index兜底：z-index>1000元素自动不穿透
  */
 
-import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import React, { useEffect, useRef } from 'react'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 
 /** 检测间隔（毫秒） */
 const CHECK_INTERVAL_MS = 100
@@ -144,7 +144,7 @@ export function usePixelClickThrough(
     if (!enabled) {
       // 禁用时恢复不穿透状态
       if (lastIgnoreState.current !== false) {
-        invoke('remove_pet_click_through').catch(() => {})
+        tauriInvokeNoRetry('remove_pet_click_through').catch(() => {})
         lastIgnoreState.current = false
       }
       return
@@ -158,10 +158,7 @@ export function usePixelClickThrough(
       pixelCtxRef.current = pixelCanvasRef.current.getContext('2d', { willReadFrequently: true })
     }
 
-    const allInteractive = [
-      ...INTERACTIVE_SELECTORS,
-      ...(interactiveSelectors ?? []),
-    ]
+    const allInteractive = [...INTERACTIVE_SELECTORS, ...(interactiveSelectors ?? [])]
 
     const checkMouse = async () => {
       if (isCheckingRef.current) return
@@ -171,7 +168,7 @@ export function usePixelClickThrough(
         // 1. DevTools 打开时禁用穿透（方便调试）
         if (isDevToolsOpen()) {
           if (lastIgnoreState.current !== false) {
-            await invoke('remove_pet_click_through')
+            await tauriInvokeNoRetry('remove_pet_click_through')
             lastIgnoreState.current = false
           }
           isCheckingRef.current = false
@@ -179,7 +176,7 @@ export function usePixelClickThrough(
         }
 
         // 2. 获取鼠标在窗口客户区的逻辑坐标
-        const [x, y] = await invoke<[number, number]>('get_mouse_pos')
+        const [x, y] = await tauriInvokeNoRetry<[number, number]>('get_mouse_pos')
 
         // 3. 获取鼠标下的 DOM 元素
         const target = document.elementFromPoint(x, y) as HTMLElement | null
@@ -191,7 +188,7 @@ export function usePixelClickThrough(
           shouldIgnore = true
         } else {
           // 4. 检查是否在交互式 UI 元素上 → 不穿透
-          const isInteractive = allInteractive.some(sel => target.closest(sel))
+          const isInteractive = allInteractive.some((sel) => target.closest(sel))
           if (isInteractive) {
             shouldIgnore = false
           }
@@ -226,9 +223,9 @@ export function usePixelClickThrough(
         // 7. 仅在状态变化时调用 Rust 命令（IPC 去抖，减少开销）
         if (lastIgnoreState.current !== shouldIgnore) {
           if (shouldIgnore) {
-            await invoke('set_pet_click_through')
+            await tauriInvokeNoRetry('set_pet_click_through')
           } else {
-            await invoke('remove_pet_click_through')
+            await tauriInvokeNoRetry('remove_pet_click_through')
           }
           lastIgnoreState.current = shouldIgnore
           // 交互状态翻转通知（穿透态=false：光标在透明区或窗口外）
@@ -237,13 +234,7 @@ export function usePixelClickThrough(
 
         // 8. 悬停自动隐藏 + 穿透联动
         if (autoHideOnHover) {
-          handleHoverAutoHide(
-            mouseOnCharacter,
-            lastMouseOnCharacter,
-            hoverTimerRef,
-            isHiddenRef,
-            showTimerRef,
-          )
+          handleHoverAutoHide(mouseOnCharacter, lastMouseOnCharacter, hoverTimerRef, isHiddenRef, showTimerRef)
         }
       } catch {
         // 静默处理错误（窗口可能在移动中或被关闭）
@@ -266,7 +257,7 @@ export function usePixelClickThrough(
         showTimerRef.current = null
       }
       // 清理时恢复不穿透
-      invoke('remove_pet_click_through').catch(() => {})
+      tauriInvokeNoRetry('remove_pet_click_through').catch(() => {})
       lastIgnoreState.current = false
       // 如果被隐藏了，恢复显示
       if (isHiddenRef.current) {
@@ -351,7 +342,7 @@ function handleHoverAutoHide(
 function findCharacterElement(target: HTMLElement): HTMLElement | null {
   let el: HTMLElement | null = target
   while (el) {
-    if (CHARACTER_SELECTORS.some(sel => el!.matches(sel))) {
+    if (CHARACTER_SELECTORS.some((sel) => el!.matches(sel))) {
       return el
     }
     el = el.parentElement
@@ -388,12 +379,8 @@ function checkPixelAlpha(
   }
 
   const isVideo = media.tagName.toLowerCase() === 'video'
-  const naturalWidth = isVideo
-    ? (media as HTMLVideoElement).videoWidth
-    : (media as HTMLImageElement).naturalWidth
-  const naturalHeight = isVideo
-    ? (media as HTMLVideoElement).videoHeight
-    : (media as HTMLImageElement).naturalHeight
+  const naturalWidth = isVideo ? (media as HTMLVideoElement).videoWidth : (media as HTMLImageElement).naturalWidth
+  const naturalHeight = isVideo ? (media as HTMLVideoElement).videoHeight : (media as HTMLImageElement).naturalHeight
 
   if (naturalWidth <= 0 || naturalHeight <= 0) return true
 
@@ -405,11 +392,7 @@ function checkPixelAlpha(
   ctx.clearRect(0, 0, 1, 1)
 
   // 绘制鼠标位置对应的 1x1 像素
-  ctx.drawImage(
-    media as unknown as CanvasImageSource,
-    mediaX * scaleX, mediaY * scaleY, 1, 1,
-    0, 0, 1, 1,
-  )
+  ctx.drawImage(media as unknown as CanvasImageSource, mediaX * scaleX, mediaY * scaleY, 1, 1, 0, 0, 1, 1)
 
   const pixel = ctx.getImageData(0, 0, 1, 1).data
   const alpha = pixel[3]

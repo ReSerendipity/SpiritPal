@@ -25,6 +25,7 @@
  */
 
 import type { CharacterProfile } from '@/lib/data/types'
+import { tauriInvoke } from '@/lib/system/tauriInvoker'
 
 // ============ 角色资源包格式 ============
 
@@ -270,8 +271,7 @@ export class CharacterResourceImporter {
 
     // 通过 Tauri 命令扫描目录
     try {
-      const { invoke } = await import('@tauri-apps/api/core')
-      const entries: string[] = await invoke('scan_character_directory', { path: directory })
+      const entries: string[] = await tauriInvoke('scan_character_directory', { path: directory })
       this.reportProgress('scanning', entries.length, entries.length, `发现 ${entries.length} 个角色资源包`)
       return entries
     } catch {
@@ -300,7 +300,12 @@ export class CharacterResourceImporter {
     if (!pkg.meta.id) {
       messages.push({ severity: 'error', code: 'MISSING_ID', message: '角色 ID 不能为空', field: 'meta.id' })
     } else if (!/^[a-zA-Z0-9_-]+$/.test(pkg.meta.id)) {
-      messages.push({ severity: 'error', code: 'INVALID_ID', message: '角色 ID 只能包含字母、数字、下划线、连字符', field: 'meta.id' })
+      messages.push({
+        severity: 'error',
+        code: 'INVALID_ID',
+        message: '角色 ID 只能包含字母、数字、下划线、连字符',
+        field: 'meta.id',
+      })
     }
 
     // 验证 meta.name
@@ -309,14 +314,31 @@ export class CharacterResourceImporter {
     }
 
     // 验证 meta.license
-    const validLicenses: CharacterResourceMeta['license'][] = ['MIT', 'CC0', 'CC-BY', 'CC-BY-SA', 'Apache-2.0', 'Unlicense']
+    const validLicenses: CharacterResourceMeta['license'][] = [
+      'MIT',
+      'CC0',
+      'CC-BY',
+      'CC-BY-SA',
+      'Apache-2.0',
+      'Unlicense',
+    ]
     if (!validLicenses.includes(pkg.meta.license)) {
-      messages.push({ severity: 'warning', code: 'NON_MIT_LICENSE', message: `协议 ${pkg.meta.license} 可能不兼容 MIT`, field: 'meta.license' })
+      messages.push({
+        severity: 'warning',
+        code: 'NON_MIT_LICENSE',
+        message: `协议 ${pkg.meta.license} 可能不兼容 MIT`,
+        field: 'meta.license',
+      })
     }
 
     // 验证版本号
     if (!pkg.meta.version || !/^\d+\.\d+\.\d+/.test(pkg.meta.version)) {
-      messages.push({ severity: 'warning', code: 'INVALID_VERSION', message: '版本号格式不正确（建议使用语义化版本）', field: 'meta.version' })
+      messages.push({
+        severity: 'warning',
+        code: 'INVALID_VERSION',
+        message: '版本号格式不正确（建议使用语义化版本）',
+        field: 'meta.version',
+      })
     }
 
     // 验证精灵图
@@ -326,13 +348,28 @@ export class CharacterResourceImporter {
       for (let i = 0; i < pkg.sprites.length; i++) {
         const sprite = pkg.sprites[i]
         if (!sprite.path) {
-          messages.push({ severity: 'error', code: 'MISSING_SPRITE_PATH', message: `精灵图 ${i} 路径为空`, field: `sprites[${i}].path` })
+          messages.push({
+            severity: 'error',
+            code: 'MISSING_SPRITE_PATH',
+            message: `精灵图 ${i} 路径为空`,
+            field: `sprites[${i}].path`,
+          })
         }
         if (!sprite.layout || sprite.layout.rows <= 0 || sprite.layout.cols <= 0) {
-          messages.push({ severity: 'error', code: 'INVALID_LAYOUT', message: `精灵图 ${i} 布局无效`, field: `sprites[${i}].layout` })
+          messages.push({
+            severity: 'error',
+            code: 'INVALID_LAYOUT',
+            message: `精灵图 ${i} 布局无效`,
+            field: `sprites[${i}].layout`,
+          })
         }
         if (sprite.layout.cellW <= 0 || sprite.layout.cellH <= 0) {
-          messages.push({ severity: 'error', code: 'INVALID_CELL_SIZE', message: `精灵图 ${i} 帧尺寸无效`, field: `sprites[${i}].layout` })
+          messages.push({
+            severity: 'error',
+            code: 'INVALID_CELL_SIZE',
+            message: `精灵图 ${i} 帧尺寸无效`,
+            field: `sprites[${i}].layout`,
+          })
         }
       }
     }
@@ -343,17 +380,22 @@ export class CharacterResourceImporter {
       for (const field of fields) {
         const val = pkg.personality[field]
         if (val < -1 || val > 1) {
-          messages.push({ severity: 'warning', code: 'PERSONALTY_OUT_OF_RANGE', message: `性格维度 ${field} 超出 [-1, 1] 范围`, field: `personality.${field}` })
+          messages.push({
+            severity: 'warning',
+            code: 'PERSONALTY_OUT_OF_RANGE',
+            message: `性格维度 ${field} 超出 [-1, 1] 范围`,
+            field: `personality.${field}`,
+          })
         }
       }
     }
 
     // 信息提示
-    if (pkg.sprites?.some(s => s.isShimeji)) {
+    if (pkg.sprites?.some((s) => s.isShimeji)) {
       messages.push({ severity: 'info', code: 'SHIMEJI_FORMAT', message: '检测到 Shimeji 格式精灵图，将进行重采样' })
     }
 
-    const hasErrors = messages.some(m => m.severity === 'error')
+    const hasErrors = messages.some((m) => m.severity === 'error')
     return { valid: !hasErrors, messages }
   }
 
@@ -369,10 +411,7 @@ export class CharacterResourceImporter {
    * @param config 重采样配置
    * @returns 重采样后的 dataURL
    */
-  async resampleSprites(
-    imageData: string,
-    config: ResampleConfig = DEFAULT_RESAMPLE_CONFIG,
-  ): Promise<string> {
+  async resampleSprites(imageData: string, config: ResampleConfig = DEFAULT_RESAMPLE_CONFIG): Promise<string> {
     // 检查缓存
     const cacheKey = `${imageData.length}:${config.from.cellW}:${config.to.cellW}`
     const cached = this.resampleCache.get(cacheKey)
@@ -431,18 +470,10 @@ export class CharacterResourceImporter {
             ctx.fillRect(dx, dy, config.to.cellW, config.to.cellH)
           }
 
-          ctx.drawImage(
-            img,
-            sx, sy, config.from.cellW, config.from.cellH,
-            dx + offsetX, dy + offsetY, scaledW, scaledH,
-          )
+          ctx.drawImage(img, sx, sy, config.from.cellW, config.from.cellH, dx + offsetX, dy + offsetY, scaledW, scaledH)
         } else {
           // 拉伸填充
-          ctx.drawImage(
-            img,
-            sx, sy, config.from.cellW, config.from.cellH,
-            dx, dy, config.to.cellW, config.to.cellH,
-          )
+          ctx.drawImage(img, sx, sy, config.from.cellW, config.from.cellH, dx, dy, config.to.cellW, config.to.cellH)
         }
       }
     }
@@ -508,7 +539,9 @@ export class CharacterResourceImporter {
       systemPrompt: '',
       fewShotExamples: [],
       spriteAsset: pkg.sprites[0]?.path ?? '',
-      spriteType: (['atlas', 'svg', 'gif', 'video'].includes(pkg.sprites[0]?.type ?? '') ? pkg.sprites[0]?.type : 'atlas') as CharacterProfile['spriteType'],
+      spriteType: (['atlas', 'svg', 'gif', 'video'].includes(pkg.sprites[0]?.type ?? '')
+        ? pkg.sprites[0]?.type
+        : 'atlas') as CharacterProfile['spriteType'],
       themeColor: pkg.themeColor ?? { primary: '#888888', secondary: '#cccccc' },
       bubbleMessages: {
         idle: pkg.bubbleMessages?.idle ?? ['...'],
@@ -523,7 +556,12 @@ export class CharacterResourceImporter {
       atlasLayout: pkg.sprites[0]?.isShimeji
         ? TARGET_ATLAS
         : pkg.sprites[0]?.layout
-          ? { cellW: pkg.sprites[0].layout.cellW, cellH: pkg.sprites[0].layout.cellH, cols: pkg.sprites[0].layout.cols, rows: pkg.sprites[0].layout.rows }
+          ? {
+              cellW: pkg.sprites[0].layout.cellW,
+              cellH: pkg.sprites[0].layout.cellH,
+              cols: pkg.sprites[0].layout.cols,
+              rows: pkg.sprites[0].layout.rows,
+            }
           : undefined,
       type: 'community',
     }
@@ -560,8 +598,7 @@ export class CharacterResourceImporter {
       this.reportProgress('validating', i, dirs.length, `正在导入 ${i + 1}/${dirs.length}`)
       try {
         // 读取 pet.json
-        const { invoke } = await import('@tauri-apps/api/core')
-        const metaJson: string = await invoke('read_text_file', { path: `${dirs[i]}/pet.json` })
+        const metaJson: string = await tauriInvoke('read_text_file', { path: `${dirs[i]}/pet.json` })
         const pkg: CharacterResourcePackage = JSON.parse(metaJson)
 
         // 验证
@@ -570,8 +607,8 @@ export class CharacterResourceImporter {
           results.push({
             success: false,
             characterId: pkg.meta?.id ?? 'unknown',
-            errors: validation.messages.filter(m => m.severity === 'error').map(m => m.message),
-            warnings: validation.messages.filter(m => m.severity === 'warning').map(m => m.message),
+            errors: validation.messages.filter((m) => m.severity === 'error').map((m) => m.message),
+            warnings: validation.messages.filter((m) => m.severity === 'warning').map((m) => m.message),
           })
           continue
         }

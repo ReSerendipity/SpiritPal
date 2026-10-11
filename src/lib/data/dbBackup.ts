@@ -10,7 +10,7 @@
  *    `delete_db_backup` — 退出时自动备份加密库（保留 3 份）+ 恢复/清理
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 import { dbIntegrityCheck, exportDbSnapshot } from './db'
 
 // ============ 物理完整性检查 ============
@@ -28,13 +28,14 @@ export async function checkDbIntegrity(): Promise<boolean> {
     const rows = await dbIntegrityCheck()
     const ok = rows.every((r) => String(r).trim().toLowerCase() === 'ok')
     if (!ok) {
-      const sample = rows.map((r) => String(r)).slice(0, 5).join('; ')
+      const sample = rows
+        .map((r) => String(r))
+        .slice(0, 5)
+        .join('; ')
       console.error(`[DataHealth] 数据库完整性检查失败: ${sample}`)
       if (typeof window !== 'undefined') {
         try {
-          window.dispatchEvent(
-            new CustomEvent(DB_INTEGRITY_FAILED_EVENT, { detail: { sample } })
-          )
+          window.dispatchEvent(new CustomEvent(DB_INTEGRITY_FAILED_EVENT, { detail: { sample } }))
         } catch {
           // 非浏览器环境静默
         }
@@ -74,7 +75,7 @@ export interface DBBackupInfoTs {
 /** 列出本地自动备份 */
 export async function listDbBackups(): Promise<DBBackupInfoTs[]> {
   try {
-    return (await invoke<DBBackupInfoTs[]>('list_db_backups')) ?? []
+    return (await tauriInvokeNoRetry<DBBackupInfoTs[]>('list_db_backups')) ?? []
   } catch {
     return []
   }
@@ -82,10 +83,10 @@ export async function listDbBackups(): Promise<DBBackupInfoTs[]> {
 
 /** 恢复指定备份（覆盖加密库；需重启生效） */
 export async function restoreDbBackup(name: string): Promise<void> {
-  await invoke('restore_db_backup', { name })
+  await tauriInvokeNoRetry('restore_db_backup', { name })
 }
 
 /** 删除指定备份 */
 export async function deleteDbBackup(name: string): Promise<void> {
-  await invoke('delete_db_backup', { name })
+  await tauriInvokeNoRetry('delete_db_backup', { name })
 }

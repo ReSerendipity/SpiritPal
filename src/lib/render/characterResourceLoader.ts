@@ -26,6 +26,7 @@
 import { getModManager } from '@/lib/data/modManager'
 import type { CharacterProfile } from '@/lib/data/types'
 import { ATLAS } from '@/lib/data/types'
+import { tauriInvoke } from '@/lib/system/tauriInvoker'
 
 // ============ 角色包配置格式 ============
 
@@ -95,7 +96,8 @@ export interface CharacterPackConfig {
 /** MIT 许可证验证元数据 */
 export interface LicenseMeta {
   /** 许可证类型（含 GPL/Apache 等非白名单，配合 audited 放行） */
-  type: 'MIT' | 'CC0' | 'CC-BY' | 'CC-BY-SA' | 'CC-BY-NC' | 'GPL-3.0' | 'GPL-2.0' | 'Apache-2.0' | 'proprietary' | string
+  type:
+    'MIT' | 'CC0' | 'CC-BY' | 'CC-BY-SA' | 'CC-BY-NC' | 'GPL-3.0' | 'GPL-2.0' | 'Apache-2.0' | 'proprietary' | string
   /** 许可证文本 URL 或内联文本 */
   licenseText?: string
   /** 版权声明 */
@@ -165,18 +167,14 @@ export class CharacterResourceLoader {
       // 1. 优先使用 Tauri 自定义命令读取（生产环境可靠，绕过 fs scope）
       try {
         const { resourceDir } = await import('@tauri-apps/api/path')
-        const { invoke } = await import('@tauri-apps/api/core')
         const resDir = await resourceDir()
         console.log('[discoverPacks] resDir:', resDir)
         // 尝试多个路径：发布模式 resDir/pets，开发模式 resDir/../public/pets
-        const candidatePaths = [
-          resDir + '/pets',
-          resDir + '/../public/pets',
-        ]
+        const candidatePaths = [resDir + '/pets', resDir + '/../public/pets']
         let petDirs: string[] = []
         for (const p of candidatePaths) {
           try {
-            const result = await invoke<string[]>('scan_character_directory', { path: p })
+            const result = await tauriInvoke<string[]>('scan_character_directory', { path: p })
             if (result && result.length > 0) {
               petDirs = result
               break
@@ -195,8 +193,12 @@ export class CharacterResourceLoader {
                 // verbatim 路径；直接拼接 '/pet.json' 再传回 fs::canonicalize 会因混合分隔符
                 // 报 os error 123（语法不正确）→ 读取前剥离 verbatim 前缀
                 const normDir = dir.startsWith('\\\\?\\') ? dir.slice(4) : dir
-                const dirName = normDir.split(/[\\/]+/).filter(Boolean).pop() ?? ''
-                const text = await invoke<string>('read_text_file', { path: normDir + '/pet.json' })
+                const dirName =
+                  normDir
+                    .split(/[\\/]+/)
+                    .filter(Boolean)
+                    .pop() ?? ''
+                const text = await tauriInvoke<string>('read_text_file', { path: normDir + '/pet.json' })
                 return this.normalizePackId(JSON.parse(text) as CharacterPackConfig, dirName)
               } catch (e) {
                 console.error('[discoverPacks] read_text_file failed for', dir, e)
@@ -309,13 +311,10 @@ export class CharacterResourceLoader {
     // 3. 从 .petmod 模组中提取角色包
     try {
       const modMgr = getModManager()
-      const modPacks = modMgr.getEnabledMods()
+      const modPacks = modMgr
+        .getEnabledMods()
         .filter((mod) => mod.modData?.petConf)
-        .map((mod) => modToPackConfig(
-          mod.id,
-          mod.displayName,
-          mod.source,
-        ))
+        .map((mod) => modToPackConfig(mod.id, mod.displayName, mod.source))
 
       for (const pack of modPacks) {
         if (!this.discoveredPacks.has(pack.id)) {
@@ -377,8 +376,13 @@ export class CharacterResourceLoader {
       source: persona?.source ?? config.tags?.join(', ') ?? 'Community',
       birthBackground: persona?.birthBackground ?? config.description,
       emotionalCore: persona?.emotionalCore ?? '',
-      personality:
-        persona?.personality ?? { warmth: 0.5, liveliness: 0.5, dependence: 0.5, directness: 0, rationality: 0 },
+      personality: persona?.personality ?? {
+        warmth: 0.5,
+        liveliness: 0.5,
+        dependence: 0.5,
+        directness: 0,
+        rationality: 0,
+      },
       signaturePhrase: persona?.signaturePhrase ?? '',
       classicQuotes: persona?.classicQuotes ?? [],
       systemPrompt: persona?.systemPrompt ?? `你是${config.name}，一个桌面宠物角色。`,

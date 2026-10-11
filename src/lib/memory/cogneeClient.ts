@@ -14,10 +14,9 @@ import { isDesktopRuntime } from '@/lib/system/platform'
 // P0: 统一网络出口 — sidecar 地址为本地回环，生产 CSP 会拦截原生 fetch；
 // 经 safeFetch（回环直通 + Tauri 下 Rust 代理）保证可用。
 import { safeFetch } from '@/lib/system/ssrfProtection'
+import { tauriInvoke } from '@/lib/system/tauriInvoker'
 
-const SIDECAR_BASE =
-  (import.meta.env.VITE_MEMORY_SIDECAR_URL as string | undefined) ??
-  'http://127.0.0.1:7531'
+const SIDECAR_BASE = (import.meta.env.VITE_MEMORY_SIDECAR_URL as string | undefined) ?? 'http://127.0.0.1:7531'
 
 export interface CogneeSearchResult {
   text: string
@@ -37,8 +36,7 @@ let memoizedToken: string | null | undefined = undefined
 async function sidecarToken(): Promise<string | null> {
   if (memoizedToken !== undefined) return memoizedToken
   try {
-    const { invoke } = await import('@tauri-apps/api/core')
-    const t = (await invoke<string>('get_memory_sidecar_token')) || ''
+    const t = (await tauriInvoke<string>('get_memory_sidecar_token')) || ''
     memoizedToken = t || null
   } catch {
     memoizedToken = null
@@ -99,11 +97,7 @@ export async function cogneeAdd(
 }
 
 /** 混合检索（关系型记忆）。失败/不可用返回空数组，由上层回退。移动端返回空（无 sidecar）。 */
-export async function cogneeSearch(
-  characterId: string,
-  query: string,
-  topK = 5,
-): Promise<CogneeSearchResult[]> {
+export async function cogneeSearch(characterId: string, query: string, topK = 5): Promise<CogneeSearchResult[]> {
   if (!isDesktopRuntime()) return []
   try {
     const ctrl = new AbortController()

@@ -32,58 +32,58 @@
  * 核心机制：通过目录名和文件名约定自动发现动画资源，无需显式配置
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 
 // ============ 配置常量 ============
 
 /** 心情目录名 → 心情状态映射 */
 const MOOD_DIR_MAP: Record<string, string> = {
-  'happy': 'happy',
-  '开心': 'happy',
-  'normal': 'idle',
-  '普通': 'idle',
-  '默认': 'idle',
-  'poorcondition': 'sad',
-  '糟糕': 'sad',
-  '低落': 'sad',
-  'sad': 'sad',
-  'ill': 'sick',
-  '生病': 'sick',
-  'sick': 'sick',
-  'sleep': 'sleep',
-  '睡觉': 'sleep',
-  'hungry': 'hungry',
-  '饥饿': 'hungry',
+  happy: 'happy',
+  开心: 'happy',
+  normal: 'idle',
+  普通: 'idle',
+  默认: 'idle',
+  poorcondition: 'sad',
+  糟糕: 'sad',
+  低落: 'sad',
+  sad: 'sad',
+  ill: 'sick',
+  生病: 'sick',
+  sick: 'sick',
+  sleep: 'sleep',
+  睡觉: 'sleep',
+  hungry: 'hungry',
+  饥饿: 'hungry',
 }
 
 /** 动画文件名（不含扩展名）→ 动画 ID 映射 */
 const ACTION_FILE_MAP: Record<string, string> = {
-  'idle': 'idle',
-  'stand': 'idle',
-  '站': 'idle',
-  'walk': 'walk',
-  '走': 'walk',
-  'run': 'walk',
-  '跑': 'walk',
+  idle: 'idle',
+  stand: 'idle',
+  站: 'idle',
+  walk: 'walk',
+  走: 'walk',
+  run: 'walk',
+  跑: 'walk',
   'run-left': 'run-left',
-  'run_left': 'run-left',
-  'sleep': 'sleep',
-  '睡觉': 'sleep',
-  'sit': 'sit',
-  '坐': 'sit',
-  'eat': 'eat',
-  '吃': 'eat',
-  'happy': 'happy',
-  '开心': 'happy',
-  'sad': 'sad',
-  '伤心': 'sad',
-  'sick': 'sick',
-  '生病': 'sick',
-  'pet': 'pet',
-  'pet_head': 'pet_head',
-  '摸头': 'pet_head',
-  'drag': 'drag',
-  '拖拽': 'drag',
+  run_left: 'run-left',
+  sleep: 'sleep',
+  睡觉: 'sleep',
+  sit: 'sit',
+  坐: 'sit',
+  eat: 'eat',
+  吃: 'eat',
+  happy: 'happy',
+  开心: 'happy',
+  sad: 'sad',
+  伤心: 'sad',
+  sick: 'sick',
+  生病: 'sick',
+  pet: 'pet',
+  pet_head: 'pet_head',
+  摸头: 'pet_head',
+  drag: 'drag',
+  拖拽: 'drag',
 }
 
 /** 支持的图片扩展名 */
@@ -185,9 +185,7 @@ export class PathConventionDiscovery {
    * @param characterId 角色 ID
    * @returns 动画发现结果
    */
-  async discoverCharacterAnimations(
-    characterId: string,
-  ): Promise<CharacterAnimationDiscovery> {
+  async discoverCharacterAnimations(characterId: string): Promise<CharacterAnimationDiscovery> {
     const rootDir = `${this.config.charactersRoot}/${characterId}`
 
     try {
@@ -195,7 +193,7 @@ export class PathConventionDiscovery {
       const entries = await this.listDirectory(rootDir)
 
       // 2. 过滤出子目录（作为心情目录）
-      const moodDirs = entries.filter(e => e.is_dir)
+      const moodDirs = entries.filter((e) => e.is_dir)
 
       // 3. 遍历每个心情目录，发现动画
       const moodAnimations: MoodAnimations[] = []
@@ -231,7 +229,7 @@ export class PathConventionDiscovery {
       }
 
       // 4. 也检查根目录下的图片（无心情分组）
-      const rootFiles = entries.filter(e => !e.is_dir && isImageFile(e.name))
+      const rootFiles = entries.filter((e) => !e.is_dir && isImageFile(e.name))
       if (rootFiles.length > 0) {
         const rootAnimations: string[] = []
         for (const file of rootFiles) {
@@ -275,13 +273,9 @@ export class PathConventionDiscovery {
    * 列出目录内容
    * 优先使用 Tauri Rust 后端，降级到空列表
    */
-  private async listDirectory(
-    dirPath: string,
-  ): Promise<Array<{ name: string; is_dir: boolean }>> {
+  private async listDirectory(dirPath: string): Promise<Array<{ name: string; is_dir: boolean }>> {
     try {
-      return await invoke<Array<{ name: string; is_dir: boolean }>>(
-        'list_directory', { path: dirPath },
-      )
+      return await tauriInvokeNoRetry<Array<{ name: string; is_dir: boolean }>>('list_directory', { path: dirPath })
     } catch {
       // 目录不存在或无法访问
       return []
@@ -296,18 +290,14 @@ export class PathConventionDiscovery {
    * @param animationId 动画 ID
    * @returns 动画文件路径，未找到返回 null
    */
-  async getAnimationPath(
-    characterId: string,
-    mood: string,
-    animationId: string,
-  ): Promise<string | null> {
+  async getAnimationPath(characterId: string, mood: string, animationId: string): Promise<string | null> {
     const discovery = await this.discoverCharacterAnimations(characterId)
     if (!discovery.success) return null
 
-    const moodData = discovery.moodAnimations.find(m => m.mood === mood)
+    const moodData = discovery.moodAnimations.find((m) => m.mood === mood)
     if (!moodData || !moodData.animations.includes(animationId)) {
       // 尝试在默认心情下查找
-      const defaultMood = discovery.moodAnimations.find(m => m.mood === 'idle')
+      const defaultMood = discovery.moodAnimations.find((m) => m.mood === 'idle')
       if (defaultMood && defaultMood.animations.includes(animationId)) {
         return `${defaultMood.directory}/${animationId}.png`
       }
@@ -339,9 +329,7 @@ export async function discoverAnimations(
 
 let instance: PathConventionDiscovery | null = null
 
-export function getPathConventionDiscovery(
-  config?: PathConventionConfig,
-): PathConventionDiscovery {
+export function getPathConventionDiscovery(config?: PathConventionConfig): PathConventionDiscovery {
   if (!instance) {
     instance = new PathConventionDiscovery(config)
   }

@@ -24,21 +24,10 @@
  * @requires ./musicAwareness - 音乐感知模块
  */
 
-import { invoke } from '@tauri-apps/api/core'
-import {
-  getMusicAwarenessManager,
-  type MusicStatus,
-} from '@/lib/system/musicAwareness'
-import {
-  getWeatherAwarenessManager,
-  type WeatherInfo,
-  type WeatherBehavior,
-} from '@/lib/system/weatherAwareness'
-import {
-  getWindowTitleExtractor,
-  type WindowInfo,
-  type ExtractedWindowInfo,
-} from '@/lib/system/windowTitleExtractor'
+import { getMusicAwarenessManager, type MusicStatus } from '@/lib/system/musicAwareness'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
+import { getWeatherAwarenessManager, type WeatherInfo, type WeatherBehavior } from '@/lib/system/weatherAwareness'
+import { getWindowTitleExtractor, type WindowInfo, type ExtractedWindowInfo } from '@/lib/system/windowTitleExtractor'
 
 // ============ 工作状态 ============
 
@@ -47,7 +36,7 @@ export type WorkState = 'idle' | 'working' | 'resting' | 'away' | 'coding' | 'me
 export interface WorkStateInfo {
   state: WorkState
   idleMinutes: number
-  workMinutes: number  // 连续工作时间
+  workMinutes: number // 连续工作时间
   lastBreakAt: number
   shouldRemindRest: boolean
   shouldRemindDrink: boolean
@@ -144,10 +133,10 @@ export class ContextAwarenessManager {
   private cachedExtractedInfo: ExtractedWindowInfo | null = null
 
   // 配置
-  private readonly WORK_REMIND_INTERVAL = 45 * 60 * 1000  // 45分钟提醒休息
-  private readonly DRINK_REMIND_INTERVAL = 60 * 60 * 1000  // 60分钟提醒喝水
-  private readonly IDLE_THRESHOLD = 5  // 5分钟判定为离开
-  private readonly WORK_THRESHOLD = 2  // 2分钟连续活跃判定为工作
+  private readonly WORK_REMIND_INTERVAL = 45 * 60 * 1000 // 45分钟提醒休息
+  private readonly DRINK_REMIND_INTERVAL = 60 * 60 * 1000 // 60分钟提醒喝水
+  private readonly IDLE_THRESHOLD = 5 // 5分钟判定为离开
+  private readonly WORK_THRESHOLD = 2 // 2分钟连续活跃判定为工作
 
   /** P2-11：能力开关（false 时 start() 为 no-op，已运行的可由 stop() 停止） */
   private capabilityEnabled: boolean = true
@@ -263,7 +252,7 @@ export class ContextAwarenessManager {
   private async checkWorkState(): Promise<void> {
     let idleMinutes: number
     try {
-      const idleMs = await invoke<number>('get_idle_time')
+      const idleMs = await tauriInvokeNoRetry<number>('get_idle_time')
       idleMinutes = idleMs / 60000
     } catch {
       // 非 Tauri 环境无法获取
@@ -360,7 +349,7 @@ export class ContextAwarenessManager {
   /// [P2-14] 同时匹配 title 和 process_name，提升跨平台兼容性
   async detectWorkState(): Promise<WorkState> {
     try {
-      const info = await invoke<{ title: string; process_name: string }>('get_active_window')
+      const info = await tauriInvokeNoRetry<{ title: string; process_name: string }>('get_active_window')
       const title = info?.title ?? ''
       const processName = info?.process_name ?? ''
 
@@ -390,9 +379,7 @@ export class ContextAwarenessManager {
       if (this.windowDetectionSupported === null) {
         this.windowDetectionSupported = title !== '' || processName !== ''
         if (!this.windowDetectionSupported) {
-          console.info(
-            '[contextAwareness] 活动窗口检测不可用（当前平台可能不支持或工具未安装），已跳过窗口轮询'
-          )
+          console.info('[contextAwareness] 活动窗口检测不可用（当前平台可能不支持或工具未安装），已跳过窗口轮询')
         }
       }
 
@@ -401,9 +388,7 @@ export class ContextAwarenessManager {
 
       for (const rule of WINDOW_MATCH_RULES) {
         const titleMatch = rule.titleKeywords.some((kw) => title.includes(kw))
-        const processMatch = rule.processKeywords.some((kw) =>
-          processName.toLowerCase().includes(kw.toLowerCase()),
-        )
+        const processMatch = rule.processKeywords.some((kw) => processName.toLowerCase().includes(kw.toLowerCase()))
         if (titleMatch || processMatch) {
           return rule.state
         }
@@ -486,21 +471,21 @@ export class ContextAwarenessManager {
 // ============ 通知推送管理器 ============
 
 export type NotificationType =
-  | 'rest_reminder'    // 休息提醒
-  | 'drink_reminder'   // 喝水提醒
-  | 'hp_low'          // 饱食度低
-  | 'hp_zero'         // 饱食度为零
-  | 'pomodoro_done'   // 番茄钟完成
-  | 'achievement'     // 成就解锁
-  | 'level_up'        // 升级
-  | 'daily_goal'      // 每日目标达成
+  | 'rest_reminder' // 休息提醒
+  | 'drink_reminder' // 喝水提醒
+  | 'hp_low' // 饱食度低
+  | 'hp_zero' // 饱食度为零
+  | 'pomodoro_done' // 番茄钟完成
+  | 'achievement' // 成就解锁
+  | 'level_up' // 升级
+  | 'daily_goal' // 每日目标达成
 
 export interface PetNotification {
   type: NotificationType
   title: string
   body: string
   icon?: string
-  petMessage?: string  // 宠物说的话（柔性提醒）
+  petMessage?: string // 宠物说的话（柔性提醒）
 }
 
 export class NotificationManager {
@@ -562,32 +547,19 @@ export const SOFT_REMINDERS: Record<NotificationType, { petMessages: string[]; t
   },
   drink_reminder: {
     title: '喝水提醒',
-    petMessages: [
-      '记得喝水哦！保持水分很重要～',
-      '主人今天喝水了吗？去喝一杯吧～',
-      '喝水时间到啦！咕嘟咕嘟～',
-    ],
+    petMessages: ['记得喝水哦！保持水分很重要～', '主人今天喝水了吗？去喝一杯吧～', '喝水时间到啦！咕嘟咕嘟～'],
   },
   hp_low: {
     title: '宠物饿了',
-    petMessages: [
-      '肚子饿饿……有东西吃吗？',
-      '好饿呀……主人快喂我～',
-    ],
+    petMessages: ['肚子饿饿……有东西吃吗？', '好饿呀……主人快喂我～'],
   },
   hp_zero: {
     title: '宠物快饿坏了',
-    petMessages: [
-      '饿得没力气了……主人……',
-      '快……快喂我……要晕了……',
-    ],
+    petMessages: ['饿得没力气了……主人……', '快……快喂我……要晕了……'],
   },
   pomodoro_done: {
     title: '番茄钟完成',
-    petMessages: [
-      '专注时间到啦！主人好棒！',
-      '完成啦！休息一下吧～',
-    ],
+    petMessages: ['专注时间到啦！主人好棒！', '完成啦！休息一下吧～'],
   },
   achievement: {
     title: '成就解锁',

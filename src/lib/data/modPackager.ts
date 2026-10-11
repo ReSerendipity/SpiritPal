@@ -29,9 +29,9 @@
  * 6. 哈希校验：SHA256完整性验证
  */
 
-import { invoke } from '@tauri-apps/api/core'
 import { appDataDir, join } from '@tauri-apps/api/path'
 import { exists, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 import { type PetmodManifest, type ManifestValidationResult, validatePetmodManifest, isValidSemVer } from './modManager'
 
 // ============ 类型定义 ============
@@ -94,12 +94,7 @@ export class ModPackager {
    * 调用后端 Rust 实现进行压缩和哈希计算
    */
   async pack(options: PackOptions): Promise<PackResult> {
-    const {
-      sourceDir,
-      compress = true,
-      generateHash = true,
-      excludePatterns = [],
-    } = options
+    const { sourceDir, compress = true, generateHash = true, excludePatterns = [] } = options
 
     // 1. 校验源目录是否存在 petmod.json
     try {
@@ -121,16 +116,12 @@ export class ModPackager {
       // 2. 确定输出路径
       let outputPath = options.outputPath
       if (!outputPath) {
-        const parentDir = sourceDir.split('/').slice(0, -1).join('/') ||
-          sourceDir.split('\\').slice(0, -1).join('\\')
-        outputPath = await join(
-          parentDir,
-          `${manifest.id}-${manifest.version}.petmod`,
-        )
+        const parentDir = sourceDir.split('/').slice(0, -1).join('/') || sourceDir.split('\\').slice(0, -1).join('\\')
+        outputPath = await join(parentDir, `${manifest.id}-${manifest.version}.petmod`)
       }
 
       // 3. 调用后端打包
-      const result = await invoke<{
+      const result = await tauriInvokeNoRetry<{
         success: boolean
         outputPath: string
         sha256?: string
@@ -168,7 +159,7 @@ export class ModPackager {
 
     try {
       // 1. 调用后端解压校验
-      const result = await invoke<{
+      const result = await tauriInvokeNoRetry<{
         valid: boolean
         manifestJson?: string
         sha256?: string
@@ -235,7 +226,7 @@ export class ModPackager {
       const modsDir = await this.getModsDir()
 
       // 2. 调用后端安装
-      const result = await invoke<{
+      const result = await tauriInvokeNoRetry<{
         success: boolean
         modId: string
         version?: string
@@ -270,7 +261,7 @@ export class ModPackager {
       const modDir = await join(modsDir, modId)
 
       // 调用后端删除模组目录
-      await invoke('uninstall_mod', { modDir })
+      await tauriInvokeNoRetry('uninstall_mod', { modDir })
       return { success: true }
     } catch (e) {
       return { success: false, error: `卸载失败: ${e}` }

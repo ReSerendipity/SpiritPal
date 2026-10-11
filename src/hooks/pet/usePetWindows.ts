@@ -10,7 +10,6 @@
  * - 托盘图标状态同步（根据宠物状态切换）
  */
 
-import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useCallback, useEffect } from 'react'
@@ -18,6 +17,7 @@ import type { PetState } from '@/lib/data/types'
 import { togglePetForm } from '@/lib/nurture/petForm'
 import { animationIdToPetState, type AnimationId } from '@/lib/render/animationConfig'
 import { ensureAppWindow } from '@/lib/system/appWindows'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 import { useSettingsStore } from '@/stores/settingsStore'
 
 export interface UsePetWindowsOptions {
@@ -110,7 +110,9 @@ export function usePetWindows(options: UsePetWindowsOptions): UsePetWindowsRetur
       setPomodoro({ duration: minutes * 60, startedAt: Date.now() })
       showBubble(`开始专注 ${minutes} 分钟！加油～`)
     })
-    unlisteners.push(() => { void unsubPomodoro.then((fn) => fn()) })
+    unlisteners.push(() => {
+      void unsubPomodoro.then((fn) => fn())
+    })
 
     const unsubFocus = listen<boolean>('toggle-focus-mode', (event) => {
       if (event.payload) {
@@ -118,7 +120,9 @@ export function usePetWindows(options: UsePetWindowsOptions): UsePetWindowsRetur
         showBubble('专注模式启动！一起加油～')
       }
     })
-    unlisteners.push(() => { void unsubFocus.then((fn) => fn()) })
+    unlisteners.push(() => {
+      void unsubFocus.then((fn) => fn())
+    })
 
     const unsubShortcut = listen('global-shortcut-toggle', async () => {
       try {
@@ -133,12 +137,16 @@ export function usePetWindows(options: UsePetWindowsOptions): UsePetWindowsRetur
         // 忽略窗口操作错误
       }
     })
-    unlisteners.push(() => { void unsubShortcut.then((fn) => fn()) })
+    unlisteners.push(() => {
+      void unsubShortcut.then((fn) => fn())
+    })
 
     const unsubToggleForm = listen('toggle-pet-form', () => {
       togglePetForm()
     })
-    unlisteners.push(() => { void unsubToggleForm.then((fn) => fn()) })
+    unlisteners.push(() => {
+      void unsubToggleForm.then((fn) => fn())
+    })
 
     const unsubEmotion = listen<{ animationIds: string[]; characterId: string }>('spiritpal-emotion', (event) => {
       const ids = event.payload?.animationIds ?? []
@@ -153,7 +161,9 @@ export function usePetWindows(options: UsePetWindowsOptions): UsePetWindowsRetur
         }
       }, 1800)
     })
-    unlisteners.push(() => { void unsubEmotion.then((fn) => fn()) })
+    unlisteners.push(() => {
+      void unsubEmotion.then((fn) => fn())
+    })
 
     return () => {
       unlisteners.forEach((fn) => fn())
@@ -170,10 +180,10 @@ export function usePetWindows(options: UsePetWindowsOptions): UsePetWindowsRetur
     } else if (hunger < 30) {
       trayState = 'hungry'
     }
-    invoke('update_tray_icon', { state: trayState }).catch((e: unknown) => {
-  // M-2: tray icon 更新失败记录
-  console.warn('[usePetWindows] update_tray_icon failed:', e instanceof Error ? e.message : e)
-})
+    tauriInvokeNoRetry('update_tray_icon', { state: trayState }).catch((e: unknown) => {
+      // M-2: tray icon 更新失败记录
+      console.warn('[usePetWindows] update_tray_icon failed:', e instanceof Error ? e.message : e)
+    })
   }, [petState, hunger])
 
   return { showWindow, hideWindow }

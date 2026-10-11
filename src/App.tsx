@@ -13,13 +13,13 @@
  * - Shimeji character preloading
  * - Remove boot-critical CSS after mount
  */
-import { invoke } from '@tauri-apps/api/core'
 import { Component, useEffect, useState, lazy, Suspense, type ReactNode } from 'react'
 import PetWindow from '@/components/PetWindow'
 import { UpdateNotification } from '@/components/UpdateNotification'
 import { loadCommunityCharacters } from '@/lib/render/communityLoader'
 import { loadShimejiCharacters } from '@/lib/render/shimejiLoader'
 import { setupExternalLinkInterceptor } from '@/lib/system/externalLinks'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 import { useSettingsStore } from '@/stores/settingsStore'
 
 const MobileApp = lazy(() => import('@/mobile/MobileApp'))
@@ -32,8 +32,12 @@ function detectMobile(): boolean {
   if (/android/.test(ua)) return true
   if (/iphone|ipad|ipod/.test(ua)) return true
   if (navigator.maxTouchPoints > 1 && /macintosh/.test(ua)) return true
-  if (typeof window !== 'undefined' && (window as unknown as { __TAURI_INTERNALS__?: { platform?: string } }).__TAURI_INTERNALS__?.platform) {
-    const platform = (window as unknown as { __TAURI_INTERNALS__?: { platform?: string } }).__TAURI_INTERNALS__?.platform
+  if (
+    typeof window !== 'undefined' &&
+    (window as unknown as { __TAURI_INTERNALS__?: { platform?: string } }).__TAURI_INTERNALS__?.platform
+  ) {
+    const platform = (window as unknown as { __TAURI_INTERNALS__?: { platform?: string } }).__TAURI_INTERNALS__
+      ?.platform
     if (platform === 'android' || platform === 'ios') return true
   }
   return false
@@ -135,7 +139,9 @@ export default function App() {
 
   if (isMobile) {
     return (
-      <Suspense fallback={<div className="flex h-screen w-screen items-center justify-center bg-cream text-ink">Loading…</div>}>
+      <Suspense
+        fallback={<div className="flex h-screen w-screen items-center justify-center bg-cream text-ink">Loading…</div>}
+      >
         <ErrorBoundary>
           <MobileApp />
         </ErrorBoundary>
@@ -147,7 +153,9 @@ export default function App() {
   let content: ReactNode
   if (route.startsWith('/settings')) {
     content = (
-      <Suspense fallback={<div className="flex h-screen w-screen items-center justify-center bg-cream text-ink">Loading…</div>}>
+      <Suspense
+        fallback={<div className="flex h-screen w-screen items-center justify-center bg-cream text-ink">Loading…</div>}
+      >
         <ErrorBoundary>
           <SettingsWindow />
         </ErrorBoundary>
@@ -155,7 +163,9 @@ export default function App() {
     )
   } else if (route.startsWith('/chat')) {
     content = (
-      <Suspense fallback={<div className="flex h-screen w-screen items-center justify-center bg-cream text-ink">Loading…</div>}>
+      <Suspense
+        fallback={<div className="flex h-screen w-screen items-center justify-center bg-cream text-ink">Loading…</div>}
+      >
         <ErrorBoundary>
           <ChatWindow />
         </ErrorBoundary>
@@ -195,7 +205,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     const fullMsg = `${error.message}\n\nComponent Stack:\n${errorInfo.componentStack ?? ''}`
     console.error('[SpiritPal ErrorBoundary]', fullMsg)
-    invoke('log_frontend_error', { level: 'error', message: fullMsg }).catch((e: unknown) => {
+    tauriInvokeNoRetry('log_frontend_error', { level: 'error', message: fullMsg }).catch((e: unknown) => {
       // M-2: 日志上报失败不应阻断 ErrorBoundary，但需记录
       console.warn('[ErrorBoundary] log_frontend_error failed:', e instanceof Error ? e.message : e)
     })
@@ -214,20 +224,37 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     if (this.state.error) {
       const { error } = this.state
       return (
-        <div style={{
-          background: 'var(--color-error-bg, #1a0000)', color: 'var(--color-stat-bad, #ef4444)', padding: 20,
-          fontFamily: 'Consolas, monospace', fontSize: 13, lineHeight: 1.6,
-          minHeight: '100vh', userSelect: 'text', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
-          overflow: 'auto'
-        }}>
+        <div
+          style={{
+            background: 'var(--color-error-bg, #1a0000)',
+            color: 'var(--color-stat-bad, #ef4444)',
+            padding: 20,
+            fontFamily: 'Consolas, monospace',
+            fontSize: 13,
+            lineHeight: 1.6,
+            minHeight: '100vh',
+            userSelect: 'text',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-all',
+            overflow: 'auto',
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-            <span style={{ fontSize: 18, fontWeight: 'bold', color: 'var(--color-stat-bad, #ef4444)' }}>SpiritPal Error</span>
+            <span style={{ fontSize: 18, fontWeight: 'bold', color: 'var(--color-stat-bad, #ef4444)' }}>
+              SpiritPal Error
+            </span>
             <button
               onClick={this.handleCopy}
               aria-label="Copy error message to clipboard"
               style={{
-                marginLeft: 16, padding: '4px 12px', background: 'var(--color-ink, #333)', color: 'var(--color-surface, #fff)',
-                border: '1px solid var(--color-ink-muted, #666)', borderRadius: 4, cursor: 'pointer', fontSize: 12
+                marginLeft: 16,
+                padding: '4px 12px',
+                background: 'var(--color-ink, #333)',
+                color: 'var(--color-surface, #fff)',
+                border: '1px solid var(--color-ink-muted, #666)',
+                borderRadius: 4,
+                cursor: 'pointer',
+                fontSize: 12,
               }}
             >
               Copy Error

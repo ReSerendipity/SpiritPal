@@ -26,7 +26,7 @@
  * @module analytics
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { tauriInvoke, tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 
 const ANALYTICS_ENABLED_KEY = 'spiritpal-analytics-enabled'
 const ANALYTICS_EVENTS_KEY = 'spiritpal-analytics-events'
@@ -47,13 +47,13 @@ export type AnalyticsEventName =
   | 'mod_install'
   | 'image_switch'
   // M-6: UX 关键路径埋点
-  | 'firstrun_complete'   // 首次引导完成
-  | 'firstrun_skip'       // 首次引导跳过
-  | 'error_occurred'      // 错误发生（非静默）
-  | 'panel_open'          // 面板展开
-  | 'panel_close'         // 面板收起
-  | 'roam_toggle'         // 漫游开关切换
-  | 'edge_snap_toggle'    // 边缘吸附开关切换
+  | 'firstrun_complete' // 首次引导完成
+  | 'firstrun_skip' // 首次引导跳过
+  | 'error_occurred' // 错误发生（非静默）
+  | 'panel_open' // 面板展开
+  | 'panel_close' // 面板收起
+  | 'roam_toggle' // 漫游开关切换
+  | 'edge_snap_toggle' // 边缘吸附开关切换
 
 /**
  * 分析事件数据结构 - 严格类型约束
@@ -70,70 +70,70 @@ interface BaseEventData {
 }
 
 interface AppLaunchData extends BaseEventData {
-  platform: string       // 平台：win32/darwin/linux
-  version: string        // 应用版本号（semver）
-  is_autostart: boolean  // 是否开机自启启动
+  platform: string // 平台：win32/darwin/linux
+  version: string // 应用版本号（semver）
+  is_autostart: boolean // 是否开机自启启动
 }
 
 interface PetInteractionData extends BaseEventData {
-  type: 'click' | 'drag' | 'feed' | 'pet'  // 交互类型
-  duration?: number      // 交互持续时间（毫秒）
+  type: 'click' | 'drag' | 'feed' | 'pet' // 交互类型
+  duration?: number // 交互持续时间（毫秒）
 }
 
 interface ChatSendData extends BaseEventData {
   message_length: number // 消息长度（字符数）
-  model: string          // 使用的 AI 模型标识
+  model: string // 使用的 AI 模型标识
 }
 
 interface ChatReceiveData extends BaseEventData {
-  response_length: number  // 回复长度（字符数）
-  model: string            // 使用的 AI 模型标识
-  latency_ms: number       // 响应延迟（毫秒）
+  response_length: number // 回复长度（字符数）
+  model: string // 使用的 AI 模型标识
+  latency_ms: number // 响应延迟（毫秒）
 }
 
 interface MemoryTriggerData extends BaseEventData {
-  trigger_type: string   // 触发类型：frequency/responsive/emotional
-  memory_id: string      // 触发的记忆 ID
+  trigger_type: string // 触发类型：frequency/responsive/emotional
+  memory_id: string // 触发的记忆 ID
 }
 
 interface ItemUseData extends BaseEventData {
-  item_id: string        // 物品 ID
-  item_type: string      // 物品类型分类
+  item_id: string // 物品 ID
+  item_type: string // 物品类型分类
 }
 
 interface TomatoCompleteData extends BaseEventData {
-  duration_minutes: number  // 番茄钟时长（分钟）
+  duration_minutes: number // 番茄钟时长（分钟）
 }
 
 interface SettingChangeData extends BaseEventData {
-  setting_key: string    // 设置项键名
-  old_value: unknown     // 修改前的值
-  new_value: unknown     // 修改后的值
+  setting_key: string // 设置项键名
+  old_value: unknown // 修改前的值
+  new_value: unknown // 修改后的值
 }
 
 interface ModInstallData extends BaseEventData {
-  mod_id: string         // 模组 ID
-  mod_name: string       // 模组名称
+  mod_id: string // 模组 ID
+  mod_name: string // 模组名称
 }
 
 interface ImageSwitchData extends BaseEventData {
-  from_image: string     // 切换前的形象 ID
-  to_image: string       // 切换后的形象 ID
+  from_image: string // 切换前的形象 ID
+  to_image: string // 切换后的形象 ID
 }
 
 interface FirstRunCompleteData extends BaseEventData {
-  character_id: string   // 首次引导选择的角色 ID
+  character_id: string // 首次引导选择的角色 ID
 }
 
 interface ErrorOccurredData extends BaseEventData {
-  context: string        // 错误发生上下文
-  error_message: string  // 错误信息（不含 PII）
+  context: string // 错误发生上下文
+  error_message: string // 错误信息（不含 PII）
 }
 
 type PanelToggleData = BaseEventData
 
 interface ToggleEventData extends BaseEventData {
-  enabled: boolean       // 开关状态
+  enabled: boolean // 开关状态
 }
 
 /** 事件名称到 data 类型的映射 */
@@ -176,7 +176,7 @@ export interface AnalyticsEvent<T extends AnalyticsEventName = AnalyticsEventNam
  */
 async function encryptAnalyticsData(plaintext: string): Promise<string | null> {
   try {
-    const ciphertext = await invoke<string>('encrypt_data', { data: plaintext, password: '' })
+    const ciphertext = await tauriInvokeNoRetry<string>('encrypt_data', { data: plaintext, password: '' })
     return ciphertext
   } catch {
     // 加密失败（如非 Tauri 环境或机器 ID 获取失败），返回 null 降级为明文
@@ -190,7 +190,7 @@ async function encryptAnalyticsData(plaintext: string): Promise<string | null> {
  */
 async function decryptAnalyticsData(ciphertext: string): Promise<string | null> {
   try {
-    const plaintext = await invoke<string>('decrypt_data', { encrypted: ciphertext, password: '' })
+    const plaintext = await tauriInvoke<string>('decrypt_data', { encrypted: ciphertext, password: '' })
     return plaintext
   } catch {
     // 解密失败，返回 null 让调用方尝试明文兼容
@@ -404,7 +404,7 @@ class AnalyticsManager {
    */
   track<T extends AnalyticsEventName>(
     name: T,
-    data: T extends keyof AnalyticsEventDataMap ? AnalyticsEventDataMap[T] : Record<string, unknown>
+    data: T extends keyof AnalyticsEventDataMap ? AnalyticsEventDataMap[T] : Record<string, unknown>,
   ): void {
     if (!this.enabled) return
 
@@ -450,10 +450,14 @@ class AnalyticsManager {
 
   /** 导出事件数据 */
   exportEvents(): string {
-    return JSON.stringify({
-      exportedAt: new Date().toISOString(),
-      events: this.events,
-    }, null, 2)
+    return JSON.stringify(
+      {
+        exportedAt: new Date().toISOString(),
+        events: this.events,
+      },
+      null,
+      2,
+    )
   }
 }
 
@@ -601,10 +605,7 @@ const REQUIRED_FIELDS: Record<string, string[]> = {
  */
 
 /** 校验事件数据是否符合 schema */
-function validateEventData(
-  name: AnalyticsEventName,
-  data: Record<string, unknown>,
-): ValidationResult {
+function validateEventData(name: AnalyticsEventName, data: Record<string, unknown>): ValidationResult {
   const required = REQUIRED_FIELDS[name]
   if (!required) {
     return { valid: false, error: `Unknown event type: ${name}` }

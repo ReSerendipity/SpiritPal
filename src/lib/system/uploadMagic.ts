@@ -1,3 +1,4 @@
+import { tauriInvoke } from '@/lib/system/tauriInvoker'
 /**
  * 上传文件魔数（Magic Number）校验前端助手
  *
@@ -17,13 +18,28 @@
 /** 与 src-tauri/src/magic_check.rs MAGIC_SIGNATURES 对齐的支持扩展名（小写，含前导点） */
 const SUPPORTED_MAGIC_EXTENSIONS: ReadonlySet<string> = new Set([
   // 图片
-  '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.tif', '.tiff',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.bmp',
+  '.webp',
+  '.tif',
+  '.tiff',
   // 音频
-  '.wav', '.mp3', '.flac', '.ogg', '.m4a',
+  '.wav',
+  '.mp3',
+  '.flac',
+  '.ogg',
+  '.m4a',
   // 视频
-  '.mp4', '.mov', '.webm', '.mkv',
+  '.mp4',
+  '.mov',
+  '.webm',
+  '.mkv',
   // 压缩包（.petmod 是 zip 格式）
-  '.zip', '.petmod',
+  '.zip',
+  '.petmod',
 ])
 
 /** Rust 端 HEADER_READ_SIZE：魔数比对仅需文件头 12 字节 */
@@ -52,8 +68,7 @@ export async function validateUploadMagic(file: File): Promise<string | null> {
   }
   try {
     const header = new Uint8Array(await file.slice(0, HEADER_READ_SIZE).arrayBuffer())
-    const { invoke } = await import('@tauri-apps/api/core')
-    const ok = await invoke<boolean>('validate_upload_magic', {
+    const ok = await tauriInvoke<boolean>('validate_upload_magic', {
       contents: Array.from(header),
       fileExt: ext,
     })

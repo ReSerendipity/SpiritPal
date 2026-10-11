@@ -19,8 +19,8 @@
  * - @tauri-apps/api/core: Tauri invoke
  */
 
-import { invoke } from '@tauri-apps/api/core'
 import { isTauri } from '@tauri-apps/api/core'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 
 /**
  * 记录安全审计事件
@@ -40,16 +40,12 @@ import { isTauri } from '@tauri-apps/api/core'
  * await auditLog('mod_import', '导入了模组 cool-pet.petmod (sha256=abc...)')
  * ```
  */
-export async function auditLog(
-  eventType: string,
-  message: string,
-  actor: string = 'user',
-): Promise<void> {
+export async function auditLog(eventType: string, message: string, actor: string = 'user'): Promise<void> {
   // Tauri 不可用时静默跳过（开发/测试环境）
   if (!isTauri()) return
 
   try {
-    await invoke('audit_log', { eventType, actor, message })
+    await tauriInvokeNoRetry('audit_log', { eventType, actor, message })
   } catch (e) {
     // 审计日志写入失败不应阻断业务流程
     console.warn('[AuditLogger] Failed to write audit log:', e)

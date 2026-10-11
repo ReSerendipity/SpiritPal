@@ -11,7 +11,6 @@
  * @see {@link ../components/DataPanel} 桌面端数据面板（能力参照）
  * @see {@link ../lib/data/dbBackup} 备份 API（Rust backup_db_at_rest 系列）
  */
-import { invoke } from '@tauri-apps/api/core'
 import { useEffect, useState } from 'react'
 import {
   Database,
@@ -35,6 +34,7 @@ import {
   type DBBackupInfoTs,
 } from '@/lib/data/dbBackup'
 import { exportDiagnostics, type ExportDiagnosticsResult } from '@/lib/system/diagnostics'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 
 interface MobileDataPanelProps {
   /** 返回设置主页 */
@@ -117,7 +117,7 @@ export function MobileDataPanel({
   async function handleBackupNow() {
     setBusy(true)
     try {
-      await invoke('backup_db_at_rest')
+      await tauriInvokeNoRetry('backup_db_at_rest')
       flash('success', t('settings.data.backupOk'))
       loadBackups()
     } catch (e) {
@@ -278,9 +278,7 @@ export function MobileDataPanel({
         {/* 备份列表 */}
         <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
           <h3 className="mb-2 text-sm font-medium">{t('settings.data.backups')}</h3>
-          {backups.length === 0 && (
-            <p className={`text-xs ${subtitleClass}`}>{t('settings.data.backupsEmpty')}</p>
-          )}
+          {backups.length === 0 && <p className={`text-xs ${subtitleClass}`}>{t('settings.data.backupsEmpty')}</p>}
           <div className="space-y-2">
             {backups.map((b) => (
               <div key={b.name} className="rounded-lg border border-ink/10 bg-cream-deep p-2">

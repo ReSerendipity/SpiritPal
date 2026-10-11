@@ -32,8 +32,8 @@
  * - tauri-nspanel 库
  */
 
-import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 
 // ============ 平台检测 ============
 
@@ -72,7 +72,7 @@ export function isMacOS(): boolean {
 export async function showPetWindow(): Promise<void> {
   try {
     const window = getCurrentWindow()
-    await invoke('show_pet_window', { window })
+    await tauriInvokeNoRetry('show_pet_window', { window })
   } catch (e) {
     console.warn('[macosPanel] showPetWindow failed:', e)
     // 降级：直接使用 Tauri API
@@ -94,7 +94,7 @@ export async function showPetWindow(): Promise<void> {
 export async function hidePetWindow(): Promise<void> {
   try {
     const window = getCurrentWindow()
-    await invoke('hide_pet_window', { window })
+    await tauriInvokeNoRetry('hide_pet_window', { window })
   } catch (e) {
     console.warn('[macosPanel] hidePetWindow failed:', e)
     // 降级
@@ -119,7 +119,7 @@ export async function hidePetWindow(): Promise<void> {
 export async function setPetAlwaysOnTop(alwaysOnTop: boolean): Promise<void> {
   try {
     const window = getCurrentWindow()
-    await invoke('set_pet_always_on_top', { window, alwaysOnTop })
+    await tauriInvokeNoRetry('set_pet_always_on_top', { window, alwaysOnTop })
   } catch (e) {
     console.warn('[macosPanel] setPetAlwaysOnTop failed:', e)
     // 降级

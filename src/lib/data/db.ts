@@ -24,9 +24,9 @@
  */
 
 // D-1: 所有数据访问经 Tauri invoke 走 Rust 语义命令
-import { invoke } from '@tauri-apps/api/core'
-// P1-2: 多窗口 settingsCache 一致性 — 监听跨窗口设置变更事件
 import { emit, listen } from '@tauri-apps/api/event'
+import { tauriInvoke, tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
+// P1-2: 多窗口 settingsCache 一致性 — 监听跨窗口设置变更事件
 
 // ============ 就绪与初始化 ============
 
@@ -39,7 +39,7 @@ let readyPromise: Promise<void> | null = null
 function ensureReady(): Promise<void> {
   if (!readyPromise) {
     readyPromise = (async () => {
-      await invoke('sp_db_migrate')
+      await tauriInvoke('sp_db_migrate')
     })()
   }
   return readyPromise
@@ -137,9 +137,9 @@ export async function setupSettingsCacheListener(): Promise<void> {
 export async function encryptDatabaseAtRest(): Promise<void> {
   try {
     // 加密数据库文件（Rust 端负责连接关闭 + 清理 -wal/-shm 残留）
-    await invoke('encrypt_db_at_rest')
+    await tauriInvokeNoRetry('encrypt_db_at_rest')
     // P1: 无云端备份下的本地 durability —— 加密完成后自动备份一轮（保留最近 3 份）
-    await invoke('backup_db_at_rest').catch((e: unknown) => {
+    await tauriInvokeNoRetry('backup_db_at_rest').catch((e: unknown) => {
       console.warn('[SpiritPal] Auto backup failed (non-fatal):', e)
     })
   } catch (e) {
@@ -172,7 +172,7 @@ if (typeof window !== 'undefined') {
 export async function initDB(): Promise<void> {
   // R-14: 启动时解密数据库文件（如果有加密版本）
   try {
-    await invoke('decrypt_db_at_rest')
+    await tauriInvoke('decrypt_db_at_rest')
   } catch (e) {
     console.warn('[SpiritPal] Failed to decrypt database at rest:', e)
     // P0-4: 解密失败可能导致数据不可达（.enc 存在但明文未生成），必须进日志留痕
@@ -205,7 +205,7 @@ export async function getSetting(key: string): Promise<string | null> {
   const cached = cacheGet(key)
   if (cached !== undefined) return cached
   await ensureReady()
-  const value = await invoke<string | null>('sp_settings_get', { key })
+  const value = await tauriInvokeNoRetry<string | null>('sp_settings_get', { key })
   cacheSet(key, value)
   return value
 }
@@ -213,7 +213,7 @@ export async function getSetting(key: string): Promise<string | null> {
 /** 写入 setting（upsert），自动更新缓存 */
 export async function setSetting(key: string, value: string): Promise<void> {
   await ensureReady()
-  await invoke('sp_settings_set', { key, value })
+  await tauriInvokeNoRetry('sp_settings_set', { key, value })
   cacheInvalidate(key)
   cacheSet(key, value)
   // P1-2: 通知其他窗口清除该 key 的缓存（多窗口 settingsCache 一致性）
@@ -226,7 +226,7 @@ export async function setSetting(key: string, value: string): Promise<void> {
 /** 删除 setting，同时清除缓存 */
 export async function removeSetting(key: string): Promise<void> {
   await ensureReady()
-  await invoke('sp_settings_remove', { key })
+  await tauriInvokeNoRetry('sp_settings_remove', { key })
   cacheInvalidate(key)
   // P1-2: 通知其他窗口清除该 key 的缓存
   Promise.resolve(emit('spiritpal:settings-changed', { key })).catch(() => {
@@ -239,21 +239,19 @@ export async function removeSetting(key: string): Promise<void> {
 /** 获取单个角色的养成数据（JSON 字符串） */
 export async function getCharacterStats(charId: string): Promise<string | null> {
   await ensureReady()
-  return invoke<string | null>('sp_char_get_stats', { characterId: charId })
+  return tauriInvokeNoRetry<string | null>('sp_char_get_stats', { characterId: charId })
 }
 
 /** 保存角色养成数据（upsert） */
 export async function saveCharacterStats(charId: string, stats: object): Promise<void> {
   await ensureReady()
-  await invoke('sp_char_save_stats', { characterId: charId, stats: JSON.stringify(stats) })
+  await tauriInvokeNoRetry('sp_char_save_stats', { characterId: charId, stats: JSON.stringify(stats) })
 }
 
 /** 获取所有角色养成数据 */
-export async function getAllCharacters(): Promise<
-  Array<{ id: string; stats: string; updated_at: number }>
-> {
+export async function getAllCharacters(): Promise<Array<{ id: string; stats: string; updated_at: number }>> {
   await ensureReady()
-  return invoke('sp_char_list')
+  return tauriInvoke('sp_char_list')
 }
 
 // ============ memories 表操作 ============
@@ -268,7 +266,7 @@ export async function addMemory(
   importance: number = 50,
 ): Promise<number> {
   await ensureReady()
-  return invoke<number>('sp_mem_add', { characterId, memoryType: type, content, importance })
+  return tauriInvokeNoRetry<number>('sp_mem_add', { characterId, memoryType: type, content, importance })
 }
 
 // ============ embedding 列操作 ============
@@ -302,7 +300,7 @@ function base64ToFloat32(b64: string): Float32Array {
 /** 保存记忆的嵌入向量 */
 export async function saveEmbedding(memoryId: number, embedding: Float32Array): Promise<void> {
   await ensureReady()
-  await invoke('sp_mem_save_embedding', {
+  await tauriInvokeNoRetry('sp_mem_save_embedding', {
     memoryId,
     embeddingB64: float32ToBase64(embedding),
   })
@@ -315,7 +313,7 @@ export async function saveEmbedding(memoryId: number, embedding: Float32Array): 
 export async function saveEmbeddingsBatch(items: Array<{ memoryId: number; embedding: Float32Array }>): Promise<void> {
   if (items.length === 0) return
   await ensureReady()
-  await invoke('sp_mem_save_embeddings_batch', {
+  await tauriInvokeNoRetry('sp_mem_save_embeddings_batch', {
     items: items.map(({ memoryId, embedding }) => ({
       memoryId,
       embeddingB64: float32ToBase64(embedding),
@@ -326,7 +324,7 @@ export async function saveEmbeddingsBatch(items: Array<{ memoryId: number; embed
 /** 更新记忆的最后访问时间 */
 export async function updateMemoryLastAccessed(memoryId: number): Promise<void> {
   await ensureReady()
-  await invoke('sp_mem_touch', { memoryId })
+  await tauriInvokeNoRetry('sp_mem_touch', { memoryId })
 }
 
 /**
@@ -341,7 +339,7 @@ export async function getAllEmbeddings(
   type?: MemoryType,
 ): Promise<{ id: number; embedding: Float32Array }[]> {
   await ensureReady()
-  const rows = await invoke<Array<{ id: number; embedding: string }>>('sp_mem_get_embeddings', {
+  const rows = await tauriInvoke<Array<{ id: number; embedding: string }>>('sp_mem_get_embeddings', {
     characterId: characterId ?? null,
     limit,
     memoryType: type ?? null,
@@ -350,12 +348,9 @@ export async function getAllEmbeddings(
 }
 
 /** 查询角色的记忆列表 */
-export async function getMemories(
-  characterId: string,
-  type?: MemoryType,
-): Promise<Array<Record<string, unknown>>> {
+export async function getMemories(characterId: string, type?: MemoryType): Promise<Array<Record<string, unknown>>> {
   await ensureReady()
-  return invoke('sp_mem_list', { characterId, memoryType: type ?? null })
+  return tauriInvoke('sp_mem_list', { characterId, memoryType: type ?? null })
 }
 
 /**
@@ -363,7 +358,7 @@ export async function getMemories(
  */
 export async function deleteMemory(dbId: number): Promise<void> {
   await ensureReady()
-  await invoke('sp_mem_delete', { memoryId: dbId })
+  await tauriInvokeNoRetry('sp_mem_delete', { memoryId: dbId })
 }
 
 /**
@@ -371,7 +366,7 @@ export async function deleteMemory(dbId: number): Promise<void> {
  */
 export async function clearMemories(characterId: string): Promise<void> {
   await ensureReady()
-  await invoke('sp_mem_clear', { characterId })
+  await tauriInvokeNoRetry('sp_mem_clear', { characterId })
 }
 
 // ============ S2/M1: 行级 CRUD（替代全量 JSON blob + 每值加密）============
@@ -410,29 +405,23 @@ export interface MemoryRow {
  */
 export async function insertMemoryRow(row: MemoryRow): Promise<number> {
   await ensureReady()
-  return invoke<number>('sp_mem_insert_row', { row })
+  return tauriInvokeNoRetry<number>('sp_mem_insert_row', { row })
 }
 
 /**
  * S2: 按 rowid 更新记忆行（部分字段；Rust 端仅允许白名单字段名）
  */
-export async function updateMemoryRow(
-  id: number,
-  fields: Partial<MemoryRow>,
-): Promise<void> {
+export async function updateMemoryRow(id: number, fields: Partial<MemoryRow>): Promise<void> {
   await ensureReady()
-  await invoke('sp_mem_update_row', { memoryId: id, fields })
+  await tauriInvokeNoRetry('sp_mem_update_row', { memoryId: id, fields })
 }
 
 /**
  * S2: 按角色和 tier 查询所有记忆行（用于 load 替代 JSON blob 读取）
  */
-export async function getMemoriesByTier(
-  characterId: string,
-  tiers?: string[],
-): Promise<MemoryRow[]> {
+export async function getMemoriesByTier(characterId: string, tiers?: string[]): Promise<MemoryRow[]> {
   await ensureReady()
-  return invoke('sp_mem_by_tier', { characterId, tiers: tiers && tiers.length > 0 ? tiers : null })
+  return tauriInvoke('sp_mem_by_tier', { characterId, tiers: tiers && tiers.length > 0 ? tiers : null })
 }
 
 /**
@@ -440,7 +429,7 @@ export async function getMemoriesByTier(
  */
 export async function getMemoriesByCharacter(characterId: string): Promise<MemoryRow[]> {
   await ensureReady()
-  return invoke('sp_mem_by_character', { characterId })
+  return tauriInvoke('sp_mem_by_character', { characterId })
 }
 
 // ============ S2/M1: memory_summaries 表操作 ============
@@ -450,7 +439,7 @@ export async function getMemoriesByCharacter(characterId: string): Promise<Memor
  */
 export async function getMemorySummary(characterId: string): Promise<string | null> {
   await ensureReady()
-  return invoke<string | null>('sp_mem_summary_get', { characterId })
+  return tauriInvokeNoRetry<string | null>('sp_mem_summary_get', { characterId })
 }
 
 /**
@@ -458,7 +447,7 @@ export async function getMemorySummary(characterId: string): Promise<string | nu
  */
 export async function upsertMemorySummary(characterId: string, summary: string): Promise<void> {
   await ensureReady()
-  await invoke('sp_mem_summary_upsert', { characterId, summary })
+  await tauriInvokeNoRetry('sp_mem_summary_upsert', { characterId, summary })
 }
 
 /**
@@ -466,7 +455,7 @@ export async function upsertMemorySummary(characterId: string, summary: string):
  */
 export async function deleteMemorySummary(characterId: string): Promise<void> {
   await ensureReady()
-  await invoke('sp_mem_summary_delete', { characterId })
+  await tauriInvokeNoRetry('sp_mem_summary_delete', { characterId })
 }
 
 // ============ S2/M1: memory_state 表操作 ============
@@ -489,7 +478,7 @@ export interface MemoryStateRow {
  */
 export async function getMemoryState(characterId: string): Promise<MemoryStateRow | null> {
   await ensureReady()
-  return invoke<MemoryStateRow | null>('sp_mem_state_get', { characterId })
+  return tauriInvokeNoRetry<MemoryStateRow | null>('sp_mem_state_get', { characterId })
 }
 
 /**
@@ -497,7 +486,7 @@ export async function getMemoryState(characterId: string): Promise<MemoryStateRo
  */
 export async function upsertMemoryState(state: MemoryStateRow): Promise<void> {
   await ensureReady()
-  await invoke('sp_mem_state_upsert', { state })
+  await tauriInvokeNoRetry('sp_mem_state_upsert', { state })
 }
 
 /**
@@ -505,7 +494,7 @@ export async function upsertMemoryState(state: MemoryStateRow): Promise<void> {
  */
 export async function deleteMemoryState(characterId: string): Promise<void> {
   await ensureReady()
-  await invoke('sp_mem_state_delete', { characterId })
+  await tauriInvokeNoRetry('sp_mem_state_delete', { characterId })
 }
 
 /**
@@ -514,7 +503,7 @@ export async function deleteMemoryState(characterId: string): Promise<void> {
  */
 export async function clearAllMemoryData(characterId: string): Promise<void> {
   await ensureReady()
-  await invoke('sp_mem_clear_all', { characterId })
+  await tauriInvokeNoRetry('sp_mem_clear_all', { characterId })
 }
 
 /**
@@ -548,46 +537,46 @@ export interface OwnerFactRow {
   confidence: number
   updated_at: number
   user_provided: number // 0 or 1
-  valid_at?: number | null     // P1-5: 事实生效时间
-  invalid_at?: number | null   // P1-5: 事实失效时间（NULL=当前有效）
+  valid_at?: number | null // P1-5: 事实生效时间
+  invalid_at?: number | null // P1-5: 事实失效时间（NULL=当前有效）
   superseded_by?: number | null // P1-5: 被哪个新事实取代
 }
 
 /** T-1: 查询角色的所有事实 */
 export async function getOwnerFacts(characterId: string): Promise<OwnerFactRow[]> {
   await ensureReady()
-  return invoke('sp_owner_facts_list', { characterId })
+  return tauriInvoke('sp_owner_facts_list', { characterId })
 }
 
 /** P1-5: 查询角色在指定时间点的有效事实（支持双时间轴） */
 export async function getOwnerFactsAsOf(characterId: string, asOfTime: number): Promise<OwnerFactRow[]> {
   await ensureReady()
-  return invoke('sp_owner_facts_as_of', { characterId, asOfTime })
+  return tauriInvoke('sp_owner_facts_as_of', { characterId, asOfTime })
 }
 
 /** P1-5: 查询角色的历史事实（已被取代的事实） */
 export async function getOwnerFactsHistory(characterId: string): Promise<OwnerFactRow[]> {
   await ensureReady()
-  return invoke('sp_owner_facts_history', { characterId })
+  return tauriInvoke('sp_owner_facts_history', { characterId })
 }
 
 /** T-1: upsert 事实（按 character_id + fact_key 唯一）
  * P1-5 改进：同 key 新值插入时，旧值打 invalid_at 标记（非覆盖）——Rust 端实现 */
 export async function upsertOwnerFact(row: OwnerFactRow): Promise<void> {
   await ensureReady()
-  await invoke('sp_owner_facts_upsert', { row })
+  await tauriInvokeNoRetry('sp_owner_facts_upsert', { row })
 }
 
 /** T-1: 删除事实 */
 export async function deleteOwnerFact(characterId: string, factKey: string): Promise<void> {
   await ensureReady()
-  await invoke('sp_owner_facts_delete', { characterId, factKey })
+  await tauriInvokeNoRetry('sp_owner_facts_delete', { characterId, factKey })
 }
 
 /** T-1: 清空角色所有事实 */
 export async function clearOwnerFacts(characterId: string): Promise<void> {
   await ensureReady()
-  await invoke('sp_owner_facts_clear', { characterId })
+  await tauriInvokeNoRetry('sp_owner_facts_clear', { characterId })
 }
 
 /** T-1: owner_facts 迁移标记 */
@@ -619,37 +608,37 @@ export interface SemanticFactRow {
 /** P1-6: 查询角色的所有语义事实（按重要性排序） */
 export async function getSemanticFacts(characterId: string): Promise<SemanticFactRow[]> {
   await ensureReady()
-  return invoke('sp_sem_facts_list', { characterId })
+  return tauriInvoke('sp_sem_facts_list', { characterId })
 }
 
 /** P1-6: 按 key 查询特定语义事实 */
 export async function getSemanticFactByKey(characterId: string, factKey: string): Promise<SemanticFactRow | null> {
   await ensureReady()
-  return invoke('sp_sem_facts_by_key', { characterId, factKey })
+  return tauriInvoke('sp_sem_facts_by_key', { characterId, factKey })
 }
 
 /** P1-6: 插入或更新语义事实 */
 export async function upsertSemanticFact(row: SemanticFactRow): Promise<void> {
   await ensureReady()
-  await invoke('sp_sem_facts_upsert', { row })
+  await tauriInvokeNoRetry('sp_sem_facts_upsert', { row })
 }
 
 /** P1-6: 删除特定语义事实 */
 export async function deleteSemanticFact(characterId: string, factKey: string): Promise<void> {
   await ensureReady()
-  await invoke('sp_sem_facts_delete', { characterId, factKey })
+  await tauriInvokeNoRetry('sp_sem_facts_delete', { characterId, factKey })
 }
 
 /** P1-6: 清空角色所有语义事实 */
 export async function clearSemanticFacts(characterId: string): Promise<void> {
   await ensureReady()
-  await invoke('sp_sem_facts_clear', { characterId })
+  await tauriInvokeNoRetry('sp_sem_facts_clear', { characterId })
 }
 
 /** P1-6: 获取语义事实数量 */
 export async function getSemanticFactsCount(characterId: string): Promise<number> {
   await ensureReady()
-  return invoke<number>('sp_sem_facts_count', { characterId })
+  return tauriInvokeNoRetry<number>('sp_sem_facts_count', { characterId })
 }
 
 // ============ T-1: pet_experiences 表操作（二期行级化） ============
@@ -668,19 +657,19 @@ export interface PetExperienceRow {
 /** T-1: 查询角色的所有经历 */
 export async function getPetExperiences(characterId: string): Promise<PetExperienceRow[]> {
   await ensureReady()
-  return invoke('sp_pet_exp_list', { characterId })
+  return tauriInvoke('sp_pet_exp_list', { characterId })
 }
 
 /** T-1: 插入一条经历 */
 export async function insertPetExperience(row: PetExperienceRow): Promise<void> {
   await ensureReady()
-  await invoke('sp_pet_exp_insert', { row })
+  await tauriInvokeNoRetry('sp_pet_exp_insert', { row })
 }
 
 /** T-1: 清空角色所有经历 */
 export async function clearPetExperiences(characterId: string): Promise<void> {
   await ensureReady()
-  await invoke('sp_pet_exp_clear', { characterId })
+  await tauriInvokeNoRetry('sp_pet_exp_clear', { characterId })
 }
 
 /** T-1: pet_experiences 迁移标记 */
@@ -711,19 +700,19 @@ export interface VisualMemoryRow {
 /** T-1: 查询角色的所有视觉记忆 */
 export async function getVisualMemories(characterId: string): Promise<VisualMemoryRow[]> {
   await ensureReady()
-  return invoke('sp_visual_list', { characterId })
+  return tauriInvoke('sp_visual_list', { characterId })
 }
 
 /** T-1: 插入一条视觉记忆 */
 export async function insertVisualMemory(row: VisualMemoryRow): Promise<void> {
   await ensureReady()
-  await invoke('sp_visual_insert', { row })
+  await tauriInvokeNoRetry('sp_visual_insert', { row })
 }
 
 /** T-1: 清空角色所有视觉记忆 */
 export async function clearVisualMemories(characterId: string): Promise<void> {
   await ensureReady()
-  await invoke('sp_visual_clear', { characterId })
+  await tauriInvokeNoRetry('sp_visual_clear', { characterId })
 }
 
 /** T-1: visual_memories 迁移标记 */
@@ -754,19 +743,19 @@ export interface EntityNodeRow {
 /** T-1: 查询角色的所有实体 */
 export async function getEntityNodes(characterId: string): Promise<EntityNodeRow[]> {
   await ensureReady()
-  return invoke('sp_entity_list', { characterId })
+  return tauriInvoke('sp_entity_list', { characterId })
 }
 
 /** T-1: upsert 实体（按 character_id + name 唯一） */
 export async function upsertEntityNode(row: EntityNodeRow): Promise<void> {
   await ensureReady()
-  await invoke('sp_entity_upsert', { row })
+  await tauriInvokeNoRetry('sp_entity_upsert', { row })
 }
 
 /** T-1: 清空角色所有实体 */
 export async function clearEntityNodes(characterId: string): Promise<void> {
   await ensureReady()
-  await invoke('sp_entity_clear', { characterId })
+  await tauriInvokeNoRetry('sp_entity_clear', { characterId })
 }
 
 /** T-1: entity_nodes 迁移标记 */
@@ -791,7 +780,7 @@ export async function saveMod(mod: {
   enabled?: boolean
 }): Promise<void> {
   await ensureReady()
-  await invoke('sp_mods_save', {
+  await tauriInvokeNoRetry('sp_mods_save', {
     row: {
       id: mod.id,
       name: mod.name,
@@ -815,19 +804,19 @@ export async function getMods(): Promise<
   }>
 > {
   await ensureReady()
-  return invoke('sp_mods_list')
+  return tauriInvoke('sp_mods_list')
 }
 
 /** 删除模组 */
 export async function deleteMod(id: string): Promise<void> {
   await ensureReady()
-  await invoke('sp_mods_delete', { id })
+  await tauriInvokeNoRetry('sp_mods_delete', { id })
 }
 
 /** 更新模组启用状态 */
 export async function updateModEnabled(id: string, enabled: boolean): Promise<void> {
   await ensureReady()
-  await invoke('sp_mods_set_enabled', { id, enabled })
+  await tauriInvokeNoRetry('sp_mods_set_enabled', { id, enabled })
 }
 
 // ============ inventory 表操作 ============
@@ -840,7 +829,7 @@ export async function saveInventoryItem(item: {
   character_id?: string | null
 }): Promise<void> {
   await ensureReady()
-  await invoke('sp_inventory_save', {
+  await tauriInvokeNoRetry('sp_inventory_save', {
     item: {
       id: item.id,
       item_id: item.item_id,
@@ -851,11 +840,9 @@ export async function saveInventoryItem(item: {
 }
 
 /** 查询背包物品 */
-export async function getInventory(
-  characterId?: string,
-): Promise<Array<Record<string, unknown>>> {
+export async function getInventory(characterId?: string): Promise<Array<Record<string, unknown>>> {
   await ensureReady()
-  return invoke('sp_inventory_list', { characterId: characterId ?? null })
+  return tauriInvoke('sp_inventory_list', { characterId: characterId ?? null })
 }
 
 // ============ schedules 表操作 ============
@@ -869,7 +856,7 @@ export async function saveSchedule(schedule: {
   completed?: boolean
 }): Promise<void> {
   await ensureReady()
-  await invoke('sp_schedules_save', {
+  await tauriInvokeNoRetry('sp_schedules_save', {
     schedule: {
       id: schedule.id,
       title: schedule.title,
@@ -883,13 +870,13 @@ export async function saveSchedule(schedule: {
 /** 查询所有日程（按时间排序） */
 export async function getSchedules(): Promise<Array<Record<string, unknown>>> {
   await ensureReady()
-  return invoke('sp_schedules_list')
+  return tauriInvoke('sp_schedules_list')
 }
 
 /** P3-1 收尾：删除指定日程（removeEvent 镜像，避免 DB 残留行复活） */
 export async function deleteSchedule(id: string): Promise<void> {
   await ensureReady()
-  await invoke('sp_schedules_delete', { id })
+  await tauriInvokeNoRetry('sp_schedules_delete', { id })
 }
 
 // ============ Zustand 持久化存储适配器 ============
@@ -986,7 +973,7 @@ export async function migrateFromLocalStorage(): Promise<void> {
  */
 export async function dbIntegrityCheck(): Promise<string[]> {
   await ensureReady()
-  return invoke<string[]>('sp_db_integrity')
+  return tauriInvokeNoRetry<string[]>('sp_db_integrity')
 }
 
 /**
@@ -994,7 +981,7 @@ export async function dbIntegrityCheck(): Promise<string[]> {
  */
 export async function exportDbSnapshot(): Promise<Record<string, unknown[]>> {
   await ensureReady()
-  return invoke<Record<string, unknown[]>>('sp_db_snapshot')
+  return tauriInvoke<Record<string, unknown[]>>('sp_db_snapshot')
 }
 
 // ============ B2-2: settings 键扫描 / 全量清空 ============
@@ -1002,13 +989,13 @@ export async function exportDbSnapshot(): Promise<Record<string, unknown[]>> {
 /** 按 LIKE 模式返回 settings 键列表（memoryMigrator / zombieDataCleanup 用） */
 export async function getSettingsKeysLike(pattern: string): Promise<string[]> {
   await ensureReady()
-  return invoke<string[]>('sp_settings_keys', { pattern })
+  return tauriInvokeNoRetry<string[]>('sp_settings_keys', { pattern })
 }
 
 /** 全量清空业务数据（dataManager.resetAll GDPR 语义） */
 export async function purgeAllData(): Promise<void> {
   await ensureReady()
-  await invoke('sp_db_purge')
+  await tauriInvokeNoRetry('sp_db_purge')
 }
 
 // ============ B2-2: commitments（commitmentTracker） ============
@@ -1037,7 +1024,7 @@ export async function insertCommitment(opts: {
   repeat?: string | null
 }): Promise<number> {
   await ensureReady()
-  return invoke<number>('sp_commitments_insert', {
+  return tauriInvokeNoRetry<number>('sp_commitments_insert', {
     characterId: opts.characterId,
     content: opts.content,
     actor: opts.actor,
@@ -1050,19 +1037,23 @@ export async function insertCommitment(opts: {
 /** 获取角色的全部 open 约定 */
 export async function getOpenCommitments(characterId: string): Promise<CommitmentRow[]> {
   await ensureReady()
-  return invoke<CommitmentRow[]>('sp_commitments_list', { characterId })
+  return tauriInvokeNoRetry<CommitmentRow[]>('sp_commitments_list', { characterId })
 }
 
 /** 获取 today 区间（[start, end)）内到期的 open 约定 */
 export async function getDueCommitments(characterId: string, start: number, end: number): Promise<CommitmentRow[]> {
   await ensureReady()
-  return invoke<CommitmentRow[]>('sp_commitments_due', { characterId, start, end })
+  return tauriInvokeNoRetry<CommitmentRow[]>('sp_commitments_due', { characterId, start, end })
 }
 
 /** 获取逾期（due_at < now 且 > before）的 open 约定 */
-export async function getOverdueCommitments(characterId: string, now: number, before: number): Promise<CommitmentRow[]> {
+export async function getOverdueCommitments(
+  characterId: string,
+  now: number,
+  before: number,
+): Promise<CommitmentRow[]> {
   await ensureReady()
-  return invoke<CommitmentRow[]>('sp_commitments_overdue', { characterId, now, before })
+  return tauriInvokeNoRetry<CommitmentRow[]>('sp_commitments_overdue', { characterId, now, before })
 }
 
 // 该数组是约定状态的单一事实来源：值本身不读，仅通过下一行的 typeof 派生联合类型。
@@ -1073,31 +1064,35 @@ export type CommitmentStatus = (typeof COMMITMENT_STATUSES)[number]
 /** 设置约定状态（Rust 端白名单校验） */
 export async function setCommitmentStatus(id: number, status: CommitmentStatus): Promise<void> {
   await ensureReady()
-  await invoke('sp_commitments_set_status', { id, status })
+  await tauriInvokeNoRetry('sp_commitments_set_status', { id, status })
 }
 
 /** 增加约定跟进次数 */
 export async function incrementCommitmentFollowUp(id: number): Promise<void> {
   await ensureReady()
-  await invoke('sp_commitments_increment_follow_up', { id })
+  await tauriInvokeNoRetry('sp_commitments_increment_follow_up', { id })
 }
 
 /** 将角色超期未提的 open 约定自动置为 lapsed，返回受影响行数 */
 export async function autoLapseCommitments(characterId: string, threshold: number): Promise<number> {
   await ensureReady()
-  return invoke<number>('sp_commitments_auto_lapse', { characterId, threshold })
+  return tauriInvokeNoRetry<number>('sp_commitments_auto_lapse', { characterId, threshold })
 }
 
 /** 查询已完成/已过期的重复约定（createRecurring 候选） */
 export async function getRecurringDoneCommitments(characterId: string): Promise<CommitmentRow[]> {
   await ensureReady()
-  return invoke<CommitmentRow[]>('sp_commitments_recurring_done', { characterId })
+  return tauriInvokeNoRetry<CommitmentRow[]>('sp_commitments_recurring_done', { characterId })
 }
 
 /** 查询角色同内容最近创建的 open 约定（防重复建循环约定） */
-export async function getOpenCommitmentByContent(characterId: string, content: string, since: number): Promise<CommitmentRow[]> {
+export async function getOpenCommitmentByContent(
+  characterId: string,
+  content: string,
+  since: number,
+): Promise<CommitmentRow[]> {
   await ensureReady()
-  return invoke<CommitmentRow[]>('sp_commitments_open_recent', { characterId, content, since })
+  return tauriInvokeNoRetry<CommitmentRow[]>('sp_commitments_open_recent', { characterId, content, since })
 }
 
 // ============ B2-2: context_episodes（contextEpisodeManager） ============
@@ -1124,7 +1119,7 @@ export async function insertContextEpisode(opts: {
   music?: string | null
 }): Promise<number> {
   await ensureReady()
-  return invoke<number>('sp_ctx_insert', {
+  return tauriInvokeNoRetry<number>('sp_ctx_insert', {
     characterId: opts.characterId,
     startedAt: opts.startedAt,
     workState: opts.workState ?? null,
@@ -1137,13 +1132,17 @@ export async function insertContextEpisode(opts: {
 /** 关闭片段 */
 export async function closeContextEpisode(id: number, endedAt: number): Promise<void> {
   await ensureReady()
-  await invoke('sp_ctx_close', { id, endedAt })
+  await tauriInvokeNoRetry('sp_ctx_close', { id, endedAt })
 }
 
 /** 查询片段（[start, end) 可选 end） */
-export async function listContextEpisodes(characterId: string, start: number, end?: number): Promise<ContextEpisodeRow[]> {
+export async function listContextEpisodes(
+  characterId: string,
+  start: number,
+  end?: number,
+): Promise<ContextEpisodeRow[]> {
   await ensureReady()
-  return invoke<ContextEpisodeRow[]>('sp_ctx_list', { characterId, start, end: end ?? null })
+  return tauriInvokeNoRetry<ContextEpisodeRow[]>('sp_ctx_list', { characterId, start, end: end ?? null })
 }
 
 // ============ B2-2: entityGraph（memory_entities / edges） ============
@@ -1166,7 +1165,7 @@ export async function upsertEntityGraphNode(opts: {
   embeddingB64?: string | null
 }): Promise<string> {
   await ensureReady()
-  return invoke<string>('sp_entitygraph_upsert_node', {
+  return tauriInvokeNoRetry<string>('sp_entitygraph_upsert_node', {
     name: opts.name,
     nodeType: opts.nodeType,
     memoryId: opts.memoryId,
@@ -1184,7 +1183,7 @@ export async function upsertEntityGraphEdge(opts: {
   createdAt: number
 }): Promise<void> {
   await ensureReady()
-  await invoke('sp_entitygraph_upsert_edge', {
+  await tauriInvokeNoRetry('sp_entitygraph_upsert_edge', {
     entityA: opts.entityA,
     entityB: opts.entityB,
     weightIncrement: opts.weightIncrement,
@@ -1195,13 +1194,15 @@ export async function upsertEntityGraphEdge(opts: {
 /** 按名称批量查实体 */
 export async function findEntityNodesByName(names: string[]): Promise<EntityNodeGraphRow[]> {
   await ensureReady()
-  return invoke<EntityNodeGraphRow[]>('sp_entitygraph_find_by_names', { names })
+  return tauriInvokeNoRetry<EntityNodeGraphRow[]>('sp_entitygraph_find_by_names', { names })
 }
 
 /** 获取实体的邻居（含权重） */
-export async function getEntityGraphNeighbors(entityName: string): Promise<Array<{ neighbor: string; weight: number }>> {
+export async function getEntityGraphNeighbors(
+  entityName: string,
+): Promise<Array<{ neighbor: string; weight: number }>> {
   await ensureReady()
-  return invoke<Array<{ neighbor: string; weight: number }>>('sp_entitygraph_neighbors', { entityName })
+  return tauriInvoke<Array<{ neighbor: string; weight: number }>>('sp_entitygraph_neighbors', { entityName })
 }
 
 // ============ B2-2: zombie 数据清理（zombieDataCleanup） ============
@@ -1217,25 +1218,25 @@ export interface ZombieReportRow {
 /** 僵尸数据报告 */
 export async function getZombieReport(contextThreshold: number, entityThreshold: number): Promise<ZombieReportRow> {
   await ensureReady()
-  return invoke<ZombieReportRow>('sp_zombie_report', { contextThreshold, entityThreshold })
+  return tauriInvokeNoRetry<ZombieReportRow>('sp_zombie_report', { contextThreshold, entityThreshold })
 }
 
 /** 清理过期 legacy blob，返回清理条数 */
 export async function zombieCleanupLegacy(threshold: number, force: boolean, limit: number): Promise<number> {
   await ensureReady()
-  return invoke<number>('sp_zombie_cleanup_legacy', { threshold, force, limit })
+  return tauriInvokeNoRetry<number>('sp_zombie_cleanup_legacy', { threshold, force, limit })
 }
 
 /** 清理过期 context_episodes，返回清理条数 */
 export async function zombieCleanupEpisodes(threshold: number, limit: number): Promise<number> {
   await ensureReady()
-  return invoke<number>('sp_zombie_cleanup_episodes', { threshold, limit })
+  return tauriInvokeNoRetry<number>('sp_zombie_cleanup_episodes', { threshold, limit })
 }
 
 /** 清理过期 entity_nodes，返回清理条数 */
 export async function zombieCleanupEntities(threshold: number, limit: number): Promise<number> {
   await ensureReady()
-  return invoke<number>('sp_zombie_cleanup_entities', { threshold, limit })
+  return tauriInvokeNoRetry<number>('sp_zombie_cleanup_entities', { threshold, limit })
 }
 
 // ============ B2-2: schemaRunner（迁移标记 + 只读校验） ============
@@ -1258,43 +1259,47 @@ export interface MigrationFailureLogRow {
 /** 当前 schema 版本 */
 export async function getCurrentSchemaVersion(): Promise<number> {
   await ensureReady()
-  return invoke<number>('sp_schema_version_current')
+  return tauriInvokeNoRetry<number>('sp_schema_version_current')
 }
 
 /** 指定版本是否已应用 */
 export async function isSchemaVersionApplied(version: number): Promise<boolean> {
   await ensureReady()
-  return invoke<boolean>('sp_schema_version_applied', { version })
+  return tauriInvokeNoRetry<boolean>('sp_schema_version_applied', { version })
 }
 
 /** 标记迁移版本已应用（幂等，不执行 DDL） */
 export async function recordSchemaVersion(version: number, description: string, sqlChecksum: string): Promise<void> {
   await ensureReady()
-  await invoke('sp_schema_version_record', { version, description, sqlChecksum })
+  await tauriInvokeNoRetry('sp_schema_version_record', { version, description, sqlChecksum })
 }
 
 /** schema 版本历史 */
 export async function getSchemaVersionHistory(): Promise<SchemaVersionRecord[]> {
   await ensureReady()
-  return invoke<SchemaVersionRecord[]>('sp_schema_version_history')
+  return tauriInvokeNoRetry<SchemaVersionRecord[]>('sp_schema_version_history')
 }
 
 /** 记录迁移失败 */
-export async function logSchemaMigrationFailure(version: number, errorMessage: string, sqlStatement?: string): Promise<void> {
+export async function logSchemaMigrationFailure(
+  version: number,
+  errorMessage: string,
+  sqlStatement?: string,
+): Promise<void> {
   await ensureReady()
-  await invoke('sp_schema_log_failure', { version, errorMessage, sqlStatement: sqlStatement ?? null })
+  await tauriInvokeNoRetry('sp_schema_log_failure', { version, errorMessage, sqlStatement: sqlStatement ?? null })
 }
 
 /** 标记迁移失败为已解决 */
 export async function resolveSchemaMigrationFailure(logId: number, resolvedAt: number): Promise<void> {
   await ensureReady()
-  await invoke('sp_schema_resolve_failure', { logId, resolvedAt })
+  await tauriInvokeNoRetry('sp_schema_resolve_failure', { logId, resolvedAt })
 }
 
 /** 未解决的迁移失败记录 */
 export async function getUnresolvedSchemaFailures(): Promise<MigrationFailureLogRow[]> {
   await ensureReady()
-  return invoke<MigrationFailureLogRow[]>('sp_schema_unresolved')
+  return tauriInvokeNoRetry<MigrationFailureLogRow[]>('sp_schema_unresolved')
 }
 
 // ============ B2-2: dirty_data_registry（dirtyDataTracker） ============
@@ -1313,7 +1318,7 @@ export interface DirtyScanIssue {
 
 export async function scanDirtyData(): Promise<DirtyScanIssue[]> {
   await ensureReady()
-  return invoke<DirtyScanIssue[]>('sp_dirty_scan')
+  return tauriInvokeNoRetry<DirtyScanIssue[]>('sp_dirty_scan')
 }
 
 export interface DirtyRegistryRow {
@@ -1326,31 +1331,36 @@ export interface DirtyRegistryRow {
 }
 
 /** 写入脏数据问题（幂等 upsert） */
-export async function upsertDirtyIssue(kind: string, targetId: string, payload: string, detectedAt: number): Promise<void> {
+export async function upsertDirtyIssue(
+  kind: string,
+  targetId: string,
+  payload: string,
+  detectedAt: number,
+): Promise<void> {
   await ensureReady()
-  await invoke('sp_dirty_upsert', { kind, targetId, payload, detectedAt })
+  await tauriInvokeNoRetry('sp_dirty_upsert', { kind, targetId, payload, detectedAt })
 }
 
 /** 解决单个脏数据问题 */
 export async function resolveDirtyIssue(id: number, resolvedAt: number): Promise<void> {
   await ensureReady()
-  await invoke('sp_dirty_resolve', { id, resolvedAt })
+  await tauriInvokeNoRetry('sp_dirty_resolve', { id, resolvedAt })
 }
 
 /** 批量解决某表所有脏数据，返回受影响行数 */
 export async function resolveDirtyIssuesForTable(table: string, resolvedAt: number): Promise<number> {
   await ensureReady()
-  return invoke<number>('sp_dirty_resolve_table', { table, resolvedAt })
+  return tauriInvokeNoRetry<number>('sp_dirty_resolve_table', { table, resolvedAt })
 }
 
 /** 全部脏数据行 */
 export async function listDirtyIssues(): Promise<DirtyRegistryRow[]> {
   await ensureReady()
-  return invoke<DirtyRegistryRow[]>('sp_dirty_list')
+  return tauriInvokeNoRetry<DirtyRegistryRow[]>('sp_dirty_list')
 }
 
 /** 清理已解决超过 threshold 的记录 */
 export async function cleanupResolvedDirtyData(threshold: number): Promise<number> {
   await ensureReady()
-  return invoke<number>('sp_dirty_cleanup', { threshold })
+  return tauriInvokeNoRetry<number>('sp_dirty_cleanup', { threshold })
 }

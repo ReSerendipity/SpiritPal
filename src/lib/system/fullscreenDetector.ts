@@ -12,8 +12,8 @@
  * - 仅由本检测器触发的隐藏才在退出全屏时恢复，不覆盖用户手动隐藏窗口；
  * - 命令不可用（浏览器预览 / 非桌面）时静默降级，不报错。
  */
-import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 
 /** 轮询间隔（ms）。2s 对全屏进出足够及时，又不至于高频打 IPC。 */
 const POLL_INTERVAL_MS = 2000
@@ -44,7 +44,7 @@ export function startFullscreenAutoHide(options: FullscreenDetectorOptions = {})
   timerId = window.setInterval(async () => {
     let fullscreen: boolean
     try {
-      fullscreen = await invoke<boolean>('is_fullscreen_detected')
+      fullscreen = await tauriInvokeNoRetry<boolean>('is_fullscreen_detected')
     } catch {
       // 命令不可用（浏览器预览 / 非桌面 Tauri）→ 本轮跳过，保持现状
       return

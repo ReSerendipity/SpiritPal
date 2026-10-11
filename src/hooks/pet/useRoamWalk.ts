@@ -9,11 +9,11 @@
  * @module useRoamWalk
  */
 
-import { invoke } from '@tauri-apps/api/core'
 import { primaryMonitor, PhysicalPosition } from '@tauri-apps/api/window'
 import { useEffect, type Dispatch, type SetStateAction, type RefObject } from 'react'
 import type { PetState } from '@/lib/data/types'
 import { safeGetWindow } from '@/lib/system/appWindows'
+import { tauriInvoke } from '@/lib/system/tauriInvoker'
 
 // ========== 漫游行走控制器常量 ==========
 
@@ -87,7 +87,7 @@ export function useRoamWalk({
       let mouseX = Infinity
       let mouseY = Infinity
       try {
-        const [cx, cy] = await invoke<[number, number]>('get_mouse_pos')
+        const [cx, cy] = await tauriInvoke<[number, number]>('get_mouse_pos')
         const [pos, sf] = await Promise.all([win.outerPosition(), win.scaleFactor()])
         mouseX = pos.x / sf + cx
         mouseY = pos.y / sf + cy

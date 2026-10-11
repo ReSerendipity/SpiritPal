@@ -21,7 +21,7 @@
  * @requires @tauri-apps/api/core - Tauri 后端调用（获取运行进程）
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 
 // ============ AI 助手定义 ============
 
@@ -58,108 +58,188 @@ export interface DetectedAssistant {
 export const AI_ASSISTANTS: AIAssistant[] = [
   // 主流 AI 编程助手
   {
-    id: 'claude-code', name: 'Claude Code', processNames: ['claude', 'claude-code'],
-    icon: '🤖', description: 'Anthropic Claude 编程助手',
-    petReaction: 'jealousy', reactionBubbleKey: 'ai.detected.claude',
+    id: 'claude-code',
+    name: 'Claude Code',
+    processNames: ['claude', 'claude-code'],
+    icon: '🤖',
+    description: 'Anthropic Claude 编程助手',
+    petReaction: 'jealousy',
+    reactionBubbleKey: 'ai.detected.claude',
   },
   {
-    id: 'cursor', name: 'Cursor', processNames: ['cursor', 'Cursor'],
-    icon: '🔮', description: 'Cursor AI 编辑器',
-    petReaction: 'jealousy', reactionBubbleKey: 'ai.detected.cursor',
+    id: 'cursor',
+    name: 'Cursor',
+    processNames: ['cursor', 'Cursor'],
+    icon: '🔮',
+    description: 'Cursor AI 编辑器',
+    petReaction: 'jealousy',
+    reactionBubbleKey: 'ai.detected.cursor',
   },
   {
-    id: 'copilot', name: 'GitHub Copilot', processNames: ['copilot'],
+    id: 'copilot',
+    name: 'GitHub Copilot',
+    processNames: ['copilot'],
     apiEndpoints: ['https://api.github.com/copilot_internal/v2/token'],
-    icon: '🐙', description: 'GitHub Copilot',
-    petReaction: 'curiosity', reactionBubbleKey: 'ai.detected.copilot',
+    icon: '🐙',
+    description: 'GitHub Copilot',
+    petReaction: 'curiosity',
+    reactionBubbleKey: 'ai.detected.copilot',
   },
   {
-    id: 'windsurf', name: 'Windsurf', processNames: ['windsurf', 'Windsurf'],
-    icon: '🏄', description: 'Codeium Windsurf',
-    petReaction: 'curiosity', reactionBubbleKey: 'ai.detected.windsurf',
+    id: 'windsurf',
+    name: 'Windsurf',
+    processNames: ['windsurf', 'Windsurf'],
+    icon: '🏄',
+    description: 'Codeium Windsurf',
+    petReaction: 'curiosity',
+    reactionBubbleKey: 'ai.detected.windsurf',
   },
   {
-    id: 'aider', name: 'Aider', processNames: ['aider'],
-    icon: '🤝', description: 'Aider AI 配对编程',
-    petReaction: 'friendly', reactionBubbleKey: 'ai.detected.aider',
+    id: 'aider',
+    name: 'Aider',
+    processNames: ['aider'],
+    icon: '🤝',
+    description: 'Aider AI 配对编程',
+    petReaction: 'friendly',
+    reactionBubbleKey: 'ai.detected.aider',
   },
   {
-    id: 'trae', name: 'Trae', processNames: ['trae', 'Trae', 'Trae CN'],
-    icon: '⚡', description: 'Trae AI IDE',
-    petReaction: 'curiosity', reactionBubbleKey: 'ai.detected.trae',
+    id: 'trae',
+    name: 'Trae',
+    processNames: ['trae', 'Trae', 'Trae CN'],
+    icon: '⚡',
+    description: 'Trae AI IDE',
+    petReaction: 'curiosity',
+    reactionBubbleKey: 'ai.detected.trae',
   },
   {
-    id: 'cline', name: 'Cline', processNames: ['cline'],
-    icon: '🔧', description: 'Cline VS Code 扩展',
-    petReaction: 'curiosity', reactionBubbleKey: 'ai.detected.cline',
+    id: 'cline',
+    name: 'Cline',
+    processNames: ['cline'],
+    icon: '🔧',
+    description: 'Cline VS Code 扩展',
+    petReaction: 'curiosity',
+    reactionBubbleKey: 'ai.detected.cline',
   },
   {
-    id: 'roo-code', name: 'Roo Code', processNames: ['roo-code'],
-    icon: '🦘', description: 'Roo Code AI 助手',
-    petReaction: 'curiosity', reactionBubbleKey: 'ai.detected.rooCode',
+    id: 'roo-code',
+    name: 'Roo Code',
+    processNames: ['roo-code'],
+    icon: '🦘',
+    description: 'Roo Code AI 助手',
+    petReaction: 'curiosity',
+    reactionBubbleKey: 'ai.detected.rooCode',
   },
   // AI 对话工具
   {
-    id: 'chatgpt', name: 'ChatGPT', processNames: ['chatgpt'],
+    id: 'chatgpt',
+    name: 'ChatGPT',
+    processNames: ['chatgpt'],
     apiEndpoints: ['https://chat.openai.com'],
-    icon: '💬', description: 'OpenAI ChatGPT',
-    petReaction: 'indifferent', reactionBubbleKey: 'ai.detected.chatgpt',
+    icon: '💬',
+    description: 'OpenAI ChatGPT',
+    petReaction: 'indifferent',
+    reactionBubbleKey: 'ai.detected.chatgpt',
   },
   {
-    id: 'perplexity', name: 'Perplexity', processNames: ['perplexity'],
-    icon: '🔍', description: 'Perplexity AI 搜索',
-    petReaction: 'indifferent', reactionBubbleKey: 'ai.detected.perplexity',
+    id: 'perplexity',
+    name: 'Perplexity',
+    processNames: ['perplexity'],
+    icon: '🔍',
+    description: 'Perplexity AI 搜索',
+    petReaction: 'indifferent',
+    reactionBubbleKey: 'ai.detected.perplexity',
   },
   // AI 编辑器
   {
-    id: 'replit', name: 'Replit', processNames: ['replit'],
-    icon: '👨‍💻', description: 'Replit AI',
-    petReaction: 'curiosity', reactionBubbleKey: 'ai.detected.replit',
+    id: 'replit',
+    name: 'Replit',
+    processNames: ['replit'],
+    icon: '👨‍💻',
+    description: 'Replit AI',
+    petReaction: 'curiosity',
+    reactionBubbleKey: 'ai.detected.replit',
   },
   {
-    id: 'codeium', name: 'Codeium', processNames: ['codeium'],
-    icon: '🌀', description: 'Codeium AI',
-    petReaction: 'curiosity', reactionBubbleKey: 'ai.detected.codeium',
+    id: 'codeium',
+    name: 'Codeium',
+    processNames: ['codeium'],
+    icon: '🌀',
+    description: 'Codeium AI',
+    petReaction: 'curiosity',
+    reactionBubbleKey: 'ai.detected.codeium',
   },
   {
-    id: 'tabnine', name: 'Tabnine', processNames: ['tabnine'],
-    icon: '⌨', description: 'Tabnine AI',
-    petReaction: 'indifferent', reactionBubbleKey: 'ai.detected.tabnine',
+    id: 'tabnine',
+    name: 'Tabnine',
+    processNames: ['tabnine'],
+    icon: '⌨',
+    description: 'Tabnine AI',
+    petReaction: 'indifferent',
+    reactionBubbleKey: 'ai.detected.tabnine',
   },
   {
-    id: 'amazon-q', name: 'Amazon Q', processNames: ['amazon-q', 'codewhisperer'],
-    icon: '🔷', description: 'Amazon Q Developer',
-    petReaction: 'curiosity', reactionBubbleKey: 'ai.detected.amazonQ',
+    id: 'amazon-q',
+    name: 'Amazon Q',
+    processNames: ['amazon-q', 'codewhisperer'],
+    icon: '🔷',
+    description: 'Amazon Q Developer',
+    petReaction: 'curiosity',
+    reactionBubbleKey: 'ai.detected.amazonQ',
   },
   {
-    id: 'sourcegraph-cody', name: 'Cody', processNames: ['cody', 'sourcegraph-cody'],
-    icon: '🤠', description: 'Sourcegraph Cody',
-    petReaction: 'curiosity', reactionBubbleKey: 'ai.detected.cody',
+    id: 'sourcegraph-cody',
+    name: 'Cody',
+    processNames: ['cody', 'sourcegraph-cody'],
+    icon: '🤠',
+    description: 'Sourcegraph Cody',
+    petReaction: 'curiosity',
+    reactionBubbleKey: 'ai.detected.cody',
   },
   {
-    id: 'supermaven', name: 'Supermaven', processNames: ['supermaven'],
-    icon: '🦸', description: 'Supermaven AI',
-    petReaction: 'curiosity', reactionBubbleKey: 'ai.detected.supermaven',
+    id: 'supermaven',
+    name: 'Supermaven',
+    processNames: ['supermaven'],
+    icon: '🦸',
+    description: 'Supermaven AI',
+    petReaction: 'curiosity',
+    reactionBubbleKey: 'ai.detected.supermaven',
   },
   {
-    id: 'augment', name: 'Augment', processNames: ['augment'],
-    icon: '➕', description: 'Augment Code',
-    petReaction: 'curiosity', reactionBubbleKey: 'ai.detected.augment',
+    id: 'augment',
+    name: 'Augment',
+    processNames: ['augment'],
+    icon: '➕',
+    description: 'Augment Code',
+    petReaction: 'curiosity',
+    reactionBubbleKey: 'ai.detected.augment',
   },
   {
-    id: 'continue', name: 'Continue', processNames: ['continue-dev'],
-    icon: '▶️', description: 'Continue AI',
-    petReaction: 'curiosity', reactionBubbleKey: 'ai.detected.continue',
+    id: 'continue',
+    name: 'Continue',
+    processNames: ['continue-dev'],
+    icon: '▶️',
+    description: 'Continue AI',
+    petReaction: 'curiosity',
+    reactionBubbleKey: 'ai.detected.continue',
   },
   {
-    id: 'pearai', name: 'PearAI', processNames: ['pearai'],
-    icon: '🍐', description: 'PearAI',
-    petReaction: 'curiosity', reactionBubbleKey: 'ai.detected.pearai',
+    id: 'pearai',
+    name: 'PearAI',
+    processNames: ['pearai'],
+    icon: '🍐',
+    description: 'PearAI',
+    petReaction: 'curiosity',
+    reactionBubbleKey: 'ai.detected.pearai',
   },
   {
-    id: 'void', name: 'Void', processNames: ['void-editor'],
-    icon: '⚫', description: 'Void Editor',
-    petReaction: 'curiosity', reactionBubbleKey: 'ai.detected.void',
+    id: 'void',
+    name: 'Void',
+    processNames: ['void-editor'],
+    icon: '⚫',
+    description: 'Void Editor',
+    petReaction: 'curiosity',
+    reactionBubbleKey: 'ai.detected.void',
   },
 ]
 
@@ -175,19 +255,10 @@ const JEALOUSY_MESSAGES = [
 ]
 
 /** 好奇反应消息 */
-const CURIOSITY_MESSAGES = [
-  '哦？那是什么 AI？',
-  '让我看看…',
-  '好像挺厉害的～',
-  '可以教教我吗？',
-]
+const CURIOSITY_MESSAGES = ['哦？那是什么 AI？', '让我看看…', '好像挺厉害的～', '可以教教我吗？']
 
 /** 友好反应消息 */
-const FRIENDLY_MESSAGES = [
-  '好朋友来啦～',
-  '一起编程吧！',
-  '有新朋友了呢～',
-]
+const FRIENDLY_MESSAGES = ['好朋友来啦～', '一起编程吧！', '有新朋友了呢～']
 
 /** 反应消息映射 */
 const REACTION_MESSAGES: Record<string, string[]> = {
@@ -213,13 +284,11 @@ export class AIAssistantDetector {
 
     try {
       // 调用后端获取运行中的进程名列表
-      const processNames = await invoke<string[]>('get_running_processes')
+      const processNames = await tauriInvokeNoRetry<string[]>('get_running_processes')
 
       for (const assistant of AI_ASSISTANTS) {
         const matched = assistant.processNames.some((pn) =>
-          processNames.some((running) =>
-            running.toLowerCase().includes(pn.toLowerCase()),
-          ),
+          processNames.some((running) => running.toLowerCase().includes(pn.toLowerCase())),
         )
 
         if (matched) {

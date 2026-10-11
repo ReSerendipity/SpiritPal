@@ -10,12 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import {
-  tauriInvoke,
-  tauriInvokeNoRetry,
-  IpcTimeoutError,
-  IpcRetryExhaustedError,
-} from '@/lib/system/tauriInvoker'
+import { tauriInvoke, tauriInvokeNoRetry, IpcTimeoutError, IpcRetryExhaustedError } from '@/lib/system/tauriInvoker'
 
 // Mock @tauri-apps/api/core
 vi.mock('@tauri-apps/api/core', () => ({
@@ -43,7 +38,8 @@ describe('tauriInvoker', () => {
       mockInvoke.mockResolvedValueOnce('success')
       const result = await tauriInvokeNoRetry<string>('test_command')
       expect(result).toBe('success')
-      expect(mockInvoke).toHaveBeenCalledWith('test_command', undefined)
+      // P0-1：无参调用不再透传第二个参数（与直接 invoke('cmd') 语义一致）
+      expect(mockInvoke).toHaveBeenCalledWith('test_command')
     })
 
     it('应传递参数给 invoke', async () => {

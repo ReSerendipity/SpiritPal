@@ -112,7 +112,7 @@ export async function tauriInvokeNoRetry<T>(
   args?: Record<string, unknown>,
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ): Promise<T> {
-  const invokePromise = invoke<T>(command, args)
+  const invokePromise = args === undefined ? invoke<T>(command) : invoke<T>(command, args)
   const timeoutPromise = createTimeout(timeoutMs, command)
   return Promise.race([invokePromise, timeoutPromise])
 }
