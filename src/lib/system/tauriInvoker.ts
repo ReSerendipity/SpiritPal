@@ -20,6 +20,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core'
+import type { IpcCommandName } from './ipcCommands'
 
 // ============ 配置常量 ============
 
@@ -108,7 +109,7 @@ function isRetryableError(error: unknown): boolean {
  * @throws Error 命令执行失败
  */
 export async function tauriInvokeNoRetry<T>(
-  command: string,
+  command: IpcCommandName,
   args?: Record<string, unknown>,
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ): Promise<T> {
@@ -136,7 +137,7 @@ export async function tauriInvokeNoRetry<T>(
  * @throws Error 其他错误
  */
 export async function tauriInvoke<T>(
-  command: string,
+  command: IpcCommandName,
   args?: Record<string, unknown>,
   options?: {
     timeoutMs?: number

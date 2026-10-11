@@ -36,29 +36,29 @@ describe('tauriInvoker', () => {
   describe('tauriInvokeNoRetry', () => {
     it('正常调用应返回结果', async () => {
       mockInvoke.mockResolvedValueOnce('success')
-      const result = await tauriInvokeNoRetry<string>('test_command')
+      const result = await tauriInvokeNoRetry<string>('get_idle_time')
       expect(result).toBe('success')
       // P0-1：无参调用不再透传第二个参数（与直接 invoke('cmd') 语义一致）
-      expect(mockInvoke).toHaveBeenCalledWith('test_command')
+      expect(mockInvoke).toHaveBeenCalledWith('get_idle_time')
     })
 
     it('应传递参数给 invoke', async () => {
       mockInvoke.mockResolvedValueOnce(42)
-      const result = await tauriInvokeNoRetry<number>('add', { a: 1, b: 2 })
+      const result = await tauriInvokeNoRetry<number>('set_secret', { a: 1, b: 2 })
       expect(result).toBe(42)
-      expect(mockInvoke).toHaveBeenCalledWith('add', { a: 1, b: 2 })
+      expect(mockInvoke).toHaveBeenCalledWith('set_secret', { a: 1, b: 2 })
     })
 
     it('命令失败时应抛出原始错误', async () => {
       mockInvoke.mockRejectedValueOnce(new Error('command failed'))
-      await expect(tauriInvokeNoRetry('fail')).rejects.toThrow('command failed')
+      await expect(tauriInvokeNoRetry('get_idle_time')).rejects.toThrow('command failed')
     })
   })
 
   describe('tauriInvoke', () => {
     it('首次调用成功应不重试', async () => {
       mockInvoke.mockResolvedValueOnce('ok')
-      const result = await tauriInvoke<string>('cmd')
+      const result = await tauriInvoke<string>('get_idle_time')
       expect(result).toBe('ok')
       expect(mockInvoke).toHaveBeenCalledTimes(1)
     })
@@ -74,7 +74,7 @@ describe('tauriInvoker', () => {
 
       // 使用极短超时让第一次快速超时
       vi.useFakeTimers()
-      const promise = tauriInvoke<string>('cmd', undefined, { timeoutMs: 50, retryCount: 1 })
+      const promise = tauriInvoke<string>('get_idle_time', undefined, { timeoutMs: 50, retryCount: 1 })
 
       // 推进时间触发超时
       await vi.advanceTimersByTimeAsync(100)
@@ -89,7 +89,7 @@ describe('tauriInvoker', () => {
     it('非可重试错误应直接抛出不重试', async () => {
       // 参数校验失败不是可重试错误
       mockInvoke.mockRejectedValueOnce(new Error('参数校验失败'))
-      await expect(tauriInvoke('cmd', undefined, { retryCount: 1 })).rejects.toThrow('参数校验失败')
+      await expect(tauriInvoke('get_idle_time', undefined, { retryCount: 1 })).rejects.toThrow('参数校验失败')
       expect(mockInvoke).toHaveBeenCalledTimes(1)
     })
   })

@@ -14,36 +14,16 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { describe, it, expect } from 'vitest'
+import { IPC_COMMANDS, KNOWN_PLUGIN_COMMANDS, PLANNED_COMMANDS } from '@/lib/system/ipcCommands'
 
 // ============================================================
 // 已知的前端 invoke 调用中不属于自定义 #[tauri::command] 的命令
-// 这些命令来自 Tauri 插件或计划中尚未实现的命令
+// 这些命令来自 Tauri 插件或计划中尚未实现的命令。
+// 单一来源已收敛至 src/lib/system/ipcCommands.ts（第二轮 P1-2 落地）：
+// 插件命令由 pluginManager.ts 走原生 invoke，不受 tauriInvoke 静态约束。
 // ============================================================
 
-const KNOWN_PLUGIN_COMMANDS = new Set([
-  // Tauri plugin-store 命令
-  'plugin_storage_set',
-  'plugin_storage_delete',
-  'plugin_storage_get',
-  'plugin_storage_keys',
-  // 插件 AI 命令（pluginManager 动态调用）
-  'plugin_ai_chat',
-  'plugin_ai_analyze',
-  'plugin_ai_extract_memories',
-  // 计划中但尚未实现的命令
-  // 注：scan_character_directory 已在 lib.rs 实现，不再排除
-  // A-15：pack_petmod / validate_petmod / install_petmod / uninstall_mod
-  // 已在 src-tauri/src/petmod.rs 实现，不再排除
-  // C 类：take_screenshot / get_running_processes / set_system_volume /
-  //   set_system_brightness / search_files / execute_command /
-  //   sync_widget_state / read_widget_state
-  // 已在 src-tauri/src/system_tools.rs 实现，不再排除
-  // P0-2：read_file / write_file / list_directory 已在 system_tools.rs
-  //   真实实现（带路径白名单），不再排除
-  // 视觉感知命令：需要 llmClient 多模态（content 数组）支持后由前端直连
-  // Vision LLM，属独立特性，当前仍为计划中（visionPerception 有本地降级路径）
-  'analyze_screen_content',
-])
+const KNOWN_PLUGIN_COMMANDS_SET = new Set<string>(KNOWN_PLUGIN_COMMANDS)
 
 // ============================================================
 // T-02: 关键命令的预期参数签名
@@ -589,11 +569,33 @@ describe('IPC 契约测试', () => {
     expect(frontendCalls.size).toBeGreaterThanOrEqual(15)
   })
 
+  describe('P1-2 单一来源清单一致性（ipcCommands.ts）', () => {
+    it('前端扫描出的非插件命令应全部登记在 IPC_COMMANDS（防漏登记）', () => {
+      const unregistered = [...frontendCalls.keys()].filter(
+        (cmd) => !(IPC_COMMANDS as readonly string[]).includes(cmd) && !KNOWN_PLUGIN_COMMANDS_SET.has(cmd),
+      )
+      expect(unregistered).toHaveLength(0)
+    })
+
+    it('IPC_COMMANDS 中的命令应在 Rust 端有定义或为计划中命令（防 Rust 端删除）', () => {
+      const missing = IPC_COMMANDS.filter(
+        (cmd) => !rustCommands.has(cmd) && !(PLANNED_COMMANDS as readonly string[]).includes(cmd),
+      )
+      expect(missing).toHaveLength(0)
+    })
+
+    it('KNOWN_PLUGIN_COMMANDS 与 PLANNED_COMMANDS 不应重复', () => {
+      const duplicated = KNOWN_PLUGIN_COMMANDS.filter((cmd) => (PLANNED_COMMANDS as readonly string[]).includes(cmd))
+      expect(duplicated).toHaveLength(0)
+    })
+  })
+
   it('所有自定义前端 invoke 调用应在 Rust 端有对应的 #[tauri::command] 定义', () => {
     const missing: string[] = []
     for (const [cmd, files] of frontendCalls) {
       // 排除已知的插件命令和待实现命令
-      if (KNOWN_PLUGIN_COMMANDS.has(cmd)) continue
+      if (KNOWN_PLUGIN_COMMANDS_SET.has(cmd)) continue
+      if ((PLANNED_COMMANDS as readonly string[]).includes(cmd)) continue
       if (!rustCommands.has(cmd)) {
         missing.push(`  "${cmd}" — 调用于: ${files.join(', ')}`)
       }
