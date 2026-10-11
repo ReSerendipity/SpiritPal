@@ -32,6 +32,16 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-commit, pre-push]
+      # P1-3: prettier 增量格式门禁（评估报告：prettier 有配置无强制门禁）。
+      # 只检查本次暂存的文件，存量不合规文件（约 523 个）属历史遗留，不在此处全量清扫。
+      - id: prettier
+        name: Prettier (format check, staged only)
+        entry: pnpm exec prettier --check
+        language: system
+        # 用 files 正则替代 types_or：本机控制台分发的 identify 不识别部分 tag，
+        # files 匹配按扩展名走，语义一致且不依赖 identify 版本。
+        files: \.(ts|tsx|js|jsx|mjs|json|css)$
+        stages: [pre-commit]
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1
     hooks:
