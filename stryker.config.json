@@ -2,15 +2,9 @@
   "$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker/master/packages/api/schema/stryker-core.json",
   "_comment": "T-18: Mutation Testing 配置 — 验证测试用例有效性",
   "packageManager": "pnpm",
-  "reporters": [
-    "html",
-    "clear-text",
-    "progress"
-  ],
+  "reporters": ["html", "clear-text", "progress"],
   "testRunner": "vitest",
-  "appendPlugins": [
-    "@stryker-mutator/vitest-runner"
-  ],
+  "appendPlugins": ["@stryker-mutator/vitest-runner"],
   "coverageAnalysis": "perTest",
   "mutate": [
     "src/lib/ai/behaviorEngine.ts",
@@ -23,7 +17,7 @@
     "low": 60,
     "break": 42
   },
-  "thresholds_comment": "ratchet：break=42 取自 run 36029050680 全量基线（990 突变体 / 0 error / 0 timeout，final score 42.83，killed 424、survived 382、no-cov 184）。只许升不许降；补突变测试后逐步上调，收紧时同步改本注释。原先 break=50 高于基线，会让每次全量 run 恒红、把真实信号（behaviorEngine.ts 仅 23.08、154 个 no-cov）淹在失败噪音里。",
+  "thresholds_comment": "ratchet：break=42 取自 run 36029050680 全量基线（990 突变体 / 0 error / 0 timeout，final score 42.83，killed 424、survived 382、no-cov 184）。只许升不许降；补突变测试后逐步上调，收紧时同步改本注释。原先 break=50 高于基线，会让每次全量 run 恒红、把真实信号（behaviorEngine.ts 仅 23.08、154 个 no-cov）淹在失败噪音里。 反馈闭环（第二轮 P2-7 落地）：ci.yml mutation-testing job 每周/手动 run 将 reports/mutation/ 上传为 stryker-report artifact，消费路径=下一轮按 artifact 内 HTML 报告的模块级 score 上调 break（逐模块补测试→score 提升→整体 break 上调，一次一级）；本轮目标基线：behaviorEngine.ts 23.08（154 no-cov）→ 先补行为测试至 ≥40，再整体 break 上调至 43。",
   "vitest": {
     "configFile": "vitest.config.ts"
   },

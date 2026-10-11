@@ -29,4 +29,15 @@ if ! printf '%s' "$SUBJECT" | grep -qE '^[A-Za-z]+(\([^)]*\))?!?: .+'; then
     echo "  绕过：git commit --no-verify (不推荐)" >&2
     exit 1
 fi
+# 第二轮 P2-6：快照变更需显式标记。评估报告建议「快照变更走显式提交并在 PR 描述声明」，
+# 落地为钩子约束：本次提交含 __snapshots__/*.snap 变更时，提交标题须含 [snapshot] 标记，
+# 强制快照更新是「有意为之」而非顺手 -u 误提交（快照面极小，变更应可解释）。
+if git diff --cached --name-only | grep -qE '__snapshots__/.*\.snap$'; then
+    if ! grep -qi '\[snapshot\]' "$MSG"; then
+        echo "[commit-msg] 本次提交包含快照（.snap）变更，提交标题须含 [snapshot] 标记。" >&2
+        echo "  示例：test(pet): 更新 PetBubble 快照 [snapshot]" >&2
+        echo "  绕过：git commit --no-verify (不推荐)" >&2
+        exit 1
+    fi
+fi
 exit 0

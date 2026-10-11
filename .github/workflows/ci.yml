@@ -301,7 +301,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.98.0"
+          toolchain: '1.98.0'
           components: clippy, rustfmt
 
       - name: Cache Rust dependencies
@@ -370,7 +370,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.98.0"
+          toolchain: '1.98.0'
 
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
@@ -429,7 +429,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run Trivy secret scanner
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0 (SHA pin 防 tag 强更)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0 (SHA pin 防 tag 强更)
         with:
           scan-type: 'fs'
           format: 'table'
@@ -524,7 +524,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.98.0"
+          toolchain: '1.98.0'
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
@@ -657,7 +657,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.98.0"
+          toolchain: '1.98.0'
           components: clippy
 
       - name: Cache Rust dependencies
@@ -808,3 +808,83 @@ jobs:
           path: perf/results/
           if-no-files-found: ignore
           retention-days: 30
+
+  # ============ 第二轮 P2-5：真实桌面 E2E smoke（非门禁，手动触发） ============
+  tauri-driver-smoke:
+    # 背景：tauri-driver 真实 E2E 此前仅在本地运行（tauri-driver.spec.ts 头注释），
+    # CI 无覆盖（需桌面环境 + WebView2 + 完整构建产物）。本 job 提供 Windows runner
+    # 手动触发式 smoke：workflow_dispatch 触发，非 push/PR 门禁，不阻塞合并；
+    # 验证「真实桌面应用在 WebDriver 会话下可启动、可交互」这条此前 CI 从未覆盖的链路。
+    # 已知限制：快捷键等系统级断言依赖桌面会话，失败时以报告留痕，不阻断其他流程。
+    if: github.event_name == 'workflow_dispatch'
+    name: Tauri Driver Smoke (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        # 版本由 package.json 的 packageManager 字段统一驱动（pnpm@11.26.0），
+        # 避免 action version 输入与 packageManager 双源冲突（ERR_PNPM_BAD_PM_VERSION）。
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install webdriverio (tauri-driver spec 运行时依赖)
+        # tauri-driver.spec.ts import 自 webdriverio，仓库未将其加入 devDependencies
+        # （tsconfig 仅 include src，lint 不触及）；本地运行按 spec 头注释手动安装，
+        # CI 在本 job 内安装，避免污染常规依赖与 lockfile 提交。
+        run: pnpm add -D webdriverio
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.98.0'
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 'src-tauri -> target'
+
+      - name: Install tauri-driver
+        run: cargo install tauri-driver --locked
+
+      - name: Build app (debug, no bundle)
+        # --debug：tauri-driver 会话仅需可执行产物，免 release 长编译与 msi 打包；
+        # 产物落点 src-tauri/target/debug/spiritpal-app.exe（与 build job 的 release 同名规则一致）
+        run: pnpm tauri build --debug --no-bundle
+
+      - name: Start tauri-driver
+        shell: bash
+        run: |
+          tauri-driver > tauri-driver.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -s http://127.0.0.1:4444 > /dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -s http://127.0.0.1:4444 > /dev/null 2>&1 || { echo "tauri-driver failed to start"; cat tauri-driver.log; exit 1; }
+
+      - name: Run tauri-driver E2E
+        shell: bash
+        env:
+          TAURI_DRIVER_ENABLED: '1'
+          SPIRITPAL_EXE: './src-tauri/target/debug/spiritpal-app.exe'
+        run: pnpm exec playwright test --config=playwright.tauri.config.ts
+
+      - name: Upload tauri-driver report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-driver-report
+          path: playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
