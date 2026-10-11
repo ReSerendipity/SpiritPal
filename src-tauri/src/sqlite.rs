@@ -2650,6 +2650,43 @@ mod tests {
         conn
     }
 
+    // ===== 辅助函数纯逻辑测试（第二轮 P1-3 补强：SqValue 构造与 JSON 取值） =====
+
+    #[test]
+    fn test_sq_value_constructors() {
+        assert_eq!(sq("abc"), rusqlite::types::Value::Text("abc".into()));
+        assert_eq!(sqi(42), rusqlite::types::Value::Integer(42));
+        assert_eq!(sqf(3.5), rusqlite::types::Value::Real(3.5));
+        assert_eq!(sqn(), rusqlite::types::Value::Null);
+    }
+
+    #[test]
+    fn test_json_getters_present_and_missing() {
+        let v = json!({ "a": "x", "n": 7, "f": 1.5, "b": true });
+        assert_eq!(gs(&v, "a").as_deref(), Some("x"));
+        assert_eq!(gi(&v, "n"), Some(7));
+        assert_eq!(gf(&v, "f"), Some(1.5));
+        assert_eq!(gbool(&v, "b"), Some(true));
+        assert_eq!(gs(&v, "missing"), None);
+        assert_eq!(gi(&v, "missing"), None);
+        assert_eq!(gf(&v, "missing"), None);
+        assert_eq!(gbool(&v, "missing"), None);
+    }
+
+    #[test]
+    fn test_json_getters_type_mismatch_returns_none() {
+        let v = json!({ "s": "x", "i": 7 });
+        assert_eq!(gi(&v, "s"), None);
+        assert_eq!(gs(&v, "i"), None);
+        assert_eq!(gbool(&v, "i"), None);
+    }
+
+    #[test]
+    fn test_json_or_uses_default_when_none() {
+        assert_eq!(json_or(None, 5), 5);
+        assert_eq!(json_or(Some(3), 5), 3);
+    }
+
     #[test]
     fn test_schema_idempotent() {
         let conn = mem_conn();

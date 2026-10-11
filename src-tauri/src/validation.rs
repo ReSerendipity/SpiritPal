@@ -135,6 +135,32 @@ mod tests {
     // ============ validate_app_name 补充测试 ============
 
     #[test]
+    fn test_validate_app_name_empty_string() {
+        assert!(validate_app_name("").is_err());
+        assert!(validate_app_name("   ").is_err());
+    }
+
+    #[test]
+    fn test_validate_app_name_plain_name_ok() {
+        assert!(validate_app_name("notepad").is_ok());
+        assert!(validate_app_name("应用名称").is_ok());
+    }
+
+    #[test]
+    fn test_validate_app_name_long_valid_name_ok() {
+        // 无长度上限：长且无非法字符的名称应通过
+        assert!(validate_app_name(&"a".repeat(200)).is_ok());
+    }
+
+    #[test]
+    fn test_validate_app_name_url_scheme_case_insensitive() {
+        assert!(validate_app_name("HTTP://example.com").is_ok());
+        assert!(validate_app_name("HTTPS://example.com").is_ok());
+        // 非白名单 scheme 拒绝
+        assert!(validate_app_name("ftp://example.com").is_err());
+    }
+
+    #[test]
     fn test_validate_app_name_dollar_sign() {
         assert!(validate_app_name("calc$HOME").is_err());
     }
