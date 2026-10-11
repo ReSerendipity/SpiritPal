@@ -14,7 +14,7 @@
  * - useState: 关闭动画状态
  * - useEffect: 定时器控制自动关闭
  */
-import { useEffect, useState, type Ref } from 'react'
+import { memo, useEffect, useState, type Ref } from 'react'
 
 /** 气泡组件Props */
 interface PetBubbleProps {
@@ -34,8 +34,18 @@ interface PetBubbleProps {
  * 宠物对话气泡
  *
  * 在宠物头顶显示消息，指定时长后自动淡出消失。
+ *
+ * P1-5：memo 化高频展示组件 —— 气泡在宠物说话/状态变化时可能高频重渲染，
+ * props（message/onClose/duration/anchor/ref）不变时跳过重渲染。
+ * 注意：父级需用 useCallback 稳定 onClose，否则 memo 会被内联箭头击穿。
  */
-export function PetBubble({ message, onClose, duration = 3000, measureRef, anchor = 'above-pet' }: PetBubbleProps) {
+export const PetBubble = memo(function PetBubble({
+  message,
+  onClose,
+  duration = 3000,
+  measureRef,
+  anchor = 'above-pet',
+}: PetBubbleProps) {
   const [closing, setClosing] = useState(false)
 
   useEffect(() => {
@@ -52,9 +62,7 @@ export function PetBubble({ message, onClose, duration = 3000, measureRef, ancho
       ref={measureRef}
       className={`absolute left-1/2 -translate-x-1/2 transition-all duration-300 ease-out ${
         anchor === 'top-center' ? 'top-0' : 'bottom-full mb-2'
-      } ${
-        closing ? 'opacity-0 -translate-y-1' : 'opacity-100'
-      }`}
+      } ${closing ? 'opacity-0 -translate-y-1' : 'opacity-100'}`}
       style={{ pointerEvents: 'none' }}
       role="status"
       aria-live="polite"
@@ -66,4 +74,4 @@ export function PetBubble({ message, onClose, duration = 3000, measureRef, ancho
       </div>
     </div>
   )
-}
+})

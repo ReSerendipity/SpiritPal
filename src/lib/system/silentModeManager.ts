@@ -14,15 +14,17 @@
  */
 
 import { emit } from '@tauri-apps/api/event'
+import { register, unregisterAll } from '@tauri-apps/plugin-global-shortcut'
+import { ensureAppWindow } from '@/lib/system/appWindows'
 
 // ============ 类型定义 ============
 
 export type SilentModeReason =
-  | 'manual'        // 手动触发
-  | 'schedule'      // 计划任务（如深夜自动静音）
-  | 'meeting'       // 会议模式（检测到会议软件时自动静音）
-  | 'focus'         // 专注模式（番茄钟运行时）
-  | 'temporary'     // 临时静音（设定时间后恢复）
+  | 'manual' // 手动触发
+  | 'schedule' // 计划任务（如深夜自动静音）
+  | 'meeting' // 会议模式（检测到会议软件时自动静音）
+  | 'focus' // 专注模式（番茄钟运行时）
+  | 'temporary' // 临时静音（设定时间后恢复）
 
 export interface SilentModeState {
   /** 是否处于静默模式 */
@@ -236,7 +238,7 @@ export class SilentModeManager {
    * 通知所有监听器
    */
   private notifyListeners(): void {
-    this.listeners.forEach(listener => {
+    this.listeners.forEach((listener) => {
       try {
         listener({ ...this.state })
       } catch (error) {
@@ -248,11 +250,7 @@ export class SilentModeManager {
   /**
    * 向所有窗口广播状态变化
    */
-  private emitToAllWindows(event: {
-    type: 'enabled' | 'disabled'
-    state: SilentModeState
-    prevReason?: string
-  }): void {
+  private emitToAllWindows(event: { type: 'enabled' | 'disabled'; state: SilentModeState; prevReason?: string }): void {
     try {
       void emit('spiritpal:silent-mode-change', event)
     } catch (error) {
@@ -313,12 +311,46 @@ export class SilentModeManager {
   }
 
   /**
-   * 设置全局快捷键
+   * 设置全局快捷键（P1-4：接线 @tauri-apps/plugin-global-shortcut）
+   *
+   * 默认：
+   * - F9：切换静默模式
+   * - Ctrl+Shift+H：显隐宠物主窗口（pet-window）
+   *
+   * 非 Tauri 环境（纯 Web 开发/测试）下 register 会失败，静默降级不阻断应用启动。
    */
   private setupGlobalShortcut(): void {
-    // TODO: 使用 @tauri-apps/plugin-global-shortcut
-    // 这里预留接口
-    console.log('[SilentMode] Global shortcut setup pending...')
+    void this.registerShortcut('F9', () => {
+      void this.toggleSilentMode()
+    })
+    void this.registerShortcut('Ctrl+Shift+H', () => {
+      void this.togglePetWindowVisibility()
+    })
+  }
+
+  /** 注册单个快捷键，失败静默（非 Tauri 环境降级） */
+  private async registerShortcut(shortcut: string, handler: () => void): Promise<void> {
+    try {
+      await register(shortcut, handler)
+    } catch {
+      // 非 Tauri 环境/快捷键冲突/权限不足时降级：不注册，不影响应用其余功能
+    }
+  }
+
+  /** 显隐宠物主窗口（快捷开关，幂等） */
+  private async togglePetWindowVisibility(): Promise<void> {
+    try {
+      const win = await ensureAppWindow('pet-window')
+      if (!win) return
+      if (await win.isVisible()) {
+        await win.hide()
+      } else {
+        await win.show()
+        await win.setFocus()
+      }
+    } catch {
+      // 窗口不可用时静默
+    }
   }
 
   /**
@@ -367,6 +399,12 @@ export class SilentModeManager {
     }
     if (this.scheduleCheckTimer) {
       clearInterval(this.scheduleCheckTimer)
+    }
+    // P1-4：注销全局快捷键（避免重复注册/残留）
+    try {
+      void unregisterAll().catch(() => {})
+    } catch {
+      // 非 Tauri 环境忽略
     }
     this.listeners.clear()
   }
