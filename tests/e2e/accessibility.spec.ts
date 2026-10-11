@@ -19,6 +19,10 @@ test.describe('无障碍功能', () => {
 
     const criticalIssues = accessibilityScanResults.violations.filter(v => v.impact === 'critical');
     expect(criticalIssues.length).toBe(0);
+
+    // P2-4：serious 级别同样纳入断言（此前仅拦截 critical；serious 多为可感知的对比度/名称缺失）
+    const seriousIssues = accessibilityScanResults.violations.filter(v => v.impact === 'serious');
+    expect(seriousIssues.length).toBe(0);
   });
 
   test('所有交互元素应具有适当的 ARIA 标签', async ({ page }) => {
@@ -31,5 +35,28 @@ test.describe('无障碍功能', () => {
       // 至少有某种形式的可识别文本
       expect(ariaLabel || textContent || title).toBeTruthy();
     }
+  });
+
+  test('Tab 键导航应能到达宠物面板设置按钮', async ({ page }) => {
+    // P2-4：键盘导航可达性。宠物窗口收起态无可 Tab 聚焦元素（真实暴露：默认无 tabbable），
+    // 故先右键展开面板（PetWindow.tsx:1054 handleContextMenu → panelOpen），
+    // 展开后动作列表渲染，从页面顶部连续 Tab 应最终聚焦到设置按钮。
+    const sprite = await page.waitForSelector('img[alt*="多罗"], [aria-label*="多罗"]', {
+      state: 'attached',
+      timeout: 20000,
+    });
+    expect(sprite).not.toBeNull();
+    await sprite!.click({ button: 'right', force: true });
+    await page.waitForSelector('button[aria-label="设置"]', { state: 'attached', timeout: 10000 });
+    let found = false;
+    for (let i = 0; i < 80; i++) {
+      await page.keyboard.press('Tab');
+      const label = await page.evaluate(() => document.activeElement?.getAttribute?.('aria-label') ?? null);
+      if (label === '设置') {
+        found = true;
+        break;
+      }
+    }
+    expect(found).toBe(true);
   });
 });

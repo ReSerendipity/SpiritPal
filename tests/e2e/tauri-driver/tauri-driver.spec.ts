@@ -132,9 +132,14 @@ const ENABLED =
           setTimeout(() => done({ registered: false }), 3000)
         },
       )
-      // 注：无桌面环境时快捷键可能未注册，此断言在本地 GUI 环境成立
-      // 这里仅验证事件监听链路可用，不强断言 registered === true
-      expect(registered).toBeDefined()
+      // 注：无桌面环境时快捷键可能未注册。
+      // Windows 本地 GUI 环境应注册成功，强断言 registered === true；
+      // 其他平台（CI 无桌面/非 Windows）容忍仅链路可用（与点击穿透用例同款平台分支）。
+      if (process.platform === 'win32') {
+        expect(registered).toEqual({ registered: true })
+      } else {
+        expect(registered).toBeDefined()
+      }
     })
 
     test('窗口隐藏后通过托盘恢复', async () => {
