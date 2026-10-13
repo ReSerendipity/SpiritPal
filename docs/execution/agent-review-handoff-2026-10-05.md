@@ -4,7 +4,7 @@
 > **生成日期**：2026-10-05 ｜ **基线**：`main @ 848b251`（工作树干净，未 push）
 > **任务来源**：本轮移动端施工审计工单（38 单 / 4 里程碑）；当轮切片与其验收判据已收编入仓库，见 [`docs/execution/agent-review-handoff-2026-10-05-tickets.md`](agent-review-handoff-2026-10-05-tickets.md)
 > **执行结果**：**38/38 全部处理完毕**——35 单代码/验证落地，1 单审计误报判定，2 单评估型结论（见 §5）
-> **本会话提交**：36 个（自 `ae9ce30` 起，全部 DCO `Signed-off-by: ReSerendipity <zengyangc@outlook.com>`）
+> **本会话提交**：36 个（自 `ae9ce30` 起，全部 DCO `Signed-off-by: ReSerendipity <<已停用地址，见 .mailmap>>`）
 > **归档位置**：本文件属**公开层**（`docs/execution/`，纳入版本控制），符合 AGENTS.md「两级文档体系」对公开报告的放置要求
 
 ---
