@@ -1,8 +1,10 @@
 import com.android.build.api.dsl.ApplicationExtension
+import org.gradle.api.Action
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.tasks.Exec
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.get
 import java.io.File
@@ -64,34 +66,39 @@ open class RustPlugin : Plugin<Project> {
             val proj = project
             val verifyScript = File(repoRoot, "scripts/obfuscate-and-sri.mjs")
             val strictFrontendSri = project.findProperty("skipFrontendSriCheck") == null
-            val verifyFrontendSri = tasks.maybeCreate("verifyFrontendSri", DefaultTask::class.java)
-            verifyFrontendSri.group = TASK_GROUP
-            verifyFrontendSri.description = "Verify dist/assets match src-tauri/src/generated/sri_hashes.rs"
+            // 用内置 `Exec` task 承载这条命令：它自带 commandLine / isIgnoreExitValue /
+            // executionResult，不必自己去拿 ExecOperations —— 那玩意在 Gradle 8/9 上
+            // 分别有「装饰生成失败」和「API 已移除」两套坑（详见 BuildTask.kt 头注）。
+            val verifyFrontendSri: Exec = tasks
+                .maybeCreate("verifyFrontendSri", Exec::class.java)
+                .apply {
+                    group = TASK_GROUP
+                    description = "Verify dist/assets match src-tauri/src/generated/sri_hashes.rs"
+                    workingDir(repoRoot)
+                    commandLine("node", verifyScript.absolutePath, "--verify")
+                    isIgnoreExitValue = true
+                }
             verifyFrontendSri.doLast {
                 // 门禁的失败诊断必须按签名分流：把「脚本没跑到」报成「哈希不一致」
                 // 会把人往完全错误的方向推。
                 if (!verifyScript.exists()) {
                     throw GradleException(
                         "verifyFrontendSri 无法执行：找不到校验脚本 ${verifyScript.absolutePath}" +
-                        "（config.rootDirRel=\"${config.rootDirRel}\" 解析到 ${repoRoot?.absolutePath}）。" +
-                        "这是工装接线问题，不代表 dist 与清单不一致。"
+                            "（config.rootDirRel=\"${config.rootDirRel}\" 解析到 ${repoRoot?.absolutePath}）。" +
+                            "这是工装接线问题，不代表 dist 与清单不一致。"
                     )
                 }
-                // 用 project.exec 拿 ExecResult.exitValue（Gradle 8 的 Exec 任务上不暴露该属性），
-                // 与 BuildTask.kt 里 project.exec { }.assertNormalExitValue() 同一套写法。
-                val result = proj.exec {
-                    workingDir(repoRoot)
-                    commandLine("node", verifyScript.absolutePath, "--verify")
-                    isIgnoreExitValue = true
-                }
-                if (result.exitValue != 0) {
+                // doLast 的 receiver 是 Task（不是 Exec），拿不到 executionResult，
+                // 必须经捕获的 verifyFrontendSri 变量显式访问。
+                val exit = verifyFrontendSri.executionResult.get().exitValue
+                if (exit != 0) {
                     val hint = "重建配对：npm run build && node scripts/obfuscate-and-sri.mjs" +
                         "（成因见 docs/execution/android-fix-verification-20261003.md 第 4 节）"
                     if (strictFrontendSri) {
                         throw GradleException(
                             "dist 与 sri_hashes.rs 不是同一次构建的产物（或 dist 缺失）；" +
-                            "继续打包会产出静默卡在启动页的 APK。$hint。" +
-                            "确需绕过：加 -PskipFrontendSriCheck"
+                                "继续打包会产出静默卡在启动页的 APK。$hint。" +
+                                "确需绕过：加 -PskipFrontendSriCheck"
                         )
                     }
                     proj.logger.warn("已用 -PskipFrontendSriCheck 跳过 dist/SRI 校验；$hint")
