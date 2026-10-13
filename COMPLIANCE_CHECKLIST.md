@@ -50,3 +50,27 @@
 - **仓库模式**：2026-09-08 起为单仓公开模式（origin = ReSerendipity/SpiritPal，Apache-2.0 全量开源，含完整 main 历史）；§3 社区功能结论不变（GitHub Releases 静态分发，无 UGC 义务）。
 - **更新机制**：§4 所述「updater 关闭」已于 2026-09-10 解除（commit `f9e0f43`：`plugins.updater.active=true` + `createUpdaterArtifacts=true`，endpoints 修正为 ReSerendipity/SpiritPal）；当前状态以 `docs/RELEASE_NOTES.md` 为准，`updates.json` 随 v0.1.0 发布链维护。
 - **发布前 TODO**：Live2D 发行许可申请仍为发布前必办项（见 `docs/LIVE2D_LICENSE_REMINDER.md`）；更新签名密钥配对验证仍为「接入未验证」状态。
+
+---
+
+## 8. 端侧图像（Qwen-Image-2.1）许可提示（2026-10-13）
+
+**结论：该能力的模型权重为「研究 / 非商用」许可，与本仓 Apache-2.0 公开开源存在冲突，启用前必须处置。**
+
+| 组件 | 许可 | 与本仓（Apache-2.0）的关系 |
+|---|---|---|
+| Qwen-Image-2.1 模型权重 | **Qwen Research License Agreement** | ⚠️ 研究 / 非商用 |
+| Viggle-turbo LoRA（Turbo DiT） | Qwen Research License Agreement | ⚠️ 同上 |
+| text encoder（Qwen3-VL-8B-Instruct） | Apache-2.0 | ✅ 兼容 |
+| TAEQI2.1（tiny VAE） | MIT | ✅ 兼容 |
+| libQwenImage21 代码 / MNN | Apache-2.0 | ✅ 兼容 |
+
+**处置建议（三选一，需所有者拍板）**：
+
+1. **不随包分发权重**（推荐，与现有「发框架、用户自取权重」惯例一致）：本仓只提供脚本与能力，权重由用户自行获取；在「关于 / 开源许可」页显式标注非商用限制与来源链接；
+2. **降级为可选实验特性**：默认不启用，用户显式确认许可条款后才解锁；
+3. **放弃该模型**：若本仓有商用计划，改用可商用的 MNN 图像模型。
+
+**当前实现状态**：已按建议 1 落地 —— `scripts/fetch-qwen-image-model.mjs` 由**用户自行运行**，权重不入库、不随包分发；`THIRD_PARTY_NOTICES.md` 已标注。
+
+**遗留**：若日后把该能力作为**默认产品特性**对外分发，则须先完成上述 1/2/3 之一的正式决策。

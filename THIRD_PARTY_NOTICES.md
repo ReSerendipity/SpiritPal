@@ -39,6 +39,19 @@ Live2D Cubism Core 为专有软件、**不随包分发**（见 [COMPLIANCE_CHECK
 | Doro Live2D 模型（`public/pets/doro/`） | GPL-3.0（随源仓库 MelanTech/Dororo） | 2026-09-16 接入，入口 `doro.model3.json`；渲染需用户自装 Cubism Core；授权申请 MelanTech/Dororo#10 进行中 |
 | 中文字体/图标 | 以文件头与来源为准 | `public/`、`src/` 内资源 |
 
+## 端侧图像（Qwen-Image-2.1，可选能力）
+
+> 2026-10-13 新增。**默认不随包分发模型权重**：引擎库由构建期脚本获取，权重由用户自行获取。
+
+| 组件 | 许可 | 说明 |
+|---|---|---|
+| Qwen-Image-2.1 模型权重 | **Qwen Research License Agreement（研究 / 非商用）** | ⚠️ **不随包分发**；由 `scripts/fetch-qwen-image-model.mjs` 或用户自行获取。非商用限制见 COMPLIANCE_CHECKLIST §8 |
+| Viggle-turbo LoRA（`dit_turbo.mnn`） | Qwen Research License Agreement | 同上（同一基础模型的衍生物） |
+| Qwen3-VL-8B-Instruct（text encoder 权重） | Apache-2.0 | 与 Qwen-Image-2.1 的 text_encoder 逐字节一致，复用其 MNN 导出 |
+| TAEQI2.1（tiny VAE） | MIT | madebyollin/taeqi2_1 |
+| libQwenImage21（Android 运行时，AAR） | Apache-2.0 | 代码；构建期由 `scripts/fetch_qwen_image_engine.py` 解包 `.so` 与 `classes.jar` |
+| MNN | Apache-2.0 | 推理引擎（AAR 版 `libMNN.so` 为 scsonic/MNN `qwen-image-21` 分支编译） |
+
 ---
 
 *疑问或遗漏请通过 Issues 反馈。*
