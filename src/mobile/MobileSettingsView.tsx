@@ -16,13 +16,33 @@
 import { getVersion } from '@tauri-apps/api/app'
 import { useEffect, useState } from 'react'
 import {
-  Sun, Moon, Monitor, Bell, RefreshCw, Cloud, Wifi,
-  Type, Info, ChevronRight, Brain, Sparkles, Cpu,
-  FileText, ShieldCheck, CloudUpload, Database, SlidersHorizontal, UserPlus,
-  Loader2, CheckCircle2, AlertTriangle,
+  Sun,
+  Moon,
+  Monitor,
+  Bell,
+  RefreshCw,
+  Cloud,
+  Wifi,
+  Type,
+  Info,
+  ChevronRight,
+  Brain,
+  Sparkles,
+  Cpu,
+  FileText,
+  ShieldCheck,
+  CloudUpload,
+  Database,
+  SlidersHorizontal,
+  UserPlus,
+  Loader2,
+  CheckCircle2,
+  AlertTriangle,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { LegalDocument } from '@/components/LegalDocument'
+import { OnDeviceImagePanel } from '@/components/OnDeviceImagePanel'
 import { OnDeviceModelPanel } from '@/components/OnDeviceModelPanel'
 import { LLM_PROVIDERS, getProvider } from '@/lib/ai/llmProviders'
 import { getAllCharacters } from '@/lib/data/characters'
@@ -40,7 +60,19 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { MobileDataPanel } from './MobileDataPanel'
 
 /** 设置页面分区类型 */
-type SettingsSection = 'main' | 'theme' | 'sync' | 'memory' | 'personality' | 'ondevice' | 'ai' | 'advanced' | 'import' | 'about' | 'data'
+type SettingsSection =
+  | 'main'
+  | 'theme'
+  | 'sync'
+  | 'memory'
+  | 'personality'
+  | 'ondevice'
+  | 'image'
+  | 'ai'
+  | 'advanced'
+  | 'import'
+  | 'about'
+  | 'data'
 
 /** AI 配置在 localStorage 的键（与 SettingsWindow / MobileChatView 一致） */
 const AI_CONFIG_KEY = 'spiritpal-ai-config'
@@ -163,7 +195,11 @@ export function MobileSettingsView() {
     setLanguage(lang)
     void i18n.changeLanguage(lang)
     const langMap: Record<string, string> = {
-      zh: 'zh-CN', en: 'en-US', ja: 'ja-JP', ko: 'ko-KR', 'zh-TW': 'zh-TW',
+      zh: 'zh-CN',
+      en: 'en-US',
+      ja: 'ja-JP',
+      ko: 'ko-KR',
+      'zh-TW': 'zh-TW',
     }
     document.documentElement.lang = langMap[lang] ?? 'zh-CN'
   }
@@ -250,9 +286,7 @@ export function MobileSettingsView() {
   const [webdavServerUrl, setWebdavServerUrl] = useState(
     () => syncManager.getConfig().webdav?.serverUrl || DEFAULT_WEBDAV_URL,
   )
-  const [webdavUsername, setWebdavUsername] = useState(
-    () => syncManager.getConfig().webdav?.username ?? '',
-  )
+  const [webdavUsername, setWebdavUsername] = useState(() => syncManager.getConfig().webdav?.username ?? '')
   const [webdavPassword, setWebdavPassword] = useState('')
   const [webdavBusy, setWebdavBusy] = useState(false)
   const [webdavStatus, setWebdavStatus] = useState<{ ok: boolean; text: string } | null>(null)
@@ -446,6 +480,19 @@ export function MobileSettingsView() {
             onClick={() => setSection('ondevice')}
           />
 
+          {/* 端侧图像（Qwen-Image-2.1，进程内推理；仅 Android，需 arm64 + OpenCL + 12GB+） */}
+          <SettingItem
+            icon={ImageIcon}
+            iconBg="bg-tangerine-deep"
+            title={t('settings.mobile.onDeviceImage')}
+            subtitle={t('settings.mobile.onDeviceImageSub')}
+            chevronClass={chevronClass}
+            cardBgClass={cardBgClass}
+            cardBorderClass={cardBorderClass}
+            subtitleClass={subtitleClass}
+            onClick={() => setSection('image')}
+          />
+
           {/* 数据同步 */}
           <SettingItem
             icon={syncConfig.transport === 'webdav' ? CloudUpload : syncConfig.transport === 'cloud' ? Cloud : Wifi}
@@ -489,9 +536,7 @@ export function MobileSettingsView() {
                   key={char.id}
                   onClick={() => handleSwitchCharacter(char.id)}
                   className={`rounded-lg px-3 py-1.5 text-xs ${
-                    settings.currentCharacterId === char.id
-                      ? 'bg-tangerine text-white'
-                      : 'bg-cream-deep text-ink-muted'
+                    settings.currentCharacterId === char.id ? 'bg-tangerine text-white' : 'bg-cream-deep text-ink-muted'
                   }`}
                 >
                   {char.displayName}
@@ -504,20 +549,20 @@ export function MobileSettingsView() {
           <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
             <h3 className="mb-2 text-sm font-medium">{t('settings.language')}</h3>
             <div className="flex gap-2">
-              {([
-                { id: 'zh', label: '中文' },
-                { id: 'zh-TW', label: '繁體中文' },
-                { id: 'en', label: 'English' },
-                { id: 'ja', label: '日本語' },
-                { id: 'ko', label: '한국어' },
-              ] as const).map((lang) => (
+              {(
+                [
+                  { id: 'zh', label: '中文' },
+                  { id: 'zh-TW', label: '繁體中文' },
+                  { id: 'en', label: 'English' },
+                  { id: 'ja', label: '日本語' },
+                  { id: 'ko', label: '한국어' },
+                ] as const
+              ).map((lang) => (
                 <button
                   key={lang.id}
                   onClick={() => handleSetLanguage(lang.id)}
                   className={`rounded-lg px-3 py-1.5 text-xs ${
-                    settings.language === lang.id
-                      ? 'bg-tangerine text-white'
-                      : 'bg-cream-deep text-ink-muted'
+                    settings.language === lang.id ? 'bg-tangerine text-white' : 'bg-cream-deep text-ink-muted'
                   }`}
                 >
                   {lang.label}
@@ -598,9 +643,24 @@ export function MobileSettingsView() {
   // ===== 主题设置 =====
   if (section === 'theme') {
     const themeOptions: Array<{ id: ThemeMode; label: string; icon: typeof Sun; desc: string }> = [
-      { id: 'light', label: t('settings.mobile.appearanceLight'), icon: Sun, desc: t('settings.mobile.appearanceLightDesc') },
-      { id: 'dark', label: t('settings.mobile.appearanceDark'), icon: Moon, desc: t('settings.mobile.appearanceDarkDesc') },
-      { id: 'system', label: t('settings.mobile.appearanceFollow'), icon: Monitor, desc: t('settings.mobile.appearanceFollowDesc') },
+      {
+        id: 'light',
+        label: t('settings.mobile.appearanceLight'),
+        icon: Sun,
+        desc: t('settings.mobile.appearanceLightDesc'),
+      },
+      {
+        id: 'dark',
+        label: t('settings.mobile.appearanceDark'),
+        icon: Moon,
+        desc: t('settings.mobile.appearanceDarkDesc'),
+      },
+      {
+        id: 'system',
+        label: t('settings.mobile.appearanceFollow'),
+        icon: Monitor,
+        desc: t('settings.mobile.appearanceFollowDesc'),
+      },
     ]
     return (
       <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
@@ -619,23 +679,21 @@ export function MobileSettingsView() {
                 key={opt.id}
                 onClick={() => handleSetTheme(opt.id)}
                 className={`mb-2 flex w-full items-center gap-3 rounded-xl border p-3 transition-colors ${
-                  isActive
-                    ? 'border-tangerine bg-tangerine-soft'
-                    : `${cardBgClass} ${cardBorderClass}`
+                  isActive ? 'border-tangerine bg-tangerine-soft' : `${cardBgClass} ${cardBorderClass}`
                 }`}
               >
-                <div className={`flex h-9 w-9 items-center justify-center rounded-full ${
-                  isActive ? 'bg-tangerine text-white' : 'bg-ink/5 text-ink-faint'
-                }`}>
+                <div
+                  className={`flex h-9 w-9 items-center justify-center rounded-full ${
+                    isActive ? 'bg-tangerine text-white' : 'bg-ink/5 text-ink-faint'
+                  }`}
+                >
                   <Icon size={16} />
                 </div>
                 <div className="flex-1 text-left">
                   <div className="text-sm font-medium">{opt.label}</div>
                   <div className={`text-xs ${subtitleClass}`}>{opt.desc}</div>
                 </div>
-                {isActive && (
-                  <div className="h-2 w-2 rounded-full bg-tangerine" />
-                )}
+                {isActive && <div className="h-2 w-2 rounded-full bg-tangerine" />}
               </button>
             )
           })}
@@ -722,6 +780,22 @@ export function MobileSettingsView() {
     )
   }
 
+  if (section === 'image') {
+    return (
+      <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
+        <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
+          <button onClick={() => setSection('main')} className="text-sm text-tangerine">
+            {t('settings.mobile.back')}
+          </button>
+          <h2 className="text-base font-semibold">{t('settings.mobile.onDeviceImage')}</h2>
+        </header>
+        <div className="flex-1 overflow-y-auto px-3 py-3">
+          <OnDeviceImagePanel />
+        </div>
+      </div>
+    )
+  }
+
   if (section === 'sync') {
     return (
       <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
@@ -756,9 +830,7 @@ export function MobileSettingsView() {
               <button
                 onClick={() => handleUpdateSync({ transport: 'webdav' })}
                 className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-2 text-xs ${
-                  syncConfig.transport === 'webdav'
-                    ? 'bg-tangerine text-white'
-                    : 'bg-cream-deep text-ink-muted'
+                  syncConfig.transport === 'webdav' ? 'bg-tangerine text-white' : 'bg-cream-deep text-ink-muted'
                 }`}
               >
                 <CloudUpload size={14} />
@@ -783,9 +855,7 @@ export function MobileSettingsView() {
                 {t('settings.mobile.transportLan')}
               </button>
             </div>
-            <p className={`mt-2 text-xs ${subtitleClass}`}>
-              {t('settings.mobile.transportHint')}
-            </p>
+            <p className={`mt-2 text-xs ${subtitleClass}`}>{t('settings.mobile.transportHint')}</p>
           </div>
 
           {/* WebDAV 连接配置（仅在选中 WebDAV 时展示） */}
@@ -793,9 +863,7 @@ export function MobileSettingsView() {
             <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
               <h3 className="mb-2 text-sm font-medium">{t('settings.mobile.webdavConfig')}</h3>
               <label className="mb-2 block">
-                <span className={`mb-1 block text-xs ${subtitleClass}`}>
-                  {t('settings.mobile.webdavServer')}
-                </span>
+                <span className={`mb-1 block text-xs ${subtitleClass}`}>{t('settings.mobile.webdavServer')}</span>
                 <input
                   type="url"
                   inputMode="url"
@@ -807,9 +875,7 @@ export function MobileSettingsView() {
                 />
               </label>
               <label className="mb-2 block">
-                <span className={`mb-1 block text-xs ${subtitleClass}`}>
-                  {t('settings.mobile.webdavUsername')}
-                </span>
+                <span className={`mb-1 block text-xs ${subtitleClass}`}>{t('settings.mobile.webdavUsername')}</span>
                 <input
                   type="text"
                   autoComplete="off"
@@ -819,9 +885,7 @@ export function MobileSettingsView() {
                 />
               </label>
               <label className="mb-3 block">
-                <span className={`mb-1 block text-xs ${subtitleClass}`}>
-                  {t('settings.mobile.webdavPassword')}
-                </span>
+                <span className={`mb-1 block text-xs ${subtitleClass}`}>{t('settings.mobile.webdavPassword')}</span>
                 <input
                   type="password"
                   autoComplete="new-password"
@@ -855,11 +919,7 @@ export function MobileSettingsView() {
                 </button>
               </div>
               {webdavStatus && (
-                <p
-                  className={`mt-2 text-xs ${
-                    webdavStatus.ok ? 'text-success-deep' : 'text-stat-bad'
-                  }`}
-                >
+                <p className={`mt-2 text-xs ${webdavStatus.ok ? 'text-success-deep' : 'text-stat-bad'}`}>
                   {webdavStatus.text}
                 </p>
               )}
@@ -887,9 +947,7 @@ export function MobileSettingsView() {
                   key={opt.val}
                   onClick={() => handleUpdateSync({ autoSyncInterval: opt.val })}
                   className={`flex-1 rounded-lg py-1.5 text-xs ${
-                    syncConfig.autoSyncInterval === opt.val
-                      ? 'bg-tangerine text-white'
-                      : 'bg-cream-deep text-ink-muted'
+                    syncConfig.autoSyncInterval === opt.val ? 'bg-tangerine text-white' : 'bg-cream-deep text-ink-muted'
                   }`}
                 >
                   {t(opt.labelKey)}
@@ -903,9 +961,7 @@ export function MobileSettingsView() {
             onClick={handleSyncNow}
             disabled={!syncConfig.enabled}
             className={`mb-3 w-full rounded-xl py-3 text-sm font-medium ${
-              syncConfig.enabled
-                ? 'bg-tangerine text-white'
-                : 'bg-ink/10 text-ink-faint'
+              syncConfig.enabled ? 'bg-tangerine text-white' : 'bg-ink/10 text-ink-faint'
             }`}
           >
             {t('settings.mobile.syncNow')}
@@ -1002,9 +1058,7 @@ export function MobileSettingsView() {
         </header>
         <div className="flex-1 overflow-y-auto px-3 py-3">
           <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-4`}>
-            <p className={`mb-3 text-xs leading-relaxed ${subtitleClass}`}>
-              {t('settings.import.hint')}
-            </p>
+            <p className={`mb-3 text-xs leading-relaxed ${subtitleClass}`}>{t('settings.import.hint')}</p>
             <label
               data-testid="import-pick"
               className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-tangerine py-2.5 text-sm font-medium text-white ${
@@ -1028,7 +1082,10 @@ export function MobileSettingsView() {
           </div>
 
           {importResult?.ok && importResult.profile && (
-            <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-4`} data-testid="import-result-ok">
+            <div
+              className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-4`}
+              data-testid="import-result-ok"
+            >
               <div className="mb-1 flex items-center gap-2 text-sm font-medium text-success-deep">
                 <CheckCircle2 size={16} />
                 {t('settings.import.success')}
@@ -1091,9 +1148,7 @@ export function MobileSettingsView() {
           <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
             <div className="mb-1 flex items-center justify-between">
               <span className="text-sm font-medium">{t('settings.advanced.petOpacity')}</span>
-              <span className="text-xs tabular-nums text-ink-muted">
-                {Math.round(settings.petOpacity * 100)}%
-              </span>
+              <span className="text-xs tabular-nums text-ink-muted">{Math.round(settings.petOpacity * 100)}%</span>
             </div>
             <input
               type="range"
@@ -1144,12 +1199,14 @@ export function MobileSettingsView() {
           {/* AI 能力开关（经 capabilityToggles 实时应用） */}
           <div className={`mb-3 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
             <h3 className="mb-2 text-sm font-medium">{t('settings.advanced.capabilities')}</h3>
-            {([
-              { key: 'weatherEnabled', labelKey: 'settings.advanced.capWeather' },
-              { key: 'proactiveSpeakEnabled', labelKey: 'settings.advanced.capProactive' },
-              { key: 'emotionEnabled', labelKey: 'settings.advanced.capEmotion' },
-              { key: 'contextAwarenessEnabled', labelKey: 'settings.advanced.capContext' },
-            ] as const).map((cap) => (
+            {(
+              [
+                { key: 'weatherEnabled', labelKey: 'settings.advanced.capWeather' },
+                { key: 'proactiveSpeakEnabled', labelKey: 'settings.advanced.capProactive' },
+                { key: 'emotionEnabled', labelKey: 'settings.advanced.capEmotion' },
+                { key: 'contextAwarenessEnabled', labelKey: 'settings.advanced.capContext' },
+              ] as const
+            ).map((cap) => (
               <div key={cap.key} className="flex items-center justify-between py-1.5">
                 <span className="text-xs text-ink">{t(cap.labelKey)}</span>
                 <input
@@ -1167,11 +1224,13 @@ export function MobileSettingsView() {
           {/* 桌面专属 / 系统托管：诚实禁用 + 说明 */}
           <div className={`rounded-xl ${cardBgClass} border ${cardBorderClass} p-3 opacity-70`}>
             <h3 className="mb-2 text-sm font-medium">{t('settings.advanced.desktopOnly')}</h3>
-            {([
-              { labelKey: 'settings.advanced.petForm', noteKey: 'settings.advanced.petFormMobileNote' },
-              { labelKey: 'settings.advanced.statusCard', noteKey: 'settings.advanced.statusCardMobileNote' },
-              { labelKey: 'settings.advanced.autoStart', noteKey: 'settings.advanced.autoStartMobileNote' },
-            ] as const).map((row) => (
+            {(
+              [
+                { labelKey: 'settings.advanced.petForm', noteKey: 'settings.advanced.petFormMobileNote' },
+                { labelKey: 'settings.advanced.statusCard', noteKey: 'settings.advanced.statusCardMobileNote' },
+                { labelKey: 'settings.advanced.autoStart', noteKey: 'settings.advanced.autoStartMobileNote' },
+              ] as const
+            ).map((row) => (
               <div key={row.labelKey} className="flex items-center justify-between py-1.5">
                 <div>
                   <div className="text-xs text-ink">{t(row.labelKey)}</div>
@@ -1191,110 +1250,108 @@ export function MobileSettingsView() {
   // ===== 关于 =====
   return (
     <>
-    <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
-      <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
-        <button onClick={() => setSection('main')} className="text-sm text-tangerine">
-          ← {t('settings.mobile.back')}
-        </button>
-        <h2 className="text-base font-semibold">{t('settings.mobile.about')}</h2>
-      </header>
-      <div className="flex-1 overflow-y-auto px-4 py-6 text-center">
-        <div className="mb-4 text-6xl">🐾</div>
-        <h1 className="mb-1 text-xl font-bold">SpiritPal</h1>
-        <p className={`mb-4 text-sm ${subtitleClass}`}>{appVersion ? `v${appVersion}` : 'SpiritPal'}</p>
-        <p className={`mx-auto max-w-xs text-sm ${subtitleClass}`}>
-          {t('settings.mobile.aboutDesc')}
-        </p>
-        <div className={`mx-auto mt-6 max-w-xs rounded-xl ${cardBgClass} border ${cardBorderClass} p-4 text-left`}>
-          <h3 className="mb-2 text-sm font-medium">{t('settings.mobile.features')}</h3>
-          <ul className="space-y-1 text-xs text-ink-muted">
-            <li>✓ {t('settings.mobile.feature1')}</li>
-            <li>✓ {t('settings.mobile.feature2')}</li>
-            <li>✓ {t('settings.mobile.feature3')}</li>
-            <li>✓ {t('settings.mobile.feature4')}</li>
-            <li>✓ {t('settings.mobile.feature5')}</li>
-            <li>✓ {t('settings.mobile.feature6')}</li>
-            <li>✓ {t('settings.mobile.feature7')}</li>
-            <li>✓ {t('settings.mobile.feature8')}</li>
-          </ul>
-        </div>
-        {/* 法律信息（P0 合规）：移动端此前完全没有隐私政策 / 用户协议入口 */}
-        <div className={`mx-auto mt-4 max-w-xs rounded-xl ${cardBgClass} border ${cardBorderClass} p-4 text-left`}>
-          <h3 className="mb-2 text-sm font-medium">{t('settings.mobile.legal')}</h3>
-          <div className="space-y-1">
-            <button
-              onClick={() => setLegalDoc('privacy')}
-              className="flex w-full items-center gap-2 rounded-lg px-1 py-1.5 text-left text-xs text-ink hover:bg-ink/6"
-            >
-              <ShieldCheck size={14} className="text-ink-faint" />
-              {t('settings.mobile.privacyPolicy')}
-              <ChevronRight size={14} className={`ml-auto ${chevronClass}`} />
-            </button>
-            <button
-              onClick={() => setLegalDoc('terms')}
-              className="flex w-full items-center gap-2 rounded-lg px-1 py-1.5 text-left text-xs text-ink hover:bg-ink/6"
-            >
-              <FileText size={14} className="text-ink-faint" />
-              {t('settings.mobile.userAgreement')}
-              <ChevronRight size={14} className={`ml-auto ${chevronClass}`} />
-            </button>
+      <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
+        <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
+          <button onClick={() => setSection('main')} className="text-sm text-tangerine">
+            ← {t('settings.mobile.back')}
+          </button>
+          <h2 className="text-base font-semibold">{t('settings.mobile.about')}</h2>
+        </header>
+        <div className="flex-1 overflow-y-auto px-4 py-6 text-center">
+          <div className="mb-4 text-6xl">🐾</div>
+          <h1 className="mb-1 text-xl font-bold">SpiritPal</h1>
+          <p className={`mb-4 text-sm ${subtitleClass}`}>{appVersion ? `v${appVersion}` : 'SpiritPal'}</p>
+          <p className={`mx-auto max-w-xs text-sm ${subtitleClass}`}>{t('settings.mobile.aboutDesc')}</p>
+          <div className={`mx-auto mt-6 max-w-xs rounded-xl ${cardBgClass} border ${cardBorderClass} p-4 text-left`}>
+            <h3 className="mb-2 text-sm font-medium">{t('settings.mobile.features')}</h3>
+            <ul className="space-y-1 text-xs text-ink-muted">
+              <li>✓ {t('settings.mobile.feature1')}</li>
+              <li>✓ {t('settings.mobile.feature2')}</li>
+              <li>✓ {t('settings.mobile.feature3')}</li>
+              <li>✓ {t('settings.mobile.feature4')}</li>
+              <li>✓ {t('settings.mobile.feature5')}</li>
+              <li>✓ {t('settings.mobile.feature6')}</li>
+              <li>✓ {t('settings.mobile.feature7')}</li>
+              <li>✓ {t('settings.mobile.feature8')}</li>
+            </ul>
           </div>
-        </div>
+          {/* 法律信息（P0 合规）：移动端此前完全没有隐私政策 / 用户协议入口 */}
+          <div className={`mx-auto mt-4 max-w-xs rounded-xl ${cardBgClass} border ${cardBorderClass} p-4 text-left`}>
+            <h3 className="mb-2 text-sm font-medium">{t('settings.mobile.legal')}</h3>
+            <div className="space-y-1">
+              <button
+                onClick={() => setLegalDoc('privacy')}
+                className="flex w-full items-center gap-2 rounded-lg px-1 py-1.5 text-left text-xs text-ink hover:bg-ink/6"
+              >
+                <ShieldCheck size={14} className="text-ink-faint" />
+                {t('settings.mobile.privacyPolicy')}
+                <ChevronRight size={14} className={`ml-auto ${chevronClass}`} />
+              </button>
+              <button
+                onClick={() => setLegalDoc('terms')}
+                className="flex w-full items-center gap-2 rounded-lg px-1 py-1.5 text-left text-xs text-ink hover:bg-ink/6"
+              >
+                <FileText size={14} className="text-ink-faint" />
+                {t('settings.mobile.userAgreement')}
+                <ChevronRight size={14} className={`ml-auto ${chevronClass}`} />
+              </button>
+            </div>
+          </div>
 
-        <div className={`mx-auto mt-4 max-w-xs rounded-xl ${cardBgClass} border ${cardBorderClass} p-4 text-left`}>
-          <h3 className="mb-2 text-sm font-medium">{t('settings.mobile.followUs')}</h3>
-          <div className="flex flex-wrap gap-2 text-xs">
-            <a
-              href="https://github.com/ReSerendipity/SpiritPal"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
-            >
-              GitHub
-            </a>
-            <a
-              href="https://www.xiaohongshu.com/user/profile/6a606c140000000010000801"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
-            >
-              小红书
-            </a>
-            <a
-              href="https://www.douyin.com/user/MS4wLjABAAAAcEdOoxVlfk3Ulx_usqR-3PHW4xxp6wYzRmsuRI_-fHBigPETTKLsv4fknIpFq6sP"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
-            >
-              抖音
-            </a>
-            <a
-              href="https://www.kuaishou.com/profile/3x2sk6hj48i2mhs"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
-            >
-              快手
-            </a>
-            <a
-              href="https://space.bilibili.com/499527473"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
-            >
-              B站
-            </a>
+          <div className={`mx-auto mt-4 max-w-xs rounded-xl ${cardBgClass} border ${cardBorderClass} p-4 text-left`}>
+            <h3 className="mb-2 text-sm font-medium">{t('settings.mobile.followUs')}</h3>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <a
+                href="https://github.com/ReSerendipity/SpiritPal"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
+              >
+                GitHub
+              </a>
+              <a
+                href="https://www.xiaohongshu.com/user/profile/6a606c140000000010000801"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
+              >
+                小红书
+              </a>
+              <a
+                href="https://www.douyin.com/user/MS4wLjABAAAAcEdOoxVlfk3Ulx_usqR-3PHW4xxp6wYzRmsuRI_-fHBigPETTKLsv4fknIpFq6sP"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
+              >
+                抖音
+              </a>
+              <a
+                href="https://www.kuaishou.com/profile/3x2sk6hj48i2mhs"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
+              >
+                快手
+              </a>
+              <a
+                href="https://space.bilibili.com/499527473"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
+              >
+                B站
+              </a>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-    {legalDoc && (
-      <LegalDocument
-        title={legalDoc === 'privacy' ? t('settings.mobile.privacyPolicy') : t('settings.mobile.userAgreement')}
-        content={legalDoc === 'privacy' ? PRIVACY_POLICY : TERMS_OF_SERVICE}
-        onClose={() => setLegalDoc(null)}
-      />
-    )}
+      {legalDoc && (
+        <LegalDocument
+          title={legalDoc === 'privacy' ? t('settings.mobile.privacyPolicy') : t('settings.mobile.userAgreement')}
+          content={legalDoc === 'privacy' ? PRIVACY_POLICY : TERMS_OF_SERVICE}
+          onClose={() => setLegalDoc(null)}
+        />
+      )}
     </>
   )
 }

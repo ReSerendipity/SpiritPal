@@ -113,7 +113,7 @@ pub(crate) fn scheduler() -> &'static Scheduler {
 /// 契合「框架-only、用户自取模型权重」的分发策略。目录创建失败时回退私有目录。
 ///
 /// **桌面**：`app_data_dir()/models`。
-fn model_dir(app: &AppHandle) -> std::path::PathBuf {
+pub(crate) fn model_dir(app: &AppHandle) -> std::path::PathBuf {
     #[cfg(target_os = "android")]
     {
         // 优先用 MainActivity 经 getExternalFilesDir 回传的外部专属目录（P1-D 正解）。

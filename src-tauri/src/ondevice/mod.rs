@@ -78,7 +78,7 @@ fn platform_tier(saver: bool) -> (Tier, String) {
 }
 
 #[cfg(not(desktop))]
-fn mobile_total_ram_gb() -> Option<f64> {
+pub(crate) fn mobile_total_ram_gb() -> Option<f64> {
     // Android 即 Linux：`/proc/meminfo` 的 `MemTotal` 与 `ActivityManager.MemoryInfo.totalMem`
     // 同源（都是物理内存总量），故直接读取 —— 免去 Context/JNI 管线。
     // 行格式：`MemTotal:       12345678 kB`

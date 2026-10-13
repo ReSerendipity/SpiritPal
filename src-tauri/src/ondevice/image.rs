@@ -318,6 +318,46 @@ pub fn ondevice_image_release(app: AppHandle) -> Result<(), String> {
     kotlin_release()
 }
 
+/// 设备与模型目录探测（供设置页「端侧图像」面板展示能力判定的**原始依据**）。
+///
+/// 能力判定本身在前端（`onDeviceTiers.imageCapability()`），这里只给事实：
+/// - `ram_gb`：物理内存（与端侧 LLM 同源，读 `/proc/meminfo`）
+/// - `opencl`：是否存在 OpenCL 运行时（查厂商/系统常见路径）
+/// - `model_dir`：模型根目录（与端侧 LLM **共用**同一目录）
+///
+/// ⚠️ 不做空闲存储检测：Rust std 无 statvfs 封装，为一个提示引入 libc 依赖不划算。
+///    存储门槛（约 11GB）由 UI 以文案形式提示用户自查。
+#[derive(Serialize)]
+pub struct ImageDeviceInfo {
+    pub ram_gb: f64,
+    pub opencl: bool,
+    pub model_dir: String,
+}
+
+/// OpenCL 运行时探测：查厂商/系统常见路径。
+///
+/// Android 11+ 即使文件存在，也需 manifest 的 `uses-native-library` 才可 dlopen ——
+/// 本仓已在 AndroidManifest.xml 声明（见该文件注释），故此处只做"运行时是否存在"的粗判。
+fn detect_opencl() -> bool {
+    const PATHS: [&str; 4] = [
+        "/vendor/lib64/libOpenCL.so",
+        "/system/lib64/libOpenCL.so",
+        "/vendor/lib/libOpenCL.so",
+        "/system/lib/libOpenCL.so",
+    ];
+    PATHS.iter().any(|p| std::path::Path::new(p).exists())
+}
+
+#[tauri::command]
+pub fn ondevice_image_probe(app: AppHandle) -> Result<ImageDeviceInfo, String> {
+    stash_app(&app);
+    Ok(ImageDeviceInfo {
+        ram_gb: super::mobile_total_ram_gb().unwrap_or(8.0),
+        opencl: detect_opencl(),
+        model_dir: super::engine::model_dir(&app).to_string_lossy().into_owned(),
+    })
+}
+
 /// 检查模型目录里缺失哪些文件（供 UI 提示"还差哪些"，避免用户盲下 15GB）。
 #[tauri::command]
 pub async fn ondevice_image_missing_files(

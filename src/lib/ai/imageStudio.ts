@@ -81,6 +81,20 @@ export async function missingImageFiles(modelDir: string): Promise<MissingFilesI
 }
 
 /**
+ * 设备与模型目录探测（能力判定的原始依据）。
+ * 字段与 Rust `ondevice::image::ImageDeviceInfo` 一一对应（snake_case 透传）。
+ */
+export interface ImageDeviceInfo {
+  ram_gb: number
+  opencl: boolean
+  model_dir: string
+}
+
+export async function probeImageDevice(): Promise<ImageDeviceInfo> {
+  return invoke<ImageDeviceInfo>('ondevice_image_probe')
+}
+
+/**
  * 生成 / 编辑图像。**阻塞到生成结束**（分钟级）。
  *
  * @param onProgress 进度回调（0–100）

@@ -543,6 +543,7 @@ pub fn run() {
                     ondevice::image::ondevice_image_cancel,
                     ondevice::image::ondevice_image_release,
                     ondevice::image::ondevice_image_missing_files,
+                    ondevice::image::ondevice_image_probe,
                     log_frontend_error,
                     open_application,
                     // 加密
