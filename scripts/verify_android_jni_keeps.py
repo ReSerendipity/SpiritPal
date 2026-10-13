@@ -82,6 +82,33 @@ REQUIRED: dict[str, list[tuple[str, str | None]]] = {
         ("sendChannelData", None),
         ("handlePluginResponse", None),
     ],
+    # 端侧图像（Qwen-Image-2.1 / libQwenImage21 AAR）：
+    # QwenImage21 的 native* 方法由 libqwenimage21_jni.so 按「类名+方法名」链接；
+    # ProgressListener.onProgress 由 native 层经 GetMethodID 回调（见 AAR 的 qwenimage21_jni.cpp）。
+    # ⚠️ AAR 自带 consumerProguardFiles 含 `-keep class com.scsonic.qwenimage21.** { *; }`，
+    #    但本仓**不把 AAR 作为 Gradle 依赖**（只解包 .so 与 classes.jar），该规则不会自动应用，
+    #    已手写进 proguard-rules.pro —— 此处登记以便静态守卫与 DEX 级校验双重覆盖。
+    "Lcom/scsonic/qwenimage21/QwenImage21;": [
+        ("nativeCreate", "(Ljava/lang/String;ZZZII)J"),
+        ("nativeGenerate", None),
+        ("nativeLastError", "(J)Ljava/lang/String;"),
+        ("nativeAvailableMemoryMB", "()I"),
+        ("nativeRelease", "(J)V"),
+    ],
+    "Lcom/scsonic/qwenimage21/QwenImage21$ProgressListener;": [
+        ("onProgress", "(I)V"),
+    ],
+    # SpiritPal 端侧图像桥：Rust 经 JNI 调这些静态方法（Kotlin 侧无调用者 → R8 会删）；
+    # native* 是 Kotlin 的 external 方法，需保持名字以匹配 libspiritpal_lib.so 的 JNI 符号。
+    "Lcom/spiritpal/desktop_pet/QwenImageBridge;": [
+        ("loadModel", "(Ljava/lang/String;Ljava/lang/String;)V"),
+        ("generate", "(Ljava/lang/String;Ljava/lang/String;)V"),
+        ("release", "()V"),
+        ("missingFiles", "(Ljava/lang/String;)Ljava/lang/String;"),
+        ("nativeOnProgress", "(Ljava/lang/String;I)V"),
+        ("nativeOnDone", "(Ljava/lang/String;ZLjava/lang/String;)V"),
+        ("nativeIsCancelled", "(Ljava/lang/String;)Z"),
+    ],
 }
 
 

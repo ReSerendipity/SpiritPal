@@ -14,9 +14,12 @@ target/
 *.so
 *.dylib
 
-# 端侧 MNN 引擎库（构建期由 scripts/download_mnn_engine.py 从官方 MNN Chat APK 生成，不入库）
+# 端侧 MNN 引擎库（构建期由 scripts/download_mnn_engine.py 与
+# scripts/fetch_qwen_image_engine.py 生成，不入库）
 # 说明：*.so 已全局忽略；此处显式声明目录意图，避免被误 force-add 进版本库。
 src-tauri/gen/android/app/mnnLibs/
+# 端侧图像引擎 Java API（构建期由 scripts/fetch_qwen_image_engine.py 从 libQwenImage21 AAR 解包）
+src-tauri/gen/android/app/libs/qwenimage21.jar
 
 # Tauri
 src-tauri/target/

@@ -32,6 +32,19 @@
         android:theme="@style/Theme.spiritpal_app"
         android:networkSecurityConfig="@xml/network_security_config"
         android:usesCleartextTraffic="${usesCleartextTraffic}">
+
+        <!-- 端侧图像（Qwen-Image-2.1 / MNN OpenCL）：Android 11+ 需显式声明
+             uses-native-library，应用才能 dlopen 到厂商命名空间下的 libOpenCL.so。
+             required=false → 无 OpenCL 的设备仍可正常安装，图像功能按设备能力在运行时降级。
+             （声明来源：libQwenImage21 AAR 的 manifest；此处手写，因为本仓不把 AAR 作为
+             Gradle 依赖——只解包其 .so 与 classes.jar，故不会发生 manifest merge。） -->
+        <uses-native-library
+            android:name="libOpenCL.so"
+            android:required="false" />
+        <uses-native-library
+            android:name="libOpenCL-pixel.so"
+            android:required="false" />
+
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
             android:launchMode="singleTask"

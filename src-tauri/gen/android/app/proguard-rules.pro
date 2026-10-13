@@ -27,6 +27,21 @@
 # MNN 引擎包（vendored，见 §3.2）整体 keep，防其内部反射/序列化被 shrink/重命名破坏。
 -keep class com.alibaba.mnnllm.android.** { *; }
 
+# ===== 端侧图像（Qwen-Image-2.1，libQwenImage21）=====
+# QwenImage21 的 native* 方法由 libqwenimage21_jni.so 按「类名+方法名」链接；
+# ProgressListener.onProgress 由 native 层经 GetMethodID 回调（见 AAR 的 qwenimage21_jni.cpp）
+# → 两者都不可被 R8 改名/删除，否则真机触发图像功能时 NoSuchMethodError / UnsatisfiedLinkError。
+# ⚠️ AAR 自带 consumerProguardFiles 含完全相同的规则，但本仓**不把 AAR 作为 Gradle 依赖**
+#    （只解包其 .so 与 classes.jar，见 scripts/fetch_qwen_image_engine.py），
+#    故该规则不会自动应用，必须在此显式声明。
+# 清单登记见 scripts/verify_android_jni_keeps.py 的 REQUIRED；背景见 docs/agents/GOTCHAS.md。
+-keep class com.scsonic.qwenimage21.** { *; }
+
+# SpiritPal 自己的图像桥：Rust 经 JNI 调 loadModel / generate / release / missingFiles
+# （Kotlin 侧**无调用者** → R8 会当 unused 整方法删除）；native* 回调需保持类名与方法名
+# 以匹配 libspiritpal_lib.so 里的 JNI 符号名。见 src-tauri/src/ondevice/image.rs。
+-keep class com.spiritpal.desktop_pet.QwenImageBridge { *; }
+
 # ===== wry 0.55.1 经 JNI 反射调用的 WryActivity / RustWebView 方法 =====
 # 这些方法是 wry 的 Rust 侧经 JNI 按名字/签名调用的（如 android_setup() 调
 # activity.getId() "()I"）。R8 在 release 中会把“仅反射可达”的方法当作 unused

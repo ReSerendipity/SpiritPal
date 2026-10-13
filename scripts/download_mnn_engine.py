@@ -5,12 +5,20 @@ download_mnn_engine.py — 构建期拉取端侧 MNN LLM 引擎原生库（不�
 
 背景
 ----
-SpiritPal Android 的端侧 LLM（on-device）依赖两个预编译原生库：
-    libmnnllmapp.so  （MNN Chat 的 JNI 桥，System.loadLibrary("mnnllmapp") 加载）
-    libMNN.so         （MNN 单体构建核心，已含 LLM/Express/后端，静态 libc++）
-这两个库合计约 8.9MB，官方只以**编译进 MNN Chat APK** 的形式分发（GitHub release
-的 android zip 里是 libllm.so，不是我们要的 libmnnllmapp.so）。因此从官方 MNN Chat
-APK 解包是最稳的来源（见 docs/agents/GOTCHAS.md #71/#72、ADR-0005-ondevice-llm.md）。
+SpiritPal Android 的端侧 LLM（on-device）依赖预编译原生库 libmnnllmapp.so
+（MNN Chat 的 JNI 桥，System.loadLibrary("mnnllmapp") 加载）。官方只以**编译进
+MNN Chat APK** 的形式分发（GitHub release 的 android zip 里是 libllm.so，不是我们要的
+libmnnllmapp.so），因此从官方 MNN Chat APK 解包是最稳的来源
+（见 docs/agents/GOTCHAS.md #71/#72、ADR-0005-ondevice-llm.md）。
+
+⚠️ 2026-10-13 起本脚本**不再**解包 libMNN.so
+--------------------------------------------
+引入端侧图像（Qwen-Image-2.1）后，libMNN.so 必须换成 libQwenImage21 AAR 内的
+scsonic/MNN 分支版本（含 MNN::DIFFUSION 与 QwenImage21Diffusion）。该版本已用 ELF
+符号闭包验证**同时满足** libmnnllmapp.so 的全部 C++ 未定义符号（0 缺失），
+故改由 scripts/fetch_qwen_image_engine.py 统一提供。
+若本脚本仍解包旧版 libMNN.so，会在构建期覆盖掉图像引擎所需符号（同名 .so 只能存在一份）。
+两者都落到同一个 mnnLibs/<abi>/，由 app/build.gradle 的 jniLibs.srcDirs 一起进包。
 
 设计原则（契合「框架-only、不塞大包」）
 ---------------------------------------
@@ -39,7 +47,11 @@ from pathlib import Path
 
 DEFAULT_APK_URL = "https://meta.alicdn.com/data/mnn/apks/mnn_chat_0_8_3.apk"
 # 解包后需要的库（相对 APK 内 lib/<abi>/）
-ENGINE_LIBS = ["libmnnllmapp.so", "libMNN.so"]
+#
+# ⚠️ 不含 libMNN.so（2026-10-13 起）：该文件改由 scripts/fetch_qwen_image_engine.py
+#    从 libQwenImage21 AAR 提供（scsonic/MNN 分支，含图像所需的 MNN::DIFFUSION）。
+#    此处若仍解包旧版，会在构建期覆盖掉图像引擎所需符号。详见本文件头部说明。
+ENGINE_LIBS = ["libmnnllmapp.so"]
 # 期望的 ABI 集（缺失者自动跳过；当前 APK 实际只提供 arm64-v8a）
 TARGET_ABIS = ["arm64-v8a", "armeabi-v7a"]
 # 体积下限（字节）用于截断自检：官方 APK ~41.8MB；这里只防“拿到空/半截”
