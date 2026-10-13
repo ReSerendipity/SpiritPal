@@ -516,7 +516,7 @@ export default function PetWindow() {
       setPetState('drag')
       setCurrentAnimId('drag')
       lastInteractionTypeRef.current = 'drag'
-      // eslint-disable-next-line react-hooks/purity -- 仅拖拽事件处理器执行路径（onDragStart），非渲染路径
+
       lastInteractionAtRef.current = Date.now()
       interruptWalk()
       setWalkOffset(0)
@@ -526,7 +526,7 @@ export default function PetWindow() {
       setPetState('idle')
       setCurrentAnimId('drop')
       lastInteractionTypeRef.current = 'drop'
-      // eslint-disable-next-line react-hooks/purity -- 仅拖拽结束事件处理器执行路径（onDragEnd），非渲染路径
+
       lastInteractionAtRef.current = Date.now()
       trackPetInteraction('drag')
     },
@@ -627,7 +627,7 @@ export default function PetWindow() {
   function pickBubble(cat: string): string {
     const arr = character?.bubbleMessages?.[cat as keyof NonNullable<typeof character>['bubbleMessages']]
     if (!arr || arr.length === 0) return ''
-    // eslint-disable-next-line react-hooks/purity -- pickBubble 仅在事件处理器中调用（onClick/触发宠物等），非渲染路径
+
     return arr[Math.floor(Math.random() * arr.length)] ?? ''
   }
 
@@ -664,7 +664,7 @@ export default function PetWindow() {
     onKeyPress: () => {
       const b = typingBurstRef.current
       // react-hooks/purity: 事件回调非渲染路径，Date.now 仅用于 4s 节流窗口计时
-      // eslint-disable-next-line react-hooks/purity
+
       const now = Date.now()
       if (now - b.windowStart > 4000) {
         b.windowStart = now
@@ -679,7 +679,7 @@ export default function PetWindow() {
     },
     onClick: () => {
       const b = clickBurstRef.current
-      const now = Date.now() // eslint-disable-line react-hooks/purity -- 事件回调非渲染路径，仅用于节流计时
+      const now = Date.now()
       if (now - b.windowStart > 4000) {
         b.windowStart = now
         b.count = 0
@@ -1175,7 +1175,7 @@ export default function PetWindow() {
     burstParticles({ x: spriteW / 2, y: spriteH * 0.28, count: 28 })
     setBubble(pickBubble('pet'))
     lastInteractionTypeRef.current = 'pet_head'
-    // eslint-disable-next-line react-hooks/purity -- 仅事件处理器执行路径（triggerPet：点击/菜单/面板按钮），非渲染路径
+
     lastInteractionAtRef.current = Date.now()
     // P2-4：记录被摸头经历
     void getPetExperienceManager(currentCharacterId).record('pet')
@@ -1190,7 +1190,7 @@ export default function PetWindow() {
     setPetState('eat')
     setCurrentAnimId('feed')
     lastInteractionTypeRef.current = 'feed'
-    // eslint-disable-next-line react-hooks/purity -- 仅事件处理器执行路径（handleFeed：菜单/面板按钮），非渲染路径
+
     lastInteractionAtRef.current = Date.now()
     // P2-4：记录被喂食经历
     void getPetExperienceManager(currentCharacterId).record('feed')
@@ -1204,7 +1204,7 @@ export default function PetWindow() {
     setPetState('happy')
     setCurrentAnimId('play')
     lastInteractionTypeRef.current = 'play'
-    // eslint-disable-next-line react-hooks/purity -- 仅事件处理器执行路径（handlePlay：菜单/面板按钮），非渲染路径
+
     lastInteractionAtRef.current = Date.now()
     // P2-4：记录被逗玩经历
     void getPetExperienceManager(currentCharacterId).record('play')
@@ -1225,7 +1225,6 @@ export default function PetWindow() {
   }
 
   function handleStartPomodoro(minutes: number) {
-    // eslint-disable-next-line react-hooks/purity -- 仅事件处理器执行路径（handleStartPomodoro：菜单/面板按钮），非渲染路径
     setPomodoro({ duration: minutes * 60, startedAt: Date.now() })
     setBubble(`开始专注 ${minutes} 分钟！加油～`)
   }
