@@ -73,7 +73,7 @@ cd src-tauri && cargo test   # Rust 测试
 SpiritPal/
 ├── src/                # 前端（components / lib / stores / mobile）
 ├── src-tauri/          # Rust 后端（commands、capabilities、tray、encryption、db）
-├── docs/               # 文档（adr/ 架构决策记录 0001–0005、execution/、project/）
+├── docs/               # 文档（adr/ 架构决策记录 0001–0004、execution/、project/）
 ├── demo/               # Demo HTML 页面与预览素材
 ├── perf/               # 性能评测（记忆召回 P95 / 准确率趋势）
 ├── .github/workflows/  # CI/CD
