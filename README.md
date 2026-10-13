@@ -76,8 +76,7 @@ SpiritPal/
 ├── docs/               # 文档（adr/ 架构决策记录 0001–0004、execution/、project/）
 ├── demo/               # Demo HTML 页面与预览素材
 ├── perf/               # 性能评测（记忆召回 P95 / 准确率趋势）
-├── .github/workflows/  # CI/CD
-└── AGENTS.md           # AI 辅助开发指南
+└── .github/workflows/  # CI/CD
 ```
 
 ## 贡献
