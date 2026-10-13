@@ -46,6 +46,23 @@ const MAX_ATTEMPTS = 8
 const IDLE_MS = 60_000
 
 /**
+ * 把整个 buffer 写完。
+ *
+ * ⚠️ `FileHandle.write()` **不保证写满** —— 它返回 `{ bytesWritten, buffer }`，
+ * 大 buffer 可能只写入一部分（Windows 上尤其明显）。若忽略返回值，文件会缺字节：
+ * 体积看似达标、内容却错乱 → sha256 校验失败 → 删除重下 → 表现为「反复回落、永不收敛」。
+ * 故必须循环直到写完。
+ */
+async function writeAll(fh, buf) {
+  let off = 0
+  while (off < buf.length) {
+    const { bytesWritten } = await fh.write(buf, off, buf.length - off)
+    if (!bytesWritten) throw new Error(`write 返回 0 字节（磁盘满？off=${off}/${buf.length}）`)
+    off += bytesWritten
+  }
+}
+
+/**
  * 文件分组。用「路径规则」而非硬编码清单，跟随上游仓库结构变化。
  * 默认组对齐官方 README 的 default download（tiny VAE + 不含 Turbo，≈9.9 GB 十进制）。
  */
@@ -262,12 +279,12 @@ async function downloadOne(host, repo, revision, relPath, dest, expectSize) {
         parts.push(chunk)
         pending += chunk.length
         if (pending >= FLUSH) {
-          await fh.write(Buffer.concat(parts, pending))
+          await writeAll(fh, Buffer.concat(parts, pending))
           parts = []
           pending = 0
         }
       }
-      if (pending > 0) await fh.write(Buffer.concat(parts, pending))
+      if (pending > 0) await writeAll(fh, Buffer.concat(parts, pending))
     } finally {
       await fh.close()
     }
