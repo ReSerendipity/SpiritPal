@@ -175,13 +175,8 @@ const TIER_TO_RAM: Record<DetectedTier, number> = { T0: 4, T1: 8, T2: 12 }
  */
 export async function detectDeviceTier(saver = false): Promise<DeviceTierResult> {
   try {
-    const res = await invoke<{ tier: string; llm_allowed: boolean; note: string }>(
-      'detect_device_tier',
-      { saver },
-    )
-    const tier = (res.tier === 'T0' || res.tier === 'T1' || res.tier === 'T2'
-      ? res.tier
-      : 'T2') as DetectedTier
+    const res = await invoke<{ tier: string; llm_allowed: boolean; note: string }>('detect_device_tier', { saver })
+    const tier = (res.tier === 'T0' || res.tier === 'T1' || res.tier === 'T2' ? res.tier : 'T2') as DetectedTier
     return { tier, llmAllowed: res.llm_allowed, note: res.note, ramGB: TIER_TO_RAM[tier] }
   } catch {
     return { tier: 'T2', llmAllowed: true, note: 'fallback: no Tauri context', ramGB: 12 }
@@ -192,10 +187,133 @@ export async function detectDeviceTier(saver = false): Promise<DeviceTierResult>
  * 端侧推荐（基于命令真实分档）。设置页「端侧模型管理」入口调用本函数即可拿到
  * 与设备匹配的推荐量化 / KV 精度 / 上下文上限，无需前端自行估算 RAM。
  */
-export async function recommendOnDeviceDetected(
-  saver = false,
-  vision = true,
-): Promise<OnDeviceRecommendation> {
+export async function recommendOnDeviceDetected(saver = false, vision = true): Promise<OnDeviceRecommendation> {
   const d = await detectDeviceTier(saver)
   return recommendOnDevice(d.ramGB, vision)
+}
+
+// ============ 端侧图像（Qwen-Image-2.1）分档 ============
+// 与上面 LLM 分档相互独立：图像对内存/存储的要求高一个量级（默认组 ≈9.9GB，
+// 加 Turbo ≈15.1GB），门槛是 RAM ≥12GB + OpenCL。见 docs/agents/ADR-0006-ondevice-image.md。
+
+/** 图像尺寸档位（对齐 libQwenImage21 的 Size.Tier） */
+export type ImageSizeTier = 'standard' | 'fast' | 'tiny' | 'micro' | 'nano' | 'pico'
+
+/** 各档位的基准边长（像素；实际宽高按比例换算后对齐 32） */
+export const IMAGE_TIER_BASE_PX: Record<ImageSizeTier, number> = {
+  standard: 512,
+  fast: 384,
+  tiny: 320,
+  micro: 256,
+  nano: 192,
+  pico: 128,
+}
+
+/** 支持的比例（与官方 App 的 7 种一致） */
+export const IMAGE_RATIOS = [
+  { id: '1:1', w: 1, h: 1 },
+  { id: '4:3', w: 4, h: 3 },
+  { id: '3:4', w: 3, h: 4 },
+  { id: '3:2', w: 3, h: 2 },
+  { id: '2:3', w: 2, h: 3 },
+  { id: '16:9', w: 16, h: 9 },
+  { id: '9:16', w: 9, h: 16 },
+] as const
+
+export type ImageRatioId = (typeof IMAGE_RATIOS)[number]['id']
+
+/**
+ * 按比例 + 档位算实际输出宽高。
+ *
+ * 算法与官方一致：**保持面积**（base²）后按比例求边长，再对齐到 32 的倍数。
+ * 已用官方表格核对：`16:9` + `standard` → 672×384；`1:1` + `standard` → 512×512。
+ */
+export function imageSize(ratio: ImageRatioId, tier: ImageSizeTier): { width: number; height: number } {
+  const r = IMAGE_RATIOS.find((x) => x.id === ratio) ?? IMAGE_RATIOS[0]!
+  const area = IMAGE_TIER_BASE_PX[tier] ** 2
+  const align = (v: number) => Math.max(32, Math.round(v / 32) * 32)
+  return {
+    width: align(Math.sqrt((area * r.w) / r.h)),
+    height: align(Math.sqrt((area * r.h) / r.w)),
+  }
+}
+
+/** 官方口径的模型体积（GB，十进制） */
+export const IMAGE_MODEL_GB = {
+  /** 默认组：text encoder 5.4 + DiT 4.5 + tiny VAE 0.03 ≈ 9.9 */
+  base: 9.9,
+  /** 额外下载 Turbo DiT */
+  turboExtra: 5.2,
+} as const
+
+/** 端侧图像能力分档 */
+export interface ImageCapability {
+  /** 是否可运行 */
+  feasible: boolean
+  /** 推荐档位（不可行时为 null） */
+  recommendedTier: ImageSizeTier | null
+  /** 计划下载的模型体积（GB，十进制） */
+  modelGB: number
+  /** 给用户的说明文案 */
+  note: string
+}
+
+/**
+ * 判定设备的端侧图像能力。
+ *
+ * 门槛（官方口径 + 本仓评估）：
+ * - **OpenCL 必需**（MNN 用 OpenCL GPU 跑 DiT；AAR 声明 `uses-native-library libOpenCL.so`）；
+ * - **RAM ≥ 12GB**（官方推荐 16GB；12GB 只能跑 Fast/Tiny 档）；
+ * - **空闲存储 ≥ 模型体积 + 2GB 余量**。
+ *
+ * @param ramGB 设备物理 RAM（GB）
+ * @param opencl 是否具备 OpenCL 运行时
+ * @param freeStorageGB 空闲存储（GB）
+ * @param withTurbo 是否计划下载 Turbo DiT（默认是，推荐组合）
+ */
+export function imageCapability(
+  ramGB: number,
+  opencl: boolean,
+  freeStorageGB: number,
+  withTurbo = true,
+): ImageCapability {
+  const modelGB = IMAGE_MODEL_GB.base + (withTurbo ? IMAGE_MODEL_GB.turboExtra : 0)
+  if (!opencl) {
+    return {
+      feasible: false,
+      recommendedTier: null,
+      modelGB,
+      note: '设备无 OpenCL 运行时，端侧图像不可用（建议走云端生成）',
+    }
+  }
+  if (ramGB < 12) {
+    return {
+      feasible: false,
+      recommendedTier: null,
+      modelGB,
+      note: `${ramGB}GB 内存低于端侧图像门槛（官方推荐 16GB；12GB 仅够 Fast/Tiny），建议走云端生成`,
+    }
+  }
+  if (freeStorageGB < modelGB + 2) {
+    return {
+      feasible: false,
+      recommendedTier: null,
+      modelGB,
+      note: `空闲存储 ${freeStorageGB.toFixed(1)}GB 不足（需 ≥ ${(modelGB + 2).toFixed(1)}GB），请先清理`,
+    }
+  }
+  if (ramGB >= 16) {
+    return {
+      feasible: true,
+      recommendedTier: 'standard',
+      modelGB,
+      note: '可跑 Standard 档（~512²）；Turbo 6 步约 3–4 分钟/张',
+    }
+  }
+  return {
+    feasible: true,
+    recommendedTier: 'fast',
+    modelGB,
+    note: '12GB 档建议 Fast（~384²）；编辑时 Fast 比 Standard 更能保住人物特征',
+  }
 }

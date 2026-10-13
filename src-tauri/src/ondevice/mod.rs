@@ -20,6 +20,10 @@ pub mod tier;
 // 桌面 ondevice 走 companion loopback（前端 llmClient.ts）。见 engine.rs 头注与 ondevice-embed-plan.md §3.3–§3.6。
 #[cfg(mobile)]
 pub mod engine;
+// 移动端（Android）端侧图像桥（Qwen-Image-2.1，JNI）。同样仅 #[cfg(mobile)] 编译；
+// 与 engine 共用 JVM 缓存与串行调度槽（防 LLM/图像并发抢内存 OOM）。见 image.rs 头注。
+#[cfg(mobile)]
+pub mod image;
 
 use serde::Serialize;
 use tier::{llm_allowed, Tier};

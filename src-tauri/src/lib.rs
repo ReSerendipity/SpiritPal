@@ -536,6 +536,13 @@ pub fn run() {
                     ondevice::engine::ondevice_list_models,
                     ondevice::engine::ondevice_models_dir,
                     ondevice::engine::ondevice_cancel,
+                    // 端侧图像：Qwen-Image-2.1（进程内，仅移动端；见 ondevice/image.rs）
+                    // 与 LLM 共享同一串行调度槽，防两者并发抢内存 OOM。
+                    ondevice::image::ondevice_image_load,
+                    ondevice::image::ondevice_image_generate,
+                    ondevice::image::ondevice_image_cancel,
+                    ondevice::image::ondevice_image_release,
+                    ondevice::image::ondevice_image_missing_files,
                     log_frontend_error,
                     open_application,
                     // 加密

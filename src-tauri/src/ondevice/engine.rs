@@ -46,7 +46,9 @@ use crate::ondevice::scheduler::{SchedError, Scheduler};
 const SPIRITPAL_ON_DEVICE: &str = "com/alibaba/mnnllm/android/SpiritPalOnDevice";
 
 /// `JNI_OnLoad` 缓存的 JavaVM（供任意线程 attach）。
-static JVM: OnceLock<JavaVM> = OnceLock::new();
+///
+/// `pub(crate)`：`ondevice::image` 的图像桥复用同一个 JVM（一个进程只有一个 JVM）。
+pub(crate) static JVM: OnceLock<JavaVM> = OnceLock::new();
 /// `JNI_OnLoad` 缓存的 `SpiritPalOnDevice` 类全局引用。
 ///
 /// ⚠️ 为什么必须缓存：在 attach 出来的 native 线程上 `env.find_class()` 走的是
@@ -63,8 +65,10 @@ static ON_DEVICE_CLASS: OnceLock<GlobalRef> = OnceLock::new();
 static EXTERNAL_MODELS_DIR: OnceLock<std::path::PathBuf> = OnceLock::new();
 
 // ---- 全局单例 ----
-static SCHEDULER: OnceLock<Scheduler> = OnceLock::new();
-static APP: OnceLock<AppHandle> = OnceLock::new();
+// `pub(crate)`：`ondevice::image`（端侧图像）复用同一套调度槽与应用句柄 ——
+// **LLM 与图像必须共享串行槽**，否则两者并发抢内存会在 12GB 设备上直接 OOM。
+pub(crate) static SCHEDULER: OnceLock<Scheduler> = OnceLock::new();
+pub(crate) static APP: OnceLock<AppHandle> = OnceLock::new();
 static MODELS: OnceLock<Mutex<ModelManager>> = OnceLock::new();
 // 取消令牌 / 完成信号按 session 存，供 Kotlin 经 native 回调查询或唤醒。
 // ⚠️ `HashMap::new()` 不是 const fn，不能在 `static` 初始化里直接调用（E0015）→ 用 LazyLock。
@@ -97,7 +101,7 @@ pub struct ModelsDirInfo {
     pub dir: String,
 }
 
-fn scheduler() -> &'static Scheduler {
+pub(crate) fn scheduler() -> &'static Scheduler {
     SCHEDULER.get_or_init(Scheduler::new)
 }
 
@@ -160,7 +164,7 @@ fn models(app: &AppHandle) -> &'static Mutex<ModelManager> {
     MODELS.get_or_init(|| Mutex::new(ModelManager::new(model_dir(app))))
 }
 
-fn stash_app(app: &AppHandle) {
+pub(crate) fn stash_app(app: &AppHandle) {
     let _ = APP.set(app.clone());
 }
 
@@ -189,6 +193,10 @@ pub extern "system" fn JNI_OnLoad(
                 let _ = ON_DEVICE_CLASS.set(g);
             }
         }
+        // 端侧图像桥（QwenImageBridge）与 LLM 桥同理：必须在 `JNI_OnLoad` 的
+        // **应用 class loader** 上下文里缓存类引用，否则后续 native 线程上的
+        // `find_class` 会走 system class loader 而找不到应用类。
+        super::image::cache_bridge_class(&mut env);
     }
     let _ = JVM.set(vm);
     jni::sys::JNI_VERSION_1_6
