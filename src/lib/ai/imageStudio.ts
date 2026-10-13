@@ -35,6 +35,14 @@ export interface ImageGenRequest {
   prompt: string
   width: number
   height: number
+  /**
+   * 编辑路径（`inputImage` 非空）的尺寸档位。
+   *
+   * 上游 `edit()` 的「带 steps/seed」重载**只接受 `Size.Tier`，不吃 width/height**
+   * （见 `QwenImageBridge.kt` 的 tier 注释）；文生图走 `generate()` 的 width/height 重载，
+   * 忽略本字段。缺省 `'STANDARD'`。
+   */
+  sizeTier?: 'STANDARD' | 'FAST' | 'TINY'
   steps: number
   seed: number
   /** 输出 PNG 的绝对路径 */

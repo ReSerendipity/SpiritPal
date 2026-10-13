@@ -87,9 +87,11 @@ object QwenImageBridge {
     /**
      * 生成 / 编辑图像。在后台线程执行（分钟级），结束经 `nativeOnDone` 收口。
      *
-     * @param requestJson `{"prompt":str, "width":int, "height":int, "steps":int, "seed":int,
-     *   "outputPng":str, "inputImage":str?, "inputImage2":str?}`
-     *   宽高由**前端**按分档表算好（见 `src/lib/ai/onDeviceTiers.ts`），避免在此重复一套尺寸算法。
+     * @param requestJson `{"prompt":str, "width":int, "height":int, "sizeTier":str,
+     *   "steps":int, "seed":int, "outputPng":str, "inputImage":str?, "inputImage2":str?}`
+     *   - 文生图用 `width`/`height`；编辑（`inputImage` 非空）用 `sizeTier`
+     *     （`"STANDARD"` | `"FAST"` | `"TINY"`，缺省 STANDARD）——原因见下方 tier 注释。
+     *   - 尺寸由**前端**按分档表算好（见 `src/lib/ai/onDeviceTiers.ts`），避免在此重复一套算法。
      */
     @JvmStatic
     fun generate(sessionId: String, requestJson: String) {
@@ -112,6 +114,16 @@ object QwenImageBridge {
                 out.parentFile?.mkdirs()
                 val img1 = jo.optString("inputImage", "").ifBlank { null }
                 val img2 = jo.optString("inputImage2", "").ifBlank { null }
+                // 编辑路径的尺寸：上游 edit() 的「带 steps/seed」重载签名是
+                //   edit(String, File, Tier, int steps, int seed, File, Listener)
+                //   edit(String, File, File, Tier, int steps, int seed, File, Listener)
+                // **只吃 Size.Tier，不吃 width/height**（width/height 重载不带 steps/seed）。
+                // 故编辑统一走 tier；文生图仍用 width/height（generate 有该重载）。
+                val tier = when (jo.optString("sizeTier", "STANDARD").uppercase()) {
+                    "FAST" -> QwenImage21.Size.Tier.FAST
+                    "TINY" -> QwenImage21.Size.Tier.TINY
+                    else -> QwenImage21.Size.Tier.STANDARD
+                }
 
                 val listener = QwenImage21.ProgressListener { percent ->
                     // 仅上报进度。上游 onProgress 返回 void，无中止通道 —— 见类头注「关于取消」。
@@ -121,11 +133,10 @@ object QwenImageBridge {
                 val bmp: Bitmap? = when {
                     // 双参考图编辑（上游实验特性，见 docs/MULTI_REF.md）
                     img2 != null && img1 != null ->
-                        e.edit(prompt, File(img1), File(img2), QwenImage21.Size.Tier.STANDARD,
-                            steps, seed, out, listener)
-                    // 单参考图编辑
-                    img1 != null -> e.edit(prompt, File(img1), width, height, steps, seed, out, listener)
-                    // 文生图
+                        e.edit(prompt, File(img1), File(img2), tier, steps, seed, out, listener)
+                    // 单参考图编辑：edit 的带 steps/seed 重载只接受 Tier（见上）
+                    img1 != null -> e.edit(prompt, File(img1), tier, steps, seed, out, listener)
+                    // 文生图：generate 有 width/height 重载
                     else -> e.generate(prompt, width, height, steps, seed, out, listener)
                 }
                 ok = bmp != null

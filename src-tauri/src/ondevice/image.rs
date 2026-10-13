@@ -37,7 +37,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex, OnceLock};
 
-use jni::objects::{GlobalRef, JClass, JString, JValue, JValueOwned};
+use jni::objects::{GlobalRef, JClass, JString, JThrowable, JValue, JValueOwned};
 use jni::JNIEnv;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
@@ -121,9 +121,27 @@ fn call_bridge(method: &str, sig: &str, args: Vec<String>) -> Result<Option<Stri
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| format!("new_string: {e}"))?;
         let jvalues: Vec<JValue<'_, '_>> = jargs.iter().map(|s| JValue::Object(&**s)).collect();
-        let ret = env
-            .call_static_method(&cls, method, sig, &jvalues)
-            .map_err(|e| format!("call {method}: {e}"))?;
+        // ⚠️ Java 方法抛异常时 `call_static_method` 只返回 `Err(JavaException)`，
+        // **不会自动清除** JVM 的 pending exception。若不清除就返回，JNIEnv 在所在线程
+        // detach 时会让 JVM 把它当作「线程未捕获异常」→ 默认 handler 直接 killProcess。
+        // 真机实测（RMX5010 / Android 16）：模型文件缺失时 `QwenImage21.<init>` 抛
+        // IllegalArgumentException，整个 app 被杀（`FATAL EXCEPTION: Thread-5`）。
+        // 故此处必须：取异常 → 打印完整栈到 logcat → **清除** → 转成 Rust 错误串返回。
+        let ret = match env.call_static_method(&cls, method, sig, &jvalues) {
+            Ok(v) => v,
+            Err(e) => {
+                let _ = env.exception_describe(); // 完整 Java 栈进 logcat，便于诊断
+                                                  // 顺序关键：exception_occurred 保留异常、exception_clear 清除。
+                                                  // 清除之后才能再调 JNI 方法（有 pending exception 时多数 JNI 函数会失败）。
+                let ex = env.exception_occurred().ok().filter(|x| !x.is_null());
+                let _ = env.exception_clear();
+                let detail = ex.and_then(|ex| throwable_to_string(env, &ex));
+                return Err(format!(
+                    "call {method}: {}",
+                    detail.unwrap_or_else(|| e.to_string())
+                ));
+            }
+        };
         // 模式匹配而非 `JValueOwned::l()`：跨 jni 0.21 的小版本更稳。
         if let JValueOwned::Object(obj) = ret {
             if !obj.is_null() {
@@ -136,6 +154,20 @@ fn call_bridge(method: &str, sig: &str, args: Vec<String>) -> Result<Option<Stri
         }
         Ok(None)
     })
+}
+
+/// 取 `Throwable.toString()`（形如 `java.lang.IllegalArgumentException: <msg>`）。
+///
+/// 调用前提：**pending exception 已被 `exception_clear` 清除** —— JNI 规范规定存在
+/// pending exception 时多数 JNI 函数会直接失败，`call_method` 同样调不动。
+fn throwable_to_string(env: &mut JNIEnv<'_>, ex: &JThrowable<'_>) -> Option<String> {
+    let v = env
+        .call_method(ex, "toString", "()Ljava/lang/String;", &[])
+        .ok()?;
+    let obj = v.l().ok()?;
+    let js = JString::from(obj);
+    let s = env.get_string(&js).ok()?;
+    Some(s.to_string_lossy().into_owned())
 }
 
 fn kotlin_load_model(model_dir: &str, options_json: &str) -> Result<(), String> {
