@@ -26,10 +26,8 @@
  *
  * @see docs/agents/ADR-0006-ondevice-image.md
  */
-import { createWriteStream } from 'node:fs'
-import { mkdir, stat, readFile, rm } from 'node:fs/promises'
+import { mkdir, open, stat, readFile, rm } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
-import { pipeline } from 'node:stream/promises'
 import { Readable } from 'node:stream'
 import path from 'node:path'
 
@@ -39,6 +37,13 @@ const HOSTS = ['https://hf-mirror.com', 'https://huggingface.co']
 const UA = 'SpiritPal-fetch-qwen-image/1.0'
 /** 单文件最大尝试次数（每次续传） */
 const MAX_ATTEMPTS = 8
+
+/**
+ * 下载**空闲**超时：连续该时长无数据到达才中断。
+ * 刻意不用「总时长上限」—— GB 级权重（dit.mnn.weight 4.27GB）在 ~6MB/s 下需十几分钟，
+ * 固定 10 分钟总上限会把正常下载误杀，表现为「体积反复回落、永不收敛」。
+ */
+const IDLE_MS = 60_000
 
 /**
  * 文件分组。用「路径规则」而非硬编码清单，跟随上游仓库结构变化。
@@ -227,15 +232,49 @@ async function downloadOne(host, repo, revision, relPath, dest, expectSize) {
   const headers = { 'User-Agent': UA }
   if (have > 0 && expectSize > 0 && have < expectSize) headers.Range = `bytes=${have}-`
 
-  const res = await fetch(url, { headers, signal: AbortSignal.timeout(600000) })
-  if (!res.ok && res.status !== 206) throw new Error(`HTTP ${res.status}`)
-  if (!res.body) throw new Error('响应体为空')
+  // 空闲超时（见 IDLE_MS 注释）：只要字节还在流动就不掐，仅「连续无数据」才放弃。
+  const controller = new AbortController()
+  const idleErr = () => new Error(`空闲超时（${IDLE_MS / 1000}s 无数据到达）`)
+  let idleTimer = setTimeout(() => controller.abort(idleErr()), IDLE_MS)
+  const kick = () => {
+    clearTimeout(idleTimer)
+    idleTimer = setTimeout(() => controller.abort(idleErr()), IDLE_MS)
+  }
 
-  await pipeline(
-    Readable.fromWeb(res.body),
-    createWriteStream(dest, { flags: have > 0 && res.status === 206 ? 'a' : 'w' }),
-  )
-  return { resumedFrom: res.status === 206 ? have : 0 }
+  try {
+    const res = await fetch(url, { headers, signal: controller.signal })
+    if (!res.ok && res.status !== 206) throw new Error(`HTTP ${res.status}`)
+    if (!res.body) throw new Error('响应体为空')
+
+    const append = have > 0 && res.status === 206
+    // ⚠️ 刻意不用 `createWriteStream({ flags: 'a' })`：Windows 上 Node 会取文件「当前大小」
+    // 作为 append 位置并做 >2GiB 校验，对 GB 级权重直接报
+    //   `File size (N) is greater than 2 GiB`
+    // （实测 dit.mnn.weight 4.17GiB 续传必挂，且因为每次都失败 → 体积反复回落、永不收敛）。
+    // 改用 FileHandle：append 模式下 `write(buf)` 不传 position，由 OS 负责追加，跨平台稳定。
+    const fh = await open(dest, append ? 'a' : 'w')
+    try {
+      let parts = []
+      let pending = 0
+      const FLUSH = 4 << 20 // 4 MiB 攒批，避免每 64KiB 一次 syscall
+      for await (const chunk of Readable.fromWeb(res.body)) {
+        kick() // 有数据到达 → 重置空闲计时器
+        parts.push(chunk)
+        pending += chunk.length
+        if (pending >= FLUSH) {
+          await fh.write(Buffer.concat(parts, pending))
+          parts = []
+          pending = 0
+        }
+      }
+      if (pending > 0) await fh.write(Buffer.concat(parts, pending))
+    } finally {
+      await fh.close()
+    }
+    return { resumedFrom: append ? have : 0 }
+  } finally {
+    clearTimeout(idleTimer)
+  }
 }
 
 // ============ 主流程 ============
