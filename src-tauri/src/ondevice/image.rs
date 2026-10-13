@@ -354,7 +354,9 @@ pub fn ondevice_image_probe(app: AppHandle) -> Result<ImageDeviceInfo, String> {
     Ok(ImageDeviceInfo {
         ram_gb: super::mobile_total_ram_gb().unwrap_or(8.0),
         opencl: detect_opencl(),
-        model_dir: super::engine::model_dir(&app).to_string_lossy().into_owned(),
+        model_dir: super::engine::model_dir(&app)
+            .to_string_lossy()
+            .into_owned(),
     })
 }
 
