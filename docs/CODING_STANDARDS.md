@@ -80,7 +80,17 @@ python scripts/check_no_hardcoded_paths.py --all    # 全库
 - 不提交生成物（build/、dist/、target/、__pycache__/、*.log）。
 - 修改 `.gitattributes` / `.gitignore` / `.mailmap` 前先确认与上游 `origin/main` 一致，避免重复 / 冲突提交。
 
-## 5. 本仓修复记录（2026-09-18）
+## 5. 本仓修复记录
+
+第三轮（2026-10-14，spec-refs 门禁去 fail-open 收尾）：
+
+- `scripts/spec_audit_local.py`（**新增**）：仓内路径存在性审计器，仅依赖 Python 标准库，输出与家族审计器同形的 JSON 报告。两层判据：**调用层**——被门禁实际执行的脚本路径（`.github/workflows/*.yml` 的 `run:`、`package.json` scripts、`.pre-commit-config.yaml` 的 `repo: local` `entry:`、`.githooks/*`）必须存在；**治理文档层**——入口文档与治理 README 内联代码里的仓内路径、以及相对 Markdown 链接，必须解得开。护栏：只看版本化顶层前缀、跳过围栏代码块与 `（计划，未实现）` 行、剔除被 `.gitignore` 命中的路径。
+- `scripts/check_spec_refs.py`：家族审计器（仓库外、本机权威、覆盖面更深）缺失时**自动回落**到上面的仓内审计器；状态行新增 `auditor=family|repo-local` 以明说本次跑了哪套；新增 `--family-only`（复现旧的 UNAVAILABLE 态）；退出码 `2` 收紧为「两套审计器都不存在」。
+- `.github/workflows/structure-guard.yml` 与 `.github/workflows/docs-consistency.yml`：**去掉 `--allow-unavailable`**。此前干净 CI 检出永远搜不到家族审计器，该步骤只会报 UNAVAILABLE + `::warning::` 后退出 0（绿色但零判定）；现在 CI 会真实读取上述路径并判定存在性，**绿色 = 已判定**。
+- `scripts/__tests__/spec-audit-local.test.mjs`（**新增**）：门禁自证用例（正向 + 注入缺失脚本 / 幽灵文档路径的负向），随 `pnpm test` 执行，防「审计器被改哑」重演。
+- `.github/SECURITY.md`：魔数校验一节的前端接线路径 `src/lib/uploadMagic.ts` 为幽灵引用，实际位于 `src/lib/system/uploadMagic.ts`（`git grep` 核实），已修正——这是上述门禁在首次运行时拦下的真实缺陷。
+
+> 取舍：不把家族审计器收归单仓（6 个家族仓库共用，收归会 fork 其逻辑），也不在 CI 里造 mock 报告（mock 只会把「审计器说什么」换成「写 mock 的人说什么」）。历史叙述性文档（`docs/**`）仍**只由家族审计器覆盖**：它们引用写下当时的路径属正常，强行入仓内硬门禁只会逼出一份豁免基线（那又是一种 fail-open）。下面 2026-09-18 的各轮记录保留原文不改写，仅在此追加订正。
 
 第二轮（并行会话回滚后重新修复 + 自动化门禁）：
 

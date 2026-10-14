@@ -110,7 +110,7 @@
 
 1. **Rust 签名表**（`src-tauri/src/magic_check.rs`）：`MAGIC_SIGNATURES` 共 **19 个扩展名、21 条签名**（`.tif` / `.tiff` 各含 `II*\x00` 与 `MM\x00*` 双魔数），覆盖图片 8（png / jpg / jpeg / gif / bmp / webp / tif / tiff）、音频 5（wav / mp3 / flac / ogg / m4a）、视频 4（mp4 / mov / webm / mkv）、压缩包 2（zip / petmod）。`validate_magic` 读取文件头 12 字节（`HEADER_READ_SIZE`）与声明扩展名比对；扩展名与内容不匹配、未知扩展名、空内容均拒绝（fail-closed）。
 2. **Tauri 命令**（`src-tauri/src/lib.rs`）：`validate_upload_magic(contents, file_ext) -> Result<bool, String>`，已注册进 `generate_handler!`（桌面与移动端两处）；不 panic，任何异常归为校验失败并记日志。
-3. **前端接线**（`src/lib/uploadMagic.ts`）：`SUPPORTED_MAGIC_EXTENSIONS` 与 Rust 签名表对齐（19 个扩展名），读取文件头 12 字节后 invoke Rust 命令；已接入 **4 处**：`CommunityPanel.tsx:687`（社区面板）、`GifToSpriteTool.tsx:206`（GIF 转精灵）、`SettingsWindow.tsx:341`（设置-模组/素材导入）、`SpriteSheetPanel.tsx:70`（精灵表）。未知扩展名（如 .json / .svg）跳过校验以免误伤合法流程；非 Tauri 环境跳过不阻断（Rust 端命令本身 fail-closed）。
+3. **前端接线**（`src/lib/system/uploadMagic.ts`）：`SUPPORTED_MAGIC_EXTENSIONS` 与 Rust 签名表对齐（19 个扩展名），读取文件头 12 字节后 invoke Rust 命令；已接入 **4 处**：`CommunityPanel.tsx:687`（社区面板）、`GifToSpriteTool.tsx:206`（GIF 转精灵）、`SettingsWindow.tsx:341`（设置-模组/素材导入）、`SpriteSheetPanel.tsx:70`（精灵表）。未知扩展名（如 .json / .svg）跳过校验以免误伤合法流程；非 Tauri 环境跳过不阻断（Rust 端命令本身 fail-closed）。
 4. **petmod 安装校验**（`src-tauri/src/petmod.rs`）：`import_petmod` 流程中读取文件后先 `validate_magic(".petmod")` 校验 zip 魔数 → SHA-256 → `validate_target_dir` 三层路径校验 → 解压（`enclosed_name` 防 zip slip）→ 结构验证（pet_conf.json 必须存在）。
 5. `detect_file_kind`（按字节自动识别媒体类别）为聊天上传自动识别的预留 API，**尚未暴露为 Tauri 命令**。
 

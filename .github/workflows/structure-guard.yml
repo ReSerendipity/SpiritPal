@@ -23,10 +23,13 @@ jobs:
       - name: Check repository root layout
         run: python .github/scripts/check_layout.py
       - name: Audit spec references
-        # 与 docs-consistency.yml 统一守卫风格：单条直调 + --allow-unavailable；
-        # 不再有 workflow 侧第二套 if [ -f ] 跳过逻辑——审计器缺失由包装脚本
-        # 输出 UNAVAILABLE 并由 CI 显式 ::warning:: 标注（绿 ≠ 已验证）。
-        run: python scripts/check_spec_refs.py --allow-unavailable
+        # 2026-10-14 去掉 --allow-unavailable：家族审计器在干净检出必然缺失，旧写法
+        # 让本步骤永远只打 UNAVAILABLE 警告、CI 全绿但一条路径都没判过（fail-open）。
+        # 现在包装脚本回落仓库内的 scripts/spec_audit_local.py：门禁调用的脚本路径
+        # （workflows / package.json scripts / pre-commit local hooks / .githooks）
+        # 与治理文档（README、.github/*.md、AGENTS.md 若在）里写的仓库路径必须真实存在。
+        # 状态行 `auditor=repo-local|family` 标明本次究竟跑了哪套审计，绿 = 已判定。
+        run: python scripts/check_spec_refs.py
       # P2-1: capability 最小授权 lint（报告2 §二；负向测试见 scripts/__tests__/lint-capabilities.test.mjs）
       - uses: actions/setup-node@v4
         with:

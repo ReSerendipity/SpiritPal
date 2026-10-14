@@ -20,10 +20,12 @@ jobs:
         with:
           python-version: '3.12'
       - name: Audit spec references
-        # 家族审计器位于仓库外（同级 .spec_audit），干净 CI 检出必然缺失：
-        # --allow-unavailable 把「未执行」转为显式 ::warning:: 标注 + step summary；
-        # 绿色 job ≠ 已验证（状态契约见 scripts/check_spec_refs.py docstring）。
-        run: python scripts/check_spec_refs.py --allow-unavailable
+        # 家族审计器位于仓库外，干净 CI 检出永远跑不到它；旧写法靠 --allow-unavailable
+        # 把「未执行」翻成绿色 job（2026-10-14 去掉，见 GOTCHAS #123 同源问题）。
+        # 包装脚本现在回落仓内 scripts/spec_audit_local.py，本步骤真的会读工作流/
+        # package.json/pre-commit 里被调用的脚本路径与治理文档里的仓库路径并判定存在性；
+        # 状态行 auditor=repo-local 说明跑的是仓内审计，family 说明本机有家族审计器。
+        run: python scripts/check_spec_refs.py
 
   version-consistency:
     runs-on: ubuntu-latest
