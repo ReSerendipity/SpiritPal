@@ -41,6 +41,9 @@ interface ImageDeviceInfo {
 /** 尺寸档位（前端分档表 → 上游 Turbo/base 通用；base 走 width/height）。 */
 const SIZE_TIERS: ImageSizeTier[] = ['standard', 'fast', 'tiny']
 
+/** 开箱即用的示例 prompt（与 textarea 的 placeholder 保持一致）。 */
+const DEFAULT_PROMPT = '一只戴围巾的橘猫，坐在窗台上，午后阳光'
+
 /** 步数档：6 步 Turbo（推荐，约快一倍） / 20 步 base。 */
 const STEP_PRESETS = [6, 20] as const
 
@@ -49,7 +52,9 @@ export function ImageGenPanel() {
   const mobile = isMobileRuntime()
 
   const [dev, setDev] = useState<ImageDeviceInfo | null>(null)
-  const [prompt, setPrompt] = useState('')
+  // 默认给一个示例 prompt：最小可用版应「开箱即生成」，也让按钮默认可用
+  // （曾因初值为空导致按钮静默禁用，而用户看到 placeholder 以为已填好，无从解释）。
+  const [prompt, setPrompt] = useState(DEFAULT_PROMPT)
   const [ratio, setRatio] = useState<ImageRatioId>('1:1')
   const [tier, setTier] = useState<ImageSizeTier>('standard')
   const [steps, setSteps] = useState<number>(6)
@@ -155,6 +160,7 @@ export function ImageGenPanel() {
         value={prompt}
         maxLength={800}
         placeholder={t('settings.image.gen.promptPlaceholder')}
+        aria-label={t('settings.image.gen.prompt')}
         onChange={(e) => setPrompt(e.target.value)}
         disabled={busy}
       />
@@ -226,7 +232,11 @@ export function ImageGenPanel() {
 
       {/* 操作区 */}
       <div className="mb-3 flex items-center gap-2">
-        <BrandButton onClick={() => void generate()} disabled={busy || !prompt.trim() || !dev}>
+        <BrandButton
+          onClick={() => void generate()}
+          disabled={busy || !prompt.trim() || !dev}
+          title={!prompt.trim() ? t('settings.image.gen.needPrompt') : undefined}
+        >
           {busy ? <Loader2 size={14} className="mr-1 animate-spin" /> : <Sparkles size={14} className="mr-1" />}
           {busy ? t('settings.image.gen.generating') : t('settings.image.gen.generate')}
         </BrandButton>

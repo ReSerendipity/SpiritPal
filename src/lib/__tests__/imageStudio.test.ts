@@ -213,18 +213,20 @@ describe('cancelImage', () => {
 })
 
 describe('defaultImageOutputPath', () => {
-  it('落在 appCacheDir/spiritpal-images 下且文件名带时间戳', async () => {
-    const { appCacheDir, join } = await import('@tauri-apps/api/path')
-    vi.mocked(appCacheDir).mockResolvedValue('/data/user/0/com.spiritpal.desktop_pet/cache')
+  it('落在 models/generated 下且文件名带时间戳（不用 cache 目录：真机 native 写不了）', async () => {
+    const { appDataDir, join } = await import('@tauri-apps/api/path')
+    vi.mocked(appDataDir).mockResolvedValue('/storage/emulated/0/Android/data/com.spiritpal.desktop_pet/files')
     vi.mocked(join).mockImplementation(async (...parts: string[]) => parts.join('/'))
 
     const p = await defaultImageOutputPath()
 
-    expect(appCacheDir).toHaveBeenCalled()
+    expect(appDataDir).toHaveBeenCalled()
     expect(p).toMatch(
-      /^\/data\/user\/0\/com\.spiritpal\.desktop_pet\/cache\/spiritpal-images\/out-[0-9a-z]+-[0-9a-z]+\.png$/,
+      /^\/storage\/emulated\/0\/Android\/data\/com\.spiritpal\.desktop_pet\/files\/models\/generated\/out-[0-9a-z]+-[0-9a-z]+\.png$/,
     )
-    expect(p.startsWith(`x/${IMAGE_OUTPUT_SUBDIR}/`)).toBe(false)
+    expect(p.startsWith(`models/${IMAGE_OUTPUT_SUBDIR}/`)).toBe(false)
+    // 回归：必须落在 models 下，而不是 appCacheDir（真机 ENOENT）
+    expect(p).not.toContain('/cache/')
   })
 })
 

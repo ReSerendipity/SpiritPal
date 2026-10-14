@@ -43,6 +43,7 @@
       "allow": [
         { "path": "$RESOURCE/pets/**" },
         { "path": "$APPDATA/live2dcubismcore.js" },
+        { "path": "$APPDATA/models/**" },
         { "path": "$APPCACHE/spiritpal-images/**" }
       ]
     }

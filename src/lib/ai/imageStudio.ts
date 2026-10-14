@@ -144,23 +144,27 @@ export async function cancelImage(sessionId: string): Promise<void> {
   await invoke('ondevice_image_cancel', { sessionId })
 }
 
-/** 生成产物在应用缓存下的固定子目录（fs:scope 已按此路径放行）。 */
-export const IMAGE_OUTPUT_SUBDIR = 'spiritpal-images'
+/** 生成产物在模型目录下的固定子目录（fs:scope 已按此路径放行）。 */
+export const IMAGE_OUTPUT_SUBDIR = 'generated'
 
 /**
- * 生成产物的默认落点：`<appCacheDir>/spiritpal-images/out-<时间戳>-<随机>.png`。
+ * 生成产物的默认落点：`<appDataDir>/models/generated/out-<时间戳>-<随机>.png`。
  *
- * 选 appCacheDir 而非模型目录 / 外部存储：
- * - 产物**可随时重生成**，属缓存语义，不占用户相册与外部空间；
- * - 应用内部目录无需运行时权限，写入路径最短（Kotlin 侧已 `mkdirs()`）。
+ * 为什么不用 `appCacheDir()`：真机实测（2026-10-14，RMX5010/Android 16）该路径下
+ * 上游 JNI 写 PNG 报 `No such file or directory`。
  *
- * 读取展示需 `fs:scope` 放行 `$APPCACHE/spiritpal-images/**`
+ * Android 上 `appDataDir()` = `getFilesDir()` 的父目录 = `/data/user/0/<pkg>/`
+ * （**不是** `/sdcard/Android/data/<pkg>/files`——那是 `getExternalFilesDir`，
+ * Tauri v2 未直接暴露）。故产物落 `<appDataDir>/models/generated/`，
+ * 与端侧 LLM/图像模型目录同属应用数据区，native 与前端读写都通。
+ *
+ * 读取展示需 `fs:scope` 放行 `$APPDATA/models/**`
  * （src-tauri/capabilities/default.json）。
  */
 export async function defaultImageOutputPath(): Promise<string> {
-  const { appCacheDir, join } = await import('@tauri-apps/api/path')
+  const { appDataDir, join } = await import('@tauri-apps/api/path')
   const name = `out-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.png`
-  return join(await appCacheDir(), IMAGE_OUTPUT_SUBDIR, name)
+  return join(await appDataDir(), 'models', IMAGE_OUTPUT_SUBDIR, name)
 }
 
 /**
