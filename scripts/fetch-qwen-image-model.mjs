@@ -8,13 +8,17 @@
  *   国内直连 HF 原站常不可达（实测 406），故以 **hf-mirror.com 为主、HF 原站为备**。
  *
  * 校验机制（实测确认，两套并存）：
- *   - **LFS 大文件**（权重）：体积取 API 的 `lfs.size`，SHA-256 取 HEAD 响应的 `ETag`
- *     （HF 的 LFS ETag 即 sha256；hf-mirror 的 API 不回 `lfs.oid`，故必须走 HEAD）。
+ *   - **LFS 大文件**（权重）：体积取 tree 端点 `lfs.size`，SHA-256 取 `lfs.oid`
+ *     （**不能**用下载 URL 的 HEAD `ETag`：hf-mirror 的 ETag 是 xethub 的 `xetHash`，
+ *     与内容 sha256 无关，照惯例写会 100% 误报——2026-10-13 实测）。
+ *     sha256 计算必须是**流式**的：`readFile` 整读会被 Node 的 `ERR_FS_FILE_TOO_LARGE`
+ *     （>2 GiB）拦下，而本仓两个大权重都超过 4 GiB（2026-10-14 踩坑）。
  *   - **非 LFS 小文件**（config / tokenizer / 图定义）：这类文件走 hf-mirror 的 resolve-cache，
- *     **HEAD 不返回 Content-Length、ETag 是弱 ETag**，无法用 sha256。改用 API 的
+ *     HEAD 不返回 Content-Length、ETag 是弱 ETag，无法用 sha256。改用 API 的
  *     顶层 `size` + `blobId`（**git blob sha1**，与 `git hash-object` 等价）校验。
  *
- * 断点续传：实测 hf-mirror 对 LFS 文件的 `Range: bytes=N-` 返回 206，中断后重跑自动续传。
+ * 断点续传：对 LFS 文件发 `Range: bytes=N-`；**写入位置以响应的 `Content-Range`
+ * 为准**（服务端可能返回起始偏移早于请求值的 206，盲目 append 会错位——见 downloadOne 注释）。
  *
  * 用法：
  *   node scripts/fetch-qwen-image-model.mjs --list
@@ -27,6 +31,7 @@
  * @see docs/agents/ADR-0006-ondevice-image.md
  */
 import { mkdir, open, stat, readFile, rm } from 'node:fs/promises'
+import { createReadStream } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { Readable } from 'node:stream'
 import path from 'node:path'
@@ -46,17 +51,19 @@ const MAX_ATTEMPTS = 8
 const IDLE_MS = 60_000
 
 /**
- * 把整个 buffer 写完。
+ * 把整个 buffer 写到文件的**绝对位置** `position` 处。
  *
- * ⚠️ `FileHandle.write()` **不保证写满** —— 它返回 `{ bytesWritten, buffer }`，
- * 大 buffer 可能只写入一部分（Windows 上尤其明显）。若忽略返回值，文件会缺字节：
- * 体积看似达标、内容却错乱 → sha256 校验失败 → 删除重下 → 表现为「反复回落、永不收敛」。
- * 故必须循环直到写完。
+ * 两个要点：
+ * ① `FileHandle.write()` **不保证写满** —— 它返回 `{ bytesWritten, buffer }`，
+ *    大 buffer 可能只写入一部分（Windows 上尤其明显）。若忽略返回值，文件会缺字节：
+ *    体积看似达标、内容却错乱 → sha256 校验失败 → 删除重下 → 表现为「反复回落、永不收敛」。
+ * ② 必须显式传 `position`：不能假设「206 就等于从本地文件末尾开始」
+ *    （见 `downloadOne` 里对 Content-Range 的说明）。
  */
-async function writeAll(fh, buf) {
+async function writeAt(fh, buf, position) {
   let off = 0
   while (off < buf.length) {
-    const { bytesWritten } = await fh.write(buf, off, buf.length - off)
+    const { bytesWritten } = await fh.write(buf, off, buf.length - off, position + off)
     if (!bytesWritten) throw new Error(`write 返回 0 字节（磁盘满？off=${off}/${buf.length}）`)
     off += bytesWritten
   }
@@ -149,12 +156,32 @@ async function fileSize(p) {
   }
 }
 
+/**
+ * 流式 sha256 —— **不把整个文件读进内存**。
+ *
+ * ⚠️ 曾用 `readFile(p)` 整读：Node 对 >2 GiB 的文件直接抛
+ *   `ERR_FS_FILE_TOO_LARGE: File size (4472625758) is greater than 2 GiB`
+ *   （%s 是文件完整大小）。本仓要下的两个大权重 `dit.mnn.weight`(4.27 GiB)、
+ *   `text_encoder/llm.mnn.weight`(4.73 GiB) 全部踩中 → **下载成功也永远过不了校验**
+ *   → 脚本删除重下 → 表现为「体积反复回落、永不收敛」。
+ *   （2026-10-14 定位：先怀疑 createWriteStream 的 >2GiB 校验，实测 FileHandle
+ *   追加写 3 GiB 稀疏文件完全正常，最终在 Node 错误码表里确认是 readFile 的
+ *   ERR_FS_FILE_TOO_LARGE。）
+ *
+ * 小文件（tokenizer.txt 3.2 MB 等）走同一函数，无副作用。
+ */
 async function sha256(p) {
-  const buf = await readFile(p)
-  return createHash('sha256').update(buf).digest('hex')
+  const h = createHash('sha256')
+  await new Promise((resolve, reject) => {
+    const s = createReadStream(p)
+    s.on('error', reject)
+    s.on('data', (c) => h.update(c))
+    s.on('end', resolve)
+  })
+  return h.digest('hex')
 }
 
-/** git blob 对象的 sha1（等价 `git hash-object <file>`），用于非 LFS 文件的完整性校验。 */
+/** git blob 对象的 sha1（等价 `git hash-object <file>`），用于非 LFS 小文件的完整性校验。 */
 async function gitBlobSha1(p) {
   const buf = await readFile(p)
   return createHash('sha1').update(`blob ${buf.length}\0`).update(buf).digest('hex')
@@ -263,32 +290,65 @@ async function downloadOne(host, repo, revision, relPath, dest, expectSize) {
     if (!res.ok && res.status !== 206) throw new Error(`HTTP ${res.status}`)
     if (!res.body) throw new Error('响应体为空')
 
-    const append = have > 0 && res.status === 206
+    // 服务端**实际**从哪个偏移开始返回数据：
+    //   206 → 必须带 `Content-Range: bytes <start>-<end>/<total>`；
+    //   200 → 忽略了 Range，返回全文。
+    // ⚠️ 不能假设「206 就等于从本地 have 开始」—— 实测 hf-mirror 的 resolve-cache 会返回
+    //   起始偏移**早于**请求值的 206（命中旧分片缓存）。盲目 append 会让内容错位、
+    //   文件比预期还大（实测 dit.mnn.weight 续出 4,556,727,328 / 4,472,625,758，超 83 MB），
+    //   之后每次校验都失败 → 删了重下 → 死循环。
+    //   正确做法：**按 Content-Range 声明的绝对偏移写盘**，服务端说从哪开始就从哪落。
+    let startAt = 0
+    if (res.status === 206) {
+      const cr = res.headers.get('content-range') || ''
+      const m = /^\s*bytes\s+(\d+)\s*-\s*\d+\s*\//.exec(cr)
+      if (m) startAt = Number(m[1])
+      else if (have > 0)
+        startAt = have // 无 Content-Range 的 206：退回旧行为（append）
+      else throw new Error('206 响应缺少 Content-Range 且本地无断点')
+    }
+
+    // startAt=0（全文）→ 'w' 截断重写；startAt>0 → 'r+' 按绝对位置覆写/续写。
     // ⚠️ 刻意不用 `createWriteStream({ flags: 'a' })`：Windows 上 Node 会取文件「当前大小」
-    // 作为 append 位置并做 >2GiB 校验，对 GB 级权重直接报
-    //   `File size (N) is greater than 2 GiB`
-    // （实测 dit.mnn.weight 4.17GiB 续传必挂，且因为每次都失败 → 体积反复回落、永不收敛）。
-    // 改用 FileHandle：append 模式下 `write(buf)` 不传 position，由 OS 负责追加，跨平台稳定。
-    const fh = await open(dest, append ? 'a' : 'w')
+    //    作为 append 位置并做 >2GiB 校验（`ERR_FS_FILE_TOO_LARGE`），GB 级权重必挂。
+    let fh
+    try {
+      fh = await open(dest, startAt === 0 ? 'w' : 'r+')
+    } catch (e) {
+      // 本地文件不在（r+ 需已存在）：说明断点已丢，退化为全文重下
+      if (startAt > 0) {
+        startAt = 0
+        fh = await open(dest, 'w')
+      } else {
+        throw e
+      }
+    }
     try {
       let parts = []
       let pending = 0
+      let written = 0 // 本次已写字节数（相对 startAt）
       const FLUSH = 4 << 20 // 4 MiB 攒批，避免每 64KiB 一次 syscall
       for await (const chunk of Readable.fromWeb(res.body)) {
         kick() // 有数据到达 → 重置空闲计时器
         parts.push(chunk)
         pending += chunk.length
         if (pending >= FLUSH) {
-          await writeAll(fh, Buffer.concat(parts, pending))
+          const buf = Buffer.concat(parts, pending)
+          await writeAt(fh, buf, startAt + written)
+          written += buf.length
           parts = []
           pending = 0
         }
       }
-      if (pending > 0) await writeAll(fh, Buffer.concat(parts, pending))
+      if (pending > 0) {
+        const buf = Buffer.concat(parts, pending)
+        await writeAt(fh, buf, startAt + written)
+        written += buf.length
+      }
     } finally {
       await fh.close()
     }
-    return { resumedFrom: append ? have : 0 }
+    return { resumedFrom: startAt }
   } finally {
     clearTimeout(idleTimer)
   }
