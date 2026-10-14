@@ -42,7 +42,8 @@
       "identifier": "fs:scope",
       "allow": [
         { "path": "$RESOURCE/pets/**" },
-        { "path": "$APPDATA/live2dcubismcore.js" }
+        { "path": "$APPDATA/live2dcubismcore.js" },
+        { "path": "$APPCACHE/spiritpal-images/**" }
       ]
     }
   ]

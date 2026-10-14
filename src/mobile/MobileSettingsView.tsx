@@ -41,6 +41,7 @@ import {
   Image as ImageIcon,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { ImageGenPanel } from '@/components/ImageGenPanel'
 import { LegalDocument } from '@/components/LegalDocument'
 import { OnDeviceImagePanel } from '@/components/OnDeviceImagePanel'
 import { OnDeviceModelPanel } from '@/components/OnDeviceModelPanel'
@@ -68,6 +69,7 @@ type SettingsSection =
   | 'personality'
   | 'ondevice'
   | 'image'
+  | 'image-gen'
   | 'ai'
   | 'advanced'
   | 'import'
@@ -790,7 +792,23 @@ export function MobileSettingsView() {
           <h2 className="text-base font-semibold">{t('settings.mobile.onDeviceImage')}</h2>
         </header>
         <div className="flex-1 overflow-y-auto px-3 py-3">
-          <OnDeviceImagePanel />
+          <OnDeviceImagePanel onOpenGenerator={() => setSection('image-gen')} />
+        </div>
+      </div>
+    )
+  }
+
+  if (section === 'image-gen') {
+    return (
+      <div className={`flex h-full w-full flex-col ${bgClass} ${textClass}`}>
+        <header className={`flex items-center gap-2 border-b ${cardBorderClass} px-4 py-3`}>
+          <button onClick={() => setSection('image')} className="text-sm text-tangerine">
+            {t('settings.mobile.back')}
+          </button>
+          <h2 className="text-base font-semibold">{t('settings.image.gen.title')}</h2>
+        </header>
+        <div className="flex-1 overflow-y-auto px-3 py-3">
+          <ImageGenPanel />
         </div>
       </div>
     )

@@ -143,3 +143,34 @@ export async function generateImage(
 export async function cancelImage(sessionId: string): Promise<void> {
   await invoke('ondevice_image_cancel', { sessionId })
 }
+
+/** 生成产物在应用缓存下的固定子目录（fs:scope 已按此路径放行）。 */
+export const IMAGE_OUTPUT_SUBDIR = 'spiritpal-images'
+
+/**
+ * 生成产物的默认落点：`<appCacheDir>/spiritpal-images/out-<时间戳>-<随机>.png`。
+ *
+ * 选 appCacheDir 而非模型目录 / 外部存储：
+ * - 产物**可随时重生成**，属缓存语义，不占用户相册与外部空间；
+ * - 应用内部目录无需运行时权限，写入路径最短（Kotlin 侧已 `mkdirs()`）。
+ *
+ * 读取展示需 `fs:scope` 放行 `$APPCACHE/spiritpal-images/**`
+ * （src-tauri/capabilities/default.json）。
+ */
+export async function defaultImageOutputPath(): Promise<string> {
+  const { appCacheDir, join } = await import('@tauri-apps/api/path')
+  const name = `out-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.png`
+  return join(await appCacheDir(), IMAGE_OUTPUT_SUBDIR, name)
+}
+
+/**
+ * 读回生成的 PNG，转成 Blob Object URL 供 `<img src>` 展示。
+ *
+ * 与 `Live2DRenderer` 同一套字节→Blob 模式（`convertFileSrc` 对应用内部
+ * 目录的覆盖不完全可靠，走读文件更稳）。**调用方负责 `URL.revokeObjectURL`**。
+ */
+export async function readImageAsObjectUrl(pngPath: string): Promise<string> {
+  const { readFile } = await import('@tauri-apps/plugin-fs')
+  const bytes = await readFile(pngPath)
+  return URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: 'image/png' }))
+}

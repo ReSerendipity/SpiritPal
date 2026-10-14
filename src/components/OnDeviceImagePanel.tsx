@@ -20,7 +20,7 @@
  */
 import { invoke } from '@tauri-apps/api/core'
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, CheckCircle2, Gauge, HardDrive, Image as ImageIcon, RefreshCw, Zap } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Gauge, HardDrive, Image as ImageIcon, RefreshCw, Wand2, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { BrandButton } from '@/components/ui'
 import { imageCapability, IMAGE_MODEL_GB, type ImageCapability } from '@/lib/ai/onDeviceTiers'
@@ -42,8 +42,10 @@ interface MissingInfo {
 /**
  * 端侧图像管理面板。
  * 非移动端直接返回说明卡片 —— `ondevice_image_*` 命令只在移动端注册。
+ *
+ * @param onOpenGenerator 打开文生图面板（由设置页路由提供）；省略时隐藏入口。
  */
-export function OnDeviceImagePanel() {
+export function OnDeviceImagePanel({ onOpenGenerator }: { onOpenGenerator?: () => void }) {
   const { t } = useTranslation()
   const mobile = isMobileRuntime()
   const [dev, setDev] = useState<ImageDeviceInfo | null>(null)
@@ -193,7 +195,7 @@ export function OnDeviceImagePanel() {
       )}
 
       {/* 加载 / 释放 */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {loaded ? (
           <>
             <span className="flex items-center gap-1 rounded bg-success/15 px-1.5 py-0.5 text-[10px] text-success">
@@ -208,6 +210,17 @@ export function OnDeviceImagePanel() {
           <BrandButton onClick={() => void load()} disabled={busy || !cap?.feasible}>
             <Zap size={14} className="mr-1" />
             {busy ? t('settings.image.loading') : t('settings.image.load')}
+          </BrandButton>
+        )}
+        {onOpenGenerator && (
+          <BrandButton
+            variant="ghost"
+            onClick={onOpenGenerator}
+            disabled={busy || !missing?.complete}
+            title={missing?.complete ? undefined : t('settings.image.genNeedModel')}
+          >
+            <Wand2 size={14} className="mr-1" />
+            {t('settings.image.genOpen')}
           </BrandButton>
         )}
       </div>
