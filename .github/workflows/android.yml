@@ -1,0 +1,171 @@
+name: Android
+
+# 端侧图像（Qwen-Image-2.1 / MNN）落地后，仓库第一次拥有 Android 构建门禁。
+# 背景：2026-10-13 集成端侧图像时发现 ci.yml / release.yml 均无 android job，
+# 改动只能「本地 + 真机」验证（见 docs/execution/ondevice-image-s0-verification-20261013.md）。
+# 本 workflow 补齐这条链，覆盖三道容易被漏掉的门禁：
+#   ① release(R8) 构建 —— minifyEnabled=true，proguard keep / JNI 方法只有在 release 才受考验；
+#   ② scripts/check_android_proguard_keeps.py —— proguard-rules.pro 静态守卫；
+#   ③ scripts/verify_android_jni_keeps.py —— DEX 层方法保留 + ELF 层 JNI 符号导出
+#      （后者 2026-10-14 新增：Rust 侧漏 #[no_mangle] 或类名下划线漏 `_1` 转义，
+#       编译与 DEX 全过、只剩运行时 UnsatisfiedLinkError，只能靠符号断言拦下）。
+#
+# 签名策略：keystore.properties / *.jks 被 .gitignore 忽略（安全渠道分发），
+# 缺失时 build.gradle 仅 warn 并产出 *-unsigned.apk —— CI 不需要也不应该持有签名密钥，
+# 守卫对 unsigned APK 完全有效。
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/android.yml'
+      - 'src-tauri/**'
+      - 'src/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/android.yml'
+      - 'src-tauri/**'
+      - 'src/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # 与 src-tauri/gen/android/app/build.gradle 的 compileSdk 对齐；
+  # NDK 27.0.12077973 与本机开发环境一致（build.gradle 未写 ndkVersion，AGP 取可用版本）。
+  ANDROID_COMPILE_SDK: '36'
+  ANDROID_BUILD_TOOLS: '36.0.0'
+  ANDROID_NDK_VERSION: '27.0.12077973'
+  ANDROID_CMAKE_VERSION: '3.22.1'
+  RUST_TOOLCHAIN: '1.98.0'
+
+jobs:
+  android-arm64-release:
+    name: Android arm64 Release + JNI Guards
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        # 版本由 package.json 的 packageManager 字段统一驱动，避免双源冲突（同 ci.yml）。
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK components
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platform-tools" \
+            "platforms;android-${ANDROID_COMPILE_SDK}" \
+            "build-tools;${ANDROID_BUILD_TOOLS}" \
+            "ndk;${ANDROID_NDK_VERSION}" \
+            "cmake;${ANDROID_CMAKE_VERSION}"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: aarch64-linux-android
+          components: clippy
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 'src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      # gradle 的 verifyFrontendSri 门禁要求 dist 与 sri_hashes.rs 是同一次构建的产物，
+      # 否则打包被拒（会静默卡在启动页）。因此必须先构建前端并重算 SRI 清单。
+      - name: Build frontend dist + SRI manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm run build
+          node scripts/obfuscate-and-sri.mjs
+          node scripts/obfuscate-and-sri.mjs --verify
+
+      # 引擎库（libMNN.so / libmnnllmapp.so / libc++_shared.so / libqwenimage21_jni.so
+      # 与 libs/qwenimage21.jar）不入库，构建期从 libQwenImage21 AAR 解包，sha256 强校验。
+      # 注：LLM 侧的 libMNN.so/libmnnllmapp.so 由 download_mnn_engine.py 从官方
+      # MNN Chat APK 解包，Android 构建前需先跑（本仓脚本，见 GOTCHAS #71/#72）。
+      - name: Fetch on-device image engine (AAR -> mnnLibs + libs)
+        shell: bash
+        run: python3 scripts/fetch_qwen_image_engine.py
+
+      - name: Static proguard guard
+        shell: bash
+        run: python3 scripts/check_android_proguard_keeps.py
+
+      - name: Build arm64 release APK
+        shell: bash
+        working-directory: src-tauri/gen/android
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/${{ env.ANDROID_NDK_VERSION }}
+        run: |
+          set -euo pipefail
+          ./gradlew --console=plain assembleArm64Release
+
+      # clippy 移动端 target：ci.yml 的 rust-clippy job 只跑 host target，
+      # 看不到 `#[cfg(mobile)]` 的 ondevice 模块 —— 这里补上
+      # （N2 实测曾拦出 1 error + 16 warning，详见 GOTCHAS #170）。
+      - name: Cargo clippy (aarch64-linux-android)
+        shell: bash
+        working-directory: src-tauri
+        env:
+          NDK_BIN: ${{ env.ANDROID_HOME }}/ndk/${{ env.ANDROID_NDK_VERSION }}/toolchains/llvm/prebuilt/linux-x86_64/bin
+        run: |
+          set -euo pipefail
+          # NDK 交叉编译需要显式指定 CC/linker/ar（cargo-ndk 平时代劳）
+          export CC_aarch64_linux_android="$NDK_BIN/aarch64-linux-android24-clang"
+          export AR_aarch64_linux_android="$NDK_BIN/llvm-ar"
+          export RANLIB_aarch64_linux_android="$NDK_BIN/llvm-ranlib"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$NDK_BIN/aarch64-linux-android24-clang"
+          cargo clippy --target aarch64-linux-android -- -D warnings
+
+      # 两道守卫合并执行：DEX 层（R8 是否保留 JNI 方法）+ ELF 层（.so 是否导出对应符号）。
+      # 自动取 outputs/apk/arm64/release/*.apk —— 无签名配置时文件名带 -unsigned，glob 同样命中。
+      - name: JNI keeps guard (DEX + ELF)
+        shell: bash
+        run: python3 scripts/verify_android_jni_keeps.py
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: spiritpal-arm64-release-apk
+          path: src-tauri/gen/android/app/build/outputs/apk/arm64/release/*.apk
+          if-no-files-found: error
+          retention-days: 7
