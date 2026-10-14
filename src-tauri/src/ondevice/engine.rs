@@ -72,8 +72,12 @@ pub(crate) static APP: OnceLock<AppHandle> = OnceLock::new();
 static MODELS: OnceLock<Mutex<ModelManager>> = OnceLock::new();
 // 取消令牌 / 完成信号按 session 存，供 Kotlin 经 native 回调查询或唤醒。
 // ⚠️ `HashMap::new()` 不是 const fn，不能在 `static` 初始化里直接调用（E0015）→ 用 LazyLock。
+// clippy::incompatible_msrv: LazyLock 稳定于 1.80.0，项目 MSRV 声明为 1.77.2（见 Cargo.toml
+// 与执行对照表），但 rust-toolchain.toml 实际 pin 1.98.0；同 lib.rs:114 的处理，显式允许。
+#[allow(clippy::incompatible_msrv)]
 static CANCELS: LazyLock<Mutex<HashMap<String, CancellationToken>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
+#[allow(clippy::incompatible_msrv)]
 static DONE: LazyLock<Mutex<HashMap<String, Arc<Notify>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
@@ -174,11 +178,24 @@ pub(crate) fn stash_app(app: &AppHandle) {
 /// Java 静态方法的标准做法：既拿到 JavaVM，又规避了「native 线程 `find_class` 走 system
 /// class loader 找不到应用类」的问题（此处的 `find_class` 用的是**应用 class loader**）。
 ///
-/// ⚠️ Tauri v2 **没有**给应用侧留公开的 Android JNI 入口：`RuntimeOrDispatch` / `ManagerBase`
+/// Tauri v2 **没有**给应用侧留公开的 Android JNI 入口：`RuntimeOrDispatch` / `ManagerBase`
 /// 都在 `pub(crate) mod sealed` 内（tauri-2.11.5/src/lib.rs:1045），`tauri::android` 模块不存在，
 /// `PluginHandle` 也无 `run_on_android_context`。已确认 tauri 自身**未定义** `JNI_OnLoad`，故不冲突。
+///
+/// 由 JVM 在 `System.loadLibrary` 时调用：缓存 JavaVM 与两个桥类的 GlobalRef，
+/// 供后续任意 native 线程 attach / `find_class` 使用。
+///
+/// # Safety
+///
+/// `vm` 必须是 JVM 传入的有效 `JavaVM` 指针（本函数只应由 JVM 经 dlsym 调用，
+/// Rust 侧不得主动调用）；`_reserved` 当前未使用。违背后果是未定义行为。
+/// `unsafe` 标注不影响符号名与 ABI（`extern "system"` 不变），JVM 调用不受影响。
+///
+/// ⚠️ clippy：`not_unsafe_ptr_arg_deref`（解引用 JVM 传入的裸指针）与
+/// `incompatible_msrv` 同上显式允许。
 #[no_mangle]
-pub extern "system" fn JNI_OnLoad(
+#[allow(clippy::not_unsafe_ptr_arg_deref, clippy::incompatible_msrv)]
+pub unsafe extern "system" fn JNI_OnLoad(
     vm: *mut jni::sys::JavaVM,
     _reserved: *mut std::ffi::c_void,
 ) -> jni::sys::jint {
@@ -340,7 +357,13 @@ pub extern "system" fn Java_com_alibaba_mnnllm_android_SpiritPalOnDevice_nativeI
 /// P1-D：MainActivity 启动时经 JNI 回传外部专属模型目录
 /// （`getExternalFilesDir("models")` 的结果，框架已 provision、adb 可写）。
 /// 仅存储一次；后续 `model_dir()` 优先采用。
+///
+/// ⚠️ `#[no_mangle]` 是必需的：缺了它 Rust 会按 C++ 规则 mangle 符号名，
+/// Kotlin 的 `external fun nativeSetExternalModelsDir` 找不到实现，
+/// 运行时抛 `UnsatisfiedLinkError: No implementation found`
+/// （2026-10-13 真机 logcat 实测；同文件其余 JNI 导出均已带该属性）。
 #[cfg(target_os = "android")]
+#[no_mangle]
 pub extern "system" fn Java_com_alibaba_mnnllm_android_SpiritPalOnDevice_nativeSetExternalModelsDir(
     mut env: JNIEnv,
     _class: JClass,
@@ -399,10 +422,9 @@ pub async fn ondevice_generate(
     CANCELS.lock().ok().map(|mut m| m.remove(&session_id));
     match res {
         Ok(s) if s == "ok" => {
-            models(&app)
-                .lock()
-                .ok()
-                .map(|m| m.note_loaded(&model_id, 0));
+            if let Ok(m) = models(&app).lock() {
+                m.note_loaded(&model_id, 0);
+            }
             Ok(())
         }
         Ok(s) => Err(s),
@@ -433,10 +455,9 @@ pub async fn ondevice_load_model(
     tauri::async_runtime::spawn_blocking(move || kotlin_load_model(&mid, &cfg, &e))
         .await
         .map_err(|e| format!("load_model join error: {e}"))??;
-    models(&app)
-        .lock()
-        .ok()
-        .map(|m| m.note_loaded(&model_id, 0));
+    if let Ok(m) = models(&app).lock() {
+        m.note_loaded(&model_id, 0);
+    }
     Ok(())
 }
 
@@ -489,6 +510,6 @@ pub fn ondevice_cancel(_app: AppHandle, session_id: String) -> Result<(), String
     CANCELS
         .lock()
         .ok()
-        .and_then(|mut m| m.get(&session_id).map(|c| c.cancel()));
+        .and_then(|m| m.get(&session_id).map(|c| c.cancel()));
     Ok(())
 }

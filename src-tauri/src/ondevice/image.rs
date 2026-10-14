@@ -57,8 +57,12 @@ static BRIDGE_CLASS: OnceLock<GlobalRef> = OnceLock::new();
 
 /// 取消令牌 / 完成信号按 session 存（与 engine.rs 同构）。
 /// ⚠️ `HashMap::new()` 不是 const fn → 用 LazyLock（同 engine.rs）。
+// clippy::incompatible_msrv: LazyLock 稳定于 1.80.0，项目 MSRV 声明为 1.77.2，
+// 但 rust-toolchain.toml 实际 pin 1.98.0；同 lib.rs:114 的处理，显式允许。
+#[allow(clippy::incompatible_msrv)]
 static CANCELS: LazyLock<Mutex<HashMap<String, CancellationToken>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
+#[allow(clippy::incompatible_msrv)]
 static DONE: LazyLock<Mutex<HashMap<String, Arc<Notify>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
@@ -211,8 +215,18 @@ fn take_string(env: &mut JNIEnv<'_>, s: &JString<'_>) -> String {
         .unwrap_or_default()
 }
 
+/// Kotlin → Rust native 回调（按 JNI 命名自动链接）。
+///
+/// ⚠️ **类名中的下划线必须转义成 `_1`**：本包 `com.spiritpal.desktop_pet` 的
+/// Kotlin 侧 `QwenImageBridge` 声明的 `external fun` 在运行时会查找
+/// `Java_com_spiritpal_desktop_1pet_QwenImageBridge_native*`（JNI 规范：
+/// 类名里 `_` → `_1`、`;` → `_2`、`[` → `_3`）。写成不带 `_1` 的
+/// `..._desktop_pet_QwenImageBridge_...` 编译能过，但**生成时 Kotlin 一调
+/// 回调就是 `UnsatisfiedLinkError: No implementation found`**（依赖链：
+/// loadModel 成功 → 注册 listener → nativeOnProgress 调用 → 崩）。
+/// 参照 tauri 自身生成的 `Java_com_spiritpal_desktop_1pet_Rust_*`。
 #[no_mangle]
-pub extern "system" fn Java_com_spiritpal_desktop_pet_QwenImageBridge_nativeOnProgress(
+pub extern "system" fn Java_com_spiritpal_desktop_1pet_QwenImageBridge_nativeOnProgress(
     mut env: JNIEnv,
     _class: JClass,
     session_id: JString,
@@ -228,7 +242,7 @@ pub extern "system" fn Java_com_spiritpal_desktop_pet_QwenImageBridge_nativeOnPr
 }
 
 #[no_mangle]
-pub extern "system" fn Java_com_spiritpal_desktop_pet_QwenImageBridge_nativeOnDone(
+pub extern "system" fn Java_com_spiritpal_desktop_1pet_QwenImageBridge_nativeOnDone(
     mut env: JNIEnv,
     _class: JClass,
     session_id: JString,
@@ -250,7 +264,7 @@ pub extern "system" fn Java_com_spiritpal_desktop_pet_QwenImageBridge_nativeOnDo
 }
 
 #[no_mangle]
-pub extern "system" fn Java_com_spiritpal_desktop_pet_QwenImageBridge_nativeIsCancelled(
+pub extern "system" fn Java_com_spiritpal_desktop_1pet_QwenImageBridge_nativeIsCancelled(
     mut env: JNIEnv,
     _class: JClass,
     session_id: JString,
@@ -339,7 +353,7 @@ pub fn ondevice_image_cancel(_app: AppHandle, session_id: String) -> Result<(), 
     CANCELS
         .lock()
         .ok()
-        .and_then(|mut m| m.get(&session_id).map(|c| c.cancel()));
+        .and_then(|m| m.get(&session_id).map(|c| c.cancel()));
     Ok(())
 }
 
