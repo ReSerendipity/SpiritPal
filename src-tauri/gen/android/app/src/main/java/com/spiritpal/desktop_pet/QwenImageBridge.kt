@@ -28,9 +28,13 @@ private const val TAG = "QwenImageBridge"
  *    上层取消的语义是「放弃等待、丢弃结果」，推理仍会在后台跑完当前任务。
  *    待上游支持后再接入真正的中止。
  *
- * ⚠️ 关于「内存」：DiT（4.5GB）+ text encoder（5.4GB）常驻，与端侧 LLM（约 3.4GB）
- *    在 12GB 设备上**不可能共存**。本类不做自动卸载；由上层（前端 UI / Rust 命令）
- *    在加载图像模型前决定是否先 `ondevice_unload_model` 释放 LLM。
+ * ⚠️ 关于「内存」：DiT（≈5.2GB）+ text encoder（≈4.7GB）若**同时常驻**则需 ≈10GB，
+ *    12GB 级设备在真机上必然 OOM（2026-10-14 实测：text encoder 阶段通过，
+ *    紧接着 DiT 报 `needs ~5523 MB, only 3201 MB available`）。
+ *    故 `keepModelsLoaded` **默认 false** —— 上游在每个阶段结束后释放模型，
+ *    峰值内存从「三者之和」降为「三者最大」，代价是重复生成时需重新映射（慢，但能跑通）。
+ *    与端侧 LLM（约 3.4GB）仍不能共存：由上层（前端 UI / Rust 命令）在加载图像模型前
+ *    决定是否先 `ondevice_unload_model` 释放 LLM。
  *
  * ⚠️ proguard / release：`QwenImageBridge` 与 `com.scsonic.qwenimage21.**` 均需 keep，
  *    见 `src-tauri/gen/android/app/proguard-rules.pro` 与 `scripts/verify_android_jni_keeps.py`。
@@ -58,7 +62,10 @@ object QwenImageBridge {
      * @param modelDir 模型目录（含 `dit.mnn` / `text_encoder/` / `vae_*_tiny.mnn` 等）
      * @param optionsJson 选项，缺省即用推荐默认：
      *   `{"useGpu":true,"textEncoderOnCpu":true,"vaeOnCpu":false,"turbo":true,
-     *     "tinyVae":true,"threads":4,"keepModelsLoaded":true}`
+     *     "tinyVae":true,"threads":4,"keepModelsLoaded":false}`
+     *
+     * ⚠️ `keepModelsLoaded` 默认 **false**（不是官方 demo 的 true）：true 会让
+     *    text encoder（≈4.7GB）在 DiT（≈5.2GB）之前不释放 → 真机 OOM。见类头注「关于内存」。
      *
      * ⚠️ 与官方 demo 一致：DiT 走 OpenCL GPU，text encoder 与（真实）VAE 走 CPU。
      *    tiny VAE（默认）体积小，可留在 GPU。
@@ -75,7 +82,7 @@ object QwenImageBridge {
             turbo = jo.optBoolean("turbo", true)
             tinyVae = jo.optBoolean("tinyVae", true)
             threads = jo.optInt("threads", 4)
-            keepModelsLoaded = jo.optBoolean("keepModelsLoaded", true)
+            keepModelsLoaded = jo.optBoolean("keepModelsLoaded", false)
             // 低内存杀手（LMK）把进程杀掉时留痕，下次启动可读回「哪一阶段挂的」。
             // 放在模型目录下，随模型一起被管理。
             crashMarkerFile = File(dir, ".qwen_image_crash.marker")
