@@ -111,7 +111,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          yes | "$SDKMANAGER" --licenses > /dev/null
+          # ⚠️ `yes |` 必须容忍 SIGPIPE：sdkmanager 读够许可数就停，`yes` 随即收到
+          # Broken pipe 退出 141，而本脚本开了 `set -o pipefail` → 整条管道被判失败
+          # （实测报错：`yes: standard output: Broken pipe` → exit 1）。
+          # 许可是否真的接受成功，由下一步装组件是否成功来体现，故这里 `|| true` 是安全的。
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
           "$SDKMANAGER" \
             "platform-tools" \
             "platforms;android-${ANDROID_COMPILE_SDK}" \
