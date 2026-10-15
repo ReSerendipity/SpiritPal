@@ -12,6 +12,10 @@
  * 2. 修改 Prompt 时修改本文件中的定义 + 递增 version
  * 3. 运行时通过 getActivePromptVersion() 获取当前生效版本
  *
+ * 仍未收敛进本文件的提示（人格模板 systemPrompt、性格修正指引、视觉分析默认句、
+ * 情绪/think 提示片段等）：见 {@link ./promptManifest}，采用「外源登记 + 漂移门禁」
+ * 的最小版本机制，变更会在 promptManifest.test.ts（CI 常驻）里被拦下并要求更新版本。
+ *
  * @module promptRegistry
  */
 
