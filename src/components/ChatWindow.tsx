@@ -84,6 +84,8 @@ import { getLLMClient } from '@/lib/ai/llmClient'
 import { composeFullSystemPrompt, getEffectivePersonality } from '@/lib/ai/personalityEngine'
 // STT：语音输入转文字（Web Speech API 主，零依赖）
 import { STTEngine, isSpeechRecognitionSupported } from '@/lib/ai/stt'
+// LLM 维度 P1：输出内容护栏（毒性阻断 + PII 掩码）——助手文本渲染前的兜底过滤
+import { filterLLMOutput } from '@/lib/ai/toxicityFilter'
 // VOICEVOX 本地 TTS：助手回复「朗读」按钮（HTTP API → wav Blob → HTMLAudioElement）
 import { voicevoxTTS } from '@/lib/ai/tts'
 import { TTSPlayer } from '@/lib/ai/ttsPlayer'
@@ -1226,11 +1228,18 @@ export default function ChatWindow() {
                         {/* Phase 1.4: Think 标签内容 — 半透明折叠显示（内心独白） */}
                         {m.thinkContent && m.thinkContent.trim() && (
                           <div className="mb-2 rounded-lg border border-blush/40 bg-blush-soft/70 px-2 py-1.5 text-[12px] italic text-ink-muted">
-                            <span className="not-italic text-tangerine-deep/60">💭 内心独白：</span> {m.thinkContent}
+                            <span className="not-italic text-tangerine-deep/60">💭 内心独白：</span>{' '}
+                            {/* LLM 维度 P1：内心独白同属 LLM 输出，渲染前一并过护栏 */}
+                            {filterLLMOutput(m.thinkContent).filteredText}
                           </div>
                         )}
                         {m.content ? (
-                          <Markdown rehypePlugins={[rehypeSanitize]}>{m.content}</Markdown>
+                          // LLM 维度 P1：渲染前再过一次输出护栏。
+                          // store 落库已过滤（新建回复），此处兜底覆盖「本次改动之前就已
+                          // 持久化到本地库」的历史助手消息——它们从未经过护栏。
+                          <Markdown rehypePlugins={[rehypeSanitize]}>
+                            {filterLLMOutput(m.content).filteredText}
+                          </Markdown>
                         ) : (
                           <span className="text-ink-faint">{isRegenerating ? '重新生成中…' : '思考中…'}</span>
                         )}

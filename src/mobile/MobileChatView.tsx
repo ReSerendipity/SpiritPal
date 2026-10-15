@@ -48,6 +48,9 @@ import rehypeSanitize from 'rehype-sanitize'
 import { MessageMetricsBar } from '@/components/chat/MessageMetricsBar'
 import { truncateAssistantHistory } from '@/lib/ai/onDeviceContext'
 import { composeFullSystemPrompt, getEffectivePersonality } from '@/lib/ai/personalityEngine'
+// LLM 维度 P1：输出内容护栏（毒性阻断 + PII 掩码）——与桌面端 ChatWindow 同口径，
+// store 落库已过滤（新建回复），此处渲染前兜底覆盖历史已持久化的助手消息。
+import { filterLLMOutput } from '@/lib/ai/toxicityFilter'
 import { getCharacter } from '@/lib/data/characters'
 import { getContextEpisodeManager } from '@/lib/memory/contextEpisodeManager'
 import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
@@ -603,13 +606,13 @@ export function MobileChatView() {
                       </button>
                       {thinkExpanded.has(msg.id) && (
                         <div className="mt-1 rounded-lg border border-blush/40 bg-blush-soft/70 px-2 py-1.5 text-[12px] italic leading-relaxed text-ink-muted">
-                          {msg.thinkContent}
+                          {filterLLMOutput(msg.thinkContent).filteredText}
                         </div>
                       )}
                     </div>
                   )}
                   {msg.content ? (
-                    <Markdown rehypePlugins={[rehypeSanitize]}>{msg.content}</Markdown>
+                    <Markdown rehypePlugins={[rehypeSanitize]}>{filterLLMOutput(msg.content).filteredText}</Markdown>
                   ) : msg.sendStatus && msg.sendStatus !== 'pending' ? (
                     /* P0-3: 失败/超时/中止且无内容 → 显示状态文字（替代流式等待的 ...） */
                     <div className={`text-xs ${msg.sendStatus === 'aborted' ? 'text-ink-faint' : 'text-error'}`}>
