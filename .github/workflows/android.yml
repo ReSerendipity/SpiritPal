@@ -172,45 +172,69 @@ jobs:
       # src-tauri/gen/android/.gitignore 忽略；本地那份还是「手工重建 + 写死本机 cargo
       # 注册表路径」的（含 C:/Users/Doro/.cargo/...），CI 上根本不存在 → 构建直接崩：
       #   Could not read script '.../tauri.settings.gradle' as it does not exist.
-      # 因此这里**按 runner 自己的 cargo 注册表路径生成**，而不是指望它在仓库里（GOTCHAS #185）。
-      # 同理 `.tauri/tauri-android` 也是被忽略的生成物，从 tauri crate 自带的 mobile/android 复制。
+      # 因此这里**按 runner 自己的路径生成**，而不是指望它在仓库里（GOTCHAS #185）。
+      #
+      # ⚠️ 用 `cargo metadata` 取真实路径，**不要**去 glob `~/.cargo/registry/src/`：
+      # 本步骤之前没有任何 cargo 步骤，registry/src 还没被解包，glob 无匹配时
+      # `ls` 返回 2，配合 `set -euo pipefail` 会让脚本**静默 exit 2**（实测踩过）。
+      # `cargo metadata` 会自己完成解析与源码解包，返回的 manifest_path 可直接用。
       - name: Generate Tauri Android glue (CI-portable)
         shell: bash
         working-directory: src-tauri/gen/android
         run: |
           set -euo pipefail
-          REG="$(ls -d "$HOME"/.cargo/registry/src/*/ 2>/dev/null | head -1)"
-          if [ -z "$REG" ]; then echo "::error::找不到 cargo registry src 目录"; exit 1; fi
-          REG="${REG%/}"
-          echo "cargo registry: $REG"
+          META="$RUNNER_TEMP/cargo-meta.json"
+          SRC_TXT="$RUNNER_TEMP/tauri-android-src.txt"
+          cargo metadata --format-version 1 --locked --manifest-path ../../Cargo.toml > "$META"
+          echo "cargo metadata: $(wc -c < "$META") bytes"
 
-          # ① .tauri/tauri-android ← tauri crate 自带的 android 子工程
-          TAURI_SRC="$(ls -d "$REG"/tauri-2.*/ 2>/dev/null | sort -V | tail -1 || true)"
-          if [ -z "$TAURI_SRC" ] || [ ! -d "${TAURI_SRC}mobile/android" ]; then
-            echo "::error::找不到 tauri crate 的 mobile/android（$REG/tauri-2.*/mobile/android）"
+          python3 - "$META" "$SRC_TXT" > tauri.settings.gradle <<'PY'
+          import json, os, sys
+
+          meta = json.load(open(sys.argv[1], encoding='utf-8'))
+          # manifest_path 形如 .../<crate>-<ver>/Cargo.toml，其所在目录即 crate 根
+          roots = {
+              p['name']: os.path.dirname(p['manifest_path']).replace(os.sep, '/')
+              for p in meta['packages']
+          }
+
+          lines = [
+              '// 由 CI 生成（本仓该文件不入库，见 GOTCHAS #185）',
+              "include ':tauri-android'",
+              "project(':tauri-android').projectDir = new File('.tauri/tauri-android')",
+          ]
+          skipped = []
+          for name in sorted(roots):
+              if name == 'tauri':
+                  continue  # 本体走 .tauri/tauri-android，由 shell 复制
+              if not name.startswith('tauri-plugin-'):
+                  continue
+              # 用 '/' 手工拼接：os.path.join 在 Windows 上会插回反斜杠，
+              # 而 Groovy 字符串里 '\a' '\u' 是转义序列 → 生成的 gradle 文件直接失效
+              android = roots[name] + '/android'
+              if not os.path.isdir(android):
+                  skipped.append(name)
+                  continue
+              lines.append(f"include ':{name}'")
+              lines.append(f"project(':{name}').projectDir = new File('{android}')")
+
+          tauri_android = roots.get('tauri', '') + '/mobile/android'
+          open(sys.argv[2], 'w', encoding='utf-8').write(tauri_android)
+          if skipped:
+              print('无 android 子工程、已跳过：' + ', '.join(skipped), file=sys.stderr)
+          print('\n'.join(lines))
+          PY
+
+          TAURI_ANDROID="$(cat "$SRC_TXT")"
+          if [ -z "$TAURI_ANDROID" ] || [ ! -d "$TAURI_ANDROID" ]; then
+            echo "::error::找不到 tauri crate 的 mobile/android（cargo metadata 里未定位到）"
             exit 1
           fi
           mkdir -p .tauri
           rm -rf .tauri/tauri-android
-          cp -r "${TAURI_SRC}mobile/android" .tauri/tauri-android
-          echo "tauri-android ← ${TAURI_SRC}mobile/android"
+          cp -r "$TAURI_ANDROID" .tauri/tauri-android
+          echo "tauri-android ← $TAURI_ANDROID"
 
-          # ② tauri.settings.gradle ← 上面的子工程 + 本应用实际声明的 tauri-plugin-*/android
-          #    插件列表从 src-tauri/Cargo.toml 推导（不遍历整个 registry，避免纳入无关插件）
-          {
-            echo "// 由 CI 生成（本仓该文件不入库，见 GOTCHAS #185）"
-            echo "include ':tauri-android'"
-            echo "project(':tauri-android').projectDir = new File('.tauri/tauri-android')"
-            grep -oE '^tauri-plugin-[a-z0-9-]+' ../../Cargo.toml | sort -u | while read -r p; do
-              d="$(ls -d "$REG/${p}"-*/android 2>/dev/null | sort -V | tail -1 || true)"
-              if [ -z "$d" ]; then
-                echo "::warning::Cargo.toml 声明了 $p 但注册表里找不到其 android 子工程，已跳过"
-                continue
-              fi
-              echo "include ':$p'"
-              echo "project(':$p').projectDir = new File('$d')"
-            done
-          } > tauri.settings.gradle
           echo "=== 生成的 tauri.settings.gradle ==="
           cat tauri.settings.gradle
 
