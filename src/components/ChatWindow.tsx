@@ -116,6 +116,19 @@ import { usePetStore } from '@/stores/petStore'
 import { cogneeAdd } from '../lib/memory/cogneeClient'
 
 /**
+ * 端侧（on-device）上下文预算 —— 与 `MobileChatView` 同口径，见 GOTCHAS #182。
+ *
+ * 桌面端的 on-device 走 companion loopback，同样是**本地小模型**，prompt 一样不能太长：
+ * 真机实测「记忆 3000 token + 20 轮历史」会把 prefill 推到 4359 token，小模型注意力被稀释。
+ * 三处预算同比例收紧（约为云端 1/3），云端预算不动。
+ */
+export const ON_DEVICE_HISTORY_TOKEN_BUDGET = 2000
+export const ON_DEVICE_MEM_SECTION_BUDGET = 1500
+export const ON_DEVICE_MEM_CTX_BUDGET = 1000
+/** 重新生成路径的端侧历史上限（该路径原为「标记消息之前全量历史」，无任何预算） */
+export const ON_DEVICE_REGEN_HISTORY_TURNS = 6
+
+/**
  * 技术指标采集用的时间源（模块级包装）。
  * 组件内直接调用 `Date.now()` 会被 `react-hooks/purity` 判为「渲染期调用非纯函数」
  * ——React Compiler 无法区分事件处理器与渲染期，故统一经本包装取时间。
@@ -402,9 +415,11 @@ export default function ChatWindow() {
     }
 
     const config = await loadAIConfig()
+    // 端侧（on-device）收紧上下文预算：本地小模型喂太长会被稀释，见 GOTCHAS #182
+    const isOnDevice = config.provider === 'ondevice'
     // F5：接线 ContextManager 做 token 预算管理（替代旧的硬编码滑窗）
     // ContextManager 支持优先级排序、token 预算控制、自动压缩
-    const HISTORY_TOKEN_BUDGET = 6000
+    const HISTORY_TOKEN_BUDGET = isOnDevice ? ON_DEVICE_HISTORY_TOKEN_BUDGET : 6000
     const allHistory = (messagesBySession[activeSessionId] ?? []).filter((m) => m.role !== 'system')
     // F5：用 ContextManager 管理历史消息
     const ctxMgr = getContextManager({ defaultMaxTokens: HISTORY_TOKEN_BUDGET })
@@ -539,7 +554,7 @@ export default function ChatWindow() {
     // 四段式记忆 4000 + 画像 500 + 经历 300 + 感知 200 = 5000 联合预算：
     // 正常量下所有区块全部保留（与旧行为一致）；仅当总量超预算时按优先级/时间裁掉最旧的区块。
     // preserveSystem=false 保证 system 区块也受预算约束，preserveRecentRounds=0 不强制保留最近轮次。
-    const MEMORY_TOKEN_BUDGET = 5000
+    const MEMORY_TOKEN_BUDGET = isOnDevice ? ON_DEVICE_MEM_SECTION_BUDGET : 5000
     const memoryCtxMgr = new ContextManager({
       defaultMaxTokens: MEMORY_TOKEN_BUDGET,
       preserveSystem: false,
@@ -586,7 +601,7 @@ export default function ChatWindow() {
     const trigger = await memory.checkTriggers(text)
     // 四段式记忆按 token 预算组装（即时 > 短期 > 长期 > 核心）
     // P2-2：使用带情境信号的 contextQuery 进行记忆检索
-    let memCtx = await memory.getContextForChat(4000, contextQuery)
+    let memCtx = await memory.getContextForChat(isOnDevice ? ON_DEVICE_MEM_CTX_BUDGET : 4000, contextQuery)
     if (trigger && trigger.message) {
       trackMemoryTrigger(trigger.type, trigger.memories[0]?.id ?? '')
       memCtx = `${memCtx}\n\n【记忆触发】${trigger.message}\n${trigger.memories.map((m) => m.user.slice(0, 80)).join('\n')}`
@@ -891,6 +906,8 @@ export default function ChatWindow() {
     if (!userText) return
 
     const config = await loadAIConfig()
+    // 端侧收紧上下文预算（与 handleSend 同口径，见 GOTCHAS #182）
+    const isOnDevice = config.provider === 'ondevice'
     const effectivePersonality = getEffectivePersonality(currentCharacterId, character.personality)
     const fullSystemPrompt = composeFullSystemPrompt(
       character.systemPrompt,
@@ -909,7 +926,7 @@ export default function ChatWindow() {
     try {
       const regenMemory = getEnhancedMemoryManager(currentCharacterId)
       await regenMemory.ensureLoaded()
-      const regenMemCtx = await regenMemory.getContextForChat(4000, userText)
+      const regenMemCtx = await regenMemory.getContextForChat(isOnDevice ? ON_DEVICE_MEM_CTX_BUDGET : 4000, userText)
       if (regenMemCtx) {
         apiMessages.push(
           mkMsg(
@@ -923,7 +940,9 @@ export default function ChatWindow() {
     }
 
     // 添加标记消息之前的对话历史（排除 system 消息）
-    for (let i = 0; i < msgIndex; i++) {
+    // 端侧只带最近 N 条：该路径原本是「标记消息之前全量历史」，长会话下会直接把 prompt 撑爆
+    const regenHistoryStart = isOnDevice ? Math.max(0, msgIndex - ON_DEVICE_REGEN_HISTORY_TURNS) : 0
+    for (let i = regenHistoryStart; i < msgIndex; i++) {
       const m = messages[i]
       if (m && m.role !== 'system') {
         apiMessages.push(mkMsg(m.role as 'user' | 'assistant', m.content))
