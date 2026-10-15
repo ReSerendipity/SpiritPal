@@ -104,6 +104,7 @@ import { getDiarySystemManager } from '@/lib/nurture/diarySystem'
 // P2-4：宠物共同经历记忆
 import { getPetExperienceManager } from '@/lib/nurture/petExperience'
 import { getScheduleManager } from '@/lib/nurture/scheduleManager'
+import { truncateAssistantHistory } from '@/lib/ai/onDeviceContext'
 import { ThinkTagParser } from '@/lib/render/thinkTagParser'
 import { trackChatSend, trackChatReceive, trackMemoryTrigger } from '@/lib/system/analytics'
 // P1-6：接线防重复机制
@@ -428,9 +429,11 @@ export default function ChatWindow() {
       ctxMgr.addMessage(m.role as 'user' | 'assistant', m.content)
     }
     // 获取预算内的消息（自动按优先级排序 + 保留最近 N 轮）
-    const prevMessages: ChatMessage[] = ctxMgr
-      .getContextWindow(HISTORY_TOKEN_BUDGET)
-      .map((m) => mkMsg(m.role as 'user' | 'assistant', m.content))
+    // 端侧：截断助手自己的历史输出，降低「被自己上一轮的错误答案锚死」的概率（GOTCHAS #184）
+    const prevMessages: ChatMessage[] = truncateAssistantHistory(
+      ctxMgr.getContextWindow(HISTORY_TOKEN_BUDGET).map((m) => mkMsg(m.role as 'user' | 'assistant', m.content)),
+      isOnDevice,
+    )
     // 若有更早的历史被截断，插入一条衔接提示
     const droppedCount = allHistory.length - prevMessages.length
     if (droppedCount > 0) {
@@ -942,12 +945,15 @@ export default function ChatWindow() {
     // 添加标记消息之前的对话历史（排除 system 消息）
     // 端侧只带最近 N 条：该路径原本是「标记消息之前全量历史」，长会话下会直接把 prompt 撑爆
     const regenHistoryStart = isOnDevice ? Math.max(0, msgIndex - ON_DEVICE_REGEN_HISTORY_TURNS) : 0
-    for (let i = regenHistoryStart; i < msgIndex; i++) {
-      const m = messages[i]
-      if (m && m.role !== 'system') {
-        apiMessages.push(mkMsg(m.role as 'user' | 'assistant', m.content))
-      }
-    }
+    // 端侧：助手侧历史同样截断（GOTCHAS #184）
+    const regenHistory = truncateAssistantHistory(
+      messages
+        .slice(regenHistoryStart, msgIndex)
+        .filter((m): m is NonNullable<typeof m> => Boolean(m) && m.role !== 'system')
+        .map((m) => mkMsg(m.role as 'user' | 'assistant', m.content)),
+      isOnDevice,
+    )
+    apiMessages.push(...regenHistory)
     // 重新添加用户消息（触发重新生成）
     apiMessages.push(mkMsg('user', userText))
 
