@@ -243,7 +243,10 @@ export function usePetSensors(options: UsePetSensorsOptions): UsePetSensorsRetur
         if (idleMin >= 5) {
           setPetState('sleep')
         }
-      } catch {}
+      } catch (e) {
+        // 对应架构/测试报告「吞没异常」P1：闲置检测失败不再静默，记录上下文便于排查
+        console.warn('[usePetSensors] idle check skipped:', e instanceof Error ? e.message : e)
+      }
     }
     idleCheckTimer = window.setInterval(checkIdle, 30000)
 
