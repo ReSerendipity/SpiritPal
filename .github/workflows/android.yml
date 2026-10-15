@@ -78,15 +78,45 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # 不用 android-actions/setup-android@v3：它内部会执行 `sdkmanager tools`，
+      # 而 `tools` 是**已被移除的旧包**（现代 SDK 改用 `cmdline-tools`），必然 exit 1。
+      # 真机日志证据：
+      #   [command]/usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager tools
+      #   Warning: Failed to find package 'tools'
+      #   Error: The process '...sdkmanager' failed with exit code 1
+      # GitHub 的 ubuntu runner 已预装 SDK，这里只做「定位 + 接受许可 + 装所需组件」。
+      - name: Locate Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          if [ ! -d "$SDK" ]; then
+            echo "::error::找不到 Android SDK 目录（$SDK）"; exit 1
+          fi
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          # cmdline-tools 的目录名随 runner 镜像变化（latest / 16.0 / ...），动态定位：
+          # 优先 latest，否则取版本号最大的一个（sort -V 做版本排序）。
+          SM="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SM" ]; then
+            SM="$(ls -d "$SDK"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | sort -V | tail -1 || true)"
+          fi
+          if [ -z "$SM" ] || [ ! -x "$SM" ]; then
+            echo "::error::找不到 sdkmanager（$SDK/cmdline-tools 下无匹配）"; exit 1
+          fi
+          echo "SDKMANAGER=$SM" >> "$GITHUB_ENV"
+          echo "使用 sdkmanager: $SM"
 
       - name: Install Android SDK components
         shell: bash
         run: |
           set -euo pipefail
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+          # ⚠️ `yes |` 必须容忍 SIGPIPE：sdkmanager 读够许可数就停，`yes` 随即收到
+          # Broken pipe 退出 141，而本脚本开了 `set -o pipefail` → 整条管道被判失败
+          # （实测报错：`yes: standard output: Broken pipe` → exit 1）。
+          # 许可是否真的接受成功，由下一步装组件是否成功来体现，故这里 `|| true` 是安全的。
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" \
             "platform-tools" \
             "platforms;android-${ANDROID_COMPILE_SDK}" \
             "build-tools;${ANDROID_BUILD_TOOLS}" \

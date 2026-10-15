@@ -265,3 +265,6 @@ src-tauri/patches/**/Cargo.lock
 
 # 对内项目说明（docs/README.internal.md）：仅本地维护者，不入库（2026-10-13 README 双版本制度）
 docs/README.internal.md
+
+# 仓库内 Python 虚拟环境（.githooks/pre-commit 会优先用它跑 pre-commit 框架）
+.venv/

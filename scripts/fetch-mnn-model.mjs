@@ -21,10 +21,9 @@
  *
  * @see docs/execution/ondevice-custom-model-pipeline.md
  */
-import { createWriteStream } from 'node:fs'
-import { mkdir, stat, readFile, rm } from 'node:fs/promises'
+import { createReadStream } from 'node:fs'
+import { mkdir, stat, rm, open } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
-import { pipeline } from 'node:stream/promises'
 import { Readable } from 'node:stream'
 import path from 'node:path'
 
@@ -46,9 +45,7 @@ function parseArgs(argv) {
     else if (a === '--verify-only') out.verifyOnly = true
     else if (a === '--list') out.list = true
     else if (a === '-h' || a === '--help') {
-      console.log(
-        '用法: node scripts/fetch-mnn-model.mjs --repo <ns/name> [--out <dir>] [--verify-only] [--list]',
-      )
+      console.log('用法: node scripts/fetch-mnn-model.mjs --repo <ns/name> [--out <dir>] [--verify-only] [--list]')
       process.exit(0)
     }
   }
@@ -87,9 +84,23 @@ async function fileSize(p) {
   }
 }
 
+/**
+ * 计算文件 sha256。
+ *
+ * ⚠️ 必须流式：`fs.readFile()` 对 **>2 GiB** 的文件直接抛
+ * `File size (N) is greater than 2 GiB`（GOTCHAS #172 同源问题，另一处触发点）。
+ * 4B/9B 模型的 `llm.mnn.weight` 是 2.45/7.27 GB —— 下载成功后会在校验这一步炸掉，
+ * 且报错被外层重试循环吞掉、表现成「反复续传、永不收敛」。
+ */
 async function sha256(p) {
-  const buf = await readFile(p)
-  return createHash('sha256').update(buf).digest('hex')
+  const h = createHash('sha256')
+  await new Promise((resolve, reject) => {
+    const s = createReadStream(p)
+    s.on('error', reject)
+    s.on('data', (c) => h.update(c))
+    s.on('end', resolve)
+  })
+  return h.digest('hex')
 }
 
 /**
@@ -97,6 +108,26 @@ async function sha256(p) {
  * ⚠️ 必须用 `/models/<ns>/<name>/resolve/<rev>/<file>` 形式；
  * `/api/v1/models/.../repo?FilePath=` 有时返回 200 但**响应体为空**。
  */
+/**
+ * 把 buffer 写到文件的**绝对位置** `position` 处。
+ *
+ * 为什么要绕开 `createWriteStream`（GOTCHAS #172）：
+ * ① `fs.WriteStream` 在 Windows 上写 **>2 GiB** 的文件直接报
+ *    `File size (N) is greater than 2 GiB` —— 4B/9B 模型的 `llm.mnn.weight`
+ *    （2.45 GB / 7.27 GB）必然踩中，且会留下一个截断的坏文件。
+ * ② `FileHandle.write()` **不保证写满**，返回 `{ bytesWritten }`；忽略它会缺字节。
+ * ③ 必须显式传 `position`：206 续传要用 `Content-Range` 解析出的起点，
+ *    不能假设「已下载了多少就从那儿开始」。
+ */
+async function writeAt(fh, buf, position) {
+  let off = 0
+  while (off < buf.length) {
+    const { bytesWritten } = await fh.write(buf, off, buf.length - off, position + off)
+    if (!bytesWritten) throw new Error(`write 返回 0 字节（磁盘满？off=${off}/${buf.length}）`)
+    off += bytesWritten
+  }
+}
+
 async function downloadOne(repo, revision, relPath, dest, expectSize) {
   const url = `${RESOLVE}/${repo}/resolve/${revision}/${relPath}`
   const have = await fileSize(dest)
@@ -107,10 +138,24 @@ async function downloadOne(repo, revision, relPath, dest, expectSize) {
   if (!res.ok && res.status !== 206) throw new Error(`HTTP ${res.status}`)
   if (!res.body) throw new Error('响应体为空（检查是否误用了 /repo?FilePath= 形式）')
 
-  await pipeline(
-    Readable.fromWeb(res.body),
-    createWriteStream(dest, { flags: have > 0 && res.status === 206 ? 'a' : 'w' }),
-  )
+  // 续传起点：优先信 Content-Range 的 before/start，回退到本地已下载字节数
+  let position = 0
+  if (res.status === 206) {
+    const cr = res.headers.get('content-range') // "bytes 123-456/789"
+    const m = cr && /bytes\s+(\d+)-/.exec(cr)
+    position = m ? Number(m[1]) : have
+  }
+
+  // 用 open+write 逐块落盘，绕开 WriteStream 的 2 GiB 限制（见上方注释）
+  const fh = await open(dest, 'r+').catch(() => open(dest, 'w'))
+  try {
+    for await (const chunk of Readable.fromWeb(res.body)) {
+      await writeAt(fh, chunk, position)
+      position += chunk.length
+    }
+  } finally {
+    await fh.close()
+  }
   return { resumedFrom: res.status === 206 ? have : 0 }
 }
 
