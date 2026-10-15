@@ -52,6 +52,7 @@ import { getContextEpisodeManager } from '@/lib/memory/contextEpisodeManager'
 import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 import { getOwnerFactsManager } from '@/lib/memory/ownerFacts'
 import { getCommitmentTracker } from '@/lib/nurture/commitmentTracker'
+import { ThinkTagParser } from '@/lib/render/thinkTagParser'
 import { MobileCommitmentBar } from '@/mobile/MobileCommitmentBar'
 import { useChatStore } from '@/stores/chatStore'
 import { usePetStore } from '@/stores/petStore'
@@ -67,7 +68,6 @@ export function MobileChatView() {
   const activeSessionByCharacter = useChatStore((s) => s.activeSessionByCharacter)
   const isLoading = useChatStore((s) => s.isLoading)
   const sendMessage = useChatStore((s) => s.sendMessage)
-  const appendAssistantChunk = useChatStore((s) => s.appendAssistantChunk)
   const finishStreaming = useChatStore((s) => s.finishStreaming)
   const stopGeneration = useChatStore((s) => s.stopGeneration)
   const clearHistory = useChatStore((s) => s.clearHistory)
@@ -75,6 +75,8 @@ export function MobileChatView() {
   const setLoading = useChatStore((s) => s.setLoading)
   const setMessageStatus = useChatStore((s) => s.setMessageStatus)
   const updateMessageContent = useChatStore((s) => s.updateMessageContent)
+  // P1-2b：思维链折叠展示（流式写入 thinkContent，UI 侧默认折叠）
+  const updateMessageThink = useChatStore((s) => s.updateMessageThink)
   // P2-14：消息指标回写（tokens/TTFT/速率）
   const setMessageMetrics = useChatStore((s) => s.setMessageMetrics)
   // P1-1: 多会话管理
@@ -101,9 +103,7 @@ export function MobileChatView() {
   const canRetry =
     !!lastMessage &&
     lastMessage.role === 'assistant' &&
-    (!lastMessage.content.trim() ||
-      lastMessage.sendStatus === 'failed' ||
-      lastMessage.sendStatus === 'timeout')
+    (!lastMessage.content.trim() || lastMessage.sendStatus === 'failed' || lastMessage.sendStatus === 'timeout')
 
   const [input, setInput] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -283,9 +283,12 @@ export function MobileChatView() {
       const abortController = new AbortController()
       setAbortController(abortController)
 
-      const apiMessages: Array<{ id: string; role: 'system' | 'user' | 'assistant'; content: string; timestamp: number }> = [
-        { id: 'system', role: 'system', content: systemPrompt, timestamp: Date.now() },
-      ]
+      const apiMessages: Array<{
+        id: string
+        role: 'system' | 'user' | 'assistant'
+        content: string
+        timestamp: number
+      }> = [{ id: 'system', role: 'system', content: systemPrompt, timestamp: Date.now() }]
       if (memCtx) {
         apiMessages.push({ id: 'mem-ctx', role: 'system', content: memCtx, timestamp: Date.now() })
       }
@@ -307,14 +310,30 @@ export function MobileChatView() {
       // P2-14：消息指标采集起点（TTFT / 总耗时 / tokens）
       const requestStartTs = Date.now()
       let firstTokenTs: number | undefined
+      // P1-2b：思维链折叠 —— 流式把 think 段与正式回复分离。
+      // 端侧 Qwen3 开启 thinking 时由 chat template 预填开标签、模型只吐 `</think>`，
+      // 解析器两种形态都认（见 lib/render/thinkTagParser.ts）。
+      const thinkParser = new ThinkTagParser()
       const fullText = await client.chat(
         apiMessages,
         (chunk: string) => {
           if (firstTokenTs === undefined) firstTokenTs = Date.now()
-          appendAssistantChunk(assistantId, chunk)
+          const parsed = thinkParser.push(chunk)
+          // 用「覆盖」而非「追加」：解析器遇到裸 `</think>`（开标签被 chat template 预填）时，
+          // 会把此前**已经吐出的正文回溯改判为思考**，追加式写法撤不回来，只有整段覆盖才与解析结果一致。
+          updateMessageContent(assistantId, parsed.replyContent)
+          if (parsed.thinkContent) {
+            updateMessageThink(assistantId, parsed.thinkContent)
+          }
         },
         abortController.signal,
       )
+      // 流结束：flush 补上仍扣在 buffer 里的尾巴（不足一个标签长度、无法判定为标签前缀的部分）
+      const finalParsed = thinkParser.flush()
+      updateMessageContent(assistantId, finalParsed.replyContent)
+      if (finalParsed.thinkContent) {
+        updateMessageThink(assistantId, finalParsed.thinkContent)
+      }
 
       // P2-14：指标回写（与桌面端同构：tokens / TTFT / 速率 / 模型）。
       // 遥测属非关键路径：任何异常都不能影响回复本身，故整体 try/catch。
@@ -422,8 +441,7 @@ export function MobileChatView() {
       // P0-3: 精准区分用户中止与超时——llmClient 对用户 abort 抛「LLM 请求已取消」，
       // 对 30s 无响应抛「LLM 请求超时（Ns）」，二者此前混为同一「超时」文案。
       const isAbort =
-        (err instanceof DOMException && err.name === 'AbortError') ||
-        /已取消|AbortError|aborted/i.test(raw)
+        (err instanceof DOMException && err.name === 'AbortError') || /已取消|AbortError|aborted/i.test(raw)
       if (isAbort) {
         // 用户主动停止：非错误，不弹错误横幅（store.stopGeneration 亦会标记 aborted）
         setMessageStatus(assistantId, 'aborted')
@@ -523,26 +541,17 @@ export function MobileChatView() {
       </div>
 
       {/* 消息列表 */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto px-3 py-3"
-        style={{ overscrollBehavior: 'contain' }}
-      >
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3" style={{ overscrollBehavior: 'contain' }}>
         {messages.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center text-center text-ink-faint">
             <Bot size={48} className="mb-3 opacity-40" />
-            <p className="text-sm">
-              {t('chat.emptyHint', { name: character?.displayName ?? t('tab.pet') })}
-            </p>
+            <p className="text-sm">{t('chat.emptyHint', { name: character?.displayName ?? t('tab.pet') })}</p>
             <p className="mt-1 text-xs text-ink-muted">{t('chat.markdownHint')}</p>
           </div>
         )}
 
         {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`mb-3 flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
+          <div key={msg.id} className={`mb-3 flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             {msg.role === 'assistant' && (
               <div className="mr-2 mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-blush-soft text-tangerine-deep">
                 <Bot size={14} />
@@ -578,11 +587,7 @@ export function MobileChatView() {
                     <Markdown rehypePlugins={[rehypeSanitize]}>{msg.content}</Markdown>
                   ) : msg.sendStatus && msg.sendStatus !== 'pending' ? (
                     /* P0-3: 失败/超时/中止且无内容 → 显示状态文字（替代流式等待的 ...） */
-                    <div
-                      className={`text-xs ${
-                        msg.sendStatus === 'aborted' ? 'text-ink-faint' : 'text-error'
-                      }`}
-                    >
+                    <div className={`text-xs ${msg.sendStatus === 'aborted' ? 'text-ink-faint' : 'text-error'}`}>
                       {msg.sendStatus === 'failed' && t('chat.statusFailed')}
                       {msg.sendStatus === 'timeout' && t('chat.statusTimeout')}
                       {msg.sendStatus === 'aborted' && t('chat.statusStopped')}
@@ -725,9 +730,7 @@ export function MobileChatView() {
                     className="block w-full border-b border-ink/5 px-3 py-2 text-left last:border-b-0 hover:bg-ink/5"
                   >
                     <div className="text-xs text-ink">{hit.snippet}</div>
-                    <div className="mt-0.5 text-[10px] text-ink-faint">
-                      {new Date(hit.timestamp).toLocaleString()}
-                    </div>
+                    <div className="mt-0.5 text-[10px] text-ink-faint">{new Date(hit.timestamp).toLocaleString()}</div>
                   </button>
                 ))}
               </div>

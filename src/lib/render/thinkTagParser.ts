@@ -59,15 +59,32 @@ export interface ThinkParseResult {
 
 // ============ Think 标签流式解析器 ============
 
+/** 开始标签 */
+const OPEN_TAG = '<think>'
+/** 结束标签 */
+const CLOSE_TAG = '</think>'
+/**
+ * 需在 buffer 里保留的最大字符数（= 最长标签长度 − 1）。
+ *
+ * 只有当 buffer 末尾这几位**不可能**再拼出一个完整标签时，前缀才可以安全吐出；
+ * 否则要等下一个 chunk（标签可能被切在两个 chunk 之间）。
+ */
+const HOLD_CHARS = CLOSE_TAG.length - 1
+
 /**
  * Think 标签流式解析器
  *
- * 逐 chunk 累积文本，实时识别 <think> 和 </think> 边界
+ * 逐 chunk 累积文本，实时识别 `<think>` / `</think>` 边界
  *
  * 状态机逻辑：
- * - Outside 状态：遇到 <think> 时切换到 Inside，之前的文本归入 replyContent
- * - Inside 状态：遇到 </think> 时切换到 Outside，之前的文本归入 thinkContent
- * - 残留文本按当前状态归类
+ * - Outside：优先看 `<think>`；若先遇到**裸 `</think>`**（开标签被 chat template 预填、不在流里），
+ *   则把此前文本整体视为思考内容 —— 这正是 Qwen3 原生 thinking 的输出形态
+ * - Inside：遇到 `</think>` 回到 Outside
+ * - 未成标签的文本**立即吐出**（只保留末尾 `HOLD_CHARS` 位以防标签跨界），保证正文照常流式显示
+ *
+ * ⚠️ 本类曾是「未遇到标签就把整段留在 buffer」的写法 —— 那会让**没有标签的普通回复
+ *   直到流结束都吐不出任何正文**，而调用方只 append `replyContent`、不 append `flush()`
+ *   的返回值，于是正文整体丢失。2026-10-15 修正为「只扣住可能的标签前缀」。
  *
  * 参考实现：Open-LLM-VTuber transformers.py:134-141
  */
@@ -84,48 +101,77 @@ export class ThinkTagParser {
   /**
    * 处理一个流式 chunk
    *
-   * 流程：
-   * 1. 将 chunk 追加到 buffer
-   * 2. 循环查找标签边界（可能一个 chunk 包含多对标签）
-   * 3. 根据当前状态将标签外/内的文本归入对应 parts
-   * 4. 返回当前累积的解析结果
-   *
    * @param chunk 流式文本片段
-   * @returns 当前解析结果
+   * @returns 当前解析结果（累积值）
    */
   push(chunk: string): ThinkParseResult {
     this.buffer += chunk
 
-    // 循环查找标签边界（处理同一 chunk 内多对标签的情况）
+    // 循环查找标签边界（一个 chunk 可能同时含多个标签）
     while (true) {
       if (this.state === ThinkTagState.Outside) {
-        // 查找 <think> 开始标签
-        const startIdx = this.buffer.indexOf('<think>')
-        if (startIdx === -1) break // 未找到开始标签，等待更多数据
+        const startIdx = this.buffer.indexOf(OPEN_TAG)
+        const closeIdx = this.buffer.indexOf(CLOSE_TAG)
+
+        // 只有裸结束标签（无开标签）→ 开标签被 chat template 预填，此前的文本是思考内容。
+        // ⚠️ 此时那些文本**可能已经作为 replyContent 吐出过**，故需回溯改判（见 replyParts 迁移）。
+        if (closeIdx !== -1 && (startIdx === -1 || closeIdx < startIdx)) {
+          if (this.replyParts.length > 0) {
+            this.thinkParts.push(...this.replyParts)
+            this.replyParts = []
+          }
+          if (closeIdx > 0) this.thinkParts.push(this.buffer.substring(0, closeIdx))
+          this.buffer = this.buffer.substring(closeIdx + CLOSE_TAG.length)
+          continue // 状态保持 Outside：之后是正式回复
+        }
+
+        if (startIdx === -1) {
+          this.emitSafePrefix(this.replyParts)
+          break
+        }
 
         // <think> 之前的文本属于正式回复
-        if (startIdx > 0) {
-          this.replyParts.push(this.buffer.substring(0, startIdx))
-        }
-        // 跳过 <think> 标签（长度 7）
-        this.buffer = this.buffer.substring(startIdx + 7)
+        if (startIdx > 0) this.replyParts.push(this.buffer.substring(0, startIdx))
+        this.buffer = this.buffer.substring(startIdx + OPEN_TAG.length)
         this.state = ThinkTagState.Inside
       } else {
-        // 查找 </think> 结束标签
-        const endIdx = this.buffer.indexOf('</think>')
-        if (endIdx === -1) break // 未找到结束标签，等待更多数据
+        const endIdx = this.buffer.indexOf(CLOSE_TAG)
+        if (endIdx === -1) {
+          this.emitSafePrefix(this.thinkParts)
+          break
+        }
 
         // </think> 之前的文本属于思考内容
-        if (endIdx > 0) {
-          this.thinkParts.push(this.buffer.substring(0, endIdx))
-        }
-        // 跳过 </think> 标签（长度 8）
-        this.buffer = this.buffer.substring(endIdx + 8)
+        if (endIdx > 0) this.thinkParts.push(this.buffer.substring(0, endIdx))
+        this.buffer = this.buffer.substring(endIdx + CLOSE_TAG.length)
         this.state = ThinkTagState.Outside
       }
     }
 
     return this.getResult()
+  }
+
+  /**
+   * 把 buffer 中「不可能再拼成标签」的前缀立刻归入指定桶。
+   *
+   * 只在 buffer **末尾**确实与某个标签的前缀重叠时才保留那几位（标签可能被切在两个 chunk 之间），
+   * 其余全部立刻吐出 —— 这样正文不必等到流结束才出现，短回复也不会被无谓延迟。
+   */
+  private emitSafePrefix(bucket: string[]): void {
+    const maxHold = Math.min(HOLD_CHARS, this.buffer.length)
+    let hold = 0
+    for (let k = maxHold; k > 0; k--) {
+      const tail = this.buffer.substring(this.buffer.length - k)
+      if (OPEN_TAG.startsWith(tail) || CLOSE_TAG.startsWith(tail)) {
+        hold = k
+        break
+      }
+    }
+    const safe = this.buffer.length - hold
+    if (safe > 0) {
+      bucket.push(this.buffer.substring(0, safe))
+      this.buffer = this.buffer.substring(safe)
+    }
   }
 
   /**

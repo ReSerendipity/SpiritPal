@@ -34,7 +34,25 @@ import { emit } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
-import { Send, Square, Trash2, Bot, User, Search, X, ChevronUp, ChevronDown, Flag, AlertTriangle, RefreshCw, Mic, Volume2, PanelLeft, Brain, Plus } from 'lucide-react'
+import {
+  Send,
+  Square,
+  Trash2,
+  Bot,
+  User,
+  Search,
+  X,
+  ChevronUp,
+  ChevronDown,
+  Flag,
+  AlertTriangle,
+  RefreshCw,
+  Mic,
+  Volume2,
+  PanelLeft,
+  Brain,
+  Plus,
+} from 'lucide-react'
 import Markdown from 'react-markdown'
 // SECURITY R-02: 为 react-markdown 配置 rehype-sanitize，阻断 AI 输出型 XSS
 import rehypeSanitize from 'rehype-sanitize'
@@ -56,7 +74,12 @@ import { getEmotionAnalyzer, getEmotionStateManager } from '@/lib/ai/emotionEngi
 // Phase 1.3 + 1.4: 情绪标签与 Think 标签解析
 import { extractEmotionFromChunk, extractEmotion } from '@/lib/ai/emotionExtractor'
 // P1-5：情绪标签提示词 + 好感度解析
-import { EMOTION_PROMPT_FRAGMENT, extractAffectionDeltas, sumAffectionDeltas, emotionTagsToMood } from '@/lib/ai/emotionExtractor'
+import {
+  EMOTION_PROMPT_FRAGMENT,
+  extractAffectionDeltas,
+  sumAffectionDeltas,
+  emotionTagsToMood,
+} from '@/lib/ai/emotionExtractor'
 import { getLLMClient } from '@/lib/ai/llmClient'
 import { composeFullSystemPrompt, getEffectivePersonality } from '@/lib/ai/personalityEngine'
 // STT：语音输入转文字（Web Speech API 主，零依赖）
@@ -156,10 +179,7 @@ export default function ChatWindow() {
   const character = getCharacter(currentCharacterId)
   // 用 useMemo 稳定 messages 引用，避免 ?? [] 每次渲染产生新数组导致下游依赖频繁变化
   const activeSessionId = activeSessionByCharacter[currentCharacterId] ?? ''
-  const messages = useMemo(
-    () => messagesBySession[activeSessionId] ?? [],
-    [messagesBySession, activeSessionId],
-  )
+  const messages = useMemo(() => messagesBySession[activeSessionId] ?? [], [messagesBySession, activeSessionId])
 
   const [input, setInput] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -220,9 +240,10 @@ export default function ChatWindow() {
     const q = searchQuery.toLowerCase()
     return messages
       .map((m, i) => ({ message: m, index: i }))
-      .filter(({ message }) =>
-        message.content.toLowerCase().includes(q) ||
-        (message.role === 'user' && message.content.toLowerCase().includes(q))
+      .filter(
+        ({ message }) =>
+          message.content.toLowerCase().includes(q) ||
+          (message.role === 'user' && message.content.toLowerCase().includes(q)),
       )
   }, [messages, searchQuery])
 
@@ -244,9 +265,13 @@ export default function ChatWindow() {
     if (!query.trim()) return text
     const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'))
     return parts.map((part, i) =>
-      part.toLowerCase() === query.toLowerCase()
-        ? <mark key={i} className="bg-tangerine/20 text-tangerine-deep rounded px-0.5">{part}</mark>
-        : part
+      part.toLowerCase() === query.toLowerCase() ? (
+        <mark key={i} className="bg-tangerine/20 text-tangerine-deep rounded px-0.5">
+          {part}
+        </mark>
+      ) : (
+        part
+      ),
     )
   }
 
@@ -380,8 +405,7 @@ export default function ChatWindow() {
     // F5：接线 ContextManager 做 token 预算管理（替代旧的硬编码滑窗）
     // ContextManager 支持优先级排序、token 预算控制、自动压缩
     const HISTORY_TOKEN_BUDGET = 6000
-    const allHistory = (messagesBySession[activeSessionId] ?? [])
-      .filter((m) => m.role !== 'system')
+    const allHistory = (messagesBySession[activeSessionId] ?? []).filter((m) => m.role !== 'system')
     // F5：用 ContextManager 管理历史消息
     const ctxMgr = getContextManager({ defaultMaxTokens: HISTORY_TOKEN_BUDGET })
     // 将历史消息灌入 ContextManager
@@ -389,8 +413,9 @@ export default function ChatWindow() {
       ctxMgr.addMessage(m.role as 'user' | 'assistant', m.content)
     }
     // 获取预算内的消息（自动按优先级排序 + 保留最近 N 轮）
-    const prevMessages: ChatMessage[] = ctxMgr.getContextWindow(HISTORY_TOKEN_BUDGET)
-      .map(m => mkMsg(m.role as 'user' | 'assistant', m.content))
+    const prevMessages: ChatMessage[] = ctxMgr
+      .getContextWindow(HISTORY_TOKEN_BUDGET)
+      .map((m) => mkMsg(m.role as 'user' | 'assistant', m.content))
     // 若有更早的历史被截断，插入一条衔接提示
     const droppedCount = allHistory.length - prevMessages.length
     if (droppedCount > 0) {
@@ -421,10 +446,7 @@ export default function ChatWindow() {
           const vpMessages: ChatMessage[] = [
             mkMsg('system', character.systemPrompt + '\n' + EMOTION_PROMPT_FRAGMENT),
             mkMsg('system', screenContext),
-            ...character.fewShotExamples.flatMap((ex) => [
-              mkMsg('user', ex.user),
-              mkMsg('assistant', ex.assistant),
-            ]),
+            ...character.fewShotExamples.flatMap((ex) => [mkMsg('user', ex.user), mkMsg('assistant', ex.assistant)]),
             mkMsg('user', text),
           ]
           const vpResult = await vpClient.chat(vpMessages, undefined, undefined)
@@ -444,7 +466,10 @@ export default function ChatWindow() {
           }
         } else {
           // 截屏或分析失败，降级提示
-          appendAssistantChunk(assistantId, '[think]让我看看…[/think] 嗯…我现在的视力好像不太好，没法看清楚屏幕呢。也许你可以告诉我你在做什么？ [shy]')
+          appendAssistantChunk(
+            assistantId,
+            '[think]让我看看…[/think] 嗯…我现在的视力好像不太好，没法看清楚屏幕呢。也许你可以告诉我你在做什么？ [shy]',
+          )
           chatStageMgr.setStage('reply')
         }
       } catch (err) {
@@ -462,7 +487,10 @@ export default function ChatWindow() {
     // 合成带性格参数的 System Prompt
     // P1-5：注入情绪标签提示词，让主聊天模型也输出 [emotion] / [affection] 标签
     const effectivePersonality = getEffectivePersonality(currentCharacterId, character.personality)
-    const fullSystemPrompt = composeFullSystemPrompt(character.systemPrompt, character.personality, effectivePersonality) + '\n' + EMOTION_PROMPT_FRAGMENT
+    const fullSystemPrompt =
+      composeFullSystemPrompt(character.systemPrompt, character.personality, effectivePersonality) +
+      '\n' +
+      EMOTION_PROMPT_FRAGMENT
 
     // P2-1：预加载结构化用户画像
     const ownerFactsMgr = getOwnerFactsManager(currentCharacterId)
@@ -504,10 +532,7 @@ export default function ChatWindow() {
 
     const apiMessages: ChatMessage[] = [
       mkMsg('system', fullSystemPrompt),
-      ...character.fewShotExamples.flatMap((ex) => [
-        mkMsg('user', ex.user),
-        mkMsg('assistant', ex.assistant),
-      ]),
+      ...character.fewShotExamples.flatMap((ex) => [mkMsg('user', ex.user), mkMsg('assistant', ex.assistant)]),
     ]
 
     // F5b：记忆注入预算统一收编进 ContextManager（联合预算，替代各自独立硬编码）
@@ -564,7 +589,7 @@ export default function ChatWindow() {
     let memCtx = await memory.getContextForChat(4000, contextQuery)
     if (trigger && trigger.message) {
       trackMemoryTrigger(trigger.type, trigger.memories[0]?.id ?? '')
-      memCtx = `${memCtx}\n\n【记忆触发】${trigger.message}\n${trigger.memories.map(m => m.user.slice(0, 80)).join('\n')}`
+      memCtx = `${memCtx}\n\n【记忆触发】${trigger.message}\n${trigger.memories.map((m) => m.user.slice(0, 80)).join('\n')}`
     }
     // P1-6：记忆注入指令——告诉模型不要复述原文，用自己的话自然带出
     if (memCtx) {
@@ -628,8 +653,14 @@ export default function ChatWindow() {
         },
         controller.signal,
       )
-      // 流结束：刷新剩余 think 内容
+      // 流结束：flush 可能还扣着末尾不足一个标签长度的尾巴，必须补吐，
+      // 否则正文会缺最后一小段（原实现只取 thinkContent，reply 尾部被丢掉）。
       const finalParsed = thinkParser.flush()
+      const tailDelta = finalParsed.replyContent.slice(cleanBuffer.length)
+      if (tailDelta) {
+        cleanBuffer = finalParsed.replyContent
+        appendAssistantChunk(assistantId, tailDelta)
+      }
       if (finalParsed.thinkContent) {
         updateMessageThink(assistantId, finalParsed.thinkContent)
       }
@@ -661,10 +692,7 @@ export default function ChatWindow() {
       // D6 修复：先判断是否命中"记住"指令；命中时单次写入带标记的文本，
       // 避免原实现下方再次 addExchange 造成同一轮对话重复入库
       const isRememberRequest = /记住|记着|以后|别忘了|remember this/i.test(text)
-      const exchangedMem = memory.addExchange(
-        isRememberRequest ? `[用户要求记住] ${text}` : text,
-        cleanFinal,
-      )
+      const exchangedMem = memory.addExchange(isRememberRequest ? `[用户要求记住] ${text}` : text, cleanFinal)
       // T-6: 将宠物回复的情绪标签回写为当轮记忆的 valence/arousal
       // 打通 emotionExtractor（LLM 情绪标签）与记忆侧情感体系，让后续检索能按情绪一致召回
       const moodTag = emotionTagsToMood(extraction.animations)
@@ -689,12 +717,15 @@ export default function ChatWindow() {
       })
 
       // P3-3：LLM 自动提取用户事实（异步，不阻塞主流程）
-      void ownerFactsMgr.autoExtractWithLLM(text, cleanFinal).then((hasNew) => {
-        if (hasNew && !appendAssistantChunk.toString().includes('新信息')) {
-          // 仅在规则层未提示时追加 LLM 提取确认
-          appendAssistantChunk(assistantId, '\n\n[我记住了关于你的新信息～]')
-        }
-      }).catch(swallowedCatch('ChatWindow.autoExtractWithLLM'))
+      void ownerFactsMgr
+        .autoExtractWithLLM(text, cleanFinal)
+        .then((hasNew) => {
+          if (hasNew && !appendAssistantChunk.toString().includes('新信息')) {
+            // 仅在规则层未提示时追加 LLM 提取确认
+            appendAssistantChunk(assistantId, '\n\n[我记住了关于你的新信息～]')
+          }
+        })
+        .catch(swallowedCatch('ChatWindow.autoExtractWithLLM'))
 
       // P2-5：检测"记住"指令——用户明确要求记住的内容以高置信度存储
       if (isRememberRequest) {
@@ -720,9 +751,8 @@ export default function ChatWindow() {
         responseEndTs,
         durationMs,
         ttftMs: firstTokenTs ? firstTokenTs - requestStartTs : undefined,
-        tokensPerSec: completionTokens > 0 && durationMs > 0
-          ? Math.round(completionTokens / (durationMs / 1000))
-          : undefined,
+        tokensPerSec:
+          completionTokens > 0 && durationMs > 0 ? Math.round(completionTokens / (durationMs / 1000)) : undefined,
         model: config.model,
         provider: config.provider,
       })
@@ -862,16 +892,17 @@ export default function ChatWindow() {
 
     const config = await loadAIConfig()
     const effectivePersonality = getEffectivePersonality(currentCharacterId, character.personality)
-    const fullSystemPrompt = composeFullSystemPrompt(character.systemPrompt, character.personality, effectivePersonality)
+    const fullSystemPrompt = composeFullSystemPrompt(
+      character.systemPrompt,
+      character.personality,
+      effectivePersonality,
+    )
 
     // 构建 API 消息：系统提示 → 修正 prompt → few-shot → 记忆上下文 → 历史（到标记消息前）→ 用户消息
     const apiMessages: ChatMessage[] = [
       mkMsg('system', fullSystemPrompt),
       mkMsg('system', correctionPrompt),
-      ...character.fewShotExamples.flatMap((ex) => [
-        mkMsg('user', ex.user),
-        mkMsg('assistant', ex.assistant),
-      ]),
+      ...character.fewShotExamples.flatMap((ex) => [mkMsg('user', ex.user), mkMsg('assistant', ex.assistant)]),
     ]
 
     // D8：重新生成路径也注入记忆上下文
@@ -880,7 +911,12 @@ export default function ChatWindow() {
       await regenMemory.ensureLoaded()
       const regenMemCtx = await regenMemory.getContextForChat(4000, userText)
       if (regenMemCtx) {
-        apiMessages.push(mkMsg('system', regenMemCtx + '\n\n【指令】以上历史记忆仅供参考，请不要直接复述原文，用自己的话自然提及即可。'))
+        apiMessages.push(
+          mkMsg(
+            'system',
+            regenMemCtx + '\n\n【指令】以上历史记忆仅供参考，请不要直接复述原文，用自己的话自然提及即可。',
+          ),
+        )
       }
     } catch {
       // 记忆注入失败不影响重新生成
@@ -930,9 +966,8 @@ export default function ChatWindow() {
         responseEndTs,
         durationMs,
         ttftMs: firstTokenTs ? firstTokenTs - requestStartTs : undefined,
-        tokensPerSec: completionTokens > 0 && durationMs > 0
-          ? Math.round(completionTokens / (durationMs / 1000))
-          : undefined,
+        tokensPerSec:
+          completionTokens > 0 && durationMs > 0 ? Math.round(completionTokens / (durationMs / 1000)) : undefined,
         model: config.model,
         provider: config.provider,
       })
@@ -963,304 +998,318 @@ export default function ChatWindow() {
 
       {/* 主聊天区域 */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      {/* 无边框窗口标题栏 */}
-      <div className="relative z-50 shrink-0">
-        <WindowControls title={`${character?.displayName ?? '宠物'} 聊天`} />
-      </div>
-
-      {/* 头部 */}
-      <div className="flex shrink-0 items-center justify-between border-b border-ink/10 px-3 py-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <div
-            className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold"
-            style={{
-              background: `linear-gradient(135deg, ${character?.themeColor.primary ?? '#FFB6C1'}, ${character?.themeColor.secondary ?? '#FFA500'})`,
-            }}
-          >
-            {character?.displayName.charAt(0) ?? '?'}
-          </div>
-          <div>
-            <div className="text-sm font-semibold">{character?.displayName ?? '宠物'}</div>
-            <div className="text-[11px] text-ink-faint">{character?.signaturePhrase}</div>
-          </div>
+        {/* 无边框窗口标题栏 */}
+        <div className="relative z-50 shrink-0">
+          <WindowControls title={`${character?.displayName ?? '宠物'} 聊天`} />
         </div>
-        <div className="flex shrink-0 items-center gap-0.5">
-          <button
-            onClick={() => setSessionListOpen(!sessionListOpen)}
-            className={`spiritpal-focusable rounded-md p-1.5 ${sessionListOpen ? 'bg-tangerine/15 text-tangerine-deep' : 'text-ink-faint hover:bg-ink/8'}`}
-            aria-label="对话历史"
-            title="对话历史"
-          >
-            <PanelLeft size={16} aria-hidden="true" />
-          </button>
-          <button
-            onClick={() => { createSession() }}
-            className="spiritpal-focusable rounded-md p-1.5 text-ink-faint hover:bg-ink/8"
-            aria-label="新建对话"
-            title="新建对话"
-          >
-            <Plus size={16} aria-hidden="true" />
-          </button>
-          <SessionStatsBar />
-          <button
-            onClick={() => { setSearchOpen(!searchOpen); setSearchQuery('') }}
-            className={`spiritpal-focusable rounded-md p-1.5 ${searchOpen ? 'bg-tangerine/15 text-tangerine-deep' : 'text-ink-faint hover:bg-ink/8'}`}
-            aria-label="搜索对话"
-            aria-expanded={searchOpen}
-          >
-            <Search size={16} aria-hidden="true" />
-          </button>
-          <button
-            onClick={clearHistory}
-            className="spiritpal-focusable rounded-md p-1.5 text-ink-faint hover:bg-ink/8 hover:text-error"
-            aria-label="清空聊天记录"
-          >
-            <Trash2 size={16} aria-hidden="true" />
-          </button>
-          <button
-            onClick={() => setMemoryPanelOpen(!memoryPanelOpen)}
-            className={`spiritpal-focusable rounded-md p-1.5 ${memoryPanelOpen ? 'bg-tangerine/15 text-tangerine-deep' : 'text-ink-faint hover:bg-ink/8'}`}
-            aria-label="记忆面板"
-            title="查看记忆"
-          >
-            <Brain size={16} aria-hidden="true" />
-          </button>
-        </div>
-      </div>
 
-      {/* 搜索栏 */}
-      {searchOpen && (
-        <div className="shrink-0 border-b border-ink/10 bg-cream-deep/60 px-4 py-2">
-          <div className="flex items-center gap-2">
-            <Search size={14} className="text-ink-faint" />
-            <input
-              value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setSearchIndex(0) }}
-              placeholder="搜索对话内容…"
-              className="flex-1 bg-transparent text-sm text-ink placeholder-ink-faint focus:outline-none"
-              autoFocus
-            />
-            {searchQuery && searchResults.length > 0 && (
-              <span className="text-[11px] text-ink-faint">
-                {searchIndex + 1}/{searchResults.length}
-              </span>
-            )}
-            {searchQuery && searchResults.length > 0 && (
-              <>
-                <button
-                  onClick={() => setSearchIndex(i => Math.max(0, i - 1))}
-                  className="rounded p-0.5 text-ink-faint hover:bg-ink/8"
-                  title="上一个"
-                >
-                  <ChevronUp size={14} />
-                </button>
-                <button
-                  onClick={() => setSearchIndex(i => Math.min(searchResults.length - 1, i + 1))}
-                  className="rounded p-0.5 text-ink-faint hover:bg-ink/8"
-                  title="下一个"
-                >
-                  <ChevronDown size={14} />
-                </button>
-              </>
-            )}
-            <button
-              onClick={() => { setSearchOpen(false); setSearchQuery('') }}
-              className="rounded p-0.5 text-ink-faint hover:bg-ink/8"
-              title="关闭搜索"
+        {/* 头部 */}
+        <div className="flex shrink-0 items-center justify-between border-b border-ink/10 px-3 py-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold"
+              style={{
+                background: `linear-gradient(135deg, ${character?.themeColor.primary ?? '#FFB6C1'}, ${character?.themeColor.secondary ?? '#FFA500'})`,
+              }}
             >
-              <X size={14} />
+              {character?.displayName.charAt(0) ?? '?'}
+            </div>
+            <div>
+              <div className="text-sm font-semibold">{character?.displayName ?? '宠物'}</div>
+              <div className="text-[11px] text-ink-faint">{character?.signaturePhrase}</div>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-0.5">
+            <button
+              onClick={() => setSessionListOpen(!sessionListOpen)}
+              className={`spiritpal-focusable rounded-md p-1.5 ${sessionListOpen ? 'bg-tangerine/15 text-tangerine-deep' : 'text-ink-faint hover:bg-ink/8'}`}
+              aria-label="对话历史"
+              title="对话历史"
+            >
+              <PanelLeft size={16} aria-hidden="true" />
+            </button>
+            <button
+              onClick={() => {
+                createSession()
+              }}
+              className="spiritpal-focusable rounded-md p-1.5 text-ink-faint hover:bg-ink/8"
+              aria-label="新建对话"
+              title="新建对话"
+            >
+              <Plus size={16} aria-hidden="true" />
+            </button>
+            <SessionStatsBar />
+            <button
+              onClick={() => {
+                setSearchOpen(!searchOpen)
+                setSearchQuery('')
+              }}
+              className={`spiritpal-focusable rounded-md p-1.5 ${searchOpen ? 'bg-tangerine/15 text-tangerine-deep' : 'text-ink-faint hover:bg-ink/8'}`}
+              aria-label="搜索对话"
+              aria-expanded={searchOpen}
+            >
+              <Search size={16} aria-hidden="true" />
+            </button>
+            <button
+              onClick={clearHistory}
+              className="spiritpal-focusable rounded-md p-1.5 text-ink-faint hover:bg-ink/8 hover:text-error"
+              aria-label="清空聊天记录"
+            >
+              <Trash2 size={16} aria-hidden="true" />
+            </button>
+            <button
+              onClick={() => setMemoryPanelOpen(!memoryPanelOpen)}
+              className={`spiritpal-focusable rounded-md p-1.5 ${memoryPanelOpen ? 'bg-tangerine/15 text-tangerine-deep' : 'text-ink-faint hover:bg-ink/8'}`}
+              aria-label="记忆面板"
+              title="查看记忆"
+            >
+              <Brain size={16} aria-hidden="true" />
             </button>
           </div>
-          {searchQuery && searchResults.length === 0 && (
-            <div className="mt-1 text-[11px] text-ink-faint">未找到匹配的消息</div>
-          )}
         </div>
-      )}
 
-      {/* 记忆引用提示 */}
-      {memoryPreview && (
-        <div className="shrink-0 border-b border-ink/5 bg-blush-soft/70 px-4 py-1.5 text-[11px] text-tangerine-deep">
-          📖 记得你上次说「{memoryPreview}」…
-        </div>
-      )}
-
-      {/* 消息列表 */}
-      <div
-        ref={scrollRef}
-        className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3"
-        role="log"
-        aria-live="polite"
-        aria-label="聊天消息列表"
-      >
-        {messages.length === 0 && !isLoading && (
-          <div className="flex h-full items-center justify-center text-sm text-ink-faint">
-            说点什么吧～ {character?.displayName ?? '我'}在等你
+        {/* 搜索栏 */}
+        {searchOpen && (
+          <div className="shrink-0 border-b border-ink/10 bg-cream-deep/60 px-4 py-2">
+            <div className="flex items-center gap-2">
+              <Search size={14} className="text-ink-faint" />
+              <input
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  setSearchIndex(0)
+                }}
+                placeholder="搜索对话内容…"
+                className="flex-1 bg-transparent text-sm text-ink placeholder-ink-faint focus:outline-none"
+                autoFocus
+              />
+              {searchQuery && searchResults.length > 0 && (
+                <span className="text-[11px] text-ink-faint">
+                  {searchIndex + 1}/{searchResults.length}
+                </span>
+              )}
+              {searchQuery && searchResults.length > 0 && (
+                <>
+                  <button
+                    onClick={() => setSearchIndex((i) => Math.max(0, i - 1))}
+                    className="rounded p-0.5 text-ink-faint hover:bg-ink/8"
+                    title="上一个"
+                  >
+                    <ChevronUp size={14} />
+                  </button>
+                  <button
+                    onClick={() => setSearchIndex((i) => Math.min(searchResults.length - 1, i + 1))}
+                    className="rounded p-0.5 text-ink-faint hover:bg-ink/8"
+                    title="下一个"
+                  >
+                    <ChevronDown size={14} />
+                  </button>
+                </>
+              )}
+              <button
+                onClick={() => {
+                  setSearchOpen(false)
+                  setSearchQuery('')
+                }}
+                className="rounded p-0.5 text-ink-faint hover:bg-ink/8"
+                title="关闭搜索"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            {searchQuery && searchResults.length === 0 && (
+              <div className="mt-1 text-[11px] text-ink-faint">未找到匹配的消息</div>
+            )}
           </div>
         )}
-        {messages.map((m) => {
-          const isUser = m.role === 'user'
-          const isSearchMatch = searchQuery && m.content.toLowerCase().includes(searchQuery.toLowerCase())
-          const isCurrentResult = searchQuery && searchResults[searchIndex]?.message.id === m.id
-          const hasViolations = !isUser && (m.consistencyViolations?.length ?? 0) > 0
-          const isFlagged = !isUser && m.flagged === true
-          const canFlag = !isUser && !m.isStreaming && !isFlagged && regeneratingId !== m.id && !isLoading
-          const isRegenerating = regeneratingId === m.id
-          return (
-            <div
-              key={m.id}
-              className={`flex gap-2 ${isUser ? 'flex-row-reverse' : 'flex-row'} ${isCurrentResult ? 'ring-2 ring-tangerine/50 rounded-2xl' : ''}`}
-            >
+
+        {/* 记忆引用提示 */}
+        {memoryPreview && (
+          <div className="shrink-0 border-b border-ink/5 bg-blush-soft/70 px-4 py-1.5 text-[11px] text-tangerine-deep">
+            📖 记得你上次说「{memoryPreview}」…
+          </div>
+        )}
+
+        {/* 消息列表 */}
+        <div
+          ref={scrollRef}
+          className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3"
+          role="log"
+          aria-live="polite"
+          aria-label="聊天消息列表"
+        >
+          {messages.length === 0 && !isLoading && (
+            <div className="flex h-full items-center justify-center text-sm text-ink-faint">
+              说点什么吧～ {character?.displayName ?? '我'}在等你
+            </div>
+          )}
+          {messages.map((m) => {
+            const isUser = m.role === 'user'
+            const isSearchMatch = searchQuery && m.content.toLowerCase().includes(searchQuery.toLowerCase())
+            const isCurrentResult = searchQuery && searchResults[searchIndex]?.message.id === m.id
+            const hasViolations = !isUser && (m.consistencyViolations?.length ?? 0) > 0
+            const isFlagged = !isUser && m.flagged === true
+            const canFlag = !isUser && !m.isStreaming && !isFlagged && regeneratingId !== m.id && !isLoading
+            const isRegenerating = regeneratingId === m.id
+            return (
               <div
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-                  isUser ? 'bg-tangerine text-white' : 'bg-blush-soft text-tangerine-deep'
-                }`}
+                key={m.id}
+                className={`flex gap-2 ${isUser ? 'flex-row-reverse' : 'flex-row'} ${isCurrentResult ? 'ring-2 ring-tangerine/50 rounded-2xl' : ''}`}
               >
-                {isUser ? <User size={14} /> : <Bot size={14} />}
-              </div>
-              <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
-                {/* 一致性警告标记 */}
-                {hasViolations && (
-                  <div className="mb-1 flex items-center gap-1 rounded-md bg-tangerine-soft px-2 py-0.5 text-[11px] text-tangerine-deep">
-                    <AlertTriangle size={11} />
-                    <span>⚠️ 可能不符性格</span>
-                    {m.consistencyViolations && m.consistencyViolations.length > 0 && (
-                      <span className="text-tangerine-deep/70">
-                        （{m.consistencyViolations.slice(0, 3).map((v) => `「${v}」`).join('')}）
-                      </span>
-                    )}
-                  </div>
-                )}
                 <div
-                  className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${
-                    isUser
-                      ? 'bg-tangerine text-white'
-                      : isFlagged
-                        ? 'bg-surface text-ink ring-1 ring-error/40 border border-ink/10'
-                        : 'bg-surface text-ink border border-ink/10'
-                  } ${isSearchMatch && !isCurrentResult ? 'ring-1 ring-tangerine/30' : ''}`}
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                    isUser ? 'bg-tangerine text-white' : 'bg-blush-soft text-tangerine-deep'
+                  }`}
                 >
-                  {isUser ? (
-                    searchQuery ? highlightText(m.content, searchQuery) : m.content
-                  ) : (
-                    <div className="prose prose-sm max-w-none break-words">
-                      {/* Phase 1.4: Think 标签内容 — 半透明折叠显示（内心独白） */}
-                      {m.thinkContent && m.thinkContent.trim() && (
-                        <div className="mb-2 rounded-lg border border-blush/40 bg-blush-soft/70 px-2 py-1.5 text-[12px] italic text-ink-muted">
-                          <span className="not-italic text-tangerine-deep/60">💭 内心独白：</span>
-                          {' '}{m.thinkContent}
-                        </div>
-                      )}
-                      {m.content ? (
-                        <Markdown rehypePlugins={[rehypeSanitize]}>{m.content}</Markdown>
-                      ) : (
-                        <span className="text-ink-faint">{isRegenerating ? '重新生成中…' : '思考中…'}</span>
-                      )}
-                      {(m.isStreaming || isRegenerating) && (
-                        <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-tangerine align-middle" />
+                  {isUser ? <User size={14} /> : <Bot size={14} />}
+                </div>
+                <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+                  {/* 一致性警告标记 */}
+                  {hasViolations && (
+                    <div className="mb-1 flex items-center gap-1 rounded-md bg-tangerine-soft px-2 py-0.5 text-[11px] text-tangerine-deep">
+                      <AlertTriangle size={11} />
+                      <span>⚠️ 可能不符性格</span>
+                      {m.consistencyViolations && m.consistencyViolations.length > 0 && (
+                        <span className="text-tangerine-deep/70">
+                          （
+                          {m.consistencyViolations
+                            .slice(0, 3)
+                            .map((v) => `「${v}」`)
+                            .join('')}
+                          ）
+                        </span>
                       )}
                     </div>
                   )}
-                </div>
-                {/* 不符性格按钮 */}
-                {canFlag && (
-                  <button
-                    onClick={() => void handleFlag(m.id)}
-                    className="mt-1 flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] text-ink-faint hover:bg-ink/5 hover:text-tangerine-deep"
-                    title="标记此回复不符性格并重新生成"
+                  <div
+                    className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${
+                      isUser
+                        ? 'bg-tangerine text-white'
+                        : isFlagged
+                          ? 'bg-surface text-ink ring-1 ring-error/40 border border-ink/10'
+                          : 'bg-surface text-ink border border-ink/10'
+                    } ${isSearchMatch && !isCurrentResult ? 'ring-1 ring-tangerine/30' : ''}`}
                   >
-                    {isRegenerating ? <RefreshCw size={11} className="animate-spin" /> : <Flag size={11} />}
-                    不符性格
-                  </button>
-                )}
-                {/* VOICEVOX 朗读按钮：仅助手已完成回复显示；引擎未启动时禁用 */}
-                {!isUser && !m.isStreaming && m.content && (
-                  <button
-                    onClick={() => void handleSpeak(m)}
-                    disabled={ttsAvailable === false || isRegenerating}
-                    className={`mt-1 flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-40 ${
-                      speakingId === m.id ? 'text-tangerine-deep' : 'text-ink-faint hover:text-tangerine-deep'
-                    }`}
-                    title={
-                      ttsAvailable === false
-                        ? 'VOICEVOX 引擎未启动（默认 http://127.0.0.1:50021）'
-                        : speakingId === m.id
-                          ? '点击停止朗读'
-                          : '用 VOICEVOX 朗读此回复'
-                    }
-                    aria-label={speakingId === m.id ? '停止朗读' : '朗读此回复'}
-                  >
-                    {speakingId === m.id ? (
-                      <Square size={11} className="animate-pulse" />
+                    {isUser ? (
+                      searchQuery ? (
+                        highlightText(m.content, searchQuery)
+                      ) : (
+                        m.content
+                      )
                     ) : (
-                      <Volume2 size={11} />
+                      <div className="prose prose-sm max-w-none break-words">
+                        {/* Phase 1.4: Think 标签内容 — 半透明折叠显示（内心独白） */}
+                        {m.thinkContent && m.thinkContent.trim() && (
+                          <div className="mb-2 rounded-lg border border-blush/40 bg-blush-soft/70 px-2 py-1.5 text-[12px] italic text-ink-muted">
+                            <span className="not-italic text-tangerine-deep/60">💭 内心独白：</span> {m.thinkContent}
+                          </div>
+                        )}
+                        {m.content ? (
+                          <Markdown rehypePlugins={[rehypeSanitize]}>{m.content}</Markdown>
+                        ) : (
+                          <span className="text-ink-faint">{isRegenerating ? '重新生成中…' : '思考中…'}</span>
+                        )}
+                        {(m.isStreaming || isRegenerating) && (
+                          <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-tangerine align-middle" />
+                        )}
+                      </div>
                     )}
-                    {speakingId === m.id ? '停止朗读' : '朗读'}
-                  </button>
-                )}
-                {isFlagged && (
-                  <span className="mt-1 flex items-center gap-1 px-2 py-0.5 text-[11px] text-error/70">
-                    <Flag size={11} /> 已标记
-                  </span>
-                )}
-                {/* 技术指标条：仅助手已完成消息且有 metrics 时显示 */}
-                {!isUser && !m.isStreaming && m.metrics && (
-                  <MessageMetricsBar metrics={m.metrics} />
-                )}
+                  </div>
+                  {/* 不符性格按钮 */}
+                  {canFlag && (
+                    <button
+                      onClick={() => void handleFlag(m.id)}
+                      className="mt-1 flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] text-ink-faint hover:bg-ink/5 hover:text-tangerine-deep"
+                      title="标记此回复不符性格并重新生成"
+                    >
+                      {isRegenerating ? <RefreshCw size={11} className="animate-spin" /> : <Flag size={11} />}
+                      不符性格
+                    </button>
+                  )}
+                  {/* VOICEVOX 朗读按钮：仅助手已完成回复显示；引擎未启动时禁用 */}
+                  {!isUser && !m.isStreaming && m.content && (
+                    <button
+                      onClick={() => void handleSpeak(m)}
+                      disabled={ttsAvailable === false || isRegenerating}
+                      className={`mt-1 flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-40 ${
+                        speakingId === m.id ? 'text-tangerine-deep' : 'text-ink-faint hover:text-tangerine-deep'
+                      }`}
+                      title={
+                        ttsAvailable === false
+                          ? 'VOICEVOX 引擎未启动（默认 http://127.0.0.1:50021）'
+                          : speakingId === m.id
+                            ? '点击停止朗读'
+                            : '用 VOICEVOX 朗读此回复'
+                      }
+                      aria-label={speakingId === m.id ? '停止朗读' : '朗读此回复'}
+                    >
+                      {speakingId === m.id ? <Square size={11} className="animate-pulse" /> : <Volume2 size={11} />}
+                      {speakingId === m.id ? '停止朗读' : '朗读'}
+                    </button>
+                  )}
+                  {isFlagged && (
+                    <span className="mt-1 flex items-center gap-1 px-2 py-0.5 text-[11px] text-error/70">
+                      <Flag size={11} /> 已标记
+                    </span>
+                  )}
+                  {/* 技术指标条：仅助手已完成消息且有 metrics 时显示 */}
+                  {!isUser && !m.isStreaming && m.metrics && <MessageMetricsBar metrics={m.metrics} />}
+                </div>
               </div>
-            </div>
-          )
-        })}
-        {error && (
-          <div className="rounded-lg border border-error bg-error/15 px-3 py-2 text-xs text-error">{error}</div>
-        )}
-      </div>
-
-      {/* 输入框 */}
-      <div className="shrink-0 border-t border-ink/10 p-3">
-        <div className="flex items-end gap-2">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="输入消息与宠物聊天…"
-            rows={2}
-            aria-label="聊天输入框"
-            className="flex-1 resize-none rounded-panel border border-ink/10 bg-surface px-3 py-2 text-sm text-ink placeholder-ink-faint focus:outline-none focus:ring-1 focus:ring-tangerine"
-          />
-          <button
-            onClick={handleMicToggle}
-            aria-label={sttActive ? '停止语音输入' : '语音输入'}
-            aria-pressed={sttActive}
-            title={sttActive ? '点击停止语音输入' : '点击开始语音输入'}
-            className={`spiritpal-focusable flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
-              sttActive
-                ? 'bg-red-500 text-white hover:bg-red-400 animate-pulse'
-                : 'bg-surface text-ink-faint border border-ink/10 hover:bg-ink/8'
-            }`}
-          >
-            <Mic size={16} aria-hidden="true" />
-          </button>
-          {isLoading ? (
-            <button
-              onClick={stopGeneration}
-              className="spiritpal-focusable flex h-10 w-10 items-center justify-center rounded-full bg-red-500 hover:bg-red-400"
-              aria-label="停止生成"
-            >
-              <Square size={16} aria-hidden="true" />
-            </button>
-          ) : (
-            <button
-              onClick={() => void handleSend()}
-              disabled={!input.trim()}
-              className="spiritpal-focusable flex h-10 w-10 items-center justify-center rounded-full bg-tangerine text-white shadow-soft hover:bg-tangerine-deep disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="发送消息"
-            >
-              <Send size={16} aria-hidden="true" />
-            </button>
+            )
+          })}
+          {error && (
+            <div className="rounded-lg border border-error bg-error/15 px-3 py-2 text-xs text-error">{error}</div>
           )}
         </div>
+
+        {/* 输入框 */}
+        <div className="shrink-0 border-t border-ink/10 p-3">
+          <div className="flex items-end gap-2">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="输入消息与宠物聊天…"
+              rows={2}
+              aria-label="聊天输入框"
+              className="flex-1 resize-none rounded-panel border border-ink/10 bg-surface px-3 py-2 text-sm text-ink placeholder-ink-faint focus:outline-none focus:ring-1 focus:ring-tangerine"
+            />
+            <button
+              onClick={handleMicToggle}
+              aria-label={sttActive ? '停止语音输入' : '语音输入'}
+              aria-pressed={sttActive}
+              title={sttActive ? '点击停止语音输入' : '点击开始语音输入'}
+              className={`spiritpal-focusable flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
+                sttActive
+                  ? 'bg-red-500 text-white hover:bg-red-400 animate-pulse'
+                  : 'bg-surface text-ink-faint border border-ink/10 hover:bg-ink/8'
+              }`}
+            >
+              <Mic size={16} aria-hidden="true" />
+            </button>
+            {isLoading ? (
+              <button
+                onClick={stopGeneration}
+                className="spiritpal-focusable flex h-10 w-10 items-center justify-center rounded-full bg-red-500 hover:bg-red-400"
+                aria-label="停止生成"
+              >
+                <Square size={16} aria-hidden="true" />
+              </button>
+            ) : (
+              <button
+                onClick={() => void handleSend()}
+                disabled={!input.trim()}
+                className="spiritpal-focusable flex h-10 w-10 items-center justify-center rounded-full bg-tangerine text-white shadow-soft hover:bg-tangerine-deep disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="发送消息"
+              >
+                <Send size={16} aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
-      </div>{/* 主聊天区域 end */}
+      {/* 主聊天区域 end */}
 
       {/* 右侧记忆面板（覆盖式） */}
       {memoryPanelOpen && (
@@ -1273,7 +1322,10 @@ export default function ChatWindow() {
       {(sessionListOpen || memoryPanelOpen) && (
         <div
           className="absolute inset-0 z-20 bg-ink/20"
-          onClick={() => { setSessionListOpen(false); setMemoryPanelOpen(false) }}
+          onClick={() => {
+            setSessionListOpen(false)
+            setMemoryPanelOpen(false)
+          }}
           aria-hidden="true"
         />
       )}
