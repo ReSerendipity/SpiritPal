@@ -59,6 +59,23 @@ import { usePetStore } from '@/stores/petStore'
 // D8：移动端记忆注入
 
 /**
+ * 端侧（on-device MNN）聊天上下文预算。
+ *
+ * 背景：真机实测（RMX5010 / Qwen3.5-0.8B-MNN / 2B-MNN）prefill 一度到 **4359 token** ——
+ * 大头不是系统提示词（persona + 性格块合计仅约 400 token），而是
+ * `getContextForChat(3000)` 的记忆上下文 + **最近 20 轮**对话历史。
+ * 小模型在这种 prompt 长度下注意力被大幅稀释，出现「角色没搞对、简单比较题也答错」——
+ * 2B 的推理日志里甚至专门花一段纠正自己看到的 persona 块
+ * （"Self-Correction: ... the prompt contained a 'System Instruction' block"）。
+ *
+ * 故对端侧单独收紧预算：prompt 越短，小模型越准，prefill 也越快。
+ * 云端 provider 保留原预算（大模型吃得住）。
+ */
+export const ON_DEVICE_MEM_TOKEN_BUDGET = 1000
+export const ON_DEVICE_HISTORY_TURNS = 6
+export const CLOUD_HISTORY_TURNS = 20
+
+/**
  * 移动端聊天视图组件
  * @returns 聊天界面组件
  */
@@ -250,10 +267,13 @@ export function MobileChatView() {
 
       const personality = getEffectivePersonality(currentCharacterId, char.personality)
       const systemPrompt = composeFullSystemPrompt(char.systemPrompt, personality)
+      // 端侧上下文预算（见文件顶部注释）：小模型喂太长上下文会明显变笨、prefill 也变慢
+      const isOnDevice = config.provider === 'ondevice'
+      const historyTurns = isOnDevice ? ON_DEVICE_HISTORY_TURNS : CLOUD_HISTORY_TURNS
       // 重试场景下末条助手消息内容为空，不应进入上下文
       const history = messages
         .filter((m) => m.content.trim())
-        .slice(-20)
+        .slice(-historyTurns)
         .map((m) => ({
           id: m.id,
           role: m.role,
@@ -266,7 +286,7 @@ export function MobileChatView() {
       try {
         const memMgr = getEnhancedMemoryManager(currentCharacterId)
         await memMgr.ensureLoaded()
-        memCtx = await memMgr.getContextForChat(3000, text)
+        memCtx = await memMgr.getContextForChat(isOnDevice ? ON_DEVICE_MEM_TOKEN_BUDGET : 3000, text)
       } catch {
         // 记忆加载失败不影响正常使用
       }
