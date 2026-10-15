@@ -55,6 +55,11 @@ object SpiritPalOnDevice {
      * @param enableThinking "1" 开启思维链 / 其他值关闭。MNN **仅在 load 时**从 config.json 读
      *   `enable_thinking`，而 generate() 的 params 被忽略（见 llm/LlmSession.kt），故必须在此改写
      *   config.json。聊天宠物默认关（长上下文 TTFT 从 >2min 降到 ~4s）；复杂推理可在设置里开。
+     *
+     * ⚠️ **必须写进 `jinja.context`**，不是顶层。MNN 的 `Llm::setChatTemplate()` 只把
+     *   `config["jinja"]["context"]` 当作模板上下文（见 GOTCHAS #179）：顶层同名键**永远不会被读**。
+     *   曾经的写法只写顶层 → 真机实测思维链开关**完全无效**、thinking 恒开（输出里始终带 `</think>`，
+     *   且推理文本直接泄漏到可见回复）。
      */
     @JvmStatic
     fun loadModel(modelId: String, configPath: String, enableThinking: String) {
@@ -64,7 +69,14 @@ object SpiritPalOnDevice {
             val cfgFile = java.io.File(configPath)
             if (cfgFile.isFile) {
                 val jo = JSONObject(cfgFile.readText())
-                jo.put("enable_thinking", enableThinking == "1")
+                val want = enableThinking == "1"
+                // ① 权威位置：jinja.context.enable_thinking（MNN setChatTemplate 实际读取处）。
+                //    缺失时逐级补建，兼容不带 jinja 段的模型。
+                val jinja = jo.optJSONObject("jinja") ?: JSONObject().also { jo.put("jinja", it) }
+                val ctx = jinja.optJSONObject("context") ?: JSONObject().also { jinja.put("context", it) }
+                ctx.put("enable_thinking", want)
+                // ② 同时写一份顶层键：对读顶层的引擎版本（含未来升级）保持兼容；MNN 忽略未知键，无副作用。
+                jo.put("enable_thinking", want)
                 cfgFile.writeText(jo.toString())
             }
         } catch (e: Throwable) {
