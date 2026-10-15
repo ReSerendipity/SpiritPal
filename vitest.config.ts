@@ -76,10 +76,16 @@ export default defineConfig({
       // 且 163 个测试文件全部通过、无测试被删除 → 覆盖率下降只可能来自度量口径。
       // 因此按新口径重校准（而非回退依赖），并留 ~0.5pp 余量防抖动；阈值仍是「只升不降」
       // 的棘轮——后续覆盖率再降会被重新拦下。
+      //
+      // 棘轮上调（2026-10-16，对应测试报告 P1「阈值偏低」）：
+      // 全量实测（批次一~四落地后，lcov.info 汇总）：lines 49.76%（11283/22673）、
+      // functions 46.06%（2454/5328）、branches 41.56%（5636/13560）。
+      // 按「实测值 - ~1.5~2pp 余量」上调至 48/44/40；statements 无 lcov 记录可测
+      // （lcov 仅含 LF/LH/BRF/BRH/FNF/FNH），维持 45 不动，待有可测口径再棘轮。
       thresholds: {
-        lines: 46,
-        functions: 42,
-        branches: 38,
+        lines: 48,
+        functions: 44,
+        branches: 40,
         statements: 45,
       },
     },

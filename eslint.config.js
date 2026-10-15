@@ -27,7 +27,9 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/ban-ts-comment': 'warn',
-      'no-empty': ['error', { allowEmptyCatch: true }],
+      // 2026-10-16：收紧 allowEmptyCatch（对应报告「吞没异常」P1）——空 catch 一律报错，
+      // 确需忽略时必须显式记录上下文（参考 src/lib/system/swallowedCatch.ts）
+      'no-empty': ['error', { allowEmptyCatch: false }],
       // 禁用 React Compiler 严格规则（与现有代码模式不兼容）
       'react-hooks/refs': 'off',
       'react-hooks/set-state-in-effect': 'off',
