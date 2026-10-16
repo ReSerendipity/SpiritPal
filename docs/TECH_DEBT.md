@@ -26,7 +26,7 @@
 
 ## 2. 覆盖率棘轮阈值（测试 P1，批次五处置中）
 
-当前 `vitest.config.ts` 阈值 lines 46 / branches 38 / functions 42 / statements 45。2026-10-16 实测全量覆盖率：**lines 49.74%（11274/22664）、functions 45.91%（2444/5323）、branches 41.47%（5624/13560）**。处置结论见 `vitest.config.ts` 提交记录（棘轮上调须以实测值为准）。
+当前 `vitest.config.ts` 阈值 lines 48 / branches 40 / functions 44 / **statements 47**。2026-10-16 实测全量覆盖率（json-summary + lcov 双口径）：**lines 49.81%、functions 46.11%、branches 41.67%、statements 49.02%（12217/24920）**。处置结论见 `vitest.config.ts` 提交记录（棘轮上调须以实测值为准；statements 原无可测口径，2026-10-16 追加 json-summary reporter 后取得，并按实测-2pp 棘轮至 47）。
 
 ## 3. 评测集缺口台账（`src/lib/ai/__tests__/prompt.eval.test.ts`）
 
