@@ -106,7 +106,7 @@ interface BM25DocStats {
  */
 class BM25Index {
   private docs: BM25DocStats[] = []
-  private docFreq: Map<string, number> = new Map()  // term → 包含该 term 的文档数
+  private docFreq: Map<string, number> = new Map() // term → 包含该 term 的文档数
   private avgDocLen = 0
   private totalDocs = 0
   private k1: number
@@ -150,7 +150,7 @@ class BM25Index {
    * P4-1：从索引中移除指定文档
    */
   removeDocument(id: string): void {
-    const idx = this.docs.findIndex(d => d.id === id)
+    const idx = this.docs.findIndex((d) => d.id === id)
     if (idx === -1) return
     const removed = this.docs[idx]
     this.docs.splice(idx, 1)
@@ -236,14 +236,10 @@ class BM25Index {
 
         const df = this.docFreq.get(qTerm) || 0
         // IDF = ln((N - df + 0.5) / (df + 0.5) + 1)
-        const idf = Math.log(
-          (this.totalDocs - df + 0.5) / (df + 0.5) + 1,
-        )
+        const idf = Math.log((this.totalDocs - df + 0.5) / (df + 0.5) + 1)
 
         // BM25 词频分量：tf * (k1 + 1) / (tf + k1 * (1 - b + b * dl / avgdl))
-        const tfNorm =
-          (tf * (this.k1 + 1)) /
-          (tf + this.k1 * (1 - this.b + this.b * (doc.docLen / this.avgDocLen)))
+        const tfNorm = (tf * (this.k1 + 1)) / (tf + this.k1 * (1 - this.b + this.b * (doc.docLen / this.avgDocLen)))
 
         score += idf * tfNorm
       }
@@ -328,27 +324,33 @@ function reciprocalRankFusion(
   bm25Results: { id: string; score: number }[],
   vectorResults: { id: string; score: number }[],
   config: RAGConfig,
-): Map<string, {
-  fusionScore: number
-  bm25Rank: number
-  bm25Score: number
-  vectorRank: number
-  vectorScore: number
-  sources: ('bm25' | 'vector')[]
-}> {
-  const result = new Map<string, {
+): Map<
+  string,
+  {
     fusionScore: number
     bm25Rank: number
     bm25Score: number
     vectorRank: number
     vectorScore: number
     sources: ('bm25' | 'vector')[]
-  }>()
+  }
+> {
+  const result = new Map<
+    string,
+    {
+      fusionScore: number
+      bm25Rank: number
+      bm25Score: number
+      vectorRank: number
+      vectorScore: number
+      sources: ('bm25' | 'vector')[]
+    }
+  >()
 
   // BM25 贡献
   for (let i = 0; i < bm25Results.length; i++) {
     const { id, score } = bm25Results[i]
-    const rank = i + 1  // 排名从 1 开始
+    const rank = i + 1 // 排名从 1 开始
     const rrfScore = config.alpha / (config.rrfK + rank)
     result.set(id, {
       fusionScore: rrfScore,
@@ -465,10 +467,7 @@ export class RAGRetriever {
    * @param memories 记忆列表
    * @param embeddingCache 嵌入向量缓存（用于向量检索）
    */
-  async buildIndex(
-    memories: EnhancedMemory[],
-    embeddingCache?: Map<number, Float32Array>,
-  ): Promise<void> {
+  async buildIndex(memories: EnhancedMemory[], embeddingCache?: Map<number, Float32Array>): Promise<void> {
     // 构建 ID → memory 映射
     this.memoryMap.clear()
     for (const mem of memories) {
@@ -498,14 +497,12 @@ export class RAGRetriever {
    * @param embeddingCache 嵌入向量缓存
    * @returns 融合排序后的检索结果
    */
-  async retrieve(
-    query: string,
-    embeddingCache?: Map<number, Float32Array>,
-  ): Promise<RAGResult[]> {
+  async retrieve(query: string, embeddingCache?: Map<number, Float32Array>): Promise<RAGResult[]> {
     if (!query.trim() || this.memoryMap.size === 0) return []
 
     // 1. BM25 稀疏检索
-    const bm25Results = this.bm25Index.search(query, this.config.topK * 2)
+    const bm25Results = this.bm25Index
+      .search(query, this.config.topK * 2)
       .filter((r) => r.score >= this.config.bm25MinScore)
 
     // 2. 向量稠密检索
@@ -580,7 +577,8 @@ export class RAGRetriever {
   retrieveBM25(query: string): RAGResult[] {
     if (!query.trim() || this.memoryMap.size === 0) return []
 
-    const bm25Results = this.bm25Index.search(query, this.config.topK)
+    const bm25Results = this.bm25Index
+      .search(query, this.config.topK)
       .filter((r) => r.score >= this.config.bm25MinScore)
 
     return bm25Results.map((r, i) => {

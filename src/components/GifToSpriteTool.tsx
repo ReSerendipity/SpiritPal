@@ -20,8 +20,18 @@
 import { useState, useRef, useCallback } from 'react'
 import { parseGIF, decompressFrames } from 'gifuct-js'
 import {
-  X, Upload, Download, Loader2, Grid3x3, Film, Image as ImageIcon,
-  AlertCircle, Check, FileJson, Settings2, Layers,
+  X,
+  Upload,
+  Download,
+  Loader2,
+  Grid3x3,
+  Film,
+  Image as ImageIcon,
+  AlertCircle,
+  Check,
+  FileJson,
+  Settings2,
+  Layers,
 } from 'lucide-react'
 import { createSpriteAtlas, type SpriteAtlasData } from '@/lib/render/spriteAtlasBuilder'
 import { validateUploadMagic } from '@/lib/system/uploadMagic'
@@ -131,76 +141,79 @@ export function GifToSpriteTool({ onClose }: Props) {
 
   // ============ 核心：解析 GIF 并提取完整帧 ============
   // GIF 帧通常是增量更新的（只包含变化部分），需要合成完整帧
-  const parseGifToFrames = useCallback(async (gifFile: File): Promise<HTMLCanvasElement[]> => {
-    const buffer = await gifFile.arrayBuffer()
-    const parsed: ParsedGif = parseGIF(buffer)
-    const parsedFrames: ParsedFrame[] = decompressFrames(parsed, true)
+  const parseGifToFrames = useCallback(
+    async (gifFile: File): Promise<HTMLCanvasElement[]> => {
+      const buffer = await gifFile.arrayBuffer()
+      const parsed: ParsedGif = parseGIF(buffer)
+      const parsedFrames: ParsedFrame[] = decompressFrames(parsed, true)
 
-    if (parsedFrames.length === 0) {
-      throw new Error('GIF 中未找到任何帧')
-    }
+      if (parsedFrames.length === 0) {
+        throw new Error('GIF 中未找到任何帧')
+      }
 
-    const gifW = parsed.lsd.width
-    const gifH = parsed.lsd.height
+      const gifW = parsed.lsd.width
+      const gifH = parsed.lsd.height
 
-    // 全尺寸 GIF 合成画布
-    const gifCanvas = document.createElement('canvas')
-    gifCanvas.width = gifW
-    gifCanvas.height = gifH
-    const gifCtx = gifCanvas.getContext('2d')!
+      // 全尺寸 GIF 合成画布
+      const gifCanvas = document.createElement('canvas')
+      gifCanvas.width = gifW
+      gifCanvas.height = gifH
+      const gifCtx = gifCanvas.getContext('2d')!
 
-    // 临时画布（绘制单帧 patch）
-    const tempCanvas = document.createElement('canvas')
-    const tempCtx = tempCanvas.getContext('2d')!
+      // 临时画布（绘制单帧 patch）
+      const tempCanvas = document.createElement('canvas')
+      const tempCtx = tempCanvas.getContext('2d')!
 
-    const result: HTMLCanvasElement[] = []
-    let frameImageData: ImageData | null = null
+      const result: HTMLCanvasElement[] = []
+      let frameImageData: ImageData | null = null
 
-    for (let i = 0; i < parsedFrames.length; i++) {
-      const frame = parsedFrames[i]
-      const dims = frame.dims
+      for (let i = 0; i < parsedFrames.length; i++) {
+        const frame = parsedFrames[i]
+        const dims = frame.dims
 
-      // 处理 disposal：上一帧 disposalType === 2 时清除上一帧区域
-      if (i > 0) {
-        const prev = parsedFrames[i - 1]
-        if (prev.disposalType === 2) {
-          gifCtx.clearRect(prev.dims.left, prev.dims.top, prev.dims.width, prev.dims.height)
+        // 处理 disposal：上一帧 disposalType === 2 时清除上一帧区域
+        if (i > 0) {
+          const prev = parsedFrames[i - 1]
+          if (prev.disposalType === 2) {
+            gifCtx.clearRect(prev.dims.left, prev.dims.top, prev.dims.width, prev.dims.height)
+          }
         }
+
+        // 将 patch 数据写入临时画布
+        if (!frameImageData || frameImageData.width !== dims.width || frameImageData.height !== dims.height) {
+          tempCanvas.width = dims.width
+          tempCanvas.height = dims.height
+          frameImageData = tempCtx.createImageData(dims.width, dims.height)
+        }
+        frameImageData.data.set(frame.patch)
+        tempCtx.putImageData(frameImageData, 0, 0)
+
+        // 将临时画布绘制到全尺寸 GIF 画布的指定位置
+        gifCtx.drawImage(tempCanvas, dims.left, dims.top)
+
+        // 复制当前完整帧到独立画布
+        const frameCanvas = document.createElement('canvas')
+        frameCanvas.width = config.frameWidth
+        frameCanvas.height = config.frameHeight
+        const fCtx = frameCanvas.getContext('2d')!
+        if (!config.transparent) {
+          fCtx.fillStyle = config.bgColor
+          fCtx.fillRect(0, 0, config.frameWidth, config.frameHeight)
+        }
+        // 等比缩放 GIF 完整画面到帧尺寸（居中裁剪）
+        const scale = Math.max(config.frameWidth / gifW, config.frameHeight / gifH)
+        const dw = gifW * scale
+        const dh = gifH * scale
+        const dx = (config.frameWidth - dw) / 2
+        const dy = (config.frameHeight - dh) / 2
+        fCtx.drawImage(gifCanvas, dx, dy, dw, dh)
+        result.push(frameCanvas)
       }
 
-      // 将 patch 数据写入临时画布
-      if (!frameImageData || frameImageData.width !== dims.width || frameImageData.height !== dims.height) {
-        tempCanvas.width = dims.width
-        tempCanvas.height = dims.height
-        frameImageData = tempCtx.createImageData(dims.width, dims.height)
-      }
-      frameImageData.data.set(frame.patch)
-      tempCtx.putImageData(frameImageData, 0, 0)
-
-      // 将临时画布绘制到全尺寸 GIF 画布的指定位置
-      gifCtx.drawImage(tempCanvas, dims.left, dims.top)
-
-      // 复制当前完整帧到独立画布
-      const frameCanvas = document.createElement('canvas')
-      frameCanvas.width = config.frameWidth
-      frameCanvas.height = config.frameHeight
-      const fCtx = frameCanvas.getContext('2d')!
-      if (!config.transparent) {
-        fCtx.fillStyle = config.bgColor
-        fCtx.fillRect(0, 0, config.frameWidth, config.frameHeight)
-      }
-      // 等比缩放 GIF 完整画面到帧尺寸（居中裁剪）
-      const scale = Math.max(config.frameWidth / gifW, config.frameHeight / gifH)
-      const dw = gifW * scale
-      const dh = gifH * scale
-      const dx = (config.frameWidth - dw) / 2
-      const dy = (config.frameHeight - dh) / 2
-      fCtx.drawImage(gifCanvas, dx, dy, dw, dh)
-      result.push(frameCanvas)
-    }
-
-    return result
-  }, [config.frameWidth, config.frameHeight, config.bgColor, config.transparent])
+      return result
+    },
+    [config.frameWidth, config.frameHeight, config.bgColor, config.transparent],
+  )
 
   // ============ 处理文件选择 ============
   async function handleFile(gifFile: File) {
@@ -431,9 +444,7 @@ export function GifToSpriteTool({ onClose }: Props) {
     document.body.removeChild(img)
 
     // 下载配置：打包模式导出图集元数据，网格模式导出 act_conf.json
-    const json = isPacked
-      ? JSON.stringify(atlasData!.metadata ?? {}, null, 2)
-      : JSON.stringify(actConf, null, 2)
+    const json = isPacked ? JSON.stringify(atlasData!.metadata ?? {}, null, 2) : JSON.stringify(actConf, null, 2)
     const filename = isPacked ? `${outputName}-atlas.json` : `${outputName}-act_conf.json`
     triggerDownload(json, filename, 'application/json')
   }
@@ -526,7 +537,11 @@ export function GifToSpriteTool({ onClose }: Props) {
                 ref={fileInputRef}
                 type="file"
                 accept="image/gif,image/png,image/jpeg,image/webp"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFile(f); e.target.value = '' }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) void handleFile(f)
+                  e.target.value = ''
+                }}
                 className="hidden"
               />
             </div>
@@ -550,7 +565,9 @@ export function GifToSpriteTool({ onClose }: Props) {
                   <span className="text-xs text-ink-faint">{file.name}</span>
                   <span className="text-[10px] text-ink-muted">{(file.size / 1024).toFixed(1)} KB</span>
                 </div>
-                <button onClick={handleReset} className="text-xs text-ink-faint hover:text-tangerine">重新选择</button>
+                <button onClick={handleReset} className="text-xs text-ink-faint hover:text-tangerine">
+                  重新选择
+                </button>
               </div>
 
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -599,15 +616,55 @@ export function GifToSpriteTool({ onClose }: Props) {
                       <Settings2 size={14} /> 网格布局配置
                     </div>
                     <div className="grid grid-cols-2 gap-x-3 gap-y-3">
-                      <ConfigInput label="行数" value={config.rows} min={1} max={32} onChange={(v) => updateConfig('rows', v)} />
-                      <ConfigInput label="列数" value={config.cols} min={1} max={32} onChange={(v) => updateConfig('cols', v)} />
-                      <ConfigInput label="帧宽 (px)" value={config.frameWidth} min={16} max={512} onChange={(v) => updateConfig('frameWidth', v)} />
-                      <ConfigInput label="帧高 (px)" value={config.frameHeight} min={16} max={512} onChange={(v) => updateConfig('frameHeight', v)} />
-                      <ConfigInput label="间距 (px)" value={config.spacing} min={0} max={32} onChange={(v) => updateConfig('spacing', v)} />
-                      <ConfigInput label="帧率 (fps)" value={config.fps} min={1} max={60} onChange={(v) => updateConfig('fps', v)} />
+                      <ConfigInput
+                        label="行数"
+                        value={config.rows}
+                        min={1}
+                        max={32}
+                        onChange={(v) => updateConfig('rows', v)}
+                      />
+                      <ConfigInput
+                        label="列数"
+                        value={config.cols}
+                        min={1}
+                        max={32}
+                        onChange={(v) => updateConfig('cols', v)}
+                      />
+                      <ConfigInput
+                        label="帧宽 (px)"
+                        value={config.frameWidth}
+                        min={16}
+                        max={512}
+                        onChange={(v) => updateConfig('frameWidth', v)}
+                      />
+                      <ConfigInput
+                        label="帧高 (px)"
+                        value={config.frameHeight}
+                        min={16}
+                        max={512}
+                        onChange={(v) => updateConfig('frameHeight', v)}
+                      />
+                      <ConfigInput
+                        label="间距 (px)"
+                        value={config.spacing}
+                        min={0}
+                        max={32}
+                        onChange={(v) => updateConfig('spacing', v)}
+                      />
+                      <ConfigInput
+                        label="帧率 (fps)"
+                        value={config.fps}
+                        min={1}
+                        max={60}
+                        onChange={(v) => updateConfig('fps', v)}
+                      />
                     </div>
                     <div className="mt-3 flex items-center justify-between">
-                      <span className="text-[10px] text-ink-muted">总槽位 {totalSlots} · 输出 {config.cols * config.frameWidth + (config.cols - 1) * config.spacing}×{config.rows * config.frameHeight + (config.rows - 1) * config.spacing}px</span>
+                      <span className="text-[10px] text-ink-muted">
+                        总槽位 {totalSlots} · 输出{' '}
+                        {config.cols * config.frameWidth + (config.cols - 1) * config.spacing}×
+                        {config.rows * config.frameHeight + (config.rows - 1) * config.spacing}px
+                      </span>
                     </div>
                   </div>
 
@@ -642,7 +699,9 @@ export function GifToSpriteTool({ onClose }: Props) {
                   {/* 动画行名称配置 */}
                   {frames.length > 0 && (
                     <div className="rounded-xl bg-cream-deep/50 p-4">
-                      <div className="mb-2 text-xs font-semibold text-tangerine-deep">动画行名称（用于 act_conf.json）</div>
+                      <div className="mb-2 text-xs font-semibold text-tangerine-deep">
+                        动画行名称（用于 act_conf.json）
+                      </div>
                       <div className="space-y-1.5">
                         {animNames.map((name, idx) => (
                           <div key={idx} className="flex items-center gap-2">
@@ -672,11 +731,7 @@ export function GifToSpriteTool({ onClose }: Props) {
                       disabled={generating}
                       className="flex w-full items-center justify-center gap-2 rounded-lg bg-tangerine px-4 py-2.5 text-sm font-medium text-white hover:bg-tangerine-deep disabled:opacity-60"
                     >
-                      {generating ? (
-                        <Loader2 size={16} className="animate-spin" />
-                      ) : (
-                        <Layers size={16} />
-                      )}
+                      {generating ? <Loader2 size={16} className="animate-spin" /> : <Layers size={16} />}
                       {generating ? '正在打包...' : '生成精灵图集'}
                     </button>
                   )}
@@ -702,7 +757,9 @@ export function GifToSpriteTool({ onClose }: Props) {
                               style={{ width: 48, height: 48 }}
                             >
                               <img src={frame.toDataURL()} alt={`f${i}`} className="h-full w-full object-cover" />
-                              <span className="absolute bottom-0 right-0 bg-black/60 px-0.5 text-[8px] text-ink-faint">{i}</span>
+                              <span className="absolute bottom-0 right-0 bg-black/60 px-0.5 text-[8px] text-ink-faint">
+                                {i}
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -783,7 +840,11 @@ export function GifToSpriteTool({ onClose }: Props) {
  * 带标签和数值范围限制的数字输入框
  */
 function ConfigInput({
-  label, value, min, max, onChange,
+  label,
+  value,
+  min,
+  max,
+  onChange,
 }: {
   /** 输入框标签 */
   label: string

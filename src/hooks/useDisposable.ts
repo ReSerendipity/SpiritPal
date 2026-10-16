@@ -56,13 +56,12 @@ export function useDisposable() {
  * 管理一个 EventEmitter 风格的管理器，自动处理订阅和取消订阅
  */
 export function useEventListener<
-  T extends { on: (event: string, fn: (...args: unknown[]) => void) => void; off?: (event: string, fn: (...args: unknown[]) => void) => void; removeListener?: (event: string, fn: (...args: unknown[]) => void) => void }
->(
-  manager: T | (() => T),
-  event: string,
-  handler: (...args: unknown[]) => void,
-  deps: React.DependencyList = [],
-) {
+  T extends {
+    on: (event: string, fn: (...args: unknown[]) => void) => void
+    off?: (event: string, fn: (...args: unknown[]) => void) => void
+    removeListener?: (event: string, fn: (...args: unknown[]) => void) => void
+  },
+>(manager: T | (() => T), event: string, handler: (...args: unknown[]) => void, deps: React.DependencyList = []) {
   useEffect(() => {
     const mgr = typeof manager === 'function' ? manager() : manager
     mgr.on(event, handler)

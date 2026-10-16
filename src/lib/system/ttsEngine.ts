@@ -34,7 +34,13 @@
 
 // P0: 统一网络出口 — TTS API 远端端点走 safeFetch（Tauri 下 Rust 代理）
 import { safeFetch } from '@/lib/system/ssrfProtection'
-import { type TTSAudioData, type TTSGenerateFn, type TTSPlayFn, getTTSTaskManager, resetTTSTaskManager } from './ttsTaskManager'
+import {
+  type TTSAudioData,
+  type TTSGenerateFn,
+  type TTSPlayFn,
+  getTTSTaskManager,
+  resetTTSTaskManager,
+} from './ttsTaskManager'
 
 // ============ 类型定义 ============
 
@@ -458,7 +464,9 @@ export class TTSEngineManager {
     stopCurrentApiAudio()
     try {
       getTTSTaskManager().cancelAll()
-    } catch { /* 忽略 */ }
+    } catch {
+      /* 忽略 */
+    }
     // 同时取消浏览器原生 TTS
     if (typeof speechSynthesis !== 'undefined') {
       speechSynthesis.cancel()

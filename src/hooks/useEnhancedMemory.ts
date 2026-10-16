@@ -62,10 +62,7 @@ export function useEnhancedMemory(characterId?: string) {
     }))
   }
 
-  const recordMemory = async (
-    text: string,
-    metadata: Record<string, unknown> = {},
-  ): Promise<void> => {
+  const recordMemory = async (text: string, metadata: Record<string, unknown> = {}): Promise<void> => {
     if (characterId && text.trim()) await cogneeAdd(characterId, text, metadata)
   }
 

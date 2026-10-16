@@ -178,10 +178,7 @@ describe('B-4-1：记忆检索 P95 延迟基准', () => {
 
     const resultsDir = resolve(process.cwd(), 'perf', 'results')
     mkdirSync(resultsDir, { recursive: true })
-    writeFileSync(
-      resolve(resultsDir, 'memory-recall-p95.json'),
-      JSON.stringify(payload, null, 2),
-    )
+    writeFileSync(resolve(resultsDir, 'memory-recall-p95.json'), JSON.stringify(payload, null, 2))
 
     expect(payload.passed).toBe(true)
   })

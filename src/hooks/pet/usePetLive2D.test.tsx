@@ -103,17 +103,14 @@ describe('usePetLive2D', () => {
       isReady: () => true,
     }
     const live2dRef: MutableRefObject<Live2DRendererHandle | null> = { current: handle }
-    const { result } = renderHook(
-      (props: UsePetLive2DOptions) => usePetLive2D(props),
-      {
-        initialProps: {
-          currentCharacterId: 'doro',
-          petState: 'idle',
-          currentAnimId: 'idle',
-          live2dRef,
-        },
+    const { result } = renderHook((props: UsePetLive2DOptions) => usePetLive2D(props), {
+      initialProps: {
+        currentCharacterId: 'doro',
+        petState: 'idle',
+        currentAnimId: 'idle',
+        live2dRef,
       },
-    )
+    })
     await waitFor(() => {
       expect(result.current.useLive2D).toBe(true)
     })

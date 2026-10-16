@@ -16,13 +16,7 @@ function createFakeCanvas() {
     width: 0,
     height: 0,
     getContext: () => ({
-      drawImage: (
-        img: { src: string },
-        x: number,
-        y: number,
-        w: number,
-        h: number,
-      ) => {
+      drawImage: (img: { src: string }, x: number, y: number, w: number, h: number) => {
         calls.push({ x, y, w, h, src: img.src })
       },
     }),
@@ -67,8 +61,8 @@ describe('SpriteAtlasBuilder', () => {
       for (let j = i + 1; j < atlas.sprites.length; j++) {
         const a = atlas.sprites[i]!
         const b = atlas.sprites[j]!
-        const overlapX = (a.x! < b.x! + b.width!) && (b.x! < a.x! + a.width!)
-        const overlapY = (a.y! < b.y! + b.height!) && (b.y! < a.y! + a.height!)
+        const overlapX = a.x! < b.x! + b.width! && b.x! < a.x! + a.width!
+        const overlapY = a.y! < b.y! + b.height! && b.y! < a.y! + a.height!
         expect(overlapX && overlapY).toBe(false)
       }
     }
@@ -101,10 +95,7 @@ describe('SpriteAtlasBuilder', () => {
     const atlas = await builder.build()
     const { canvas, calls } = createFakeCanvas()
 
-    const drawn = await builder.drawTo(
-      canvas,
-      (sourcePath) => ({ src: sourcePath }) as unknown as CanvasImageSource,
-    )
+    const drawn = await builder.drawTo(canvas, (sourcePath) => ({ src: sourcePath }) as unknown as CanvasImageSource)
 
     expect(drawn).toBe(4)
     expect(calls).toHaveLength(4)

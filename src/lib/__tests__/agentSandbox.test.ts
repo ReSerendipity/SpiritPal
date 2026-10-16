@@ -274,7 +274,14 @@ describe('AgentSandbox', () => {
     })
 
     it('豁免名单内的低风险工具无需确认', () => {
-      for (const tool of ['search_web', 'open_application', 'set_reminder', 'read_file', 'list_directory', 'search_files']) {
+      for (const tool of [
+        'search_web',
+        'open_application',
+        'set_reminder',
+        'read_file',
+        'list_directory',
+        'search_files',
+      ]) {
         expect(isToolConfirmationRequired(tool)).toBe(false)
       }
     })

@@ -19,7 +19,8 @@ import { usePetStore } from '@/stores/petStore'
 
 const EMPTY_DECORATIONS: WornDecoration[] = []
 const selectInventory = (s: ReturnType<typeof usePetStore.getState>) => s.inventory
-const selectWornDecorations = (s: ReturnType<typeof usePetStore.getState>) => s.wornDecorations[s.currentCharacterId] ?? EMPTY_DECORATIONS
+const selectWornDecorations = (s: ReturnType<typeof usePetStore.getState>) =>
+  s.wornDecorations[s.currentCharacterId] ?? EMPTY_DECORATIONS
 const selectWearDecoration = (s: ReturnType<typeof usePetStore.getState>) => s.wearDecoration
 const selectRemoveDecoration = (s: ReturnType<typeof usePetStore.getState>) => s.removeDecoration
 
@@ -47,9 +48,7 @@ export function DecorationEditor() {
   const [selectedAnchor, setSelectedAnchor] = useState<AnchorPoint>('head')
 
   // 从背包中筛选可穿戴的装饰品（type === 'accessory'，count > 0）
-  const accessories: InventoryItem[] = inventory.filter(
-    (i) => i.type === 'accessory' && i.count > 0,
-  )
+  const accessories: InventoryItem[] = inventory.filter((i) => i.type === 'accessory' && i.count > 0)
 
   // 按锚点分组已穿戴的装饰品
   const wornByAnchor = new Map<AnchorPoint, InventoryItem>()
@@ -88,7 +87,9 @@ export function DecorationEditor() {
               <span className="text-ink-muted">{ANCHOR_LABELS[anchor]}</span>
               {item ? (
                 <div className="flex items-center gap-1.5">
-                  <span>{item.icon} {item.name}</span>
+                  <span>
+                    {item.icon} {item.name}
+                  </span>
                   <button
                     onClick={() => handleRemove(anchor)}
                     className="rounded p-0.5 text-ink-muted hover:bg-error/15 hover:text-error"
@@ -114,9 +115,7 @@ export function DecorationEditor() {
               key={anchor}
               onClick={() => setSelectedAnchor(anchor)}
               className={`rounded-md px-2 py-0.5 text-[10px] transition-colors ${
-                selectedAnchor === anchor
-                  ? 'bg-tangerine text-white'
-                  : 'bg-cream-deep text-ink hover:bg-blush-soft'
+                selectedAnchor === anchor ? 'bg-tangerine text-white' : 'bg-cream-deep text-ink hover:bg-blush-soft'
               }`}
             >
               {ANCHOR_LABELS[anchor]}
@@ -127,13 +126,9 @@ export function DecorationEditor() {
 
       {/* 可穿戴装饰品列表 */}
       <div>
-        <div className="mb-1 text-[10px] text-ink-muted">
-          背包装饰品（{accessories.length}）
-        </div>
+        <div className="mb-1 text-[10px] text-ink-muted">背包装饰品（{accessories.length}）</div>
         {accessories.length === 0 ? (
-          <div className="text-[11px] text-ink-faint">
-            背包中没有装饰品，去商店购买吧～
-          </div>
+          <div className="text-[11px] text-ink-faint">背包中没有装饰品，去商店购买吧～</div>
         ) : (
           <div className="flex flex-wrap gap-1.5">
             {accessories.map((item) => {
@@ -151,9 +146,7 @@ export function DecorationEditor() {
                 >
                   <span>{item.icon}</span>
                   <span>{item.name}</span>
-                  {item.count > 1 && (
-                    <span className="text-[9px] text-ink-muted">×{item.count}</span>
-                  )}
+                  {item.count > 1 && <span className="text-[9px] text-ink-muted">×{item.count}</span>}
                 </button>
               )
             })}

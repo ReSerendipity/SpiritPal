@@ -86,7 +86,7 @@ export interface DragInteractionEvents {
   /** 缩放变化 */
   'scale-change': (scale: number) => void
   /** 点击事件 */
-  'click': (position: DragPosition) => void
+  click: (position: DragPosition) => void
   /** 拖拽开始 */
   'drag-start': (position: DragPosition) => void
   /** 拖拽结束 */
@@ -332,16 +332,24 @@ export class DragInteractionEngine extends EventEmitter {
   // ============ 查询 ============
 
   /** 获取当前状态 */
-  getState(): DragState { return this.state }
+  getState(): DragState {
+    return this.state
+  }
 
   /** 获取当前位置 */
-  getPosition(): DragPosition { return { ...this.position } }
+  getPosition(): DragPosition {
+    return { ...this.position }
+  }
 
   /** 获取当前缩放 */
-  getScale(): number { return this.scale }
+  getScale(): number {
+    return this.scale
+  }
 
   /** 获取当前前倾角度 */
-  getLeanAngle(): number { return this.leanAngle }
+  getLeanAngle(): number {
+    return this.leanAngle
+  }
 
   /** 设置初始位置 */
   setPosition(x: number, y: number): void {

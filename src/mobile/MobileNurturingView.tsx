@@ -13,7 +13,19 @@
  * @see {@link ../lib/items} 物品配置模块
  */
 import { useEffect, useRef, useState } from 'react'
-import { Heart, ShoppingBag, Backpack, Trophy, Coins, Sparkles, Timer, Play, Pause, Square, RotateCcw } from 'lucide-react'
+import {
+  Heart,
+  ShoppingBag,
+  Backpack,
+  Trophy,
+  Coins,
+  Sparkles,
+  Timer,
+  Play,
+  Pause,
+  Square,
+  RotateCcw,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getCharacter } from '@/lib/data/characters'
 import type { BadgeTier } from '@/lib/data/types'
@@ -80,9 +92,12 @@ export function MobileNurturingView() {
   const [stopHint, setStopHint] = useState(false)
   const stopHintTimerRef = useRef<number | null>(null)
 
-  useEffect(() => () => {
-    if (stopHintTimerRef.current !== null) clearTimeout(stopHintTimerRef.current)
-  }, [])
+  useEffect(
+    () => () => {
+      if (stopHintTimerRef.current !== null) clearTimeout(stopHintTimerRef.current)
+    },
+    [],
+  )
 
   useEffect(() => {
     const mgr = getPomodoroManager()
@@ -117,8 +132,7 @@ export function MobileNurturingView() {
   const focusRemain = Math.ceil(pomodoro.remainingSec)
   const focusMm = String(Math.floor(focusRemain / 60)).padStart(2, '0')
   const focusSs = String(focusRemain % 60).padStart(2, '0')
-  const focusProgress =
-    pomodoro.durationSec > 0 ? Math.min(1, pomodoro.elapsedSec / pomodoro.durationSec) : 0
+  const focusProgress = pomodoro.durationSec > 0 ? Math.min(1, pomodoro.elapsedSec / pomodoro.durationSec) : 0
 
   /** 开始 / 再来一轮 */
   const handleStartFocus = () => {
@@ -166,7 +180,9 @@ export function MobileNurturingView() {
       <div className={`px-4 py-2 ${cardBgClass} border-b ${cardBorderClass}`}>
         <div className="mb-1 flex items-center justify-between text-xs text-ink-muted">
           <span>{t('stat.exp')}</span>
-          <span className="tabular-nums">{Math.floor(stats.exp)} / {expNeed}</span>
+          <span className="tabular-nums">
+            {Math.floor(stats.exp)} / {expNeed}
+          </span>
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-cream-deep">
           <div
@@ -175,19 +191,22 @@ export function MobileNurturingView() {
           />
         </div>
         <div className="mt-1 text-xs text-ink-muted">
-          {t('stat.affection')} {Math.floor(stats.affection)} · {t('nurture.lastInteraction')} {formatRelative(stats.lastInteractionAt)}
+          {t('stat.affection')} {Math.floor(stats.affection)} · {t('nurture.lastInteraction')}{' '}
+          {formatRelative(stats.lastInteractionAt)}
         </div>
       </div>
 
       {/* 子 Tab 切换 */}
       <div className="flex gap-1 p-2">
-        {([
-          { id: 'stats', labelKey: 'tab.stats', icon: Heart },
-          { id: 'shop', labelKey: 'action.shop', icon: ShoppingBag },
-          { id: 'inventory', labelKey: 'tab.inventory', icon: Backpack },
-          { id: 'achievement', labelKey: 'tab.achievement', icon: Trophy },
-          { id: 'focus', labelKey: 'tab.focus', icon: Timer },
-        ] as const).map((tabDef) => {
+        {(
+          [
+            { id: 'stats', labelKey: 'tab.stats', icon: Heart },
+            { id: 'shop', labelKey: 'action.shop', icon: ShoppingBag },
+            { id: 'inventory', labelKey: 'tab.inventory', icon: Backpack },
+            { id: 'achievement', labelKey: 'tab.achievement', icon: Trophy },
+            { id: 'focus', labelKey: 'tab.focus', icon: Timer },
+          ] as const
+        ).map((tabDef) => {
           const Icon = tabDef.icon
           const isActive = subTab === tabDef.id
           return (
@@ -246,7 +265,9 @@ export function MobileNurturingView() {
                 </div>
                 <div className="flex justify-between">
                   <span>{t('nurture.badge')}</span>
-                  <span className={badgeMeta.color}>{badgeMeta.emoji} {t(badgeMeta.labelKey)}</span>
+                  <span className={badgeMeta.color}>
+                    {badgeMeta.emoji} {t(badgeMeta.labelKey)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>{t('nurture.lastInteraction')}</span>
@@ -281,9 +302,7 @@ export function MobileNurturingView() {
             {pomodoro.phase === 'done' ? (
               <div className="text-center" data-testid="pomodoro-done">
                 <div className="mb-1 text-3xl">🎉</div>
-                <div className="mb-1 text-base font-semibold text-tangerine-deep">
-                  {t('pomodoro.completed')}
-                </div>
+                <div className="mb-1 text-base font-semibold text-tangerine-deep">{t('pomodoro.completed')}</div>
                 <div className="mb-2 text-xs text-ink-muted">{t('pomodoro.breakSuggestion')}</div>
                 {pomodoro.reward && (
                   <div className="mb-3 text-sm tabular-nums" data-testid="pomodoro-reward">
@@ -328,9 +347,7 @@ export function MobileNurturingView() {
                       disabled={pomodoro.phase !== 'idle'}
                       data-testid={`pomodoro-duration-${d}`}
                       className={`rounded-md py-1.5 text-xs tabular-nums transition-colors disabled:opacity-40 ${
-                        focusMinutes === d
-                          ? 'bg-tangerine text-white'
-                          : 'bg-cream-deep text-ink hover:bg-blush-soft'
+                        focusMinutes === d ? 'bg-tangerine text-white' : 'bg-cream-deep text-ink hover:bg-blush-soft'
                       }`}
                     >
                       {d}
@@ -341,7 +358,10 @@ export function MobileNurturingView() {
                 {/* 倒计时 + 进度 */}
                 {pomodoro.phase !== 'idle' && (
                   <div className="mb-3">
-                    <div className="mb-1 text-center text-2xl font-mono font-bold tabular-nums" data-testid="pomodoro-remaining">
+                    <div
+                      className="mb-1 text-center text-2xl font-mono font-bold tabular-nums"
+                      data-testid="pomodoro-remaining"
+                    >
                       {focusMm}:{focusSs}
                     </div>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-cream-deep">

@@ -63,9 +63,7 @@ describe('MobileChatView Markdown 消毒', () => {
   })
 
   it('剥离 HTML 事件属性与危险协议链接', () => {
-    seedAssistantMessage(
-      '<img src="x" onerror="window.__pwned=true" />\n\n[点我](javascript:alert(1))',
-    )
+    seedAssistantMessage('<img src="x" onerror="window.__pwned=true" />\n\n[点我](javascript:alert(1))')
     const { container } = render(<MobileChatView />)
 
     // 原始 HTML 不解析 → 不应出现 img 元素；也不应把标签当文本显示

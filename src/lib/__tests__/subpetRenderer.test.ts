@@ -5,12 +5,7 @@
 
 import { describe, it, expect } from 'vitest'
 import type { SubPetConfig } from '@/lib/data/types'
-import {
-  SubpetRenderer,
-  subpetCellWidth,
-  subpetCellHeight,
-  type SubpetImageLike,
-} from '@/lib/render/subpetRenderer'
+import { SubpetRenderer, subpetCellWidth, subpetCellHeight, type SubpetImageLike } from '@/lib/render/subpetRenderer'
 
 const GHOST: SubPetConfig = {
   spritePath: '/pets/subpets/mini-ghost.png',

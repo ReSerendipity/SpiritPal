@@ -33,15 +33,15 @@ import type { NurturingStats, CharacterProfile } from '@/lib/data/types'
 
 /** 气泡类型（8+1） */
 export type BubbleTypeConfig =
-  | 'greeting'   // 打招呼
-  | 'hungry'     // 饥饿
-  | 'bored'      // 无聊
-  | 'sick'       // 生病
-  | 'happy'      // 开心
-  | 'sleep'      // 困倦/睡眠
-  | 'idle'       // 待机闲聊
-  | 'weather'    // 天气相关
-  | 'custom'     // 自定义（用户/模组扩展）
+  | 'greeting' // 打招呼
+  | 'hungry' // 饥饿
+  | 'bored' // 无聊
+  | 'sick' // 生病
+  | 'happy' // 开心
+  | 'sleep' // 困倦/睡眠
+  | 'idle' // 待机闲聊
+  | 'weather' // 天气相关
+  | 'custom' // 自定义（用户/模组扩展）
 
 /** HP 等级候选条目 */
 export interface HpLevelCandidate {
@@ -167,9 +167,7 @@ export function createDefaultBubbleConfigs(): BubbleTypeDefinition[] {
     {
       type: 'sick',
       name: '生病',
-      candidates: [
-        { minTier: 0, text: '呜呜……我不舒服……' },
-      ],
+      candidates: [{ minTier: 0, text: '呜呜……我不舒服……' }],
       weight: 1.0,
       cooldown: 20,
     },
@@ -311,9 +309,7 @@ export class BubbleConfigSystem {
     const currentTier = getHpTier(stats)
 
     // 从当前 tier 开始向下查找匹配的候选
-    const matching = config.candidates
-      .filter((c) => currentTier >= c.minTier)
-      .sort((a, b) => b.minTier - a.minTier) // 优先高 tier 的文本
+    const matching = config.candidates.filter((c) => currentTier >= c.minTier).sort((a, b) => b.minTier - a.minTier) // 优先高 tier 的文本
 
     if (matching.length === 0) return null
 
@@ -332,11 +328,7 @@ export class BubbleConfigSystem {
   /**
    * 选择随机触发的气泡（基于概率权重）
    */
-  selectRandomBubble(
-    characterId: string,
-    stats: NurturingStats,
-    placeholderCtx: PlaceholderContext,
-  ): string | null {
+  selectRandomBubble(characterId: string, stats: NurturingStats, placeholderCtx: PlaceholderContext): string | null {
     const configs = this.getBubbleConfigs(characterId)
     const currentTier = getHpTier(stats)
 
@@ -365,10 +357,7 @@ export class BubbleConfigSystem {
   /**
    * 创建倒计时气泡
    */
-  createCountdownBubble(
-    type: BubbleTypeConfig,
-    countdownConfig: CountdownConfig,
-  ): BubbleInstance {
+  createCountdownBubble(type: BubbleTypeConfig, countdownConfig: CountdownConfig): BubbleInstance {
     return {
       id: `countdown_${Date.now()}`,
       type,
@@ -392,9 +381,7 @@ export class BubbleConfigSystem {
       ...bubble,
       remainingMs: remaining,
       countdownSeconds: seconds,
-      text: seconds > 0
-        ? `{seconds} 秒后...`.replace('{seconds}', String(seconds))
-        : '完成！',
+      text: seconds > 0 ? `{seconds} 秒后...`.replace('{seconds}', String(seconds)) : '完成！',
     }
   }
 

@@ -8,9 +8,9 @@ import type { PersonalityConfig } from '@/lib/data/types'
 
 export interface PersonalityTemplate {
   id: string
-  name: string         // 模板名称（软萌/元气/毒舌/知性/傲娇）
-  description: string  // 简短描述
-  emoji: string        // 代表 emoji
+  name: string // 模板名称（软萌/元气/毒舌/知性/傲娇）
+  description: string // 简短描述
+  emoji: string // 代表 emoji
   config: PersonalityConfig
 }
 

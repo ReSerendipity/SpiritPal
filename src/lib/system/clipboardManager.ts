@@ -104,9 +104,7 @@ export class ClipboardManager {
   addEntry(text: string): void {
     if (!text.trim()) return
     // 限制文本长度
-    const truncated = text.length > MAX_TEXT_LENGTH
-      ? text.slice(0, MAX_TEXT_LENGTH) + '...'
-      : text
+    const truncated = text.length > MAX_TEXT_LENGTH ? text.slice(0, MAX_TEXT_LENGTH) + '...' : text
     const preview = text.slice(0, 80).replace(/\n/g, ' ')
 
     // 检查是否已存在（去重）

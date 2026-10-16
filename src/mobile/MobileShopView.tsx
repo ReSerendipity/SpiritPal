@@ -12,16 +12,7 @@
  */
 import { useMemo, useState } from 'react'
 import { Coins, Search } from 'lucide-react'
-import {
-  UtensilsCrossed,
-  Gamepad2,
-  Pill,
-  Gem,
-  Trophy,
-  MessageCircle,
-  PawPrint,
-  type LucideIcon,
-} from 'lucide-react'
+import { UtensilsCrossed, Gamepad2, Pill, Gem, Trophy, MessageCircle, PawPrint, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { AnchorPoint, InventoryItem, WornDecoration } from '@/lib/data/types'
 import { getRarityDisplay } from '@/lib/nurture/foodEffectContract'
@@ -67,9 +58,7 @@ export function MobileShopView() {
   const currentCharacterId = usePetStore((s) => s.currentCharacterId)
   const sharedCoins = usePetStore((s) => s.sharedCoins)
   const inventory = usePetStore((s) => s.inventory)
-  const wornDecorations = usePetStore(
-    (s) => s.wornDecorations[s.currentCharacterId] ?? EMPTY_DECORATIONS,
-  )
+  const wornDecorations = usePetStore((s) => s.wornDecorations[s.currentCharacterId] ?? EMPTY_DECORATIONS)
   const wearDecoration = usePetStore((s) => s.wearDecoration)
   const removeDecoration = usePetStore((s) => s.removeDecoration)
 
@@ -183,9 +172,7 @@ export function MobileShopView() {
       {/* 商品列表 */}
       <div className="space-y-2">
         {visibleItems.length === 0 && (
-          <div className="py-10 text-center text-sm text-ink-faint">
-            {query ? t('shop.noMatch') : t('shop.empty')}
-          </div>
+          <div className="py-10 text-center text-sm text-ink-faint">{query ? t('shop.noMatch') : t('shop.empty')}</div>
         )}
         {visibleItems.map((entry) => {
           const item = entry.item
@@ -208,13 +195,13 @@ export function MobileShopView() {
                 <div className="flex items-center gap-1.5">
                   <span className="truncate text-sm font-medium text-ink">{item.name}</span>
                   {rarity && (
-                    <span className={`rounded px-1 py-0.5 text-[10px] leading-none ${rarity.colors.text} ${rarity.colors.bg}`}>
+                    <span
+                      className={`rounded px-1 py-0.5 text-[10px] leading-none ${rarity.colors.text} ${rarity.colors.bg}`}
+                    >
                       {rarity.name}
                     </span>
                   )}
-                  {lockConfig.icon && (
-                    <span className={`text-xs ${lockConfig.color}`}>{lockConfig.icon}</span>
-                  )}
+                  {lockConfig.icon && <span className={`text-xs ${lockConfig.color}`}>{lockConfig.icon}</span>}
                 </div>
                 <div className={`mt-0.5 truncate text-[11px] ${subTextClass}`}>
                   {item.hungerRestore ? `${t('stat.hunger')}+${item.hungerRestore} ` : ''}

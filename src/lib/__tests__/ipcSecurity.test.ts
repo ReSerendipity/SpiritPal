@@ -1,11 +1,6 @@
 // ipcSecurity 单元测试 — IPC 消息校验、Token 认证与安全管理器
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import {
-  IpcSecurityManager,
-  validateIpcMessage,
-  MAX_MESSAGE_SIZE,
-  type IpcEnvelope,
-} from '@/lib/system/ipcSecurity'
+import { IpcSecurityManager, validateIpcMessage, MAX_MESSAGE_SIZE, type IpcEnvelope } from '@/lib/system/ipcSecurity'
 
 function makeEnvelope(overrides: Partial<IpcEnvelope> = {}): IpcEnvelope {
   return {

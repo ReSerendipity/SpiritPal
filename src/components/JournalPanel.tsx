@@ -27,8 +27,38 @@ function isToday(ts: number): boolean {
 }
 
 const STOP_WORDS = new Set([
-  '的', '了', '我', '你', '他', '她', '它', '是', '在', '和', '也', '就', '都', '把', '被', '吗', '呢', '吧', '啊', '不', '有', '这', '那',
-  'we', 'the', 'a', 'is', 'to', 'and', 'you', 'i', 'it',
+  '的',
+  '了',
+  '我',
+  '你',
+  '他',
+  '她',
+  '它',
+  '是',
+  '在',
+  '和',
+  '也',
+  '就',
+  '都',
+  '把',
+  '被',
+  '吗',
+  '呢',
+  '吧',
+  '啊',
+  '不',
+  '有',
+  '这',
+  '那',
+  'we',
+  'the',
+  'a',
+  'is',
+  'to',
+  'and',
+  'you',
+  'i',
+  'it',
 ])
 
 /** 极简关键词提取（中文 2-4 字 / 英文 3+ 字母，去停用词，取高频前 6） */
@@ -41,7 +71,10 @@ function extractTags(texts: string[]): string[] {
       freq.set(w, (freq.get(w) ?? 0) + 1)
     }
   }
-  return [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([w]) => w)
+  return [...freq.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([w]) => w)
 }
 
 function buildJournal(messages: ChatMessage[]): JournalEntry {
@@ -139,7 +172,9 @@ export function JournalPanel() {
         基于今日（{todayCount} 条）与 SpiritPal 的对话自动生成。导出为 Markdown 文件，可随时回顾。
       </p>
       {entry ? (
-        <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-lg bg-cream-deep/60 p-4 text-sm text-ink">{entry.content}</pre>
+        <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-lg bg-cream-deep/60 p-4 text-sm text-ink">
+          {entry.content}
+        </pre>
       ) : (
         <div className="rounded-lg border border-dashed border-ink/20 p-10 text-center text-sm text-ink-muted">
           点击「生成今日日记」开始

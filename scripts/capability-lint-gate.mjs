@@ -119,11 +119,7 @@ function recordSkip(reason, detail = {}) {
       mkdirSync(dirname(p), { recursive: true })
       // 便签会被 prepare-commit-msg 写进提交说明，所以只给**不含反斜杠**的相对描述——
       // Windows 绝对路径里的 \t \g \s 在交给 awk/sed 时会被当转义序列吃掉（实测拼出乱码路径）。
-      writeFileSync(
-        p,
-        `${note}（单项降级，其余钩子照常执行；详单见本仓 .git 下的 ${GATE_SKIP_LOG}）\n`,
-        'utf-8',
-      )
+      writeFileSync(p, `${note}（单项降级，其余钩子照常执行；详单见本仓 .git 下的 ${GATE_SKIP_LOG}）\n`, 'utf-8')
       markerPath = p
     }
   } catch {

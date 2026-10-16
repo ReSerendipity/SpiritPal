@@ -47,7 +47,14 @@ export default defineConfig({
         manualChunks(id) {
           // 核心框架：React + Zustand + Markdown（很少变化，长期缓存）
           // markdown 依赖 react，必须放在同一 chunk 避免 Rolldown 交叉依赖
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/zustand') || id.includes('node_modules/react-markdown') || id.includes('node_modules/remark') || id.includes('node_modules/rehype')) {
+          if (
+            id.includes('node_modules/react') ||
+            id.includes('node_modules/react-dom') ||
+            id.includes('node_modules/zustand') ||
+            id.includes('node_modules/react-markdown') ||
+            id.includes('node_modules/remark') ||
+            id.includes('node_modules/rehype')
+          ) {
             return 'vendor-react'
           }
           // Tauri API（稳定，几乎不变）

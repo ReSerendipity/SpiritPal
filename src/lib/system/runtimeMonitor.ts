@@ -203,7 +203,7 @@ export class RuntimeMonitor {
           this.fpsMin = Math.round((1000 / maxDelta) * 10) / 10
 
           // 1分钟平均（累计）
-          this.fpsAvg = this.fpsAvg === 0 ? this.currentFps : (this.fpsAvg * 0.95 + this.currentFps * 0.05)
+          this.fpsAvg = this.fpsAvg === 0 ? this.currentFps : this.fpsAvg * 0.95 + this.currentFps * 0.05
 
           // 掉帧统计
           if (fps < FPS_LOW_THRESHOLD) {
@@ -227,15 +227,17 @@ export class RuntimeMonitor {
 
   private sampleMemory(): void {
     // Chrome 专有 API
-    const perfMemory = (performance as unknown as {
-      memory?: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number }
-    }).memory
+    const perfMemory = (
+      performance as unknown as {
+        memory?: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number }
+      }
+    ).memory
 
     if (perfMemory) {
       this.currentMemory = {
-        usedJSHeapMB: Math.round(perfMemory.usedJSHeapSize / 1048576 * 10) / 10,
-        totalJSHeapMB: Math.round(perfMemory.totalJSHeapSize / 1048576 * 10) / 10,
-        jsHeapSizeLimitMB: Math.round(perfMemory.jsHeapSizeLimit / 1048576 * 10) / 10,
+        usedJSHeapMB: Math.round((perfMemory.usedJSHeapSize / 1048576) * 10) / 10,
+        totalJSHeapMB: Math.round((perfMemory.totalJSHeapSize / 1048576) * 10) / 10,
+        jsHeapSizeLimitMB: Math.round((perfMemory.jsHeapSizeLimit / 1048576) * 10) / 10,
       }
     }
 
@@ -333,9 +335,8 @@ export class RuntimeMonitor {
   // ============ FPS 指标 ============
 
   getFPSMetrics(): FPSSample {
-    const dropRatio = this.totalFrameCount > 0
-      ? Math.round(this.lowFrameCount / this.totalFrameCount * 1000) / 1000
-      : 0
+    const dropRatio =
+      this.totalFrameCount > 0 ? Math.round((this.lowFrameCount / this.totalFrameCount) * 1000) / 1000 : 0
 
     return {
       fps: this.currentFps,
@@ -358,7 +359,11 @@ export class RuntimeMonitor {
 
   private emitAlert(type: string, data: Record<string, unknown>): void {
     this.alertHandlers.forEach((fn) => {
-      try { fn(type, data) } catch { /* 忽略处理器异常 */ }
+      try {
+        fn(type, data)
+      } catch {
+        /* 忽略处理器异常 */
+      }
     })
   }
 

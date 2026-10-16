@@ -49,11 +49,11 @@ export interface WeatherInfo {
  * 宠物可执行的天气行为类型
  */
 export type WeatherAction =
-  | 'umbrella'    // 打伞（雨）
-  | 'fan'         // 扇风（炎热）
-  | 'cold'        // 发抖/穿衣（寒冷）
-  | 'sunny'       // 开心（晴朗）
-  | 'normal'      // 无特殊行为
+  | 'umbrella' // 打伞（雨）
+  | 'fan' // 扇风（炎热）
+  | 'cold' // 发抖/穿衣（寒冷）
+  | 'sunny' // 开心（晴朗）
+  | 'normal' // 无特殊行为
 
 /**
  * 天气行为配置接口
@@ -292,7 +292,7 @@ export class WeatherAwarenessManager {
     try {
       const resp = await fetch('https://ipapi.co/json/', { signal: controller.signal })
       if (!resp.ok) throw new Error(`ipapi ${resp.status}`)
-      const data = await resp.json() as { latitude?: number; longitude?: number }
+      const data = (await resp.json()) as { latitude?: number; longitude?: number }
       if (typeof data.latitude === 'number' && typeof data.longitude === 'number') {
         return { latitude: data.latitude, longitude: data.longitude }
       }

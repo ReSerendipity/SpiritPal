@@ -71,22 +71,69 @@ export interface ComplexityAssessment {
 
 /** 推理关键词 */
 const REASONING_KEYWORDS = [
-  '为什么', '怎么', '如何', '分析', '推理', '逻辑', '证明', '计算',
-  '比较', '评估', '判断', '决策', '规划', '设计',
-  'why', 'how', 'analyze', 'reason', 'logic', 'prove', 'calculate',
-  'compare', 'evaluate', 'judge', 'decide', 'plan', 'design',
+  '为什么',
+  '怎么',
+  '如何',
+  '分析',
+  '推理',
+  '逻辑',
+  '证明',
+  '计算',
+  '比较',
+  '评估',
+  '判断',
+  '决策',
+  '规划',
+  '设计',
+  'why',
+  'how',
+  'analyze',
+  'reason',
+  'logic',
+  'prove',
+  'calculate',
+  'compare',
+  'evaluate',
+  'judge',
+  'decide',
+  'plan',
+  'design',
 ]
 
 /** 工具需求关键词 */
 const TOOL_KEYWORDS = [
-  '打开', '搜索', '提醒', '日程', '天气', '执行', '操作',
-  'open', 'search', 'remind', 'schedule', 'weather', 'execute', 'run',
+  '打开',
+  '搜索',
+  '提醒',
+  '日程',
+  '天气',
+  '执行',
+  '操作',
+  'open',
+  'search',
+  'remind',
+  'schedule',
+  'weather',
+  'execute',
+  'run',
 ]
 
 /** 复杂情感关键词 */
 const COMPLEX_EMOTION_KEYWORDS = [
-  '矛盾', '纠结', '困惑', '迷茫', '压力', '焦虑', '抑郁', '崩溃',
-  'conflict', 'confused', 'lost', 'stress', 'anxiety', 'depressed',
+  '矛盾',
+  '纠结',
+  '困惑',
+  '迷茫',
+  '压力',
+  '焦虑',
+  '抑郁',
+  '崩溃',
+  'conflict',
+  'confused',
+  'lost',
+  'stress',
+  'anxiety',
+  'depressed',
 ]
 
 // ============ P2-2：复杂度评估参数（可调，支持 A/B 与日志回归调参）============
@@ -137,8 +184,7 @@ export function setComplexityParams(patch: Partial<ComplexityParams>): void {
   complexityParams = {
     ...complexityParams,
     ...patch,
-    weights:
-      patch.weights !== undefined ? { ...complexityParams.weights, ...patch.weights } : complexityParams.weights,
+    weights: patch.weights !== undefined ? { ...complexityParams.weights, ...patch.weights } : complexityParams.weights,
   }
 }
 
@@ -153,10 +199,7 @@ export function resetComplexityParams(): void {
  * @param contextLength 上下文长度（消息数）
  * @returns 复杂度评估结果
  */
-export function assessComplexity(
-  input: string,
-  contextLength: number = 0,
-): ComplexityAssessment {
+export function assessComplexity(input: string, contextLength: number = 0): ComplexityAssessment {
   // 1. 长度复杂度：基于 token 数量
   const tokenCount = estimateTokens(input)
   const length = Math.min(1, tokenCount / complexityParams.lengthHighTokens)
@@ -181,8 +224,12 @@ export function assessComplexity(
   const weightSum = w.length + w.reasoning + w.toolNeed + w.emotion + w.context
   const score =
     weightSum > 0
-      ? (length * w.length + reasoning * w.reasoning + toolNeed * w.toolNeed +
-          emotion * w.emotion + context * w.context) / weightSum
+      ? (length * w.length +
+          reasoning * w.reasoning +
+          toolNeed * w.toolNeed +
+          emotion * w.emotion +
+          context * w.context) /
+        weightSum
       : 0
 
   const suggestedBrain = score >= complexityParams.threshold ? 'slow' : 'fast'
@@ -360,10 +407,7 @@ export class DualBrainManager {
     // 双脑未启用，始终使用 Slow Brain
     if (!this.config.enabled) {
       const response = await this.slowBrainChat(messages, onChunk, abortSignal)
-      const complexity = assessComplexity(
-        messages[messages.length - 1]?.content ?? '',
-        messages.length,
-      )
+      const complexity = assessComplexity(messages[messages.length - 1]?.content ?? '', messages.length)
       this.emitRouteEvent({
         brain: 'slow',
         complexityScore: complexity.score,
@@ -437,10 +481,7 @@ export class DualBrainManager {
   }
 
   /** Fast Brain 聊天 */
-  private async fastBrainChat(
-    messages: ChatMessage[],
-    abortSignal?: AbortSignal,
-  ): Promise<string> {
+  private async fastBrainChat(messages: ChatMessage[], abortSignal?: AbortSignal): Promise<string> {
     const client = getLLMClient({
       ...this.config.fastBrain,
       maxTokens: this.config.fastBrainMaxTokens,

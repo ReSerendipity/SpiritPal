@@ -29,10 +29,7 @@
  */
 
 import { emit } from '@tauri-apps/api/event'
-import {
-  getPluginSandboxManager,
-  type PermissionApproval,
-} from './pluginPermissions'
+import { getPluginSandboxManager, type PermissionApproval } from './pluginPermissions'
 import type {
   Plugin,
   PluginManifest,
@@ -83,10 +80,7 @@ export class PluginManager {
     userApprovedPermissions?: PluginPermission[] | null,
   ): PermissionApproval {
     // 1. 权限审批
-    const approval = this.sandboxManager.permissions.requestApproval(
-      manifest,
-      userApprovedPermissions,
-    )
+    const approval = this.sandboxManager.permissions.requestApproval(manifest, userApprovedPermissions)
 
     // 2. 注册沙箱配置
     this.sandboxManager.registerPlugin(manifest)
@@ -228,8 +222,7 @@ export class PluginManager {
    * 根据插件被批准的权限，只暴露允许的能力
    */
   private buildContext(pluginId: string): SpiritPalPluginContext {
-    const has = (perm: PluginPermission) =>
-      this.sandboxManager.permissions.hasPermission(pluginId, perm)
+    const has = (perm: PluginPermission) => this.sandboxManager.permissions.hasPermission(pluginId, perm)
 
     const ui: PluginUI = {
       bubble: (msg, opts) => {
@@ -257,16 +250,27 @@ export class PluginManager {
         }
         // 通过事件系统请求状态（实际运行时由 PetWindow 响应）
         return new Promise((resolve) => {
-          const timeout = setTimeout(() => resolve({
-            hunger: 0, mood: 0, health: 0, affection: 0, level: 0, characterId: '',
-          }), 3000)
-          void emit('spiritpal-plugin-get-status', { pluginId }).then((result) => {
-            clearTimeout(timeout)
-            resolve(result as never)
-          }).catch(() => {
-            clearTimeout(timeout)
-            resolve({ hunger: 0, mood: 0, health: 0, affection: 0, level: 0, characterId: '' })
-          })
+          const timeout = setTimeout(
+            () =>
+              resolve({
+                hunger: 0,
+                mood: 0,
+                health: 0,
+                affection: 0,
+                level: 0,
+                characterId: '',
+              }),
+            3000,
+          )
+          void emit('spiritpal-plugin-get-status', { pluginId })
+            .then((result) => {
+              clearTimeout(timeout)
+              resolve(result as never)
+            })
+            .catch(() => {
+              clearTimeout(timeout)
+              resolve({ hunger: 0, mood: 0, health: 0, affection: 0, level: 0, characterId: '' })
+            })
         })
       },
       react: (reaction) => {
@@ -311,7 +315,9 @@ export class PluginManager {
       on: (event, _callback) => {
         // 事件监听在运行时由应用层桥接
         void emit('spiritpal-plugin-register-listener', { pluginId, event })
-        return () => { /* cleanup handled by app */ }
+        return () => {
+          /* cleanup handled by app */
+        }
       },
       emit: (event, payload) => {
         if (!has('events:emit')) return
@@ -333,7 +339,10 @@ export class PluginManager {
         if (!has('schedule')) return () => {}
         const targetMs = parseTime(time)
         const delay = targetMs - Date.now()
-        if (delay <= 0) { callback(); return () => {} }
+        if (delay <= 0) {
+          callback()
+          return () => {}
+        }
         const id = setTimeout(callback, delay)
         return () => clearTimeout(id)
       },
@@ -358,7 +367,9 @@ export class PluginManager {
             key: `plugin_${pluginId}_${key}`,
           })
           return (result as T) ?? null
-        } catch { return null }
+        } catch {
+          return null
+        }
       },
       set: async (key, value) => {
         if (!has('storage:write')) return
@@ -369,7 +380,9 @@ export class PluginManager {
             key: `plugin_${pluginId}_${key}`,
             value: JSON.stringify(value),
           })
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       },
       delete: async (key) => {
         if (!has('storage:delete')) return
@@ -379,14 +392,18 @@ export class PluginManager {
             pluginId,
             key: `plugin_${pluginId}_${key}`,
           })
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       },
       keys: async () => {
         if (!has('storage:read')) return []
         try {
           const { invoke } = await import('@tauri-apps/api/core')
           return await invoke<string[]>('plugin_storage_keys', { pluginId })
-        } catch { return [] }
+        } catch {
+          return []
+        }
       },
     }
 
@@ -431,7 +448,9 @@ export class PluginManager {
         try {
           const { invoke } = await import('@tauri-apps/api/core')
           return await invoke<string[]>('plugin_ai_extract_memories', { pluginId, context })
-        } catch { return [] }
+        } catch {
+          return []
+        }
       },
     }
 
@@ -461,11 +480,16 @@ function parseInterval(str: string): number {
   if (!match) return 60000 // 默认 1 分钟
   const val = parseInt(match[1])
   switch (match[2]) {
-    case 's': return val * 1000
-    case 'm': return val * 60 * 1000
-    case 'h': return val * 60 * 60 * 1000
-    case 'd': return val * 24 * 60 * 60 * 1000
-    default: return 60000
+    case 's':
+      return val * 1000
+    case 'm':
+      return val * 60 * 1000
+    case 'h':
+      return val * 60 * 60 * 1000
+    case 'd':
+      return val * 24 * 60 * 60 * 1000
+    default:
+      return 60000
   }
 }
 

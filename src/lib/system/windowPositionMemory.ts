@@ -237,9 +237,7 @@ export async function saveWindowPositionImmediate(
  * @param windowLabel 窗口标签
  * @returns 保存的位置，不存在时返回 null
  */
-export async function loadWindowPosition(
-  windowLabel: string,
-): Promise<SavedWindowPosition | null> {
+export async function loadWindowPosition(windowLabel: string): Promise<SavedWindowPosition | null> {
   const key = `${POSITION_KEY_PREFIX}${windowLabel}`
   return await storeGet<SavedWindowPosition>(key)
 }
@@ -252,14 +250,11 @@ export async function loadWindowPosition(
  * @param fallbackPosition 回退位置（默认居中偏下）
  * @returns 是否成功恢复到保存的位置
  */
-export async function restoreWindowPosition(
-  windowLabel: string,
-  fallbackPosition?: WindowPosition,
-): Promise<boolean> {
+export async function restoreWindowPosition(windowLabel: string, fallbackPosition?: WindowPosition): Promise<boolean> {
   const saved = await loadWindowPosition(windowLabel)
   if (!saved) {
     // 无保存位置，使用回退位置
-    const fallback = fallbackPosition ?? await getDefaultPosition()
+    const fallback = fallbackPosition ?? (await getDefaultPosition())
     await applyWindowPosition(windowLabel, fallback)
     return false
   }
@@ -291,14 +286,11 @@ export async function restoreWindowPosition(
  * @param windowLabel 窗口标签
  * @param position 目标位置（逻辑像素）
  */
-async function applyWindowPosition(
-  windowLabel: string,
-  position: WindowPosition,
-): Promise<void> {
+async function applyWindowPosition(windowLabel: string, position: WindowPosition): Promise<void> {
   try {
     const { getAllWindows } = await import('@tauri-apps/api/window')
     const windows = await getAllWindows()
-    const targetWindow = windows.find(w => w.label === windowLabel)
+    const targetWindow = windows.find((w) => w.label === windowLabel)
 
     if (targetWindow) {
       const { LogicalPosition } = await import('@tauri-apps/api/dpi')
@@ -343,10 +335,7 @@ async function findNearestOnScreenPosition(
  * @param height 窗口高度，默认 400
  * @returns 默认位置坐标
  */
-async function getDefaultPosition(
-  width = DEFAULT_PET_WIDTH,
-  height = DEFAULT_PET_HEIGHT,
-): Promise<WindowPosition> {
+async function getDefaultPosition(width = DEFAULT_PET_WIDTH, height = DEFAULT_PET_HEIGHT): Promise<WindowPosition> {
   try {
     const monitors = await getAvailableMonitors()
     if (monitors.length > 0) {
@@ -377,12 +366,10 @@ async function getDefaultPosition(
  * @param windowLabel 窗口标签
  * @returns 取消跟踪函数
  */
-export async function startPositionTracking(
-  windowLabel: string,
-): Promise<() => void> {
+export async function startPositionTracking(windowLabel: string): Promise<() => void> {
   const { getAllWindows } = await import('@tauri-apps/api/window')
   const windows = await getAllWindows()
-  const targetWindow = windows.find(w => w.label === windowLabel)
+  const targetWindow = windows.find((w) => w.label === windowLabel)
 
   if (!targetWindow) {
     console.warn(`[WindowPositionMemory] 窗口 ${windowLabel} 不存在`)
@@ -415,13 +402,17 @@ export async function startPositionTracking(
       try {
         const pos = await targetWindow.outerPosition()
         const scaleFactor = await targetWindow.scaleFactor()
-        saveWindowPosition(windowLabel, {
-          x: pos.x / scaleFactor,
-          y: pos.y / scaleFactor,
-        }, {
-          width: event.payload.width / scaleFactor,
-          height: event.payload.height / scaleFactor,
-        })
+        saveWindowPosition(
+          windowLabel,
+          {
+            x: pos.x / scaleFactor,
+            y: pos.y / scaleFactor,
+          },
+          {
+            width: event.payload.width / scaleFactor,
+            height: event.payload.height / scaleFactor,
+          },
+        )
       } catch {
         // 忽略
       }

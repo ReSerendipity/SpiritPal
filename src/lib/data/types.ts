@@ -41,7 +41,21 @@ export const ATLAS = { cellW: 192, cellH: 208, cols: 8, rows: 9 } as const
  * 宠物可见状态机类型
  * 定义宠物所有可能的动画/行为状态
  */
-export type PetState = 'idle' | 'walk' | 'sleep' | 'sit' | 'eat' | 'drag' | 'happy' | 'sad' | 'sick' | 'pet' | 'hide' | 'climbing' | 'peeking' | 'hiding_wall'
+export type PetState =
+  | 'idle'
+  | 'walk'
+  | 'sleep'
+  | 'sit'
+  | 'eat'
+  | 'drag'
+  | 'happy'
+  | 'sad'
+  | 'sick'
+  | 'pet'
+  | 'hide'
+  | 'climbing'
+  | 'peeking'
+  | 'hiding_wall'
 
 /**
  * 单行动画描述接口
@@ -78,16 +92,16 @@ export const ANIMATION_ROWS: Record<string, AnimationRow> = {
  */
 export const OPENPETS_REACTION_MAP: Record<string, string> = {
   idle: 'idle',
-  thinking: 'waiting',     // 思考中 → 等待
-  editing: 'running',      // 编辑中 → 运行
-  testing: 'review',       // 测试中 → 审查
-  success: 'jumping',      // 成功 → 跳跃
-  error: 'failed',         // 错误 → 失败
-  celebrating: 'waving',   // 庆祝 → 挥手
-  working: 'running',      // 工作中 → 运行
-  waiting: 'waiting',      // 等待 → 等待
-  running: 'running',      // 运行中 → 运行
-  review: 'review',        // 审查 → 审查
+  thinking: 'waiting', // 思考中 → 等待
+  editing: 'running', // 编辑中 → 运行
+  testing: 'review', // 测试中 → 审查
+  success: 'jumping', // 成功 → 跳跃
+  error: 'failed', // 错误 → 失败
+  celebrating: 'waving', // 庆祝 → 挥手
+  working: 'running', // 工作中 → 运行
+  waiting: 'waiting', // 等待 → 等待
+  running: 'running', // 运行中 → 运行
+  review: 'review', // 审查 → 审查
 }
 
 // ============ 角色五维性格 ============
@@ -112,10 +126,10 @@ export interface Personality {
 // ============ 说话风格 ============
 
 /** 语气类型 */
-export type Tone = 'gentle' | 'lively' | 'cold' | 'enthusiastic'  // 温柔/活泼/冷淡/热情
+export type Tone = 'gentle' | 'lively' | 'cold' | 'enthusiastic' // 温柔/活泼/冷淡/热情
 
 /** 用词偏好类型 */
-export type WordPreference = 'formal' | 'colloquial' | 'internet'  // 正式/口语/网络用语
+export type WordPreference = 'formal' | 'colloquial' | 'internet' // 正式/口语/网络用语
 
 /**
  * 说话风格接口
@@ -133,7 +147,7 @@ export interface SpeakingStyle {
 // ============ 互动偏好 ============
 
 /** 互动频率类型 */
-export type InteractionFrequency = 'high' | 'medium' | 'low'  // 喜欢互动频率
+export type InteractionFrequency = 'high' | 'medium' | 'low' // 喜欢互动频率
 
 /**
  * 互动偏好接口
@@ -151,7 +165,7 @@ export interface InteractionPreferences {
 // ============ 作息时段 ============
 
 /** 作息时段类型 */
-export type ScheduleType = 'active' | 'sleep'  // 活跃/睡眠
+export type ScheduleType = 'active' | 'sleep' // 活跃/睡眠
 
 /**
  * 作息时段接口
@@ -416,7 +430,18 @@ export interface InventoryItem {
   /** 物品图标路径 */
   icon: string
   /** 物品类型 */
-  type: ItemType | 'food' | 'toy' | 'medicine' | 'accessory' | 'consumable' | 'collection' | 'dialogue' | 'subpet' | 'autofeed' | 'coin'
+  type:
+    | ItemType
+    | 'food'
+    | 'toy'
+    | 'medicine'
+    | 'accessory'
+    | 'consumable'
+    | 'collection'
+    | 'dialogue'
+    | 'subpet'
+    | 'autofeed'
+    | 'coin'
   /** 饱食度恢复量 */
   hungerRestore?: number
   /** 心情恢复量 */
@@ -762,22 +787,22 @@ export interface TaskData {
  * 气泡类型枚举
  */
 export type BubbleType =
-  | 'fv_lvlup'       // 亲密度升级
-  | 'fv_drop'        // 亲密度下降
-  | 'hp_low'         // 饱食度低
-  | 'hp_zero'        // 饱食度为零
-  | 'feed_done'      // 喂食完成
-  | 'feed_required'  // 需要喂食
-  | 'pat_focus'      // 摸头专注
-  | 'pat_frequent'   // 频繁摸头
-  | 'pat_random'     // 随机摸头
-  | 'birthday'       // 生日祝福
-  | 'greeting'       // 打招呼
-  | 'idle'           // 空闲闲聊
-  | 'hungry'         // 饥饿提示
-  | 'sick'           // 生病提示
-  | 'mood_high'      // 心情好
-  | 'mood_low'       // 心情低
-  | 'pet'            // 被摸头
-  | 'feed'           // 被喂食
-  | 'custom'         // 自定义气泡（如倒计时等）
+  | 'fv_lvlup' // 亲密度升级
+  | 'fv_drop' // 亲密度下降
+  | 'hp_low' // 饱食度低
+  | 'hp_zero' // 饱食度为零
+  | 'feed_done' // 喂食完成
+  | 'feed_required' // 需要喂食
+  | 'pat_focus' // 摸头专注
+  | 'pat_frequent' // 频繁摸头
+  | 'pat_random' // 随机摸头
+  | 'birthday' // 生日祝福
+  | 'greeting' // 打招呼
+  | 'idle' // 空闲闲聊
+  | 'hungry' // 饥饿提示
+  | 'sick' // 生病提示
+  | 'mood_high' // 心情好
+  | 'mood_low' // 心情低
+  | 'pet' // 被摸头
+  | 'feed' // 被喂食
+  | 'custom' // 自定义气泡（如倒计时等）

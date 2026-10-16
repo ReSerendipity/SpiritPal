@@ -131,10 +131,7 @@ describe('VisionLLMClient', () => {
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     await expect(client.analyzeImage('/tmp/big.png')).rejects.toThrow('图片过大')
-    expect(errSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Image analysis failed'),
-      expect.any(Error),
-    )
+    expect(errSpy).toHaveBeenCalledWith(expect.stringContaining('Image analysis failed'), expect.any(Error))
     errSpy.mockRestore()
   })
 

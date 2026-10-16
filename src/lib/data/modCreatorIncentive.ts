@@ -90,11 +90,11 @@ export type LeaderboardType = 'downloads' | 'rating' | 'earnings' | 'newest'
 // ============ 等级阈值配置 ============
 
 const LEVEL_THRESHOLDS: LevelThreshold[] = [
-  { level: 'bronze',   minDownloads: 0,     minRating: 0,   expMultiplier: 1.0, revenueShareRate: 0.3 },
-  { level: 'silver',   minDownloads: 100,   minRating: 3.0, expMultiplier: 1.5, revenueShareRate: 0.4 },
-  { level: 'gold',     minDownloads: 1000,  minRating: 3.5, expMultiplier: 2.0, revenueShareRate: 0.5 },
-  { level: 'platinum', minDownloads: 5000,  minRating: 4.0, expMultiplier: 3.0, revenueShareRate: 0.6 },
-  { level: 'diamond',  minDownloads: 20000, minRating: 4.5, expMultiplier: 5.0, revenueShareRate: 0.7 },
+  { level: 'bronze', minDownloads: 0, minRating: 0, expMultiplier: 1.0, revenueShareRate: 0.3 },
+  { level: 'silver', minDownloads: 100, minRating: 3.0, expMultiplier: 1.5, revenueShareRate: 0.4 },
+  { level: 'gold', minDownloads: 1000, minRating: 3.5, expMultiplier: 2.0, revenueShareRate: 0.5 },
+  { level: 'platinum', minDownloads: 5000, minRating: 4.0, expMultiplier: 3.0, revenueShareRate: 0.6 },
+  { level: 'diamond', minDownloads: 20000, minRating: 4.5, expMultiplier: 5.0, revenueShareRate: 0.7 },
 ]
 
 // ============ 创作者激励管理器 ============
@@ -172,12 +172,15 @@ export class ModCreatorIncentiveManager {
   /**
    * 更新创作者统计并重新计算等级
    */
-  updateProfile(userId: string, updates: {
-    modCount?: number
-    totalDownloads?: number
-    averageRating?: number
-    totalEarnings?: number
-  }): CreatorProfile | null {
+  updateProfile(
+    userId: string,
+    updates: {
+      modCount?: number
+      totalDownloads?: number
+      averageRating?: number
+      totalEarnings?: number
+    },
+  ): CreatorProfile | null {
     const profile = this.profiles.get(userId)
     if (!profile) return null
 
@@ -221,10 +224,13 @@ export class ModCreatorIncentiveManager {
       username: p.username,
       avatarUrl: p.avatarUrl,
       score:
-        type === 'downloads' ? p.totalDownloads :
-        type === 'rating' ? Math.round(p.averageRating * 100) :
-        type === 'earnings' ? p.totalEarnings :
-        0,
+        type === 'downloads'
+          ? p.totalDownloads
+          : type === 'rating'
+            ? Math.round(p.averageRating * 100)
+            : type === 'earnings'
+              ? p.totalEarnings
+              : 0,
       modCount: p.modCount,
       level: p.level,
     }))

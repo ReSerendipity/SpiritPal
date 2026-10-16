@@ -33,67 +33,57 @@ describe('ARCHETYPE_LABELS', () => {
 
 describe('inferArchetype', () => {
   it('高理性 + 低活泼 → 知性', () => {
-    expect(
-      inferArchetype(makePersonality({ rationality: 0.8, liveliness: -0.6 })),
-    ).toBe('intellectual')
+    expect(inferArchetype(makePersonality({ rationality: 0.8, liveliness: -0.6 }))).toBe('intellectual')
   })
 
   it('低温度 + 高直率 → 毒舌', () => {
-    expect(
-      inferArchetype(makePersonality({ warmth: 0.1, directness: 0.5 })),
-    ).toBe('sharp')
+    expect(inferArchetype(makePersonality({ warmth: 0.1, directness: 0.5 }))).toBe('sharp')
   })
 
   it('低温度 + 高依赖 + 低直率 → 傲娇', () => {
-    expect(
-      inferArchetype(makePersonality({ warmth: 0.3, dependence: 0.5, directness: 0.1 })),
-    ).toBe('tsundere')
+    expect(inferArchetype(makePersonality({ warmth: 0.3, dependence: 0.5, directness: 0.1 }))).toBe('tsundere')
   })
 
   it('高温度 + 低直率 → 软萌', () => {
-    expect(
-      inferArchetype(makePersonality({ warmth: 0.9, directness: -0.3 })),
-    ).toBe('soft')
+    expect(inferArchetype(makePersonality({ warmth: 0.9, directness: -0.3 }))).toBe('soft')
   })
 
   it('高活泼 + 中高温度 → 元气', () => {
-    expect(
-      inferArchetype(makePersonality({ liveliness: 0.8, warmth: 0.4 })),
-    ).toBe('energetic')
+    expect(inferArchetype(makePersonality({ liveliness: 0.8, warmth: 0.4 }))).toBe('energetic')
   })
 
   it('默认分支：高温度 → 软萌', () => {
     // 不匹配任何特定条件，走默认 warmth>=0.5
-    expect(
-      inferArchetype(makePersonality({ warmth: 0.6, liveliness: 0.4, rationality: 0.4, directness: 0.2 })),
-    ).toBe('soft')
+    expect(inferArchetype(makePersonality({ warmth: 0.6, liveliness: 0.4, rationality: 0.4, directness: 0.2 }))).toBe(
+      'soft',
+    )
   })
 
   it('默认分支：高活泼 → 元气', () => {
-    expect(
-      inferArchetype(makePersonality({ warmth: 0.4, liveliness: 0.6, rationality: 0.4, directness: 0.2 })),
-    ).toBe('energetic')
+    expect(inferArchetype(makePersonality({ warmth: 0.4, liveliness: 0.6, rationality: 0.4, directness: 0.2 }))).toBe(
+      'energetic',
+    )
   })
 
   it('默认分支：高理性 → 知性', () => {
     // warmth<0.5, liveliness<0.5, rationality>=0.5
-    expect(
-      inferArchetype(makePersonality({ warmth: 0.4, liveliness: 0.4, rationality: 0.6, directness: 0.2 })),
-    ).toBe('intellectual')
+    expect(inferArchetype(makePersonality({ warmth: 0.4, liveliness: 0.4, rationality: 0.6, directness: 0.2 }))).toBe(
+      'intellectual',
+    )
   })
 
   it('默认分支：高直率 → 毒舌', () => {
     // warmth<0.5, liveliness<0.5, rationality<0.5, directness>=0.3
-    expect(
-      inferArchetype(makePersonality({ warmth: 0.4, liveliness: 0.4, rationality: 0.4, directness: 0.4 })),
-    ).toBe('sharp')
+    expect(inferArchetype(makePersonality({ warmth: 0.4, liveliness: 0.4, rationality: 0.4, directness: 0.4 }))).toBe(
+      'sharp',
+    )
   })
 
   it('默认分支：都不满足 → 傲娇', () => {
     // warmth<0.5, liveliness<0.5, rationality<0.5, directness<0.3
-    expect(
-      inferArchetype(makePersonality({ warmth: 0.4, liveliness: 0.4, rationality: 0.4, directness: 0.2 })),
-    ).toBe('tsundere')
+    expect(inferArchetype(makePersonality({ warmth: 0.4, liveliness: 0.4, rationality: 0.4, directness: 0.2 }))).toBe(
+      'tsundere',
+    )
   })
 })
 

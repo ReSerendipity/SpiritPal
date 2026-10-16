@@ -17,7 +17,11 @@ const extractSpy = vi.fn(() => Promise.resolve(false))
 vi.mock('@/lib/ai/llmClient', () => ({
   getLLMClient: () => ({ chat: chatMock }),
   DEFAULT_AI_CONFIG: {
-    provider: 'custom', apiKey: '', model: 'test-model', temperature: 0.7, maxTokens: 2000,
+    provider: 'custom',
+    apiKey: '',
+    model: 'test-model',
+    temperature: 0.7,
+    maxTokens: 2000,
   },
 }))
 vi.mock('@/lib/data/secureStorage', () => ({
@@ -27,7 +31,9 @@ vi.mock('@/lib/data/secureStorage', () => ({
 }))
 vi.mock('@/lib/data/characters', () => ({
   getCharacter: vi.fn(() => ({
-    id: 'doro', displayName: '多萝', systemPrompt: '你是多萝',
+    id: 'doro',
+    displayName: '多萝',
+    systemPrompt: '你是多萝',
     themeColor: { primary: '#FFB6C1', secondary: '#FFA500' },
   })),
   getAllCharacters: vi.fn(() => []),
@@ -62,8 +68,11 @@ describe('MobileChatView 主人事实提取接线', () => {
     extractSpy.mockClear()
     usePetStore.setState({ currentCharacterId: 'doro' })
     useChatStore.setState({
-      sessions: {}, messagesBySession: {}, activeSessionByCharacter: {},
-      isLoading: false, abortController: null,
+      sessions: {},
+      messagesBySession: {},
+      activeSessionByCharacter: {},
+      isLoading: false,
+      abortController: null,
     })
   })
 

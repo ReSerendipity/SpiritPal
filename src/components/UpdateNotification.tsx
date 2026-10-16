@@ -230,20 +230,12 @@ export function UpdateNotification({ autoCheck = true, autoCheckDelay = 30000, o
         <div className="flex items-center gap-3 mb-4">
           <div
             className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              view.phase === 'error'
-                ? 'bg-error/15'
-                : view.phase === 'up-to-date'
-                  ? 'bg-success/20'
-                  : 'bg-info/15'
+              view.phase === 'error' ? 'bg-error/15' : view.phase === 'up-to-date' ? 'bg-success/20' : 'bg-info/15'
             }`}
           >
             <svg
               className={`w-5 h-5 ${
-                view.phase === 'error'
-                  ? 'text-error'
-                  : view.phase === 'up-to-date'
-                    ? 'text-success-deep'
-                    : 'text-info'
+                view.phase === 'error' ? 'text-error' : view.phase === 'up-to-date' ? 'text-success-deep' : 'text-info'
               }`}
               fill="none"
               viewBox="0 0 24 24"
@@ -273,12 +265,8 @@ export function UpdateNotification({ autoCheck = true, autoCheckDelay = 30000, o
           </div>
           <div>
             <h3 className="text-lg font-semibold text-ink">{title}</h3>
-            {view.phase === 'available' && (
-              <p className="text-sm text-ink-muted">SpiritPal v{view.info.version}</p>
-            )}
-            {view.phase === 'up-to-date' && (
-              <p className="text-sm text-ink-muted">当前已是最新版本</p>
-            )}
+            {view.phase === 'available' && <p className="text-sm text-ink-muted">SpiritPal v{view.info.version}</p>}
+            {view.phase === 'up-to-date' && <p className="text-sm text-ink-muted">当前已是最新版本</p>}
           </div>
         </div>
 
@@ -290,9 +278,7 @@ export function UpdateNotification({ autoCheck = true, autoCheckDelay = 30000, o
         )}
 
         {/* 检查中提示 */}
-        {view.phase === 'checking' && (
-          <div className="mb-4 text-sm text-ink-muted">正在检查更新，请稍候...</div>
-        )}
+        {view.phase === 'checking' && <div className="mb-4 text-sm text-ink-muted">正在检查更新，请稍候...</div>}
 
         {/* 下载进度 */}
         {view.phase === 'downloading' && (
@@ -321,9 +307,7 @@ export function UpdateNotification({ autoCheck = true, autoCheckDelay = 30000, o
 
         {/* 已是最新提示 */}
         {view.phase === 'up-to-date' && (
-          <div className="mb-4 text-sm text-success-deep bg-success/10 rounded-lg p-3">
-            当前已是最新版本。
-          </div>
+          <div className="mb-4 text-sm text-success-deep bg-success/10 rounded-lg p-3">当前已是最新版本。</div>
         )}
 
         {/* 错误提示（失败原因可见，不吞错误） */}

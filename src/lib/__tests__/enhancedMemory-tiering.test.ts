@@ -49,33 +49,27 @@ describe('EnhancedMemoryManager', () => {
 
     it('温记忆截断摘要', async () => {
       mgr.addExchange('a'.repeat(60), 'b'.repeat(60))
-      mgr.getWorkingMemories()[0].created_at = new Date(
-        Date.now() - 3 * 86400000,
-      ).toISOString()
+      mgr.getWorkingMemories()[0].created_at = new Date(Date.now() - 3 * 86400000).toISOString()
       const ctx = await mgr.getContextForChat(2000)
       expect(ctx).toContain('…')
     })
 
     it('冷记忆仅保留关键词', async () => {
       mgr.addExchange('apple pie', 'great food')
-      mgr.getWorkingMemories()[0].created_at = new Date(
-        Date.now() - 15 * 86400000,
-      ).toISOString()
+      mgr.getWorkingMemories()[0].created_at = new Date(Date.now() - 15 * 86400000).toISOString()
       const ctx = await mgr.getContextForChat(2000)
       expect(ctx).toContain('关键词')
     })
 
     it('归档记忆仅保留标题', async () => {
       mgr.addExchange('a'.repeat(25), 'reply')
-      mgr.getWorkingMemories()[0].created_at = new Date(
-        Date.now() - 35 * 86400000,
-      ).toISOString()
+      mgr.getWorkingMemories()[0].created_at = new Date(Date.now() - 35 * 86400000).toISOString()
       const ctx = await mgr.getContextForChat(2000)
       expect(ctx).toContain('标题')
     })
   })
 
-describe('formatCoreMemoryByTier 核心记忆格式化', () => {
+  describe('formatCoreMemoryByTier 核心记忆格式化', () => {
     it('热核心记忆完整内容', async () => {
       mgr.addExchange('I love apple happy sad angry afraid', 'great')
       const ctx = await mgr.getContextForChat(2000)
@@ -104,7 +98,7 @@ describe('formatCoreMemoryByTier 核心记忆格式化', () => {
     })
   })
 
-describe('compressEpisodic 情景记忆压缩', () => {
+  describe('compressEpisodic 情景记忆压缩', () => {
     it('超过50条时触发压缩', () => {
       for (let i = 0; i < 56; i++) {
         mgr.addExchange(`message${i}`, `reply${i}`)

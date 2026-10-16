@@ -11,7 +11,17 @@
  */
 
 import { useState, useCallback, useRef } from 'react'
-import { Upload, FileJson, ImageIcon, FolderOpen, CheckCircle2, AlertCircle, AlertTriangle, X, Loader2 } from 'lucide-react'
+import {
+  Upload,
+  FileJson,
+  ImageIcon,
+  FolderOpen,
+  CheckCircle2,
+  AlertCircle,
+  AlertTriangle,
+  X,
+  Loader2,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { importCharacter, type UnifiedImportResult } from '@/lib/nurture/characterImportService'
 import { usePetStore } from '@/stores/petStore'
@@ -44,7 +54,7 @@ export function CharacterImportWizard({ onClose }: CharacterImportWizardProps): 
 
     try {
       const ext = file.name.toLowerCase().split('.').pop()
-      const kind = ext === 'png' ? 'png-file' as const : 'json-file' as const
+      const kind = ext === 'png' ? ('png-file' as const) : ('json-file' as const)
       const importResult = await importCharacter({ kind, file })
       setResult(importResult)
     } catch (e) {
@@ -58,21 +68,27 @@ export function CharacterImportWizard({ onClose }: CharacterImportWizardProps): 
     }
   }, [])
 
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault()
-    setDragOver(false)
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault()
+      setDragOver(false)
 
-    const files = e.dataTransfer.files
-    if (!files || files.length === 0) return
+      const files = e.dataTransfer.files
+      if (!files || files.length === 0) return
 
-    await handleFile(files[0]!)
-  }, [handleFile])
+      await handleFile(files[0]!)
+    },
+    [handleFile],
+  )
 
-  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    await handleFile(file)
-  }, [handleFile])
+  const handleFileSelect = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      if (!file) return
+      await handleFile(file)
+    },
+    [handleFile],
+  )
 
   const handleDirectorySelect = useCallback(async () => {
     setLoading(true)
@@ -129,14 +145,15 @@ export function CharacterImportWizard({ onClose }: CharacterImportWizardProps): 
 
         {/* 拖拽区 */}
         <div
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+          onDragOver={(e) => {
+            e.preventDefault()
+            setDragOver(true)
+          }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
           className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 transition-all ${
-            dragOver
-              ? 'border-tangerine bg-tangerine/10'
-              : 'border-ink/10 hover:border-ink/30'
+            dragOver ? 'border-tangerine bg-tangerine/10' : 'border-ink/10 hover:border-ink/30'
           }`}
         >
           <Upload size={32} className="mb-2 text-ink-muted" />
@@ -144,16 +161,14 @@ export function CharacterImportWizard({ onClose }: CharacterImportWizardProps): 
             {t('settings.import_drag_hint', { defaultValue: '拖入 JSON / PNG 文件，或点击选择' })}
           </p>
           <div className="mt-3 flex gap-3 text-xs text-ink-muted">
-            <span className="flex items-center gap-1"><FileJson size={12} /> JSON</span>
-            <span className="flex items-center gap-1"><ImageIcon size={12} /> PNG</span>
+            <span className="flex items-center gap-1">
+              <FileJson size={12} /> JSON
+            </span>
+            <span className="flex items-center gap-1">
+              <ImageIcon size={12} /> PNG
+            </span>
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json,.png"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
+          <input ref={fileInputRef} type="file" accept=".json,.png" onChange={handleFileSelect} className="hidden" />
         </div>
 
         {/* 分隔线 */}
@@ -202,9 +217,7 @@ export function CharacterImportWizard({ onClose }: CharacterImportWizardProps): 
                     {result.profile.displayName.charAt(0)}
                   </div>
                   <div className="flex-1">
-                    <div className="text-sm font-medium text-ink">
-                      {result.profile.displayName}
-                    </div>
+                    <div className="text-sm font-medium text-ink">{result.profile.displayName}</div>
                     <div className="text-xs text-ink-muted">
                       ID: {result.profile.id} · {result.profile.spriteType}
                     </div>

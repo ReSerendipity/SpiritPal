@@ -52,7 +52,7 @@ describe('EnhancedMemoryManager', () => {
     })
   })
 
-describe('getContextForChat', () => {
+  describe('getContextForChat', () => {
     it('token 预算限制', async () => {
       mgr.addExchange('短消息', '短回复')
       const ctx = await mgr.getContextForChat(10)
@@ -72,7 +72,7 @@ describe('getContextForChat', () => {
     })
   })
 
-describe('applyDecay', () => {
+  describe('applyDecay', () => {
     it('不抛出错误', () => {
       mgr.addExchange('测试', '回复')
       expect(() => mgr.applyDecay()).not.toThrow()
@@ -96,7 +96,7 @@ describe('applyDecay', () => {
     })
   })
 
-describe('getContextForChat 带查询参数', () => {
+  describe('getContextForChat 带查询参数', () => {
     it('带 query 时调用向量检索', async () => {
       for (let i = 0; i < 7; i++) {
         mgr.addExchange(`apple${i}`, `reply${i}`)

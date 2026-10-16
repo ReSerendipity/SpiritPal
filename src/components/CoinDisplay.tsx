@@ -183,13 +183,7 @@ export const CoinDisplay: React.FC<CoinDisplayProps> = ({
 
     switch (config.iconType) {
       case 'image':
-        return (
-          <img
-            src={config.icon}
-            alt={config.name}
-            className="w-4 h-4 inline-block"
-          />
-        )
+        return <img src={config.icon} alt={config.name} className="w-4 h-4 inline-block" />
       case 'svg':
         return (
           <svg className="w-4 h-4 inline-block" viewBox="0 0 16 16">
@@ -203,10 +197,7 @@ export const CoinDisplay: React.FC<CoinDisplayProps> = ({
   }
 
   return (
-    <div
-      className={`inline-flex items-center gap-1 ${className}`}
-      title={`${config.name}: ${formatNumber(coins)}`}
-    >
+    <div className={`inline-flex items-center gap-1 ${className}`} title={`${config.name}: ${formatNumber(coins)}`}>
       {renderIcon()}
       <span
         className="font-medium tabular-nums transition-transform duration-200"
@@ -217,18 +208,10 @@ export const CoinDisplay: React.FC<CoinDisplayProps> = ({
       >
         {formatNumber(displayValue)}
       </span>
-      {showName && (
-        <span className="text-xs text-ink-muted">
-          {t('coins.name', config.name)}
-        </span>
-      )}
+      {showName && <span className="text-xs text-ink-muted">{t('coins.name', config.name)}</span>}
       {/* 变化指示器 */}
-      {isIncreasing && (
-        <span className="text-xs text-success-deep animate-pulse">+▲</span>
-      )}
-      {isDecreasing && (
-        <span className="text-xs text-error animate-pulse">-▼</span>
-      )}
+      {isIncreasing && <span className="text-xs text-success-deep animate-pulse">+▲</span>}
+      {isDecreasing && <span className="text-xs text-error animate-pulse">-▼</span>}
     </div>
   )
 }

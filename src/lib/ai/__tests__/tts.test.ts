@@ -1,11 +1,6 @@
 // VOICEVOX TTS 引擎单元测试 — API 调用流程（mock safeFetch）
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import {
-  TTSEngine,
-  VoicevoxEngineError,
-  DEFAULT_VOICEVOX_URL,
-  type Speaker,
-} from '@/lib/ai/tts'
+import { TTSEngine, VoicevoxEngineError, DEFAULT_VOICEVOX_URL, type Speaker } from '@/lib/ai/tts'
 import { safeFetch } from '@/lib/system/ssrfProtection'
 
 // 与既有 ttsEngine.test.ts 一致：mock 网络层，不 stub 全局 fetch/URL
@@ -101,9 +96,7 @@ describe('TTSEngine.synthesize', () => {
 
   it('依次调用 /audio_query 与 /synthesis 并返回 wav Blob', async () => {
     const wav = new Blob(['wav-bytes'], { type: 'audio/wav' })
-    mockSafeFetch
-      .mockResolvedValueOnce(jsonResponse(queryJson))
-      .mockResolvedValueOnce(blobResponse(wav))
+    mockSafeFetch.mockResolvedValueOnce(jsonResponse(queryJson)).mockResolvedValueOnce(blobResponse(wav))
 
     const engine = new TTSEngine()
     const result = await engine.synthesize('你好世界')
@@ -126,9 +119,7 @@ describe('TTSEngine.synthesize', () => {
   })
 
   it('支持自定义 speakerId 透传到两次调用', async () => {
-    mockSafeFetch
-      .mockResolvedValueOnce(jsonResponse(queryJson))
-      .mockResolvedValueOnce(blobResponse(new Blob()))
+    mockSafeFetch.mockResolvedValueOnce(jsonResponse(queryJson)).mockResolvedValueOnce(blobResponse(new Blob()))
 
     await new TTSEngine().synthesize('测试', 8)
     const [queryUrl] = mockSafeFetch.mock.calls[0]!
@@ -168,9 +159,6 @@ describe('TTSEngine.setEngineUrl', () => {
 
     mockSafeFetch.mockResolvedValueOnce(jsonResponse({ version: '1' }))
     await engine.isEngineAvailable()
-    expect(mockSafeFetch).toHaveBeenCalledWith(
-      'http://192.168.1.10:50021/version',
-      expect.anything(),
-    )
+    expect(mockSafeFetch).toHaveBeenCalledWith('http://192.168.1.10:50021/version', expect.anything())
   })
 })

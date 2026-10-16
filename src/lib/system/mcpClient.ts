@@ -104,7 +104,7 @@ export interface McpClientEvents {
   /** 健康检查失败 */
   'health-check-failed': (serverId: string, reason: string) => void
   /** 重连成功 */
-  'reconnected': (serverId: string) => void
+  reconnected: (serverId: string) => void
   /** 重连失败 */
   'reconnect-failed': (serverId: string, attempts: number) => void
 }
@@ -125,9 +125,7 @@ export interface PermissionRule {
 }
 
 /** 默认权限规则 — 保守策略：默认需要确认 */
-const DEFAULT_PERMISSIONS: PermissionRule[] = [
-  { serverId: '*', toolPattern: '*', permission: 'confirm' },
-]
+const DEFAULT_PERMISSIONS: PermissionRule[] = [{ serverId: '*', toolPattern: '*', permission: 'confirm' }]
 
 // ============ 单个服务器连接 ============
 
@@ -147,10 +145,18 @@ class ServerConnection extends EventEmitter {
     this.config = config
   }
 
-  get status(): ConnectionStatus { return this._status }
-  get serverId(): string { return this.config.id }
-  get serverName(): string { return this.config.name }
-  get discoveredTools(): ExternalTool[] { return [...this.tools] }
+  get status(): ConnectionStatus {
+    return this._status
+  }
+  get serverId(): string {
+    return this.config.id
+  }
+  get serverName(): string {
+    return this.config.name
+  }
+  get discoveredTools(): ExternalTool[] {
+    return [...this.tools]
+  }
 
   /** 建立连接 */
   async connect(): Promise<void> {
@@ -175,17 +181,12 @@ class ServerConnection extends EventEmitter {
       }
 
       // 创建客户端
-      this.client = new Client(
-        { name: `spiritpal-client-${this.config.id}`, version: '1.0.0' },
-        { capabilities: {} },
-      )
+      this.client = new Client({ name: `spiritpal-client-${this.config.id}`, version: '1.0.0' }, { capabilities: {} })
 
       // 连接（带超时）
       await Promise.race([
         this.client.connect(this.transport),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('连接超时')), timeout),
-        ),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('连接超时')), timeout)),
       ])
 
       this.setStatus('connected')
@@ -351,7 +352,11 @@ class ServerConnection extends EventEmitter {
       try {
         // 先断开旧连接
         if (this.client) {
-          try { await this.client.close() } catch { /* 忽略 */ }
+          try {
+            await this.client.close()
+          } catch {
+            /* 忽略 */
+          }
           this.client = null
         }
         this.transport = null
@@ -541,9 +546,7 @@ export class McpClientManager extends EventEmitter {
 
   /** 断开所有连接 */
   async disconnectAll(): Promise<void> {
-    const promises = Array.from(this.connections.keys()).map((id) =>
-      this.unregisterServer(id),
-    )
+    const promises = Array.from(this.connections.keys()).map((id) => this.unregisterServer(id))
     await Promise.all(promises)
   }
 

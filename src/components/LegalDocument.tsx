@@ -57,15 +57,26 @@ export function LegalDocument({ title, content, onClose }: LegalDocumentProps) {
             <Markdown
               components={{
                 h1: ({ children }) => <h1 className="mb-4 text-xl font-bold text-ink">{children}</h1>,
-                h2: ({ children }) => <h2 className="mb-3 mt-6 text-lg font-semibold text-tangerine-deep">{children}</h2>,
+                h2: ({ children }) => (
+                  <h2 className="mb-3 mt-6 text-lg font-semibold text-tangerine-deep">{children}</h2>
+                ),
                 h3: ({ children }) => <h3 className="mb-2 mt-4 text-base font-medium text-ink">{children}</h3>,
                 p: ({ children }) => <p className="mb-3 text-sm leading-relaxed text-ink-muted">{children}</p>,
-                ul: ({ children }) => <ul className="mb-3 ml-4 list-disc space-y-1 text-sm text-ink-muted">{children}</ul>,
-                ol: ({ children }) => <ol className="mb-3 ml-4 list-decimal space-y-1 text-sm text-ink-muted">{children}</ol>,
+                ul: ({ children }) => (
+                  <ul className="mb-3 ml-4 list-disc space-y-1 text-sm text-ink-muted">{children}</ul>
+                ),
+                ol: ({ children }) => (
+                  <ol className="mb-3 ml-4 list-decimal space-y-1 text-sm text-ink-muted">{children}</ol>
+                ),
                 li: ({ children }) => <li className="text-sm text-ink-muted">{children}</li>,
                 strong: ({ children }) => <strong className="font-semibold text-ink">{children}</strong>,
                 a: ({ href, children }) => (
-                  <a href={href} target="_blank" rel="noopener noreferrer" className="text-tangerine-deep underline hover:opacity-80">
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-tangerine-deep underline hover:opacity-80"
+                  >
                     {children}
                   </a>
                 ),

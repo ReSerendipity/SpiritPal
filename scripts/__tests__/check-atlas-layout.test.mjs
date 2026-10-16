@@ -59,7 +59,7 @@ function fakeWebpLossless(width, height) {
   b.write('WEBP', 8, 'ascii')
   b.write('VP8L', 12, 'ascii')
   b[20] = 0x2f
-  b.writeUInt32LE((width - 1) & 0x3fff | (((height - 1) & 0x3fff) << 14), 21)
+  b.writeUInt32LE(((width - 1) & 0x3fff) | (((height - 1) & 0x3fff) << 14), 21)
   return b
 }
 
@@ -107,7 +107,12 @@ describe('diffAtlas（声明布局 vs 素材真实像素）', () => {
 
   it('animationRows.row 越界被捕获', () => {
     const r = diffAtlas({
-      width: 1024, height: 1024, cellW: 128, cellH: 128, cols: 8, rows: 8,
+      width: 1024,
+      height: 1024,
+      cellW: 128,
+      cellH: 128,
+      cols: 8,
+      rows: 8,
       animationRows: { idle: { row: 9, frames: 4 } },
     })
     expect(r.issues.some((i) => i.includes('animationRows.idle.row=9 越界'))).toBe(true)
@@ -115,7 +120,12 @@ describe('diffAtlas（声明布局 vs 素材真实像素）', () => {
 
   it('animationRows.frames 超过 cols 被捕获', () => {
     const r = diffAtlas({
-      width: 1024, height: 1152, cellW: 128, cellH: 128, cols: 8, rows: 9,
+      width: 1024,
+      height: 1152,
+      cellW: 128,
+      cellH: 128,
+      cols: 8,
+      rows: 9,
       animationRows: { waving: { row: 3, frames: 57 } },
     })
     expect(r.issues.some((i) => i.includes('frames=57 超过 cols=8'))).toBe(true)
@@ -142,13 +152,25 @@ describe('readImageSize（零依赖文件头解析）', () => {
     expect(readImageSize(writeTmp('a.gif', fakeGif(1024, 1152)))).toEqual({ width: 1024, height: 1152, format: 'gif' })
   })
   it('WebP VP8X', () => {
-    expect(readImageSize(writeTmp('x.webp', fakeWebpExtended(192, 208)))).toEqual({ width: 192, height: 208, format: 'webp' })
+    expect(readImageSize(writeTmp('x.webp', fakeWebpExtended(192, 208)))).toEqual({
+      width: 192,
+      height: 208,
+      format: 'webp',
+    })
   })
   it('WebP VP8L', () => {
-    expect(readImageSize(writeTmp('l.webp', fakeWebpLossless(512, 896)))).toEqual({ width: 512, height: 896, format: 'webp' })
+    expect(readImageSize(writeTmp('l.webp', fakeWebpLossless(512, 896)))).toEqual({
+      width: 512,
+      height: 896,
+      format: 'webp',
+    })
   })
   it('WebP VP8 ', () => {
-    expect(readImageSize(writeTmp('y.webp', fakeWebpLossy(1024, 1152)))).toEqual({ width: 1024, height: 1152, format: 'webp' })
+    expect(readImageSize(writeTmp('y.webp', fakeWebpLossy(1024, 1152)))).toEqual({
+      width: 1024,
+      height: 1152,
+      format: 'webp',
+    })
   })
   it('未知格式返回 null', () => {
     expect(readImageSize(writeTmp('z.bin', Buffer.alloc(48, 0x41)))).toBeNull()
@@ -170,7 +192,12 @@ describe('checkProfile（单份 profile 校验）', () => {
   it('布局与素材一致时无问题', () => {
     const p = writeTmp('ok.png', fakePng(1024, 1152))
     const r = checkProfile(
-      { id: 'ok', spriteAsset: '/x.png', atlasLayout: { cellW: 128, cellH: 128, cols: 8, rows: 9 }, animationRows: { idle: { row: 0, frames: 8 } } },
+      {
+        id: 'ok',
+        spriteAsset: '/x.png',
+        atlasLayout: { cellW: 128, cellH: 128, cols: 8, rows: 9 },
+        animationRows: { idle: { row: 0, frames: 8 } },
+      },
       () => p,
     )
     expect(r.issues).toEqual([])

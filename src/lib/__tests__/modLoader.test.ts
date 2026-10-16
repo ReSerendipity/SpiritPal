@@ -121,11 +121,7 @@ describe('resolveLoadOrder', () => {
   })
 
   it('三节点链式依赖按拓扑排序', () => {
-    const r = loader.resolveLoadOrder([
-      makeManifest('a', [dep('b')]),
-      makeManifest('b', [dep('c')]),
-      makeManifest('c'),
-    ])
+    const r = loader.resolveLoadOrder([makeManifest('a', [dep('b')]), makeManifest('b', [dep('c')]), makeManifest('c')])
     expect(r.order).toEqual(['c', 'b', 'a'])
   })
 })
@@ -162,9 +158,7 @@ describe('loadManifest', () => {
 
   it('petmod.json 不存在时回退 manifest.json', async () => {
     // 第一次 exists 为 false（petmod.json），第二次 true（manifest.json）
-    vi.mocked(exists)
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(true)
+    vi.mocked(exists).mockResolvedValueOnce(false).mockResolvedValueOnce(true)
     vi.mocked(readTextFile).mockResolvedValue(JSON.stringify(makeManifest('compat')))
 
     const loader = new ModLoader()

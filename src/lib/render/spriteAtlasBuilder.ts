@@ -202,7 +202,7 @@ export class SpriteAtlasBuilder {
    * 批量添加图片
    */
   addItems(items: Array<{ id: string; sourcePath: string; width: number; height: number }>): void {
-    items.forEach(item => this.addItem(item.id, item.sourcePath, item.width, item.height))
+    items.forEach((item) => this.addItem(item.id, item.sourcePath, item.width, item.height))
   }
 
   /**
@@ -227,7 +227,7 @@ export class SpriteAtlasBuilder {
     )
     const minSize = Math.max(Math.ceil(Math.sqrt(totalArea)), maxSide)
 
-    const packedItems = this.items.map(item => ({
+    const packedItems = this.items.map((item) => ({
       w: (item.width ?? 0) + pad * 2,
       h: (item.height ?? 0) + pad * 2,
       data: item,
@@ -307,9 +307,7 @@ export class SpriteAtlasBuilder {
    */
   async drawTo(
     target: HTMLCanvasElement,
-    resolveImage: (
-      sourcePath: string,
-    ) => Promise<CanvasImageSource | null> | CanvasImageSource | null,
+    resolveImage: (sourcePath: string) => Promise<CanvasImageSource | null> | CanvasImageSource | null,
   ): Promise<number> {
     const ctx = target.getContext('2d')
     if (!ctx) throw new Error('无法获取画布 2D 上下文')
@@ -350,7 +348,7 @@ export class SpriteAtlasBuilder {
         width: atlasData.totalWidth,
         height: atlasData.totalHeight,
       },
-      sprites: atlasData.sprites.map(s => ({
+      sprites: atlasData.sprites.map((s) => ({
         name: s.id,
         frame: {
           x: s.x ?? 0,
@@ -446,7 +444,7 @@ export class SpriteAtlasLoader {
     const atlas = this.atlases.get(atlasId)
     if (!atlas) return undefined
 
-    const sprite = atlas.sprites.find(s => s.id === spriteId)
+    const sprite = atlas.sprites.find((s) => s.id === spriteId)
     return sprite?.uv
   }
 

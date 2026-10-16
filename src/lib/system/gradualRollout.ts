@@ -95,11 +95,7 @@ function deterministicHash(userId: string, configKey: string): number {
  * @param currentVersion 当前已安装的 Prompt/配置版本
  * @returns 灰度判定结果
  */
-export function shouldApplyRollout(
-  userId: string,
-  item: RolloutItem,
-  currentVersion: number,
-): RolloutDecision {
+export function shouldApplyRollout(userId: string, item: RolloutItem, currentVersion: number): RolloutDecision {
   // 如果当前版本已经 >= 目标版本，说明已经全量发布
   if (currentVersion >= item.targetVersion) {
     return {
@@ -199,11 +195,7 @@ export function getRolloutOverrides(): RolloutDecision[] {
     // 查找当前 Prompt 版本
     const currentVersion = promptVersions[item.key] ?? 0
 
-    const decision = shouldApplyRollout(
-      cachedUserId || 'anonymous',
-      item,
-      currentVersion,
-    )
+    const decision = shouldApplyRollout(cachedUserId || 'anonymous', item, currentVersion)
     results.push(decision)
   }
 

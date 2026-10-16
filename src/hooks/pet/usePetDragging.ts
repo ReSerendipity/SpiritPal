@@ -126,36 +126,34 @@ export function usePetDragging(options: UsePetDraggingOptions): UsePetDraggingRe
    * - 防卡屏：鼠标距窗口中心超过窗口尺寸 → 跳过吸附（防止窗口吸住后拖不出来）
    * @returns 吸附后的窗口位置 + 停靠方向；不吸附返回 null
    */
-  const dockToEdgeSync = useCallback((
-    x: number,
-    y: number,
-    mousePhysX?: number,
-    mousePhysY?: number,
-  ): DockResult | null => {
-    // 边缘吸附开关：关闭时实时磁吸不生效（不贴边、无 dockDir）
-    if (!useSettingsStore.getState().edgeSnapEnabled) return null
-    const env = dragEnvRef.current
-    if (!env) return null
-    const thresh = Math.max(DOCK_THRESHOLD_MIN_PX, Math.round(env.winPhysW * DOCK_THRESHOLD_RATIO))
-    const cx = x + env.winPhysW / 2
-    const cy = y + env.winPhysH / 2
-    // 防卡屏：鼠标距窗口中心超过窗口尺寸时不停靠，窗口可继续拖出屏幕
-    if (mousePhysX !== undefined && mousePhysY !== undefined) {
-      if (Math.abs(mousePhysX - cx) > env.winPhysW || Math.abs(mousePhysY - cy) > env.winPhysH) {
-        return null
+  const dockToEdgeSync = useCallback(
+    (x: number, y: number, mousePhysX?: number, mousePhysY?: number): DockResult | null => {
+      // 边缘吸附开关：关闭时实时磁吸不生效（不贴边、无 dockDir）
+      if (!useSettingsStore.getState().edgeSnapEnabled) return null
+      const env = dragEnvRef.current
+      if (!env) return null
+      const thresh = Math.max(DOCK_THRESHOLD_MIN_PX, Math.round(env.winPhysW * DOCK_THRESHOLD_RATIO))
+      const cx = x + env.winPhysW / 2
+      const cy = y + env.winPhysH / 2
+      // 防卡屏：鼠标距窗口中心超过窗口尺寸时不停靠，窗口可继续拖出屏幕
+      if (mousePhysX !== undefined && mousePhysY !== undefined) {
+        if (Math.abs(mousePhysX - cx) > env.winPhysW || Math.abs(mousePhysY - cy) > env.winPhysH) {
+          return null
+        }
       }
-    }
-    // 窗口边缘距屏幕边缘 < 阈值 → 贴边吸附（左/右/上/下）
-    if (x - env.screenX < thresh) return { x: env.screenX, y, dir: 'left' }
-    if (env.screenX + env.screenW - (x + env.winPhysW) < thresh) {
-      return { x: env.screenX + env.screenW - env.winPhysW, y, dir: 'right' }
-    }
-    if (y - env.screenY < thresh) return { x, y: env.screenY, dir: 'top' }
-    if (env.screenY + env.screenH - (y + env.winPhysH) < thresh) {
-      return { x, y: env.screenY + env.screenH - env.winPhysH, dir: 'bottom' }
-    }
-    return null
-  }, [])
+      // 窗口边缘距屏幕边缘 < 阈值 → 贴边吸附（左/右/上/下）
+      if (x - env.screenX < thresh) return { x: env.screenX, y, dir: 'left' }
+      if (env.screenX + env.screenW - (x + env.winPhysW) < thresh) {
+        return { x: env.screenX + env.screenW - env.winPhysW, y, dir: 'right' }
+      }
+      if (y - env.screenY < thresh) return { x, y: env.screenY, dir: 'top' }
+      if (env.screenY + env.screenH - (y + env.winPhysH) < thresh) {
+        return { x, y: env.screenY + env.screenH - env.winPhysH, dir: 'bottom' }
+      }
+      return null
+    },
+    [],
+  )
 
   // 拖拽速度感知动画循环
   const animateDragVelocity = useCallback(() => {
@@ -175,7 +173,11 @@ export function usePetDragging(options: UsePetDraggingOptions): UsePetDraggingRe
         ? `scale(${s}) rotate(${dragStartedRef.current ? 8 : rotation}deg)`
         : `scaleX(${f === 'left' ? -1 : 1}) scale(${s}) rotate(${dragStartedRef.current ? 8 : rotation}deg)`
     }
-    if (Math.abs(dragVelocityRef.current.x) > 0.01 || Math.abs(dragVelocityRef.current.y) > 0.01 || dragStartedRef.current) {
+    if (
+      Math.abs(dragVelocityRef.current.x) > 0.01 ||
+      Math.abs(dragVelocityRef.current.y) > 0.01 ||
+      dragStartedRef.current
+    ) {
       dragAnimFrameRef.current = requestAnimationFrame(() => animateDragVelocityRef.current())
     }
   }, [containerRef, useLive2D, clickScaleRef, facingRef])
@@ -303,12 +305,15 @@ export function usePetDragging(options: UsePetDraggingOptions): UsePetDraggingRe
     let movedAt = 0
     let unlistenFn: (() => void) | null = null
     let disposed = false
-    win.onMoved(() => {
-      if (!disposed) movedAt = Date.now()
-    }).then((fn) => {
-      if (disposed) fn()
-      else unlistenFn = fn
-    }).catch(() => {})
+    win
+      .onMoved(() => {
+        if (!disposed) movedAt = Date.now()
+      })
+      .then((fn) => {
+        if (disposed) fn()
+        else unlistenFn = fn
+      })
+      .catch(() => {})
     const timer = window.setInterval(() => {
       if (disposed) return
       // 鼠标拖拽中（usePetDragging）→ 跳过（实时磁吸已处理，避免拖拽停顿误吸）
@@ -336,89 +341,98 @@ export function usePetDragging(options: UsePetDraggingOptions): UsePetDraggingRe
   const dragWinOriginRef = useRef<{ winX: number; winY: number; mouseX: number; mouseY: number } | null>(null)
   const dragScaleRef = useRef(1)
 
-  const handleMouseMove = useCallback(async (e: React.MouseEvent) => {
-    // 刷新按下时间戳：有鼠标事件说明事件流正常，超时兜底不触发
-    if (downPosRef.current) downPosRef.current.t = Date.now()
-    // 拖拽速度计算（用于惯性旋转）
-    if (dragStartedRef.current && dragLastPosRef.current) {
-      const now = Date.now()
-      const lastDragPos = dragLastPosRef.current
-      const dt = Math.max(1, now - lastDragPos.t)
-      const dx = e.clientX - lastDragPos.x
-      const dy = e.clientY - lastDragPos.y
-      const instVx = (dx / dt) * 16
-      const instVy = (dy / dt) * 16
-      dragVelocityRef.current.x = Math.max(-MOTION_MAX_SPEED, Math.min(MOTION_MAX_SPEED, instVx))
-      dragVelocityRef.current.y = Math.max(-MOTION_MAX_SPEED, Math.min(MOTION_MAX_SPEED, instVy))
-      dragLastPosRef.current = { x: e.clientX, y: e.clientY, t: now }
-      if (!dragAnimFrameRef.current) {
-        dragAnimFrameRef.current = requestAnimationFrame(animateDragVelocity)
+  const handleMouseMove = useCallback(
+    async (e: React.MouseEvent) => {
+      // 刷新按下时间戳：有鼠标事件说明事件流正常，超时兜底不触发
+      if (downPosRef.current) downPosRef.current.t = Date.now()
+      // 拖拽速度计算（用于惯性旋转）
+      if (dragStartedRef.current && dragLastPosRef.current) {
+        const now = Date.now()
+        const lastDragPos = dragLastPosRef.current
+        const dt = Math.max(1, now - lastDragPos.t)
+        const dx = e.clientX - lastDragPos.x
+        const dy = e.clientY - lastDragPos.y
+        const instVx = (dx / dt) * 16
+        const instVy = (dy / dt) * 16
+        dragVelocityRef.current.x = Math.max(-MOTION_MAX_SPEED, Math.min(MOTION_MAX_SPEED, instVx))
+        dragVelocityRef.current.y = Math.max(-MOTION_MAX_SPEED, Math.min(MOTION_MAX_SPEED, instVy))
+        dragLastPosRef.current = { x: e.clientX, y: e.clientY, t: now }
+        if (!dragAnimFrameRef.current) {
+          dragAnimFrameRef.current = requestAnimationFrame(animateDragVelocity)
+        }
       }
-    }
 
-    // 拖拽中 —— 手动 setPosition（不依赖 startDragging，兼容 transparent 窗口）
-    if (dragStartedRef.current && dragWinOriginRef.current) {
-      const origin = dragWinOriginRef.current
-      const sf = dragScaleRef.current
-      let newX = Math.round(origin.winX + (e.screenX * sf - origin.mouseX))
-      let newY = Math.round(origin.winY + (e.screenY * sf - origin.mouseY))
-      // 拖动中实时边缘磁吸（Dororo 同款：窗口接近边缘即"贴"上去，而非释放后吸附）
-      const docked = dockToEdgeSync(newX, newY, e.screenX * sf, e.screenY * sf)
-      if (docked) {
-        newX = docked.x
-        newY = docked.y
-        setDockDir(docked.dir)
-      } else {
-        setDockDir(null)
+      // 拖拽中 —— 手动 setPosition（不依赖 startDragging，兼容 transparent 窗口）
+      if (dragStartedRef.current && dragWinOriginRef.current) {
+        const origin = dragWinOriginRef.current
+        const sf = dragScaleRef.current
+        let newX = Math.round(origin.winX + (e.screenX * sf - origin.mouseX))
+        let newY = Math.round(origin.winY + (e.screenY * sf - origin.mouseY))
+        // 拖动中实时边缘磁吸（Dororo 同款：窗口接近边缘即"贴"上去，而非释放后吸附）
+        const docked = dockToEdgeSync(newX, newY, e.screenX * sf, e.screenY * sf)
+        if (docked) {
+          newX = docked.x
+          newY = docked.y
+          setDockDir(docked.dir)
+        } else {
+          setDockDir(null)
+        }
+        safeGetWindow()
+          ?.setPosition(new PhysicalPosition(newX, newY))
+          .catch(() => {})
+        return
       }
-      safeGetWindow()?.setPosition(new PhysicalPosition(newX, newY)).catch(() => {})
-      return
-    }
 
-    // 拖拽检测（3px 阈值）
-    if (downPosRef.current && !dragStartedRef.current) {
-      const dx = e.clientX - downPosRef.current.x
-      const dy = e.clientY - downPosRef.current.y
-      if (Math.sqrt(dx * dx + dy * dy) > 3) {
-        dragStartedRef.current = true
-        setDragging(true)
-        interruptWalkRef.current()
-        onDragStart?.()
-        try {
-          const win = safeGetWindow()
-          if (!win) return
-          const p = await win.outerPosition()
-          const sf = await win.scaleFactor()
-          lastWinPosRef.current = { x: p.x, y: p.y }
-          dragScaleRef.current = sf
-
-          dragWinOriginRef.current = {
-            winX: p.x,
-            winY: p.y,
-            mouseX: e.screenX * sf,
-            mouseY: e.screenY * sf,
-          }
-          // 缓存窗口/屏幕环境（实时磁吸判定用；拖拽中窗口尺寸不变，无需重复 IPC）
-          // 注意：currentMonitor 是 @tauri-apps/api/window 的顶层函数，Window 实例没有该方法
+      // 拖拽检测（3px 阈值）
+      if (downPosRef.current && !dragStartedRef.current) {
+        const dx = e.clientX - downPosRef.current.x
+        const dy = e.clientY - downPosRef.current.y
+        if (Math.sqrt(dx * dx + dy * dy) > 3) {
+          dragStartedRef.current = true
+          setDragging(true)
+          interruptWalkRef.current()
+          onDragStart?.()
           try {
-            const size = await win.outerSize()
-            const monitor = await currentMonitor()
-            dragEnvRef.current = monitor ? {
-              winPhysW: size.width,
-              winPhysH: size.height,
-              screenX: monitor.position.x,
-              screenY: monitor.position.y,
-              screenW: monitor.size.width,
-              screenH: monitor.size.height,
-            } : null
+            const win = safeGetWindow()
+            if (!win) return
+            const p = await win.outerPosition()
+            const sf = await win.scaleFactor()
+            lastWinPosRef.current = { x: p.x, y: p.y }
+            dragScaleRef.current = sf
+
+            dragWinOriginRef.current = {
+              winX: p.x,
+              winY: p.y,
+              mouseX: e.screenX * sf,
+              mouseY: e.screenY * sf,
+            }
+            // 缓存窗口/屏幕环境（实时磁吸判定用；拖拽中窗口尺寸不变，无需重复 IPC）
+            // 注意：currentMonitor 是 @tauri-apps/api/window 的顶层函数，Window 实例没有该方法
+            try {
+              const size = await win.outerSize()
+              const monitor = await currentMonitor()
+              dragEnvRef.current = monitor
+                ? {
+                    winPhysW: size.width,
+                    winPhysH: size.height,
+                    screenX: monitor.position.x,
+                    screenY: monitor.position.y,
+                    screenW: monitor.size.width,
+                    screenH: monitor.size.height,
+                  }
+                : null
+            } catch {
+              dragEnvRef.current = null
+            }
           } catch {
-            dragEnvRef.current = null
+            /* 忽略 */
           }
-        } catch { /* 忽略 */ }
-        startSnapPolling()
+          startSnapPolling()
+        }
       }
-    }
-  }, [animateDragVelocity, startSnapPolling, dockToEdgeSync, setDockDir, onDragStart])
+    },
+    [animateDragVelocity, startSnapPolling, dockToEdgeSync, setDockDir, onDragStart],
+  )
 
   const handleMouseUp = useCallback(() => {
     if (snapCheckRef.current) {

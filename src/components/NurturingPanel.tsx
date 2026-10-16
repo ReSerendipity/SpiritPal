@@ -38,7 +38,11 @@ const BADGE_META: Record<BadgeTier, { label: string; emoji: string; color: strin
  * 数值进度条子组件
  * 显示带颜色分级的进度条，颜色随数值变化
  */
-function StatBar({ label, value, max = 100 }: {
+function StatBar({
+  label,
+  value,
+  max = 100,
+}: {
   /** 进度条标签 */
   label: string
   /** 当前值 */
@@ -52,7 +56,10 @@ function StatBar({ label, value, max = 100 }: {
     <div className="mb-2">
       <div className="mb-0.5 flex items-center justify-between text-xs text-ink">
         <span>{label}</span>
-        <span className="tabular-nums">{Math.round(value)}{max === 100 ? '' : ''}</span>
+        <span className="tabular-nums">
+          {Math.round(value)}
+          {max === 100 ? '' : ''}
+        </span>
       </div>
       <div className="h-2 w-full overflow-hidden rounded-full bg-cream-deep">
         <div

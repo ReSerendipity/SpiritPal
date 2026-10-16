@@ -517,21 +517,25 @@ export function getItemPrice(item: Omit<InventoryItem, 'price' | 'count'>): numb
 // 稀有度名称映射
 export function getRarityName(fvLock: number | undefined): string {
   switch (fvLock) {
-    case 0: return '普通'
-    case 1: return '稀有'
-    case 2: return '珍贵'
-    case 3: return '史诗'
-    case 4: return '传说'
-    case 5: return '神话'
-    default: return '普通'
+    case 0:
+      return '普通'
+    case 1:
+      return '稀有'
+    case 2:
+      return '珍贵'
+    case 3:
+      return '史诗'
+    case 4:
+      return '传说'
+    case 5:
+      return '神话'
+    default:
+      return '普通'
   }
 }
 
 // favoriteItems 中的物品效果 ×2.0，dislikeItems 中的物品效果 ×0.5
-export function getCharacterMultiplier(
-  characterId: string,
-  itemId: string,
-): number {
+export function getCharacterMultiplier(characterId: string, itemId: string): number {
   // 角色偏好定义在 characters.ts 的 CharacterProfile 中
   // 这里通过导入 characters 获取
   const char = getCharacter(characterId)
@@ -570,13 +574,19 @@ export function getAllShopItems(characterId: string): InventoryItem[] {
  */
 function deriveRarity(fvLock: number | undefined): ItemRarity {
   switch (fvLock) {
-    case 0: return 'common'
-    case 1: return 'rare'
-    case 2: return 'epic'
-    case 3: return 'legendary'
+    case 0:
+      return 'common'
+    case 1:
+      return 'rare'
+    case 2:
+      return 'epic'
+    case 3:
+      return 'legendary'
     case 4:
-    case 5: return 'mythic'
-    default: return 'common'
+    case 5:
+      return 'mythic'
+    default:
+      return 'common'
   }
 }
 
@@ -586,13 +596,27 @@ function deriveRarity(fvLock: number | undefined): ItemRarity {
 function deriveTags(item: InventoryItem): string[] {
   const tags: string[] = []
   switch (item.type) {
-    case 'food': tags.push('食物'); break
-    case 'toy': tags.push('玩具'); break
-    case 'medicine': tags.push('药品'); break
-    case 'accessory': tags.push('装饰品'); break
-    case 'collection': tags.push('收藏', '稀有'); break
-    case 'dialogue': tags.push('对话', '角色'); break
-    case 'subpet': tags.push('宠物'); break
+    case 'food':
+      tags.push('食物')
+      break
+    case 'toy':
+      tags.push('玩具')
+      break
+    case 'medicine':
+      tags.push('药品')
+      break
+    case 'accessory':
+      tags.push('装饰品')
+      break
+    case 'collection':
+      tags.push('收藏', '稀有')
+      break
+    case 'dialogue':
+      tags.push('对话', '角色')
+      break
+    case 'subpet':
+      tags.push('宠物')
+      break
   }
   if (item.fvReward) tags.push('亲密度')
   if (item.buff) tags.push('Buff')

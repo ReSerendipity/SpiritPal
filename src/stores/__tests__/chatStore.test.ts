@@ -110,7 +110,10 @@ describe('chatStore', () => {
     it('P0-3: 用户主动停止的消息显式标记 aborted', () => {
       const assistantId = useChatStore.getState().sendMessage('test')
       useChatStore.getState().stopGeneration()
-      const msg = useChatStore.getState().getMessages().find((m) => m.id === assistantId)
+      const msg = useChatStore
+        .getState()
+        .getMessages()
+        .find((m) => m.id === assistantId)
       expect(msg?.isStreaming).toBe(false)
       expect(msg?.sendStatus).toBe('aborted')
     })
@@ -121,14 +124,20 @@ describe('chatStore', () => {
       const assistantId = useChatStore.getState().sendMessage('test')
       useChatStore.getState().setMessageStatus(assistantId, 'pending')
       useChatStore.getState().setMessageStatus(assistantId, 'failed')
-      const msg = useChatStore.getState().getMessages().find((m) => m.id === assistantId)
+      const msg = useChatStore
+        .getState()
+        .getMessages()
+        .find((m) => m.id === assistantId)
       expect(msg?.sendStatus).toBe('failed')
     })
 
     it('pending → timeout：超时与失败状态可区分', () => {
       const assistantId = useChatStore.getState().sendMessage('test')
       useChatStore.getState().setMessageStatus(assistantId, 'timeout')
-      const msg = useChatStore.getState().getMessages().find((m) => m.id === assistantId)
+      const msg = useChatStore
+        .getState()
+        .getMessages()
+        .find((m) => m.id === assistantId)
       expect(msg?.sendStatus).toBe('timeout')
     })
 
@@ -136,7 +145,10 @@ describe('chatStore', () => {
       const assistantId = useChatStore.getState().sendMessage('test')
       useChatStore.getState().setMessageStatus(assistantId, 'pending')
       useChatStore.getState().setMessageStatus(assistantId, undefined)
-      const msg = useChatStore.getState().getMessages().find((m) => m.id === assistantId)
+      const msg = useChatStore
+        .getState()
+        .getMessages()
+        .find((m) => m.id === assistantId)
       expect(msg?.sendStatus).toBeUndefined()
     })
 
@@ -144,7 +156,10 @@ describe('chatStore', () => {
       const assistantId = useChatStore.getState().sendMessage('test')
       useChatStore.getState().setMessageStatus(assistantId, 'pending')
       useChatStore.getState().setMessageStatus('nonexistent', 'failed')
-      const msg = useChatStore.getState().getMessages().find((m) => m.id === assistantId)
+      const msg = useChatStore
+        .getState()
+        .getMessages()
+        .find((m) => m.id === assistantId)
       expect(msg?.sendStatus).toBe('pending')
     })
 
@@ -156,7 +171,10 @@ describe('chatStore', () => {
       useChatStore.getState().setMessageStatus(feibiId, 'failed')
 
       usePetStore.setState({ currentCharacterId: 'doro' })
-      const doroMsg = useChatStore.getState().getMessages().find((m) => m.id === doroId)
+      const doroMsg = useChatStore
+        .getState()
+        .getMessages()
+        .find((m) => m.id === doroId)
       expect(doroMsg?.sendStatus).toBeUndefined()
     })
   })
@@ -194,7 +212,10 @@ describe('chatStore', () => {
 
       useChatStore.getState().flagMessage(assistantId, ['违规1', '违规2'])
 
-      const msg = useChatStore.getState().getMessages().find((m) => m.id === assistantId)
+      const msg = useChatStore
+        .getState()
+        .getMessages()
+        .find((m) => m.id === assistantId)
       expect(msg?.flagged).toBe(true)
       expect(msg?.consistencyViolations).toEqual(['违规1', '违规2'])
     })
@@ -204,7 +225,10 @@ describe('chatStore', () => {
     it('更新指定消息的内容', () => {
       const assistantId = useChatStore.getState().sendMessage('test')
       useChatStore.getState().updateMessageContent(assistantId, '新内容')
-      const msg = useChatStore.getState().getMessages().find((m) => m.id === assistantId)
+      const msg = useChatStore
+        .getState()
+        .getMessages()
+        .find((m) => m.id === assistantId)
       expect(msg?.content).toBe('新内容')
     })
   })
@@ -213,7 +237,10 @@ describe('chatStore', () => {
     it('有违规时保持 flagged 状态', () => {
       const assistantId = useChatStore.getState().sendMessage('test')
       useChatStore.getState().setMessageConsistency(assistantId, ['冲突'])
-      const msg = useChatStore.getState().getMessages().find((m) => m.id === assistantId)
+      const msg = useChatStore
+        .getState()
+        .getMessages()
+        .find((m) => m.id === assistantId)
       expect(msg?.consistencyViolations).toEqual(['冲突'])
     })
 
@@ -223,7 +250,10 @@ describe('chatStore', () => {
       useChatStore.getState().flagMessage(assistantId, ['old'])
       // 重新校验，无违规
       useChatStore.getState().setMessageConsistency(assistantId, [])
-      const msg = useChatStore.getState().getMessages().find((m) => m.id === assistantId)
+      const msg = useChatStore
+        .getState()
+        .getMessages()
+        .find((m) => m.id === assistantId)
       expect(msg?.consistencyViolations).toEqual([])
       expect(msg?.flagged).toBe(false)
     })

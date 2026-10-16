@@ -157,13 +157,27 @@ export class CustomFood implements IFood {
     }
   }
 
-  get Name(): string { return this.config.name }
-  get Description(): string { return this.config.description }
-  get ImagePath(): string { return this.config.imagePath }
-  get Hunger(): number { return this.config.hunger }
-  get Mood(): number { return this.config.mood }
-  get Health(): number { return this.config.health }
-  get Price(): number { return this.config.price }
+  get Name(): string {
+    return this.config.name
+  }
+  get Description(): string {
+    return this.config.description
+  }
+  get ImagePath(): string {
+    return this.config.imagePath
+  }
+  get Hunger(): number {
+    return this.config.hunger
+  }
+  get Mood(): number {
+    return this.config.mood
+  }
+  get Health(): number {
+    return this.config.health
+  }
+  get Price(): number {
+    return this.config.price
+  }
 
   /**
    * 转换为 InventoryItem（用于商店/背包集成）

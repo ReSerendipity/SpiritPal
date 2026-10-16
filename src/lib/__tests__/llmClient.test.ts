@@ -1,6 +1,13 @@
 // llmClient 模块测试 — 多服务商 LLM 流式调用
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { LLMClient, DEFAULT_AI_CONFIG, getLLMClient, generateCharacterFromDescription, fetchWithTimeout, computeRetryDelay } from '@/lib/ai/llmClient'
+import {
+  LLMClient,
+  DEFAULT_AI_CONFIG,
+  getLLMClient,
+  generateCharacterFromDescription,
+  fetchWithTimeout,
+  computeRetryDelay,
+} from '@/lib/ai/llmClient'
 
 vi.mock('@/lib/ai/llmProviders', () => ({
   OLLAMA_TAGS_URL: 'http://localhost:11434/api/tags',
@@ -65,50 +72,50 @@ describe('LLMClient', () => {
         'data: {"choices":[{"delta":{"content":" World"}}]}\n',
         'data: [DONE]\n',
       ]
-      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(
-        createMockResponse(createReadableStream(sseChunks))
-      )))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.resolve(createMockResponse(createReadableStream(sseChunks)))),
+      )
 
       const chunks: string[] = []
-      const result = await client.chat(
-        [{ id: '1', role: 'user', content: 'hi', timestamp: 0 }],
-        (chunk) => chunks.push(chunk),
+      const result = await client.chat([{ id: '1', role: 'user', content: 'hi', timestamp: 0 }], (chunk) =>
+        chunks.push(chunk),
       )
       expect(result).toBe('Hello World')
       expect(chunks).toEqual(['Hello', ' World'])
     })
 
     it('请求失败时抛出错误', async () => {
-      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(
-        createMockResponse(createReadableStream([]), false, 500)
-      )))
-      await expect(
-        client.chat([{ id: '1', role: 'user', content: 'hi', timestamp: 0 }]),
-      ).rejects.toThrow('LLM 请求失败')
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.resolve(createMockResponse(createReadableStream([]), false, 500))),
+      )
+      await expect(client.chat([{ id: '1', role: 'user', content: 'hi', timestamp: 0 }])).rejects.toThrow(
+        'LLM 请求失败',
+      )
     })
 
     it('无 body 时抛出错误', async () => {
-      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
-        ok: true,
-        status: 200,
-        body: null,
-      } as unknown as Response)))
-      await expect(
-        client.chat([{ id: '1', role: 'user', content: 'hi', timestamp: 0 }]),
-      ).rejects.toThrow('可读流')
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() =>
+          Promise.resolve({
+            ok: true,
+            status: 200,
+            body: null,
+          } as unknown as Response),
+        ),
+      )
+      await expect(client.chat([{ id: '1', role: 'user', content: 'hi', timestamp: 0 }])).rejects.toThrow('可读流')
     })
 
     it('chatOnce 返回完整文本（无回调）', async () => {
-      const sseChunks = [
-        'data: {"choices":[{"delta":{"content":"Hi"}}]}\n',
-        'data: [DONE]\n',
-      ]
-      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(
-        createMockResponse(createReadableStream(sseChunks))
-      )))
-      const result = await client.chatOnce([
-        { id: '1', role: 'user', content: 'hi', timestamp: 0 },
-      ])
+      const sseChunks = ['data: {"choices":[{"delta":{"content":"Hi"}}]}\n', 'data: [DONE]\n']
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.resolve(createMockResponse(createReadableStream(sseChunks)))),
+      )
+      const result = await client.chatOnce([{ id: '1', role: 'user', content: 'hi', timestamp: 0 }])
       expect(result).toBe('Hi')
     })
   })
@@ -120,9 +127,10 @@ describe('LLMClient', () => {
         '{"message":{"content":" World"},"done":false}\n',
         '{"message":{"content":""},"done":true}\n',
       ]
-      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(
-        createMockResponse(createReadableStream(ollamaChunks))
-      )))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.resolve(createMockResponse(createReadableStream(ollamaChunks)))),
+      )
       const ollamaClient = new LLMClient({
         provider: 'ollama',
         apiKey: '',
@@ -131,16 +139,15 @@ describe('LLMClient', () => {
         temperature: 0.8,
         maxTokens: 1024,
       })
-      const result = await ollamaClient.chat([
-        { id: '1', role: 'user', content: 'hi', timestamp: 0 },
-      ])
+      const result = await ollamaClient.chat([{ id: '1', role: 'user', content: 'hi', timestamp: 0 }])
       expect(result).toBe('Hello World')
     })
 
     it('Ollama 请求失败时抛出错误', async () => {
-      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(
-        createMockResponse(createReadableStream([]), false, 404)
-      )))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.resolve(createMockResponse(createReadableStream([]), false, 404))),
+      )
       const ollamaClient = new LLMClient({
         provider: 'ollama',
         apiKey: '',
@@ -149,9 +156,9 @@ describe('LLMClient', () => {
         temperature: 0.8,
         maxTokens: 1024,
       })
-      await expect(
-        ollamaClient.chat([{ id: '1', role: 'user', content: 'hi', timestamp: 0 }]),
-      ).rejects.toThrow('Ollama 请求失败')
+      await expect(ollamaClient.chat([{ id: '1', role: 'user', content: 'hi', timestamp: 0 }])).rejects.toThrow(
+        'Ollama 请求失败',
+      )
     })
   })
 
@@ -162,9 +169,10 @@ describe('LLMClient', () => {
         'data: {"type":"content_block_delta","delta":{"text":" Claude"}}\n',
         'data: {"type":"message_stop"}\n',
       ]
-      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(
-        createMockResponse(createReadableStream(claudeChunks))
-      )))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.resolve(createMockResponse(createReadableStream(claudeChunks)))),
+      )
       const claudeClient = new LLMClient({
         provider: 'claude',
         apiKey: 'sk-ant-test',
@@ -181,9 +189,10 @@ describe('LLMClient', () => {
     })
 
     it('Claude 请求失败时抛出错误', async () => {
-      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(
-        createMockResponse(createReadableStream([]), false, 401)
-      )))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.resolve(createMockResponse(createReadableStream([]), false, 401))),
+      )
       const claudeClient = new LLMClient({
         provider: 'claude',
         apiKey: 'bad',
@@ -192,9 +201,9 @@ describe('LLMClient', () => {
         temperature: 0.7,
         maxTokens: 1024,
       })
-      await expect(
-        claudeClient.chat([{ id: '1', role: 'user', content: 'hi', timestamp: 0 }]),
-      ).rejects.toThrow('Claude 请求失败')
+      await expect(claudeClient.chat([{ id: '1', role: 'user', content: 'hi', timestamp: 0 }])).rejects.toThrow(
+        'Claude 请求失败',
+      )
     })
   })
 
@@ -205,9 +214,10 @@ describe('LLMClient', () => {
         'data: {"candidates":[{"content":{"parts":[{"text":" Gemini"}]}}]}\n',
         'data: [DONE]\n',
       ]
-      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(
-        createMockResponse(createReadableStream(geminiChunks))
-      )))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.resolve(createMockResponse(createReadableStream(geminiChunks)))),
+      )
       const geminiClient = new LLMClient({
         provider: 'gemini',
         apiKey: 'gem-key',
@@ -224,9 +234,10 @@ describe('LLMClient', () => {
     })
 
     it('Gemini 请求失败时抛出错误', async () => {
-      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(
-        createMockResponse(createReadableStream([]), false, 403)
-      )))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.resolve(createMockResponse(createReadableStream([]), false, 403))),
+      )
       const geminiClient = new LLMClient({
         provider: 'gemini',
         apiKey: 'bad',
@@ -235,49 +246,71 @@ describe('LLMClient', () => {
         temperature: 0.7,
         maxTokens: 1024,
       })
-      await expect(
-        geminiClient.chat([{ id: '1', role: 'user', content: 'hi', timestamp: 0 }]),
-      ).rejects.toThrow('Gemini 请求失败')
+      await expect(geminiClient.chat([{ id: '1', role: 'user', content: 'hi', timestamp: 0 }])).rejects.toThrow(
+        'Gemini 请求失败',
+      )
     })
   })
 
   describe('detectOllama', () => {
     it('检测成功返回 true', async () => {
-      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ models: [{ name: 'llama2' }] }),
-      } as unknown as Response)))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() =>
+          Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ models: [{ name: 'llama2' }] }),
+          } as unknown as Response),
+        ),
+      )
       expect(await LLMClient.detectOllama()).toBe(true)
     })
 
     it('检测失败返回 false', async () => {
-      vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('connect failed'))))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.reject(new Error('connect failed'))),
+      )
       expect(await LLMClient.detectOllama()).toBe(false)
     })
 
     it('返回非 models 数组返回 false', async () => {
-      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ error: 'not found' }),
-      } as unknown as Response)))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() =>
+          Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ error: 'not found' }),
+          } as unknown as Response),
+        ),
+      )
       expect(await LLMClient.detectOllama()).toBe(false)
     })
   })
 
   describe('listOllamaModels', () => {
     it('返回模型名列表', async () => {
-      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({
-          models: [{ name: 'llama2' }, { name: 'mistral' }],
-        }),
-      } as unknown as Response)))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() =>
+          Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                models: [{ name: 'llama2' }, { name: 'mistral' }],
+              }),
+          } as unknown as Response),
+        ),
+      )
       const models = await LLMClient.listOllamaModels()
       expect(models).toEqual(['llama2', 'mistral'])
     })
 
     it('请求失败返回空数组', async () => {
-      vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('failed'))))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.reject(new Error('failed'))),
+      )
       expect(await LLMClient.listOllamaModels()).toEqual([])
     })
   })
@@ -315,13 +348,11 @@ describe('generateCharacterFromDescription', () => {
       background: '来自喵星',
     }
     const sseData = JSON.stringify({ choices: [{ delta: { content: JSON.stringify(charConfig) } }] })
-    const sseChunks = [
-      `data: ${sseData}\n`,
-      'data: [DONE]\n',
-    ]
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(
-      createMockResponse(createReadableStream(sseChunks))
-    )))
+    const sseChunks = [`data: ${sseData}\n`, 'data: [DONE]\n']
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(createMockResponse(createReadableStream(sseChunks)))),
+    )
     const result = await generateCharacterFromDescription('一只可爱的猫咪')
     expect(result.name).toBe('小喵')
     expect(result.displayName).toBe('小喵')
@@ -343,26 +374,22 @@ describe('generateCharacterFromDescription', () => {
     const jsonContent = JSON.stringify(charConfig)
     const wrappedContent = '```json\n' + jsonContent + '\n```'
     const sseData = JSON.stringify({ choices: [{ delta: { content: wrappedContent } }] })
-    const sseChunks = [
-      `data: ${sseData}\n`,
-      'data: [DONE]\n',
-    ]
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(
-      createMockResponse(createReadableStream(sseChunks))
-    )))
+    const sseChunks = [`data: ${sseData}\n`, 'data: [DONE]\n']
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(createMockResponse(createReadableStream(sseChunks)))),
+    )
     const result = await generateCharacterFromDescription('白色宠物')
     expect(result.name).toBe('小白')
   })
 
   it('LLM 返回非 JSON 时抛出错误', async () => {
     const sseData = JSON.stringify({ choices: [{ delta: { content: '这不是JSON' } }] })
-    const sseChunks = [
-      `data: ${sseData}\n`,
-      'data: [DONE]\n',
-    ]
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(
-      createMockResponse(createReadableStream(sseChunks))
-    )))
+    const sseChunks = [`data: ${sseData}\n`, 'data: [DONE]\n']
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(createMockResponse(createReadableStream(sseChunks)))),
+    )
     await expect(generateCharacterFromDescription('test')).rejects.toThrow('未找到')
   })
 })
@@ -376,13 +403,19 @@ describe('fetchWithTimeout', () => {
   it('请求超时后抛出包含「超时」的错误', async () => {
     vi.useFakeTimers()
     // mock fetch：监听 abort 信号，超时后以 AbortError 拒绝
-    vi.stubGlobal('fetch', vi.fn((_url, options) => new Promise((_, reject) => {
-      options.signal?.addEventListener('abort', () => {
-        const err = new Error('The operation was aborted')
-        err.name = 'AbortError'
-        reject(err)
-      })
-    })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url, options) =>
+          new Promise((_, reject) => {
+            options.signal?.addEventListener('abort', () => {
+              const err = new Error('The operation was aborted')
+              err.name = 'AbortError'
+              reject(err)
+            })
+          }),
+      ),
+    )
     const promise = fetchWithTimeout('https://example.com', {}, 1000)
     promise.catch(() => {}) // 防止未处理拒绝警告
     await vi.advanceTimersByTimeAsync(1500)
@@ -391,7 +424,10 @@ describe('fetchWithTimeout', () => {
 
   it('超时前完成请求时正常返回 Response', async () => {
     const mockResponse = { ok: true, status: 200 } as unknown as Response
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(mockResponse)))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(mockResponse)),
+    )
     const result = await fetchWithTimeout('https://example.com', {}, 5000)
     expect(result).toBe(mockResponse)
   })

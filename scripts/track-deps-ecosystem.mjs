@@ -179,13 +179,23 @@ async function checkPixi8() {
 async function checkGlib() {
   const localTauri = lockedVersion('tauri')
   const localGlib = lockedVersion('glib')
-  rows.push({ kind: 'glib', item: '本地基线', detail: `Cargo.lock: tauri ${localTauri ?? '?'} / glib ${localGlib ?? '?'}（当前唯一打开漏洞 = glib RUSTSEC-2024-0429，alert #14）`, status: 'ok' })
+  rows.push({
+    kind: 'glib',
+    item: '本地基线',
+    detail: `Cargo.lock: tauri ${localTauri ?? '?'} / glib ${localGlib ?? '?'}（当前唯一打开漏洞 = glib RUSTSEC-2024-0429，alert #14）`,
+    status: 'ok',
+  })
 
   const tauri = await getJson('https://crates.io/api/v1/crates/tauri')
   const maxStable = tauri.crate?.max_stable_version
   const deps = await getJson(`https://crates.io/api/v1/crates/tauri/${maxStable}/dependencies`)
   const gtkReq = deps.dependencies?.find((d) => d.crate_id === 'gtk')?.req ?? '(未依赖 gtk)'
-  rows.push({ kind: 'glib', item: `tauri 上游最新 stable`, detail: `${maxStable}，gtk req = "${gtkReq}"`, status: 'ok' })
+  rows.push({
+    kind: 'glib',
+    item: `tauri 上游最新 stable`,
+    detail: `${maxStable}，gtk req = "${gtkReq}"`,
+    status: 'ok',
+  })
 
   const gtk = await getJson('https://crates.io/api/v1/crates/gtk')
   const gtkNewest = gtk.crate?.newest_version
@@ -197,7 +207,12 @@ async function checkGlib() {
     const m = String(glibNewest ?? '').match(/^0\.(\d+)\./)
     return m ? parseInt(m[1], 10) >= GLIB_FIXED_MINOR : false
   })()
-  rows.push({ kind: 'glib', item: 'glib 上游最新', detail: `${glibNewest}（修复线 0.${GLIB_FIXED_MINOR}.0：${glibFixedAvailable ? '已发布' : '未发布'}）`, status: 'ok' })
+  rows.push({
+    kind: 'glib',
+    item: 'glib 上游最新',
+    detail: `${glibNewest}（修复线 0.${GLIB_FIXED_MINOR}.0：${glibFixedAvailable ? '已发布' : '未发布'}）`,
+    status: 'ok',
+  })
 
   const chainAvailable =
     cargoReqAllowsMinor(gtkReq, GTK_FIXED_MINOR) &&
@@ -226,11 +241,19 @@ try {
   out(MARKDOWN ? '\n### pixi 8 生态（PR #29 决策依据）\n' : '\n▶ pixi 8 生态（PR #29 决策依据）')
   const pixiActionable = await checkPixi8()
 
-  out(MARKDOWN ? '\n### glib 上游修复链（alert #14 / RUSTSEC-2024-0429）\n' : '\n▶ glib 上游修复链（alert #14 / RUSTSEC-2024-0429）')
+  out(
+    MARKDOWN
+      ? '\n### glib 上游修复链（alert #14 / RUSTSEC-2024-0429）\n'
+      : '\n▶ glib 上游修复链（alert #14 / RUSTSEC-2024-0429）',
+  )
   const glibActionable = await checkGlib()
 
-  if (pixiActionable) actionable.push('官方 pixi-live2d-display 已支持 pixi 8 → 重新评估 dependabot PR #29（升级 live2d 适配层 + N 卡真机验证 Live2D）')
-  if (glibActionable) actionable.push('tauri/gtk-rs 0.20 修复链可用 → 评估升级以关闭 dependabot alert #14（RUSTSEC-2024-0429）')
+  if (pixiActionable)
+    actionable.push(
+      '官方 pixi-live2d-display 已支持 pixi 8 → 重新评估 dependabot PR #29（升级 live2d 适配层 + N 卡真机验证 Live2D）',
+    )
+  if (glibActionable)
+    actionable.push('tauri/gtk-rs 0.20 修复链可用 → 评估升级以关闭 dependabot alert #14（RUSTSEC-2024-0429）')
 
   // 汇总表
   table(
@@ -242,10 +265,18 @@ try {
   if (actionable.length > 0) {
     out(MARKDOWN ? '\n> ⚠️ **发现可行动变化**（exit 1）：' : '⚠️ 发现可行动变化：')
     actionable.forEach((a) => out(MARKDOWN ? `> - ${a}` : `  - ${a}`))
-    out(MARKDOWN ? '' : '\n处置：按《docs/execution/依赖与安全跟踪机制》§漏洞与生态响应 SOP 评估；本脚本不做任何修复动作。')
+    out(
+      MARKDOWN
+        ? ''
+        : '\n处置：按《docs/execution/依赖与安全跟踪机制》§漏洞与生态响应 SOP 评估；本脚本不做任何修复动作。',
+    )
     process.exit(1)
   }
-  out(MARKDOWN ? '\n> ✅ 无可行动变化（官方生态与上游修复链均维持已知受阻状态）。' : '✅ 无可行动变化（官方生态与上游修复链均维持已知受阻状态）。')
+  out(
+    MARKDOWN
+      ? '\n> ✅ 无可行动变化（官方生态与上游修复链均维持已知受阻状态）。'
+      : '✅ 无可行动变化（官方生态与上游修复链均维持已知受阻状态）。',
+  )
   process.exit(0)
 } catch (e) {
   console.error(`track-deps-ecosystem: 查询失败（上游不可达，不代表结论变化）：${e.message}`)

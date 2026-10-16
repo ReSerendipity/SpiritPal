@@ -84,7 +84,7 @@ export interface PetMetadata {
   // ---- 兼容性 ----
   /** 兼容的应用列表 */
   compatibility: {
-    spiritpal: string    // SpiritPal 版本范围
+    spiritpal: string // SpiritPal 版本范围
     openpets?: string // OpenPets 版本范围（可选）
     windowpet?: string // WindowPet 版本范围（可选）
   }
@@ -152,9 +152,7 @@ export function createDefaultAnimationMap(): PetAnimationMap {
 }
 
 /** 创建标准 SpiritPal 元数据 */
-export function createPetMetadata(
-  overrides: Partial<PetMetadata> & Pick<PetMetadata, 'id' | 'name'>,
-): PetMetadata {
+export function createPetMetadata(overrides: Partial<PetMetadata> & Pick<PetMetadata, 'id' | 'name'>): PetMetadata {
   return {
     formatVersion: '1.0',
     version: '1.0.0',
@@ -301,7 +299,10 @@ function convertFromWindowPet(data: Record<string, unknown>): PetMetadata {
     license: (data.license as string) ?? 'MIT',
     description: (data.description as string) ?? '',
     atlas: (data.atlas as PetAtlasConfig) ?? {
-      cellW: 128, cellH: 128, cols: 8, rows: 9,
+      cellW: 128,
+      cellH: 128,
+      cols: 8,
+      rows: 9,
     },
   })
 }

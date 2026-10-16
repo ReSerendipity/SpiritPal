@@ -24,7 +24,20 @@
  * @see {@link ../lib/behaviorEngine} 行为引擎
  */
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
-import { Apple, Bath, Check, ChevronDown, ChevronUp, Coins, Gamepad2, Hand, Heart, ImageOff, PawPrint, Repeat } from 'lucide-react'
+import {
+  Apple,
+  Bath,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Coins,
+  Gamepad2,
+  Hand,
+  Heart,
+  ImageOff,
+  PawPrint,
+  Repeat,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DecorationLayer } from '@/components/DecorationLayer'
 import { Live2DRenderer, getMotionGroupForState } from '@/components/Live2DRenderer'
@@ -106,9 +119,7 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
   // 与 MobileSettingsView 的 handleSwitchCharacter 保持一致
   const switchPetCharacter = usePetStore((s) => s.switchCharacter)
   // 已穿戴装饰品（此前移动端只做穿戴写入、从不渲染，等于穿上看不到）
-  const wornDecorations = usePetStore(
-    (s) => s.wornDecorations[s.currentCharacterId] ?? EMPTY_DECORATIONS,
-  )
+  const wornDecorations = usePetStore((s) => s.wornDecorations[s.currentCharacterId] ?? EMPTY_DECORATIONS)
 
   const petSize = useSettingsStore((s) => s.petSize)
   // 宠物透明度（此前移动端固定 1，不跟随设置）
@@ -431,142 +442,151 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
    * 触摸开始事件处理
    * @param e React 触摸事件
    */
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (!isActive) return
-    const touches = e.touches
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isActive) return
+      const touches = e.touches
 
-    // 双指捏合缩放
-    if (touches.length === 2) {
-      const dx = touches[0].clientX - touches[1].clientX
-      const dy = touches[0].clientY - touches[1].clientY
-      pinchInitialDistRef.current = Math.sqrt(dx * dx + dy * dy)
-      pinchInitialScaleRef.current = petSize
-      // 取消长按计时器
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current)
-        longPressTimerRef.current = 0
-      }
-      return
-    }
-
-    // 单指触摸
-    if (touches.length === 1) {
-      const t = touches[0]
-      touchStartRef.current = { x: t.clientX, y: t.clientY, t: Date.now() }
-      dragStartedRef.current = false
-      // 启动长按计时器
-      longPressTimerRef.current = window.setTimeout(() => {
-        if (!dragStartedRef.current && touchStartRef.current) {
-          setMenuSub(null) // 每次重新长按都从主菜单开始
-          setMenu({ x: touchStartRef.current.x, y: touchStartRef.current.y })
+      // 双指捏合缩放
+      if (touches.length === 2) {
+        const dx = touches[0].clientX - touches[1].clientX
+        const dy = touches[0].clientY - touches[1].clientY
+        pinchInitialDistRef.current = Math.sqrt(dx * dx + dy * dy)
+        pinchInitialScaleRef.current = petSize
+        // 取消长按计时器
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current)
+          longPressTimerRef.current = 0
         }
-      }, LONG_PRESS_THRESHOLD)
-    }
-  }, [isActive, petSize])
+        return
+      }
+
+      // 单指触摸
+      if (touches.length === 1) {
+        const t = touches[0]
+        touchStartRef.current = { x: t.clientX, y: t.clientY, t: Date.now() }
+        dragStartedRef.current = false
+        // 启动长按计时器
+        longPressTimerRef.current = window.setTimeout(() => {
+          if (!dragStartedRef.current && touchStartRef.current) {
+            setMenuSub(null) // 每次重新长按都从主菜单开始
+            setMenu({ x: touchStartRef.current.x, y: touchStartRef.current.y })
+          }
+        }, LONG_PRESS_THRESHOLD)
+      }
+    },
+    [isActive, petSize],
+  )
 
   /**
    * 触摸移动事件处理（拖拽/捏合缩放）
    * @param e React 触摸事件
    */
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isActive) return
-    const touches = e.touches
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isActive) return
+      const touches = e.touches
 
-    // 双指捏合缩放
-    if (touches.length === 2 && pinchInitialDistRef.current > 0) {
-      const dx = touches[0].clientX - touches[1].clientX
-      const dy = touches[0].clientY - touches[1].clientY
-      const dist = Math.sqrt(dx * dx + dy * dy)
-      const ratio = dist / pinchInitialDistRef.current
-      const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, pinchInitialScaleRef.current * ratio))
-      updateSettings({ petSize: +newScale.toFixed(2) })
-      return
-    }
-
-    // 单指拖拽
-    if (touches.length === 1 && touchStartRef.current) {
-      const t = touches[0]
-      const dx = t.clientX - touchStartRef.current.x
-      const dy = t.clientY - touchStartRef.current.y
-      const dist = Math.sqrt(dx * dx + dy * dy)
-      // 超过阈值时开始拖拽，并取消长按
-      if (dist > DRAG_THRESHOLD) {
-        if (longPressTimerRef.current) {
-          clearTimeout(longPressTimerRef.current)
-          longPressTimerRef.current = 0
-        }
-        if (!dragStartedRef.current) {
-          dragStartedRef.current = true
-          setPetState('drag')
-        }
-        setPos((p) => ({
-          x: p.x + dx,
-          y: p.y + dy,
-        }))
-        touchStartRef.current = { x: t.clientX, y: t.clientY, t: Date.now() }
+      // 双指捏合缩放
+      if (touches.length === 2 && pinchInitialDistRef.current > 0) {
+        const dx = touches[0].clientX - touches[1].clientX
+        const dy = touches[0].clientY - touches[1].clientY
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        const ratio = dist / pinchInitialDistRef.current
+        const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, pinchInitialScaleRef.current * ratio))
+        updateSettings({ petSize: +newScale.toFixed(2) })
+        return
       }
-    }
-  }, [isActive, updateSettings])
+
+      // 单指拖拽
+      if (touches.length === 1 && touchStartRef.current) {
+        const t = touches[0]
+        const dx = t.clientX - touchStartRef.current.x
+        const dy = t.clientY - touchStartRef.current.y
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        // 超过阈值时开始拖拽，并取消长按
+        if (dist > DRAG_THRESHOLD) {
+          if (longPressTimerRef.current) {
+            clearTimeout(longPressTimerRef.current)
+            longPressTimerRef.current = 0
+          }
+          if (!dragStartedRef.current) {
+            dragStartedRef.current = true
+            setPetState('drag')
+          }
+          setPos((p) => ({
+            x: p.x + dx,
+            y: p.y + dy,
+          }))
+          touchStartRef.current = { x: t.clientX, y: t.clientY, t: Date.now() }
+        }
+      }
+    },
+    [isActive, updateSettings],
+  )
 
   /**
    * 触摸结束事件处理（单击/双击判断）
    * @param e React 触摸事件
    */
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (!isActive) return
-    // 清除长按计时器
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current)
-      longPressTimerRef.current = 0
-    }
-    // 重置捏合
-    pinchInitialDistRef.current = 0
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isActive) return
+      // 清除长按计时器
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current)
+        longPressTimerRef.current = 0
+      }
+      // 重置捏合
+      pinchInitialDistRef.current = 0
 
-    const start = touchStartRef.current
-    touchStartRef.current = null
-    if (!start) return
+      const start = touchStartRef.current
+      touchStartRef.current = null
+      if (!start) return
 
-    // 拖拽结束
-    if (dragStartedRef.current) {
-      dragStartedRef.current = false
-      setPetState('idle')
-      // P2-11：边缘吸附——接近屏幕左右缘时贴边（设置可关）
-      if (useSettingsStore.getState().edgeSnapEnabled) {
-        const margin = 12
-        const nearLeft = pos.x <= margin
-        const nearRight = pos.x + displayW >= screenSize.w - margin
-        if (nearLeft || nearRight) {
-          setPos((p) => ({
-            ...p,
-            x: nearLeft ? margin : Math.max(margin, screenSize.w - displayW - margin),
-          }))
+      // 拖拽结束
+      if (dragStartedRef.current) {
+        dragStartedRef.current = false
+        setPetState('idle')
+        // P2-11：边缘吸附——接近屏幕左右缘时贴边（设置可关）
+        if (useSettingsStore.getState().edgeSnapEnabled) {
+          const margin = 12
+          const nearLeft = pos.x <= margin
+          const nearRight = pos.x + displayW >= screenSize.w - margin
+          if (nearLeft || nearRight) {
+            setPos((p) => ({
+              ...p,
+              x: nearLeft ? margin : Math.max(margin, screenSize.w - displayW - margin),
+            }))
+          }
+        }
+        return
+      }
+
+      // 菜单已弹出时不触发点击
+      if (menu) return
+
+      const t = e.changedTouches[0]
+      const dx = t.clientX - start.x
+      const dy = t.clientY - start.y
+      const dist = Math.sqrt(dx * dx + dy * dy)
+      // 移动距离小则视为点击
+      if (dist < DRAG_THRESHOLD) {
+        const now = Date.now()
+        const lastTap = lastTapRef.current
+        lastTapRef.current = now
+        if (now - lastTap < DOUBLE_TAP_THRESHOLD) {
+          // 双击：喂食
+          lastTapRef.current = 0
+          triggerFeed()
+        } else {
+          // 单击：互动
+          triggerClick()
         }
       }
-      return
-    }
-
-    // 菜单已弹出时不触发点击
-    if (menu) return
-
-    const t = e.changedTouches[0]
-    const dx = t.clientX - start.x
-    const dy = t.clientY - start.y
-    const dist = Math.sqrt(dx * dx + dy * dy)
-    // 移动距离小则视为点击
-    if (dist < DRAG_THRESHOLD) {
-      const now = Date.now()
-      const lastTap = lastTapRef.current
-      lastTapRef.current = now
-      if (now - lastTap < DOUBLE_TAP_THRESHOLD) {
-        // 双击：喂食
-        lastTapRef.current = 0
-        triggerFeed()
-      } else {
-        // 单击：互动
-        triggerClick()
-      }
-    }
-  }, [isActive, menu, triggerFeed, triggerClick, pos, displayW, screenSize.w])
+    },
+    [isActive, menu, triggerFeed, triggerClick, pos, displayW, screenSize.w],
+  )
 
   // Live2D 动画变化时触发动作
   const lastMotionGroupRef = useRef<string>('')
@@ -605,7 +625,9 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
       style={{ touchAction: 'none' }}
     >
       {/* 状态栏（左上角，P2-10：可折叠——折叠后仅剩展开按钮，不再遮挡宠物/场景） */}
-      <div className={`absolute left-2 top-2 z-30 flex flex-col gap-1 rounded-lg ${statusBgClass} px-2 py-1.5 text-[11px] text-white backdrop-blur-sm`}>
+      <div
+        className={`absolute left-2 top-2 z-30 flex flex-col gap-1 rounded-lg ${statusBgClass} px-2 py-1.5 text-[11px] text-white backdrop-blur-sm`}
+      >
         <button
           onClick={toggleHud}
           aria-label={hudCollapsed ? t('mobile.hud.expand') : t('mobile.hud.collapse')}
@@ -619,11 +641,15 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
           <>
             <div className="flex items-center gap-1.5">
               <span className={`h-2 w-2 rounded-full ${tierColor[hungerTier]}`} />
-              <span>{t('stat.hunger')} {Math.round(stats.hunger)}</span>
+              <span>
+                {t('stat.hunger')} {Math.round(stats.hunger)}
+              </span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className={`h-2 w-2 rounded-full ${tierColor[moodTier]}`} />
-              <span>{t('stat.mood')} {Math.round(stats.mood)}</span>
+              <span>
+                {t('stat.mood')} {Math.round(stats.mood)}
+              </span>
             </div>
             <div className="flex items-center gap-1.5 text-tangerine-soft">
               <Coins size={11} />
@@ -710,11 +736,7 @@ export function MobilePetView({ isActive, isDark }: MobilePetViewProps) {
               onError={() => setLive2dFailed(true)}
             />
           ) : (
-            <SpriteRenderer
-              characterId={currentCharacterId}
-              state={petState}
-              size={petSize}
-            />
+            <SpriteRenderer characterId={currentCharacterId} state={petState} size={petSize} />
           )}
           <DecorationLayer
             decorations={frontDecorations}

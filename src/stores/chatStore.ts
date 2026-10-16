@@ -147,9 +147,8 @@ function updateActiveMessages(
     if (!sessionId) return state
     const list = state.messagesBySession[sessionId] ?? []
     const updated = updater(list)
-    const trimmed = updated.length > MAX_MESSAGES_PER_SESSION
-      ? updated.slice(updated.length - MAX_MESSAGES_PER_SESSION)
-      : updated
+    const trimmed =
+      updated.length > MAX_MESSAGES_PER_SESSION ? updated.slice(updated.length - MAX_MESSAGES_PER_SESSION) : updated
     return {
       ...extra,
       messagesBySession: {
@@ -193,9 +192,7 @@ function migrateFromLegacy(persisted: Record<string, unknown>): Partial<ChatStor
     }
     const sessionId = genId()
     const firstUser = messages.find((m) => m.role === 'user')
-    const title = firstUser
-      ? firstUser.content.slice(0, 24) + (firstUser.content.length > 24 ? '…' : '')
-      : '历史对话'
+    const title = firstUser ? firstUser.content.slice(0, 24) + (firstUser.content.length > 24 ? '…' : '') : '历史对话'
 
     sessions[charId] = [
       {
@@ -325,9 +322,7 @@ export const useChatStore = create<ChatStoreState>()(
         set((state) => ({
           sessions: {
             ...state.sessions,
-            [charId]: (state.sessions[charId] ?? []).map((s) =>
-              s.id === sessionId ? { ...s, title } : s,
-            ),
+            [charId]: (state.sessions[charId] ?? []).map((s) => (s.id === sessionId ? { ...s, title } : s)),
           },
         }))
       },
@@ -337,9 +332,7 @@ export const useChatStore = create<ChatStoreState>()(
         set((state) => ({
           sessions: {
             ...state.sessions,
-            [charId]: (state.sessions[charId] ?? []).map((s) =>
-              s.id === sessionId ? { ...s, pinned: !s.pinned } : s,
-            ),
+            [charId]: (state.sessions[charId] ?? []).map((s) => (s.id === sessionId ? { ...s, pinned: !s.pinned } : s)),
           },
         }))
       },
@@ -366,8 +359,7 @@ export const useChatStore = create<ChatStoreState>()(
             if (idx === -1) continue
             const start = Math.max(0, idx - 15)
             const end = Math.min(m.content.length, idx + q.length + 15)
-            const snippet =
-              (start > 0 ? '…' : '') + m.content.slice(start, end) + (end < m.content.length ? '…' : '')
+            const snippet = (start > 0 ? '…' : '') + m.content.slice(start, end) + (end < m.content.length ? '…' : '')
             hits.push({ sessionId: session.id, messageId: m.id, snippet, timestamp: m.timestamp })
           }
         }
@@ -420,9 +412,10 @@ export const useChatStore = create<ChatStoreState>()(
 
           const existing = messagesBySession[sessionId] ?? []
           const combined = [...existing, userMsg, assistantMsg]
-          const trimmed = combined.length > MAX_MESSAGES_PER_SESSION
-            ? combined.slice(combined.length - MAX_MESSAGES_PER_SESSION)
-            : combined
+          const trimmed =
+            combined.length > MAX_MESSAGES_PER_SESSION
+              ? combined.slice(combined.length - MAX_MESSAGES_PER_SESSION)
+              : combined
 
           // 更新会话元数据
           const charSessions = (sessions[charId] ?? []).map((s) => {
@@ -430,9 +423,10 @@ export const useChatStore = create<ChatStoreState>()(
             const newCount = trimmed.length
             // 首条消息时自动设置标题
             const defaultTitle = i18n.t('chat.sessionDefault')
-            const title = s.title === defaultTitle && existing.length === 0
-              ? text.slice(0, 24) + (text.length > 24 ? '…' : '')
-              : s.title
+            const title =
+              s.title === defaultTitle && existing.length === 0
+                ? text.slice(0, 24) + (text.length > 24 ? '…' : '')
+                : s.title
             return { ...s, updatedAt: Date.now(), messageCount: newCount, title }
           })
 
@@ -558,9 +552,10 @@ export const useChatStore = create<ChatStoreState>()(
 
           const existing = messagesBySession[sessionId] ?? []
           const combined = [...existing, message]
-          const trimmed = combined.length > MAX_MESSAGES_PER_SESSION
-            ? combined.slice(combined.length - MAX_MESSAGES_PER_SESSION)
-            : combined
+          const trimmed =
+            combined.length > MAX_MESSAGES_PER_SESSION
+              ? combined.slice(combined.length - MAX_MESSAGES_PER_SESSION)
+              : combined
 
           return {
             sessions,
@@ -572,11 +567,7 @@ export const useChatStore = create<ChatStoreState>()(
 
       flagMessage: (messageId, violations) => {
         updateActiveMessages(set, (list) =>
-          list.map((m) =>
-            m.id === messageId
-              ? { ...m, flagged: true, consistencyViolations: violations }
-              : m,
-          ),
+          list.map((m) => (m.id === messageId ? { ...m, flagged: true, consistencyViolations: violations } : m)),
         )
       },
 
@@ -606,9 +597,7 @@ export const useChatStore = create<ChatStoreState>()(
       // ---- P0-3: 发送状态机 ----
 
       setMessageStatus: (messageId, status) => {
-        updateActiveMessages(set, (list) =>
-          list.map((m) => (m.id === messageId ? { ...m, sendStatus: status } : m)),
-        )
+        updateActiveMessages(set, (list) => list.map((m) => (m.id === messageId ? { ...m, sendStatus: status } : m)))
       },
 
       // ---- 指标回写 ----
@@ -619,9 +608,7 @@ export const useChatStore = create<ChatStoreState>()(
           const sessionId = state.activeSessionByCharacter[charId]
           if (!sessionId) return state
           const list = state.messagesBySession[sessionId] ?? []
-          const updatedList = list.map((m) =>
-            m.id === messageId ? { ...m, metrics } : m,
-          )
+          const updatedList = list.map((m) => (m.id === messageId ? { ...m, metrics } : m))
           // 更新会话级汇总
           const charSessions = (state.sessions[charId] ?? []).map((s) => {
             if (s.id !== sessionId) return s

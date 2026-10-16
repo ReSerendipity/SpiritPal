@@ -13,7 +13,15 @@ vi.mock('@/stores/petStore', () => ({
 }))
 
 const sampleEntities: GraphEntity[] = [
-  { id: 'e1', name: '主人', type: 'person', memoryCount: 4, memoryIds: ['m1', 'm2', 'm3', 'm4'], mentionCount: 4, createdAt: 1 },
+  {
+    id: 'e1',
+    name: '主人',
+    type: 'person',
+    memoryCount: 4,
+    memoryIds: ['m1', 'm2', 'm3', 'm4'],
+    mentionCount: 4,
+    createdAt: 1,
+  },
   { id: 'e2', name: '公司', type: 'place', memoryCount: 2, memoryIds: ['m2', 'm3'], mentionCount: 2, createdAt: 2 },
   { id: 'e3', name: '项目会议', type: 'event', memoryCount: 1, memoryIds: ['m3'], mentionCount: 1, createdAt: 3 },
 ]

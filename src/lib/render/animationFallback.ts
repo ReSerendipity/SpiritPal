@@ -52,19 +52,19 @@ export interface FallbackReason {
  * 定义了每个状态在不同 tier 下的回退路径
  */
 const STATE_COMPATIBILITY: Record<PetState, PetState[]> = {
-  happy:   ['happy', 'idle', 'sit', 'walk'],
-  idle:    ['idle', 'sit', 'walk', 'happy'],
-  walk:    ['walk', 'idle', 'sit', 'happy'],
-  sit:     ['sit', 'idle', 'walk', 'happy'],
-  eat:     ['eat', 'happy', 'idle', 'sit'],
-  sleep:   ['sleep', 'sit', 'idle'],
-  pet:     ['pet', 'happy', 'idle', 'sit'],
-  drag:    ['drag', 'walk', 'idle', 'sit'],
-  sad:     ['sad', 'idle', 'sit', 'walk'],
-  sick:    ['sick', 'sad', 'idle'],
-  hide:    ['hide', 'idle', 'sit'],
-  climbing: ['climbing', 'walk', 'idle'],      // 爬墙可回退到行走或闲着
-  peeking: ['peeking', 'idle', 'sit'],         // 探头回退到闲着
+  happy: ['happy', 'idle', 'sit', 'walk'],
+  idle: ['idle', 'sit', 'walk', 'happy'],
+  walk: ['walk', 'idle', 'sit', 'happy'],
+  sit: ['sit', 'idle', 'walk', 'happy'],
+  eat: ['eat', 'happy', 'idle', 'sit'],
+  sleep: ['sleep', 'sit', 'idle'],
+  pet: ['pet', 'happy', 'idle', 'sit'],
+  drag: ['drag', 'walk', 'idle', 'sit'],
+  sad: ['sad', 'idle', 'sit', 'walk'],
+  sick: ['sick', 'sad', 'idle'],
+  hide: ['hide', 'idle', 'sit'],
+  climbing: ['climbing', 'walk', 'idle'], // 爬墙可回退到行走或闲着
+  peeking: ['peeking', 'idle', 'sit'], // 探头回退到闲着
   hiding_wall: ['hiding_wall', 'hide', 'idle'], // 躲藏回退到隐藏或闲着
 }
 
@@ -144,7 +144,7 @@ export class AnimationFallbackResolver {
 
     // 获取兼容性表（优先使用角色覆盖）
     const compatTable = characterId
-      ? this.characterOverrides.get(characterId)?.[requestedState] ?? STATE_COMPATIBILITY[requestedState]
+      ? (this.characterOverrides.get(characterId)?.[requestedState] ?? STATE_COMPATIBILITY[requestedState])
       : STATE_COMPATIBILITY[requestedState]
 
     // Level 1: 精确匹配 (exact)
@@ -240,7 +240,7 @@ export class AnimationFallbackResolver {
    * @param overrides 覆盖规则
    */
   setCharacterOverride(characterId: string, overrides: Partial<Record<PetState, PetState[]>>): void {
-    const existing = this.characterOverrides.get(characterId) ?? {} as Record<PetState, PetState[]>
+    const existing = this.characterOverrides.get(characterId) ?? ({} as Record<PetState, PetState[]>)
     for (const [state, compat] of Object.entries(overrides)) {
       if (compat) {
         existing[state as PetState] = compat

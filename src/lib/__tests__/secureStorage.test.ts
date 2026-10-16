@@ -1,14 +1,7 @@
 // secureStorage 模块测试 — Keychain 封装的 invoke 调用验证
 import { invoke } from '@tauri-apps/api/core'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import {
-  setSecret,
-  getSecret,
-  deleteSecret,
-  setApiKey,
-  getApiKey,
-  deleteApiKey,
-} from '@/lib/data/secureStorage'
+import { setSecret, getSecret, deleteSecret, setApiKey, getApiKey, deleteApiKey } from '@/lib/data/secureStorage'
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),

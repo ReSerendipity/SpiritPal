@@ -61,9 +61,17 @@ const MAX_RESPONSE_LENGTH = 4000
 
 /** 高危关键词（用于安全性初筛，非毒性过滤的完整方案） */
 const HIGH_RISK_KEYWORDS = [
-  '自杀', '自残', 'kill myself', 'suicide',
-  '炸弹', '爆炸物', 'bomb', 'explosive',
-  '毒品', '制毒', 'drug manufacturing',
+  '自杀',
+  '自残',
+  'kill myself',
+  'suicide',
+  '炸弹',
+  '爆炸物',
+  'bomb',
+  'explosive',
+  '毒品',
+  '制毒',
+  'drug manufacturing',
 ]
 
 // ============ 类型定义 ============
@@ -116,9 +124,9 @@ export interface QualityRecord {
 
 /** 隐式反馈状态 */
 export type ImplicitFeedbackState =
-  | 'pending'     // 等待用户反应
-  | 'continued'   // 用户继续对话（正面信号）
-  | 'dropped'     // 用户未继续对话（负面信号）
+  | 'pending' // 等待用户反应
+  | 'continued' // 用户继续对话（正面信号）
+  | 'dropped' // 用户未继续对话（负面信号）
   | 'topic_switch' // 用户切换话题（中性/负面信号）
 
 /** 质量趋势统计 */
@@ -180,13 +188,7 @@ export class QualityMonitor {
    * @param latencyMs 响应延迟
    * @returns 质量记录 ID
    */
-  recordResponse(
-    provider: string,
-    model: string,
-    userMessage: string,
-    response: string,
-    latencyMs: number,
-  ): string {
+  recordResponse(provider: string, model: string, userMessage: string, response: string, latencyMs: number): string {
     const id = `q_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 
     // 启发式评分
@@ -278,11 +280,7 @@ export class QualityMonitor {
    * @param action 用户行为类型
    * @param newMessage 用户的新消息（用于判断是否切换话题）
    */
-  recordUserAction(
-    qualityId: string,
-    action: 'message' | 'close' | 'switch_topic',
-    newMessage?: string,
-  ): void {
+  recordUserAction(qualityId: string, action: 'message' | 'close' | 'switch_topic', newMessage?: string): void {
     if (action === 'message' && newMessage !== undefined && this.pendingRecord) {
       // 判断是否切换话题
       const prevMsg = this.pendingRecord.userMessagePreview
@@ -334,10 +332,9 @@ export class QualityMonitor {
       avgScore: Math.round(avgScore * 1000) / 1000,
       lowQualityRatio: Math.round((lowCount / records.length) * 1000) / 1000,
       goodQualityRatio: Math.round((goodCount / records.length) * 1000) / 1000,
-      continuationRate: feedbackRecords.length > 0
-        ? Math.round((continuedCount / feedbackRecords.length) * 1000) / 1000 : 0,
-      dropOffRate: feedbackRecords.length > 0
-        ? Math.round((droppedCount / feedbackRecords.length) * 1000) / 1000 : 0,
+      continuationRate:
+        feedbackRecords.length > 0 ? Math.round((continuedCount / feedbackRecords.length) * 1000) / 1000 : 0,
+      dropOffRate: feedbackRecords.length > 0 ? Math.round((droppedCount / feedbackRecords.length) * 1000) / 1000 : 0,
       recentScores: scores.slice(-20),
       degradationTrend: Math.round(degradationTrend * 1000) / 1000,
     }
@@ -391,8 +388,8 @@ export class QualityMonitor {
     // 理想区间 20-2000 字符 → 满分
     if (len >= 20 && len <= 2000) return 1.0
     // 过渡区间
-    if (len < 20) return 0.3 + (len - MIN_RESPONSE_LENGTH) / (20 - MIN_RESPONSE_LENGTH) * 0.7
-    return Math.max(0.5, 1.0 - (len - 2000) / (MAX_RESPONSE_LENGTH - 2000) * 0.7)
+    if (len < 20) return 0.3 + ((len - MIN_RESPONSE_LENGTH) / (20 - MIN_RESPONSE_LENGTH)) * 0.7
+    return Math.max(0.5, 1.0 - ((len - 2000) / (MAX_RESPONSE_LENGTH - 2000)) * 0.7)
   }
 
   /** 重复度/新颖度评分 */
@@ -456,7 +453,7 @@ export class QualityMonitor {
       novelty: 0.25,
       format: 0.15,
       safety: 0.25,
-      implicitFeedback: 0.20,
+      implicitFeedback: 0.2,
     }
 
     const score =
@@ -524,11 +521,7 @@ export class QualityMonitor {
    * 触发 LLM-as-judge 质量评估
    * 异步执行，不阻塞主流程
    */
-  private async triggerLLMJudge(
-    record: QualityRecord,
-    userMessage: string,
-    response: string,
-  ): Promise<void> {
+  private async triggerLLMJudge(record: QualityRecord, userMessage: string, response: string): Promise<void> {
     try {
       // 动态导入避免循环依赖
       const { loadAIConfig } = await import('@/lib/ai/aiConfig')
@@ -572,12 +565,7 @@ AI 回复：${response.slice(0, 500)}
         comment?: string
       }
 
-      const scores = [
-        parsed.relevance ?? 5,
-        parsed.usefulness ?? 5,
-        parsed.safety ?? 5,
-        parsed.consistency ?? 5,
-      ]
+      const scores = [parsed.relevance ?? 5, parsed.usefulness ?? 5, parsed.safety ?? 5, parsed.consistency ?? 5]
       const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length / 10 // 归一化到 0-1
 
       // 更新记录

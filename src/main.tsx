@@ -178,7 +178,11 @@ try {
   initCapabilitySettingsSync()
 } catch (err) {
   const msg = err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err)
-  try { console.error('[SpiritPal] initAllCharacters failed (non-fatal)', msg) } catch { /* no-op */ }
+  try {
+    console.error('[SpiritPal] initAllCharacters failed (non-fatal)', msg)
+  } catch {
+    /* no-op */
+  }
   void safeInvoke('log_frontend_error', {
     level: 'warn',
     message: `[SpiritPal initAllCharacters FAILED - non-fatal] ${msg}`,
@@ -189,7 +193,11 @@ try {
   runtimeMonitor.start()
 } catch (err) {
   const msg = err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err)
-  try { console.error('[SpiritPal] runtimeMonitor.start failed (non-fatal)', msg) } catch { /* no-op */ }
+  try {
+    console.error('[SpiritPal] runtimeMonitor.start failed (non-fatal)', msg)
+  } catch {
+    /* no-op */
+  }
   void safeInvoke('log_frontend_error', {
     level: 'warn',
     message: `[SpiritPal runtimeMonitor FAILED - non-fatal] ${msg}`,
@@ -204,7 +212,7 @@ try {
     if (lang === 'zh' || lang === 'en' || lang === 'ja' || lang === 'ko' || lang === 'zh-TW') {
       i18nSetLanguage(lang)
       // 同步 index.html lang 属性以支持无障碍工具与浏览器语言检测
-      const langMap: Record<string, string> = { 'zh': 'zh-CN', 'en': 'en-US', 'ja': 'ja-JP', 'ko': 'ko-KR', 'zh-TW': 'zh-TW' }
+      const langMap: Record<string, string> = { zh: 'zh-CN', en: 'en-US', ja: 'ja-JP', ko: 'ko-KR', 'zh-TW': 'zh-TW' }
       document.documentElement.lang = langMap[lang] ?? 'zh-CN'
     }
   }
@@ -213,7 +221,7 @@ try {
 }
 
 try {
-  const platform = typeof navigator !== 'undefined' ? (navigator.platform || 'unknown') : 'unknown'
+  const platform = typeof navigator !== 'undefined' ? navigator.platform || 'unknown' : 'unknown'
   trackAppLaunch(platform, '0.1.0', false)
 } catch {
   // 忽略埋点错误
@@ -244,11 +252,13 @@ try {
 // 使用动态 import 避免在模块顶层引入 Tauri API 依赖。
 // ============================================================
 try {
-  void import('@/lib/system/windowManager').then(({ enableWindowsPinMode }) => {
-    return enableWindowsPinMode()
-  }).catch(() => {
-    // 非 Tauri 环境或模块加载失败，静默降级
-  })
+  void import('@/lib/system/windowManager')
+    .then(({ enableWindowsPinMode }) => {
+      return enableWindowsPinMode()
+    })
+    .catch(() => {
+      // 非 Tauri 环境或模块加载失败，静默降级
+    })
 } catch {
   // 忽略置顶保活初始化错误
 }
@@ -262,15 +272,21 @@ try {
 // 注意：chat-window / settings-window 不启动此检测，否则自身全屏会被误判隐藏。
 // ============================================================
 try {
-  void import('@/lib/system/fullscreenDetector').then(({ startFullscreenAutoHide }) => {
-    void import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
-      if (getCurrentWindow().label === 'pet-window') {
-        startFullscreenAutoHide()
-      }
-    }).catch(() => { /* 非 Tauri 环境 */ })
-  }).catch(() => {
-    // 非 Tauri 环境或模块加载失败，静默降级
-  })
+  void import('@/lib/system/fullscreenDetector')
+    .then(({ startFullscreenAutoHide }) => {
+      void import('@tauri-apps/api/window')
+        .then(({ getCurrentWindow }) => {
+          if (getCurrentWindow().label === 'pet-window') {
+            startFullscreenAutoHide()
+          }
+        })
+        .catch(() => {
+          /* 非 Tauri 环境 */
+        })
+    })
+    .catch(() => {
+      // 非 Tauri 环境或模块加载失败，静默降级
+    })
 } catch {
   // 忽略全屏检测初始化错误
 }
@@ -313,14 +329,16 @@ try {
 // 将 entityGraph / dreamingConsolidation 接入生产链路
 // ============================================================
 try {
-  void import('@/lib/memory/memoryBackground').then(({ initMemoryBackground }) => {
-    return initMemoryBackground()
-  }).catch((err: unknown) => {
-    // 记忆后台初始化失败，静默降级——但 P0-4 要求进日志可诊断
-    void import('@/lib/system/frontendErrorReport').then(({ reportWarn, formatError }) => {
-      reportWarn(`[memoryBackground] 初始化失败（非致命降级）: ${formatError(err)}`)
+  void import('@/lib/memory/memoryBackground')
+    .then(({ initMemoryBackground }) => {
+      return initMemoryBackground()
     })
-  })
+    .catch((err: unknown) => {
+      // 记忆后台初始化失败，静默降级——但 P0-4 要求进日志可诊断
+      void import('@/lib/system/frontendErrorReport').then(({ reportWarn, formatError }) => {
+        reportWarn(`[memoryBackground] 初始化失败（非致命降级）: ${formatError(err)}`)
+      })
+    })
 } catch {
   // 忽略记忆后台初始化错误
 }
@@ -332,17 +350,19 @@ try {
 // 非致命：失败或环境不支持则静默降级
 // ============================================================
 try {
-  void import('@/components/AgreementGate').then(({ agreementAccepted }) => {
-    if (!agreementAccepted()) return
-    return import('@/lib/system/pushNotificationManager').then(({ pushNotificationManager }) => {
-      return pushNotificationManager.init()
+  void import('@/components/AgreementGate')
+    .then(({ agreementAccepted }) => {
+      if (!agreementAccepted()) return
+      return import('@/lib/system/pushNotificationManager').then(({ pushNotificationManager }) => {
+        return pushNotificationManager.init()
+      })
     })
-  }).catch((err: unknown) => {
-    // 推送初始化失败，静默降级——但 P0-4 要求进日志可诊断
-    void import('@/lib/system/frontendErrorReport').then(({ reportWarn, formatError }) => {
-      reportWarn(`[pushNotification] 初始化失败（非致命降级）: ${formatError(err)}`)
+    .catch((err: unknown) => {
+      // 推送初始化失败，静默降级——但 P0-4 要求进日志可诊断
+      void import('@/lib/system/frontendErrorReport').then(({ reportWarn, formatError }) => {
+        reportWarn(`[pushNotification] 初始化失败（非致命降级）: ${formatError(err)}`)
+      })
     })
-  })
 } catch {
   // 忽略推送初始化错误
 }
@@ -352,14 +372,16 @@ try {
 // 非致命：失败或环境不支持则静默降级（MCP 专项）
 // ============================================================
 try {
-  void import('@/lib/system/mcpAppBridge').then(({ startMcpAppBridge }) => {
-    startMcpAppBridge()
-  }).catch((err: unknown) => {
-    // MCP 桥初始化失败，静默降级——但 P0-4 要求进日志可诊断
-    void import('@/lib/system/frontendErrorReport').then(({ reportWarn, formatError }) => {
-      reportWarn(`[mcpAppBridge] 初始化失败（非致命降级）: ${formatError(err)}`)
+  void import('@/lib/system/mcpAppBridge')
+    .then(({ startMcpAppBridge }) => {
+      startMcpAppBridge()
     })
-  })
+    .catch((err: unknown) => {
+      // MCP 桥初始化失败，静默降级——但 P0-4 要求进日志可诊断
+      void import('@/lib/system/frontendErrorReport').then(({ reportWarn, formatError }) => {
+        reportWarn(`[mcpAppBridge] 初始化失败（非致命降级）: ${formatError(err)}`)
+      })
+    })
 } catch {
   // 忽略 MCP 桥初始化错误
 }
@@ -394,16 +416,16 @@ if (!rootEl) {
       registerSecurityEventListeners().catch(swallowSecurityListenerError)
     })
     .catch((importErr) => {
-      const detail = importErr instanceof Error
-        ? `${importErr.message}\n${importErr.stack ?? ''}`
-        : String(importErr)
+      const detail = importErr instanceof Error ? `${importErr.message}\n${importErr.stack ?? ''}` : String(importErr)
       // 把错误信息也写到 DOM 上的 boot-loading stuck 区域，用户不看日志也能看到
       try {
         const stuck = document.getElementById('boot-module-error')
         if (stuck) stuck.textContent = detail
         const boot = document.getElementById('boot-loading')
         if (boot) boot.classList.add('stuck')
-      } catch { /* no-op */ }
+      } catch {
+        /* no-op */
+      }
       renderFatalErrorToRoot('SpiritPal 启动失败（App 模块加载失败）', detail)
     })
 }

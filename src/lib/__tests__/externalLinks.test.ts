@@ -18,9 +18,7 @@ function makeAnchor(href: string, target = ''): HTMLAnchorElement {
 describe('resolveExternalHref', () => {
   it('外部域名链接返回绝对 URL', () => {
     const a = makeAnchor('https://github.com/ReSerendipity/DraftPeek')
-    expect(resolveExternalHref(a, 'http://localhost:1420')).toBe(
-      'https://github.com/ReSerendipity/DraftPeek',
-    )
+    expect(resolveExternalHref(a, 'http://localhost:1420')).toBe('https://github.com/ReSerendipity/DraftPeek')
   })
 
   it('同域 target=_blank 链接也交给系统浏览器', () => {
@@ -87,9 +85,7 @@ describe('setupExternalLinkInterceptor', () => {
     teardown = setupExternalLinkInterceptor()
     const a = makeAnchor('https://example.com', '_blank')
     document.body.appendChild(a)
-    a.dispatchEvent(
-      new MouseEvent('click', { bubbles: true, cancelable: true, button: 0, ctrlKey: true }),
-    )
+    a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0, ctrlKey: true }))
 
     expect(mockInvoke).not.toHaveBeenCalled()
     a.remove()

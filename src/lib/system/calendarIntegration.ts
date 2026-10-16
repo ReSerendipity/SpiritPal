@@ -84,7 +84,7 @@ export interface ReminderConfig {
   quietHours: {
     enabled: boolean
     start: string // "22:00"
-    end: string   // "08:00"
+    end: string // "08:00"
   }
 }
 
@@ -183,16 +183,12 @@ export class CalendarManager {
   /**
    * 获取指定日期范围的日程
    */
-  async getEventsInRange(
-    startDate: Date,
-    endDate: Date,
-    dataSourceIds?: string[],
-  ): Promise<CalendarEvent[]> {
+  async getEventsInRange(startDate: Date, endDate: Date, dataSourceIds?: string[]): Promise<CalendarEvent[]> {
     const events: CalendarEvent[] = []
 
     const sources = dataSourceIds
-      ? dataSourceIds.map(id => this.dataSources.get(id)).filter((s): s is CalendarDataSource => s !== undefined)
-      : Array.from(this.dataSources.values()).filter(s => s.permissionGranted && s.connected)
+      ? dataSourceIds.map((id) => this.dataSources.get(id)).filter((s): s is CalendarDataSource => s !== undefined)
+      : Array.from(this.dataSources.values()).filter((s) => s.permissionGranted && s.connected)
 
     for (const source of sources) {
       try {
@@ -280,9 +276,7 @@ export class CalendarManager {
     const events = await this.getEventsInRange(now, remindTime)
 
     // 过滤低优先级
-    const filtered = this.config.showOnlyHighPriority
-      ? events.filter(e => e.priority === 'high')
-      : events
+    const filtered = this.config.showOnlyHighPriority ? events.filter((e) => e.priority === 'high') : events
 
     // 发送提醒
     for (const event of filtered) {
@@ -346,7 +340,7 @@ export class CalendarManager {
     try {
       // 尝试读取日历数据来触发权限请求
       const { stdout } = await execAsync(
-        'events list -calendar "Home" -last 1 day 2>/dev/null || echo "permission denied"'
+        'events list -calendar "Home" -last 1 day 2>/dev/null || echo "permission denied"',
       )
 
       if (!stdout.includes('permission denied')) {
@@ -360,11 +354,7 @@ export class CalendarManager {
   /**
    * 从缓存加载事件
    */
-  private async loadFromCache(
-    dataSourceName: string,
-    startDate: Date,
-    endDate: Date,
-  ): Promise<CalendarEvent[] | null> {
+  private async loadFromCache(dataSourceName: string, startDate: Date, endDate: Date): Promise<CalendarEvent[] | null> {
     const cacheKey = `${dataSourceName}_${startDate.toISOString()}_${endDate.toISOString()}`
     return this.eventsCache.get(cacheKey) || null
   }
@@ -400,11 +390,7 @@ export class CalendarManager {
    * 且零 importer）；若要直读 Windows/macOS 系统日历，需新增 Tauri 命令桥接，
    * 属独立特性，不在本批次范围。
    */
-  private async fetchEvents(
-    source: CalendarDataSource,
-    _startDate: Date,
-    _endDate: Date,
-  ): Promise<CalendarEvent[]> {
+  private async fetchEvents(source: CalendarDataSource, _startDate: Date, _endDate: Date): Promise<CalendarEvent[]> {
     console.log(`[Calendar] Fetching events from ${source.type} (未接入系统日历，返回空)`)
     return []
   }

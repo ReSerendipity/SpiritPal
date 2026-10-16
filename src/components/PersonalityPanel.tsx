@@ -41,9 +41,16 @@ export function PersonalityPanel() {
   useSettingsStore((s) => s.characterListVersion)
 
   const [personality, setPersonality] = useState<Personality>(() =>
-    getEffectivePersonality(currentCharacterId, character?.personality ?? {
-      warmth: 0, liveliness: 0, dependence: 0, directness: 0, rationality: 0,
-    }),
+    getEffectivePersonality(
+      currentCharacterId,
+      character?.personality ?? {
+        warmth: 0,
+        liveliness: 0,
+        dependence: 0,
+        directness: 0,
+        rationality: 0,
+      },
+    ),
   )
   const [showPreview, setShowPreview] = useState(false)
   const [savedTip, setSavedTip] = useState(false)
@@ -173,11 +180,7 @@ export function PersonalityPanel() {
         </div>
       )}
 
-      {savedTip && (
-        <div className="rounded-full bg-success px-4 py-1.5 text-center text-sm">
-          已保存 ✓
-        </div>
-      )}
+      {savedTip && <div className="rounded-full bg-success px-4 py-1.5 text-center text-sm">已保存 ✓</div>}
     </div>
   )
 }

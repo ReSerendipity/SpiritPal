@@ -57,11 +57,7 @@ function sh(cmd, args) {
   const status = sh('git', ['-c', 'core.quotepath=false', 'status', '--porcelain'])
   const onMain = branch.out === 'main'
   const dirty = status.out.length > 0
-  record(
-    '工作区干净且在 main',
-    onMain && !dirty,
-    `${branch.out}${dirty ? '，存在未提交改动' : '，无未提交改动'}`,
-  )
+  record('工作区干净且在 main', onMain && !dirty, `${branch.out}${dirty ? '，存在未提交改动' : '，无未提交改动'}`)
 }
 
 // ---- 3. 安装包大小门禁 ----
@@ -73,20 +69,27 @@ function sh(cmd, args) {
   } else {
     const r = spawnSync('node', ['perf/package-size.mjs'], { cwd: ROOT, encoding: 'utf-8' })
     const ok = r.status === 0
-    const line = (r.stdout ?? '').split('\n').find((l) => l.includes('MB'))?.trim() ?? ''
+    const line =
+      (r.stdout ?? '')
+        .split('\n')
+        .find((l) => l.includes('MB'))
+        ?.trim() ?? ''
     record('安装包大小门禁（<30MB）', ok, ok ? line : (r.stdout ?? r.stderr ?? '').slice(-200))
   }
 }
 
 // ---- 4. updates.json 远程可达 ----
 if (SKIP_REMOTE) {
-  record('updates.json 远程可达', true, '已按 --skip-remote 跳过（本机加速器 MITM 环境）；发布后以 publish-updates 回读为准')
+  record(
+    'updates.json 远程可达',
+    true,
+    '已按 --skip-remote 跳过（本机加速器 MITM 环境）；发布后以 publish-updates 回读为准',
+  )
 } else {
   try {
-    const resp = await fetch(
-      'https://raw.githubusercontent.com/ReSerendipity/SpiritPal/main/updates.json',
-      { signal: AbortSignal.timeout(15000) },
-    )
+    const resp = await fetch('https://raw.githubusercontent.com/ReSerendipity/SpiritPal/main/updates.json', {
+      signal: AbortSignal.timeout(15000),
+    })
     if (resp.ok) {
       const body = await resp.json()
       const platforms = Object.keys(body.platforms ?? {})
@@ -96,7 +99,11 @@ if (SKIP_REMOTE) {
       record('updates.json 远程可达', false, `HTTP ${resp.status}`)
     }
   } catch (e) {
-    record('updates.json 远程可达', false, `${e.message}（若本机启用 GitHub 加速器 MITM，请用 --skip-remote 重跑并留痕）`)
+    record(
+      'updates.json 远程可达',
+      false,
+      `${e.message}（若本机启用 GitHub 加速器 MITM，请用 --skip-remote 重跑并留痕）`,
+    )
   }
 }
 
@@ -106,7 +113,11 @@ if (LOCAL_ARTIFACTS) {
   const exe = readdirSafe(nsis).find((f) => f.endsWith('-setup.exe'))
   const sig = exe ? `${exe}.sig` : null
   const sigOk = sig && existsSync(join(nsis, sig)) && statSync(join(nsis, sig)).size > 0
-  record('本地产物含签名', Boolean(exe && sigOk), exe ? `${exe} + ${sig}${sigOk ? '（非空）' : ' 缺失/为空'}` : '未找到 setup.exe')
+  record(
+    '本地产物含签名',
+    Boolean(exe && sigOk),
+    exe ? `${exe} + ${sig}${sigOk ? '（非空）' : ' 缺失/为空'}` : '未找到 setup.exe',
+  )
 }
 
 function readdirSafe(p) {
@@ -151,7 +162,12 @@ function rglobExe(dir) {
   const cargoPath = join(ROOT, 'src-tauri', 'Cargo.toml')
   const cargoTxt = existsSync(cargoPath) ? readFileSync(cargoPath, 'utf-8') : ''
   const fm = cargoTxt.match(/tauri\s*=\s*\{[^}]*features\s*=\s*\[([^\]]*)\]/s)
-  const feats = fm ? fm[1].split(',').map((s) => s.replace(/["'\s]/g, '')).filter(Boolean) : []
+  const feats = fm
+    ? fm[1]
+        .split(',')
+        .map((s) => s.replace(/["'\s]/g, ''))
+        .filter(Boolean)
+    : []
   const hasFeature = feats.includes('custom-protocol')
   if (!hasFeature) {
     record(
@@ -198,7 +214,11 @@ function rglobExe(dir) {
 {
   const distAssets = join(ROOT, 'dist', 'assets')
   if (!existsSync(distAssets)) {
-    record('SRI 清单与 dist 一致', false, '本地无 dist/assets 产物（先跑 pnpm build && node scripts/obfuscate-and-sri.mjs）')
+    record(
+      'SRI 清单与 dist 一致',
+      false,
+      '本地无 dist/assets 产物（先跑 pnpm build && node scripts/obfuscate-and-sri.mjs）',
+    )
   } else {
     const r = sh('node', ['scripts/obfuscate-and-sri.mjs', '--verify'])
     const out = String(r.out || '')
@@ -209,9 +229,9 @@ function rglobExe(dir) {
       record(
         'SRI 清单与 dist 一致',
         false,
-        `${n} 项不一致 — 若只是本地报红，先确认是否漏跑生成步骤：`
-        + `pnpm build && node scripts/obfuscate-and-sri.mjs（就地混淆 dist 并重算清单）。`
-        + `发版链路不受影响：tauri build 的 beforeBuildCommand 会重生成后，--verify 才比对同一次构建的产物。`,
+        `${n} 项不一致 — 若只是本地报红，先确认是否漏跑生成步骤：` +
+          `pnpm build && node scripts/obfuscate-and-sri.mjs（就地混淆 dist 并重算清单）。` +
+          `发版链路不受影响：tauri build 的 beforeBuildCommand 会重生成后，--verify 才比对同一次构建的产物。`,
       )
     }
   }

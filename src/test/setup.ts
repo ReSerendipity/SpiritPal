@@ -178,8 +178,7 @@ if (!window.ResizeObserver) {
     unobserve() {}
     disconnect() {}
   }
-  ;(window as unknown as { ResizeObserver: typeof MockResizeObserver }).ResizeObserver =
-    MockResizeObserver
+  ;(window as unknown as { ResizeObserver: typeof MockResizeObserver }).ResizeObserver = MockResizeObserver
 }
 
 /**

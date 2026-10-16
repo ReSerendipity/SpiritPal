@@ -16,16 +16,12 @@ vi.mock('@tauri-apps/api/event', () => ({
 
 describe('T-21: 组件快照测试', () => {
   it('PetBubble 渲染快照', () => {
-    const { container } = render(
-      <PetBubble message="测试消息" onClose={() => {}} />
-    )
+    const { container } = render(<PetBubble message="测试消息" onClose={() => {}} />)
     expect(container.firstChild).toMatchSnapshot()
   })
 
   it('PetBubble 空消息快照', () => {
-    const { container } = render(
-      <PetBubble message="" onClose={() => {}} />
-    )
+    const { container } = render(<PetBubble message="" onClose={() => {}} />)
     expect(container.firstChild).toMatchSnapshot()
   })
 })

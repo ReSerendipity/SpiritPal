@@ -94,9 +94,7 @@ describe('buildCharacterMod', () => {
     const state = createEmptyEditorState()
     state.foods = [{ id: 'apple', name: '苹果', icon: 'a.png', type: 'food', price: 5 }]
     const mod = buildCharacterMod(state)
-    expect(mod.itemsConf?.foods).toEqual([
-      { id: 'apple', name: '苹果', icon: 'a.png', type: 'food', price: 5 },
-    ])
+    expect(mod.itemsConf?.foods).toEqual([{ id: 'apple', name: '苹果', icon: 'a.png', type: 'food', price: 5 }])
     expect((mod.itemsConf?.foods[0] as Record<string, unknown>).count).toBeUndefined()
   })
 })

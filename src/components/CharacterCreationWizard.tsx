@@ -199,11 +199,7 @@ export function CharacterCreationWizard({ onClose }: Props) {
             <Sparkles size={18} className="text-tangerine-deep" />
             <h2 className="text-base font-semibold">AI 对话式创建角色</h2>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-md p-1.5 text-ink-faint hover:bg-ink/10"
-            title="关闭"
-          >
+          <button onClick={onClose} className="rounded-md p-1.5 text-ink-faint hover:bg-ink/10" title="关闭">
             <X size={18} />
           </button>
         </div>
@@ -224,9 +220,7 @@ export function CharacterCreationWizard({ onClose }: Props) {
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600">
                 <User size={14} />
               </div>
-              <div className="max-w-[80%] rounded-2xl bg-blue-600 px-3 py-2 text-sm">
-                {description}
-              </div>
+              <div className="max-w-[80%] rounded-2xl bg-blue-600 px-3 py-2 text-sm">{description}</div>
             </div>
           )}
 
@@ -246,9 +240,7 @@ export function CharacterCreationWizard({ onClose }: Props) {
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600">
                 <User size={14} />
               </div>
-              <div className="max-w-[80%] rounded-2xl bg-blue-600 px-3 py-2 text-sm">
-                {catchphrase}
-              </div>
+              <div className="max-w-[80%] rounded-2xl bg-blue-600 px-3 py-2 text-sm">{catchphrase}</div>
             </div>
           )}
 
@@ -352,9 +344,7 @@ export function CharacterCreationWizard({ onClose }: Props) {
             </div>
           )}
 
-          {error && (
-            <div className="rounded-lg bg-error/20 px-3 py-2 text-xs text-error">{error}</div>
-          )}
+          {error && <div className="rounded-lg bg-error/20 px-3 py-2 text-xs text-error">{error}</div>}
         </div>
 
         {/* 输入区域 */}
@@ -414,9 +404,7 @@ export function CharacterCreationWizard({ onClose }: Props) {
                       void handleGenerate(opt.value)
                     }}
                     className={`rounded-lg border-2 px-3 py-2 text-sm transition-all ${
-                      archetype === opt.value
-                        ? 'border-tangerine bg-tangerine/10'
-                        : 'border-ink/10 hover:border-ink/30'
+                      archetype === opt.value ? 'border-tangerine bg-tangerine/10' : 'border-ink/10 hover:border-ink/30'
                     }`}
                   >
                     <div className="font-medium">{opt.label}</div>

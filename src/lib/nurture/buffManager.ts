@@ -23,7 +23,7 @@ import type { BuffConfig } from '@/lib/data/types'
 interface ActiveBuff {
   id: string
   config: BuffConfig
-  remaining: number      // 剩余秒数
+  remaining: number // 剩余秒数
   intervalElapsed: number // 当前 interval 已过秒数
 }
 

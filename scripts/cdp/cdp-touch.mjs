@@ -17,7 +17,10 @@ sh(`adb -s ${SERIAL} forward tcp:${PORT} localabstract:webview_devtools_remote_$
 const list = await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json()
 const page = list.find((t) => t.type === 'page' && t.webSocketDebuggerUrl)
 const ws = new WebSocket(page.webSocketDebuggerUrl)
-await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej })
+await new Promise((res, rej) => {
+  ws.onopen = res
+  ws.onerror = rej
+})
 
 let id = 0
 function send(method, params) {

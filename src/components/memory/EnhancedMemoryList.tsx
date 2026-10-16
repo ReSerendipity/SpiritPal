@@ -13,11 +13,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Pencil, Database } from 'lucide-react'
 import { getEnhancedMemoryManager, type EnhancedMemory } from '@/lib/memory/enhancedMemory'
-import {
-  createMemoryEditor,
-  sanitizeMemoryForDisplay,
-  type MemorySearchOptions,
-} from '@/lib/memory/memoryEditor'
+import { createMemoryEditor, sanitizeMemoryForDisplay, type MemorySearchOptions } from '@/lib/memory/memoryEditor'
 import { TAG_DIMENSION_LABEL_MAP, parseTag, type TagDimension } from '@/lib/memory/tagCategories'
 import { usePetStore } from '@/stores/petStore'
 import { MemoryEditModal, type MemoryFormValues } from './MemoryEditModal'
@@ -130,12 +126,8 @@ export function EnhancedMemoryList({ onCountChange }: EnhancedMemoryListProps) {
             <div key={mem.id} className="flex items-start gap-2 rounded-lg border border-ink/10 bg-surface px-3 py-2">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="rounded bg-ink/5 px-1.5 py-0.5 text-[10px] text-ink-muted">
-                    {mem.category}
-                  </span>
-                  <span className="text-[10px] text-ink-faint">
-                    {new Date(mem.created_at).toLocaleString()}
-                  </span>
+                  <span className="rounded bg-ink/5 px-1.5 py-0.5 text-[10px] text-ink-muted">{mem.category}</span>
+                  <span className="text-[10px] text-ink-faint">{new Date(mem.created_at).toLocaleString()}</span>
                 </div>
                 <div className="mt-1 text-sm text-ink">{mem.user}</div>
                 {mem.tags.length > 0 && (
@@ -148,7 +140,8 @@ export function EnhancedMemoryList({ onCountChange }: EnhancedMemoryListProps) {
                           className="rounded bg-tangerine/10 px-1.5 py-0.5 text-[10px] text-tangerine"
                           title={dimension ? TAG_DIMENSION_LABEL_MAP[dimension] : '未归类'}
                         >
-                          {dimension ? `${TAG_DIMENSION_LABEL_MAP[dimension]}·` : ''}{value}
+                          {dimension ? `${TAG_DIMENSION_LABEL_MAP[dimension]}·` : ''}
+                          {value}
                         </span>
                       )
                     })}

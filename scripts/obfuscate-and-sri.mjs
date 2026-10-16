@@ -58,7 +58,9 @@ function verifyManifest() {
   const files = readdirSync(distAssets).filter((f) => f.endsWith('.js'))
 
   for (const file of files) {
-    const actual = createHash('sha256').update(readFileSync(join(distAssets, file))).digest('hex')
+    const actual = createHash('sha256')
+      .update(readFileSync(join(distAssets, file)))
+      .digest('hex')
     const expected = entries.get(file)
     if (!expected) {
       problems.push(`清单缺失条目: ${file}`)

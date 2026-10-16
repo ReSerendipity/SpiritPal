@@ -41,19 +41,31 @@ function logFrameCacheStats(): void {
 /** 与 SpriteRenderer.stateToAnimKey 保持一致：PetState → 精灵图动画行 key */
 function petStateToAnimKey(state: PetState): string {
   switch (state) {
-    case 'idle': return 'idle'
-    case 'walk': return 'walk'
-    case 'sleep': return 'waiting'
-    case 'sit': return 'waiting'
-    case 'eat': return 'waving'
-    case 'drag': return 'jumping'
-    case 'happy': return 'jumping'
-    case 'sad': return 'failed'
-    case 'sick': return 'failed'
-    case 'pet': return 'waving'
+    case 'idle':
+      return 'idle'
+    case 'walk':
+      return 'walk'
+    case 'sleep':
+      return 'waiting'
+    case 'sit':
+      return 'waiting'
+    case 'eat':
+      return 'waving'
+    case 'drag':
+      return 'jumping'
+    case 'happy':
+      return 'jumping'
+    case 'sad':
+      return 'failed'
+    case 'sick':
+      return 'failed'
+    case 'pet':
+      return 'waving'
     // 2.4: hide 状态复用 idle 动画行
-    case 'hide': return 'idle'
-    default: return 'idle'
+    case 'hide':
+      return 'idle'
+    default:
+      return 'idle'
   }
 }
 
@@ -78,11 +90,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
  * @param frame 图集当前帧号（由 SpriteRenderer.onFrameChange 提供）
  * @returns base64 PNG 字符串；渲染失败返回 null（调用方静默忽略）
  */
-export async function renderPetTrayIcon(
-  characterId: string,
-  state: PetState,
-  frame = 0,
-): Promise<string | null> {
+export async function renderPetTrayIcon(characterId: string, state: PetState, frame = 0): Promise<string | null> {
   try {
     const character = getCharacter(characterId)
     if (!character) return null

@@ -131,7 +131,12 @@ export function parseSvgAnimateElement(element: Element): SvgAnimationAnalysis |
     let type: SvgAnimationAnalysis['type'] = 'composite'
     if (attributeName === 'd' || attributeName === 'path') {
       type = 'path'
-    } else if (attributeName.includes('transform') || attributeName.includes('rotate') || attributeName.includes('translate') || attributeName.includes('scale')) {
+    } else if (
+      attributeName.includes('transform') ||
+      attributeName.includes('rotate') ||
+      attributeName.includes('translate') ||
+      attributeName.includes('scale')
+    ) {
       type = 'transform'
     } else if (attributeName === 'opacity') {
       type = 'opacity'

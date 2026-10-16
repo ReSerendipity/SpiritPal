@@ -277,10 +277,7 @@ export function EntityGraphView({ entities, edges, emptyTitle, emptyHint }: Enti
         if (node) {
           node.x = x
           node.y = y
-          drag.moved = Math.max(
-            drag.moved,
-            Math.abs(e.clientX - drag.startX) + Math.abs(e.clientY - drag.startY),
-          )
+          drag.moved = Math.max(drag.moved, Math.abs(e.clientX - drag.startX) + Math.abs(e.clientY - drag.startY))
           draw()
         }
         return
@@ -293,10 +290,7 @@ export function EntityGraphView({ entities, edges, emptyTitle, emptyHint }: Enti
         transformRef.current.ty += (e.clientY - drag.offY) * ky
         drag.offX = e.clientX
         drag.offY = e.clientY
-        drag.moved = Math.max(
-          drag.moved,
-          Math.abs(e.clientX - drag.startX) + Math.abs(e.clientY - drag.startY),
-        )
+        drag.moved = Math.max(drag.moved, Math.abs(e.clientX - drag.startX) + Math.abs(e.clientY - drag.startY))
         draw()
         return
       }
@@ -396,9 +390,7 @@ export function EntityGraphView({ entities, edges, emptyTitle, emptyHint }: Enti
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-ink-muted">
             <Network size={32} className="opacity-30" />
             <p>{emptyTitle ?? '暂无实体数据'}</p>
-            <p className="text-xs text-ink-faint">
-              {emptyHint ?? '对话中提取的人物/地点/事件会自动出现在这里'}
-            </p>
+            <p className="text-xs text-ink-faint">{emptyHint ?? '对话中提取的人物/地点/事件会自动出现在这里'}</p>
           </div>
         )}
         {error && (
@@ -427,10 +419,7 @@ export function EntityGraphView({ entities, edges, emptyTitle, emptyHint }: Enti
         <div className="flex w-64 shrink-0 flex-col border-l border-ink/10 bg-surface">
           <div className="flex items-center justify-between border-b border-ink/10 px-3 py-2">
             <div className="flex items-center gap-2">
-              <span
-                className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: TYPE_COLORS[selected.type] }}
-              />
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: TYPE_COLORS[selected.type] }} />
               <span className="text-sm font-medium text-ink">{selected.name}</span>
             </div>
             <button

@@ -79,7 +79,7 @@ export function selectTopK<T>(
   if (k <= 0) return []
   if (items.length === 0) return []
   if (items.length <= k) {
-    return [...items].sort((a, b) => order === 'desc' ? compare(b, a) : compare(a, b))
+    return [...items].sort((a, b) => (order === 'desc' ? compare(b, a) : compare(a, b)))
   }
 
   const heap: T[] = []
@@ -87,11 +87,12 @@ export function selectTopK<T>(
   const siftUp = (idx: number) => {
     while (idx > 0) {
       const parent = (idx - 1) >> 1
-      const shouldSwap = order === 'desc'
-        ? compare(heap[idx]!, heap[parent]!) < 0  // 最小堆：找最大 K 个
-        : compare(heap[idx]!, heap[parent]!) > 0  // 最大堆：找最小 K 个
+      const shouldSwap =
+        order === 'desc'
+          ? compare(heap[idx]!, heap[parent]!) < 0 // 最小堆：找最大 K 个
+          : compare(heap[idx]!, heap[parent]!) > 0 // 最大堆：找最小 K 个
       if (shouldSwap) {
-        [heap[idx], heap[parent]] = [heap[parent], heap[idx]]
+        ;[heap[idx], heap[parent]] = [heap[parent], heap[idx]]
         idx = parent
       } else {
         break
@@ -107,21 +108,19 @@ export function selectTopK<T>(
       const right = 2 * idx + 2
 
       if (left < size) {
-        const leftCompare = order === 'desc'
-          ? compare(heap[left]!, heap[target]!) < 0
-          : compare(heap[left]!, heap[target]!) > 0
+        const leftCompare =
+          order === 'desc' ? compare(heap[left]!, heap[target]!) < 0 : compare(heap[left]!, heap[target]!) > 0
         if (leftCompare) target = left
       }
 
       if (right < size) {
-        const rightCompare = order === 'desc'
-          ? compare(heap[right]!, heap[target]!) < 0
-          : compare(heap[right]!, heap[target]!) > 0
+        const rightCompare =
+          order === 'desc' ? compare(heap[right]!, heap[target]!) < 0 : compare(heap[right]!, heap[target]!) > 0
         if (rightCompare) target = right
       }
 
       if (target !== idx) {
-        [heap[idx], heap[target]] = [heap[target], heap[idx]]
+        ;[heap[idx], heap[target]] = [heap[target], heap[idx]]
         idx = target
       } else {
         break
@@ -134,9 +133,10 @@ export function selectTopK<T>(
       heap.push(item)
       siftUp(heap.length - 1)
     } else {
-      const shouldReplace = order === 'desc'
-        ? compare(item, heap[0]!) > 0  // 新元素比堆顶大，替换
-        : compare(item, heap[0]!) < 0  // 新元素比堆顶小，替换
+      const shouldReplace =
+        order === 'desc'
+          ? compare(item, heap[0]!) > 0 // 新元素比堆顶大，替换
+          : compare(item, heap[0]!) < 0 // 新元素比堆顶小，替换
       if (shouldReplace) {
         heap[0] = item
         siftDown(0)
@@ -144,7 +144,7 @@ export function selectTopK<T>(
     }
   }
 
-  return heap.sort((a, b) => order === 'desc' ? compare(b, a) : compare(a, b))
+  return heap.sort((a, b) => (order === 'desc' ? compare(b, a) : compare(a, b)))
 }
 
 // ============ 防抖函数 ============
@@ -166,15 +166,12 @@ export interface DebouncedFunction<T extends (...args: never[]) => unknown> {
  * @param wait 等待时间（毫秒）
  * @returns 防抖后的函数，带有 cancel 和 flush 方法
  */
-export function debounce<T extends (...args: never[]) => unknown>(
-  fn: T,
-  wait: number,
-): DebouncedFunction<T> {
+export function debounce<T extends (...args: never[]) => unknown>(fn: T, wait: number): DebouncedFunction<T> {
   let timeoutId: ReturnType<typeof setTimeout> | null = null
   let lastArgs: Parameters<T> | null = null
   let lastThis: unknown = null
 
-  const debounced = function(this: unknown, ...args: Parameters<T>) {
+  const debounced = function (this: unknown, ...args: Parameters<T>) {
     // eslint-disable-next-line @typescript-eslint/no-this-alias -- 防抖/节流需暂存 this 上下文供延迟调用
     lastThis = this
     lastArgs = args
@@ -243,7 +240,7 @@ export function throttle<T extends (...args: never[]) => unknown>(
   let lastThis: unknown = null
   let lastCallTime = 0
 
-  const throttled = function(this: unknown, ...args: Parameters<T>) {
+  const throttled = function (this: unknown, ...args: Parameters<T>) {
     const now = Date.now()
     // eslint-disable-next-line @typescript-eslint/no-this-alias -- 防抖/节流需暂存 this 上下文供延迟调用
     lastThis = this
@@ -347,12 +344,15 @@ export function unique<T>(arr: T[], keyFn?: (item: T) => string | number): T[] {
  * @returns 分组后的对象（键 -> 元素数组）
  */
 export function groupBy<T>(arr: T[], keyFn: (item: T) => string): Record<string, T[]> {
-  return arr.reduce((groups, item) => {
-    const key = keyFn(item)
-    if (!groups[key]) groups[key] = []
-    groups[key].push(item)
-    return groups
-  }, {} as Record<string, T[]>)
+  return arr.reduce(
+    (groups, item) => {
+      const key = keyFn(item)
+      if (!groups[key]) groups[key] = []
+      groups[key].push(item)
+      return groups
+    },
+    {} as Record<string, T[]>,
+  )
 }
 
 // ============ 延迟与重试 ============
@@ -391,14 +391,7 @@ export async function retry<T>(
     onRetry?: (attempt: number, error: Error) => void
   } = {},
 ): Promise<T> {
-  const {
-    retries = 3,
-    delayMs: delayMsOpt,
-    initialDelayMs,
-    maxDelayMs,
-    backoff = 2,
-    onRetry,
-  } = options
+  const { retries = 3, delayMs: delayMsOpt, initialDelayMs, maxDelayMs, backoff = 2, onRetry } = options
   const initialDelay = initialDelayMs ?? delayMsOpt ?? 1000
   let lastError: Error | undefined
 
@@ -564,7 +557,11 @@ export class PerformanceMonitor {
 
     // 通知监听器
     this.listeners.forEach((fn) => {
-      try { fn(mark) } catch { /* 监听器异常不影响主流程 */ }
+      try {
+        fn(mark)
+      } catch {
+        /* 监听器异常不影响主流程 */
+      }
     })
 
     return duration
@@ -627,7 +624,7 @@ export class PerformanceMonitor {
    */
   getAllStats(): Record<string, PerfStats> {
     const result: Record<string, PerfStats> = {}
-    const nameSet = new Set(this.history.map(m => m.name))
+    const nameSet = new Set(this.history.map((m) => m.name))
     for (const name of nameSet) {
       const stats = this.getStats(name)
       if (stats) result[name] = stats
@@ -647,7 +644,7 @@ export class PerformanceMonitor {
    */
   clear(name?: string): void {
     if (name) {
-      this.history = this.history.filter(m => m.name !== name)
+      this.history = this.history.filter((m) => m.name !== name)
       this.activeMarks.delete(name)
     } else {
       this.clearAll()
@@ -678,7 +675,7 @@ export function withPerf<T extends (...args: never[]) => unknown>(
   fn: T,
 ): (...args: Parameters<T>) => ReturnType<T> extends Promise<infer R> ? Promise<R> : ReturnType<T> {
   type PerfResult = ReturnType<T> extends Promise<infer R> ? Promise<R> : ReturnType<T>
-  return function(this: unknown, ...args: Parameters<T>): PerfResult {
+  return function (this: unknown, ...args: Parameters<T>): PerfResult {
     return perfMonitor.measure(name, () => fn.apply(this, args)) as PerfResult
   }
 }
@@ -760,7 +757,7 @@ export function safeSync<T>(
 export function once<T extends (...args: never[]) => unknown>(fn: T): T {
   let called = false
   let result: ReturnType<T>
-  return function(this: unknown, ...args: Parameters<T>): ReturnType<T> {
+  return function (this: unknown, ...args: Parameters<T>): ReturnType<T> {
     if (!called) {
       called = true
       result = fn.apply(this, args) as ReturnType<T>
@@ -773,11 +770,7 @@ export function once<T extends (...args: never[]) => unknown>(fn: T): T {
  * 确保函数只在满足条件时执行，否则返回默认值
  * condition 参数可以是布尔值或返回布尔值的函数
  */
-export function guard<T>(
-  condition: boolean | (() => boolean),
-  fn: () => T,
-  defaultValue?: T,
-): () => T | undefined {
+export function guard<T>(condition: boolean | (() => boolean), fn: () => T, defaultValue?: T): () => T | undefined {
   return () => {
     const cond = typeof condition === 'function' ? condition() : condition
     return cond ? fn() : defaultValue
@@ -814,14 +807,15 @@ export async function fetchWithTimeout(
   }
 
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(new DOMException(`Request timeout after ${timeout}ms`, 'TimeoutError')), timeout)
+  const timeoutId = setTimeout(
+    () => controller.abort(new DOMException(`Request timeout after ${timeout}ms`, 'TimeoutError')),
+    timeout,
+  )
 
   try {
     const response = await fetch(url, {
       ...fetchOptions,
-      signal: fetchOptions.signal
-        ? AbortSignal.any([fetchOptions.signal, controller.signal])
-        : controller.signal,
+      signal: fetchOptions.signal ? AbortSignal.any([fetchOptions.signal, controller.signal]) : controller.signal,
     })
     return response
   } finally {

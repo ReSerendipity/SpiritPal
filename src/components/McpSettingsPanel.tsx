@@ -78,9 +78,7 @@ async function probeSseServer(url: string): Promise<ProbeResult> {
     }
 
     // 向 messages 端点发送 initialize 握手
-    const postUrl = messagesPath.startsWith('http')
-      ? messagesPath
-      : new URL(messagesPath, sseUrl).toString()
+    const postUrl = messagesPath.startsWith('http') ? messagesPath : new URL(messagesPath, sseUrl).toString()
 
     const initReq = {
       jsonrpc: '2.0',
@@ -118,8 +116,8 @@ type ProbeEntry = { status: 'idle' } | { status: 'probing' } | { status: 'done';
 
 export function McpSettingsPanel() {
   // 惰性初始化：权限与服务器注册表存于 localStorage，挂载时一次性读取
-  const [permissions, setPermissions] = useState<Record<string, boolean>>(
-    () => Object.fromEntries(BUILT_IN_TOOLS.map(t => [t.name, isToolAllowed(t.name)])),
+  const [permissions, setPermissions] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(BUILT_IN_TOOLS.map((t) => [t.name, isToolAllowed(t.name)])),
   )
   const [servers, setServers] = useState<McpServerRecord[]>(() => getServerRecords())
   const [probeState, setProbeState] = useState<Record<string, ProbeEntry>>({})
@@ -128,7 +126,7 @@ export function McpSettingsPanel() {
 
   const toggleTool = useCallback((toolName: string, allowed: boolean) => {
     setToolAllowed(toolName, allowed)
-    setPermissions(prev => ({ ...prev, [toolName]: allowed }))
+    setPermissions((prev) => ({ ...prev, [toolName]: allowed }))
   }, [])
 
   const addServer = useCallback(() => {
@@ -151,29 +149,38 @@ export function McpSettingsPanel() {
     setShowAddForm(false)
   }, [form, servers])
 
-  const removeServer = useCallback((id: string) => {
-    const next = servers.filter(s => s.id !== id)
-    setServers(next)
-    saveServerRecords(next)
-  }, [servers])
+  const removeServer = useCallback(
+    (id: string) => {
+      const next = servers.filter((s) => s.id !== id)
+      setServers(next)
+      saveServerRecords(next)
+    },
+    [servers],
+  )
 
-  const toggleServer = useCallback((id: string) => {
-    const next = servers.map(s => (s.id === id ? { ...s, enabled: !s.enabled } : s))
-    setServers(next)
-    saveServerRecords(next)
-  }, [servers])
+  const toggleServer = useCallback(
+    (id: string) => {
+      const next = servers.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s))
+      setServers(next)
+      saveServerRecords(next)
+    },
+    [servers],
+  )
 
   const probeServer = useCallback(async (record: McpServerRecord) => {
     if (record.transport !== 'sse' || !record.url) {
-      setProbeState(prev => ({
+      setProbeState((prev) => ({
         ...prev,
-        [record.id]: { status: 'done', result: { reachable: false, error: 'stdio 服务器需在外部 Agent（spiritpal-mcp）侧启动' } },
+        [record.id]: {
+          status: 'done',
+          result: { reachable: false, error: 'stdio 服务器需在外部 Agent（spiritpal-mcp）侧启动' },
+        },
       }))
       return
     }
-    setProbeState(prev => ({ ...prev, [record.id]: { status: 'probing' } }))
+    setProbeState((prev) => ({ ...prev, [record.id]: { status: 'probing' } }))
     const result = await probeSseServer(record.url)
-    setProbeState(prev => ({ ...prev, [record.id]: { status: 'done', result } }))
+    setProbeState((prev) => ({ ...prev, [record.id]: { status: 'done', result } }))
   }, [])
 
   return (
@@ -184,12 +191,12 @@ export function McpSettingsPanel() {
           <Server className="h-4 w-4" /> 本机命令桥
         </h3>
         <p className="mb-2 text-xs text-ink-muted">
-          SpiritPal 运行时会自动监听本机命令桥（默认 127.0.0.1:3124，一次性 Token 鉴权）。
-          外部 Agent（Claude / Cursor 等）通过 <code className="rounded bg-cream-deep px-1">spiritpal-mcp</code> stdio
+          SpiritPal 运行时会自动监听本机命令桥（默认 127.0.0.1:3124，一次性 Token 鉴权）。 外部 Agent（Claude / Cursor
+          等）通过 <code className="rounded bg-cream-deep px-1">spiritpal-mcp</code> stdio
           服务接入，即可驱动下方已授权的工具。
         </p>
         <pre className="overflow-x-auto rounded-lg bg-cream-deep/70 p-3 text-[10px] leading-relaxed">
-{`# 外部 Agent MCP 配置示例（claude_desktop_config.json）
+          {`# 外部 Agent MCP 配置示例（claude_desktop_config.json）
 {
   "mcpServers": {
     "spiritpal": {
@@ -208,7 +215,7 @@ export function McpSettingsPanel() {
         </h3>
         <p className="mb-3 text-xs text-ink-muted">关闭后外部 Agent 调用该工具会被拒绝（PERMISSION_DENIED）</p>
         <div className="space-y-2">
-          {BUILT_IN_TOOLS.map(tool => {
+          {BUILT_IN_TOOLS.map((tool) => {
             const allowed = permissions[tool.name] !== false
             const sensitive = tool.name === 'spiritpal_memory_edit'
             return (
@@ -246,20 +253,18 @@ export function McpSettingsPanel() {
           <h3 className="flex items-center gap-2 text-sm font-semibold">
             <Wifi className="h-4 w-4" /> 外部 MCP 服务器
           </h3>
-          <BrandButton size="sm" onClick={() => setShowAddForm(v => !v)}>
+          <BrandButton size="sm" onClick={() => setShowAddForm((v) => !v)}>
             <Plus className="mr-1 h-3 w-3" /> 添加
           </BrandButton>
         </div>
-        <p className="mb-3 text-xs text-ink-muted">
-          登记宠物要连接的外部 MCP 服务（SSE 可在此直接探测连通性）
-        </p>
+        <p className="mb-3 text-xs text-ink-muted">登记宠物要连接的外部 MCP 服务（SSE 可在此直接探测连通性）</p>
 
         {showAddForm && (
           <div className="mb-3 space-y-2 rounded-lg border border-warning/30 bg-warning/10 p-3">
             <BrandInput
               placeholder="名称（如：天气服务）"
               value={form.name}
-              onChange={(value) => setForm(f => ({ ...f, name: value }))}
+              onChange={(value) => setForm((f) => ({ ...f, name: value }))}
             />
             <BrandSelect
               value={form.transport}
@@ -267,36 +272,38 @@ export function McpSettingsPanel() {
                 { value: 'sse', label: 'SSE（HTTP 长连接）' },
                 { value: 'stdio', label: 'stdio（外部 Agent 侧启动）' },
               ]}
-              onChange={(value) => setForm(f => ({ ...f, transport: value as 'sse' | 'stdio' }))}
+              onChange={(value) => setForm((f) => ({ ...f, transport: value as 'sse' | 'stdio' }))}
             />
             {form.transport === 'sse' ? (
               <BrandInput
                 placeholder="http://localhost:PORT/sse"
                 value={form.url}
-                onChange={(value) => setForm(f => ({ ...f, url: value }))}
+                onChange={(value) => setForm((f) => ({ ...f, url: value }))}
               />
             ) : (
               <BrandInput
                 placeholder="启动命令（如 npx -y some-mcp-server）"
                 value={form.command}
-                onChange={(value) => setForm(f => ({ ...f, command: value }))}
+                onChange={(value) => setForm((f) => ({ ...f, command: value }))}
               />
             )}
             <div className="flex justify-end gap-2">
-              <BrandButton size="sm" variant="ghost" onClick={() => setShowAddForm(false)}>取消</BrandButton>
-              <BrandButton size="sm" onClick={addServer}>保存</BrandButton>
+              <BrandButton size="sm" variant="ghost" onClick={() => setShowAddForm(false)}>
+                取消
+              </BrandButton>
+              <BrandButton size="sm" onClick={addServer}>
+                保存
+              </BrandButton>
             </div>
           </div>
         )}
 
         {servers.length === 0 && !showAddForm && (
-          <p className="rounded-lg bg-cream-deep/30 p-3 text-center text-xs text-ink-muted">
-            暂未登记外部 MCP 服务器
-          </p>
+          <p className="rounded-lg bg-cream-deep/30 p-3 text-center text-xs text-ink-muted">暂未登记外部 MCP 服务器</p>
         )}
 
         <div className="space-y-2">
-          {servers.map(record => {
+          {servers.map((record) => {
             const entry = probeState[record.id] ?? { status: 'idle' as const }
             const probing = entry.status === 'probing'
             const result = entry.status === 'done' ? entry.result : null
@@ -318,9 +325,11 @@ export function McpSettingsPanel() {
                       title={record.enabled ? '停用' : '启用'}
                       onClick={() => toggleServer(record.id)}
                     >
-                      {record.enabled
-                        ? <ShieldCheck className="h-4 w-4 text-success" />
-                        : <ShieldAlert className="h-4 w-4 text-ink-faint" />}
+                      {record.enabled ? (
+                        <ShieldCheck className="h-4 w-4 text-success" />
+                      ) : (
+                        <ShieldAlert className="h-4 w-4 text-ink-faint" />
+                      )}
                     </button>
                     <button
                       className="flex items-center gap-1 rounded p-1.5 text-ink-muted hover:bg-cream-deep hover:text-ink"
@@ -346,15 +355,11 @@ export function McpSettingsPanel() {
                     </button>
                   </div>
                 </div>
-                {record.url && (
-                  <p className="mt-1 truncate font-mono text-[10px] text-ink-muted">{record.url}</p>
-                )}
+                {record.url && <p className="mt-1 truncate font-mono text-[10px] text-ink-muted">{record.url}</p>}
                 {record.command && (
                   <p className="mt-1 truncate font-mono text-[10px] text-ink-muted">{record.command}</p>
                 )}
-                {result?.error && (
-                  <p className="mt-1 text-[11px] text-error">{result.error}</p>
-                )}
+                {result?.error && <p className="mt-1 text-[11px] text-error">{result.error}</p>}
                 {result?.reachable && !result.error && (
                   <p className="mt-1 text-[11px] text-success">MCP 握手成功，端点可用</p>
                 )}

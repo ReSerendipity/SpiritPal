@@ -36,8 +36,7 @@ if (!fs.existsSync(vitestBin)) {
 
 /** 跑一轮 vitest，解析 JSON reporter 输出 */
 function runOnce(round) {
-  const args = [vitestBin, 'run', '--reporter=json', '--outputFile',
-    path.join(resultsDir, `flaky-round-${round}.json`)]
+  const args = [vitestBin, 'run', '--reporter=json', '--outputFile', path.join(resultsDir, `flaky-round-${round}.json`)]
   if (patterns.length > 0) args.push(...patterns)
   try {
     execFileSync(process.execPath, args, { cwd: process.cwd(), stdio: 'inherit' })

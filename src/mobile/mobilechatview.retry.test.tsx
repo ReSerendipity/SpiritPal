@@ -94,7 +94,10 @@ describe('MobileChatView 失败重试', () => {
     })
 
     // 第二次请求成功
-    chatMock.mockImplementationOnce(async (_m, onChunk) => { onChunk('恢复的回复'); return '恢复的回复' })
+    chatMock.mockImplementationOnce(async (_m, onChunk) => {
+      onChunk('恢复的回复')
+      return '恢复的回复'
+    })
     fireEvent.click(screen.getByRole('button', { name: /重试/ }))
 
     await waitFor(() => {
@@ -109,7 +112,10 @@ describe('MobileChatView 失败重试', () => {
   })
 
   it('成功回复时不显示重试按钮', async () => {
-    chatMock.mockImplementationOnce(async (_m, onChunk) => { onChunk('正常回复'); return '正常回复' })
+    chatMock.mockImplementationOnce(async (_m, onChunk) => {
+      onChunk('正常回复')
+      return '正常回复'
+    })
     render(<MobileChatView />)
 
     await sendMessage('你好')

@@ -48,20 +48,23 @@ export async function executeMcpTool(name: string, args: Record<string, unknown>
         const store = usePetStore.getState()
         const stats = store.getCurrentStats()
         const moodLabel = stats.mood >= 80 ? '开心' : stats.mood >= 50 ? '一般' : stats.mood >= 20 ? '低落' : '难过'
-        const hungerLabel = stats.hunger >= 80 ? '饱' : stats.hunger >= 50 ? '还行' : stats.hunger >= 20 ? '饿了' : '很饿'
-        return text(JSON.stringify({
-          level: stats.level,
-          hunger: Math.round(stats.hunger),
-          hungerLabel,
-          mood: Math.round(stats.mood),
-          moodLabel,
-          health: Math.round(stats.health),
-          affection: stats.affection,
-          coins: store.sharedCoins,
-          characterId: store.currentCharacterId,
-          animation: 'idle',
-          position: store.position ?? { x: 0, y: 0 },
-        }))
+        const hungerLabel =
+          stats.hunger >= 80 ? '饱' : stats.hunger >= 50 ? '还行' : stats.hunger >= 20 ? '饿了' : '很饿'
+        return text(
+          JSON.stringify({
+            level: stats.level,
+            hunger: Math.round(stats.hunger),
+            hungerLabel,
+            mood: Math.round(stats.mood),
+            moodLabel,
+            health: Math.round(stats.health),
+            affection: stats.affection,
+            coins: store.sharedCoins,
+            characterId: store.currentCharacterId,
+            animation: 'idle',
+            position: store.position ?? { x: 0, y: 0 },
+          }),
+        )
       } catch (err) {
         return text(`Error: ${err}`, true)
       }
@@ -74,7 +77,10 @@ export async function executeMcpTool(name: string, args: Record<string, unknown>
         const animName = OPENPETS_REACTION_MAP[reaction]
         const validIds = new Set<string>(ANIMATION_CATALOG.map((a) => a.id))
         if (!animName || !validIds.has(animName)) {
-          return text(`Unknown reaction: ${reaction}. Supported: ${Object.keys(OPENPETS_REACTION_MAP).join(', ')}`, true)
+          return text(
+            `Unknown reaction: ${reaction}. Supported: ${Object.keys(OPENPETS_REACTION_MAP).join(', ')}`,
+            true,
+          )
         }
         dispatch('spiritpal-mcp-react', animName)
         return text(`Pet reacted with: ${animName}`)
@@ -105,20 +111,26 @@ export async function executeMcpTool(name: string, args: Record<string, unknown>
           const query = String(args.query ?? '')
           if (!query) return text('Error: query required for search', true)
           const results = mgr.search(query)
-          return text(JSON.stringify(results.slice(0, 10).map((m) => ({
-            user: m.user,
-            assistant: m.assistant,
-            created_at: m.created_at,
-            category: m.category,
-          }))))
+          return text(
+            JSON.stringify(
+              results.slice(0, 10).map((m) => ({
+                user: m.user,
+                assistant: m.assistant,
+                created_at: m.created_at,
+                category: m.category,
+              })),
+            ),
+          )
         }
         const all = mgr.getAllMemories()
-        return text(JSON.stringify({
-          total: all.length,
-          working: mgr.getWorkingMemories().length,
-          episodic: mgr.getEpisodicMemories().length,
-          autobiographical: mgr.getAutobiographicalMemories().length,
-        }))
+        return text(
+          JSON.stringify({
+            total: all.length,
+            working: mgr.getWorkingMemories().length,
+            episodic: mgr.getEpisodicMemories().length,
+            autobiographical: mgr.getAutobiographicalMemories().length,
+          }),
+        )
       } catch (err) {
         return text(`Error: ${err}`, true)
       }
@@ -132,7 +144,10 @@ export async function executeMcpTool(name: string, args: Record<string, unknown>
           (item) => item.name.toLowerCase() === foodName.toLowerCase() || item.id === foodName,
         )
         if (!food) {
-          return text(`Food '${foodName}' not found in inventory. Available: ${store.inventory.map((i) => i.name).join(', ') || 'none'}`, true)
+          return text(
+            `Food '${foodName}' not found in inventory. Available: ${store.inventory.map((i) => i.name).join(', ') || 'none'}`,
+            true,
+          )
         }
         store.feed(food)
         dispatch('spiritpal-mcp-feed', foodName)
@@ -182,15 +197,17 @@ export async function executeMcpTool(name: string, args: Record<string, unknown>
             if (!result.success) return text(JSON.stringify(result), true)
             const mem = (result.details as { memory?: Record<string, unknown> })?.memory
             // 输出裁剪：只回传可读字段，避免把整条内部结构灌给外部 Agent
-            return text(JSON.stringify({
-              id: mem?.id,
-              user: mem?.user,
-              assistant: mem?.assistant,
-              created_at: mem?.created_at,
-              category: mem?.category,
-              tags: mem?.tags,
-              importance: mem?.importance,
-            }))
+            return text(
+              JSON.stringify({
+                id: mem?.id,
+                user: mem?.user,
+                assistant: mem?.assistant,
+                created_at: mem?.created_at,
+                category: mem?.category,
+                tags: mem?.tags,
+                importance: mem?.importance,
+              }),
+            )
           }
           case 'update': {
             const memoryId = String(args.memoryId ?? '')

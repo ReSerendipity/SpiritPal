@@ -20,15 +20,7 @@ export const DRAG_SURFACE_CLASS = 'spiritpal-drag-surface'
 /** 缩放手柄标记类（点击穿透交互白名单使用，悬停时保持窗口可交互） */
 export const RESIZE_HANDLE_CLASS = 'spiritpal-resize-handle'
 
-type ResizeDir =
-  | 'North'
-  | 'South'
-  | 'East'
-  | 'West'
-  | 'NorthWest'
-  | 'NorthEast'
-  | 'SouthWest'
-  | 'SouthEast'
+type ResizeDir = 'North' | 'South' | 'East' | 'West' | 'NorthWest' | 'NorthEast' | 'SouthWest' | 'SouthEast'
 
 /** 8 个缩放手柄的方位与定位样式（外圈 1.5px 细边 + 四角 10px 兜底） */
 const RESIZE_HANDLES: Array<{ dir: ResizeDir; cls: string }> = [

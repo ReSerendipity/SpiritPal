@@ -51,11 +51,12 @@ async function readManifestThumbnail(modPath: string): Promise<string | null> {
     if (!(await exists(manifestPath))) return null
     const raw = await readTextFile(manifestPath)
     const manifest = JSON.parse(raw) as { thumbnail?: unknown; icon?: unknown }
-    const field = typeof manifest.thumbnail === 'string'
-      ? manifest.thumbnail
-      : typeof manifest.icon === 'string'
-        ? manifest.icon
-        : null
+    const field =
+      typeof manifest.thumbnail === 'string'
+        ? manifest.thumbnail
+        : typeof manifest.icon === 'string'
+          ? manifest.icon
+          : null
     if (!field) return null
     // 仅接受模组内部相对路径，拒绝绝对路径/协议头以防越权引用
     if (/^([a-zA-Z]+:|\/|\\\\)/.test(field)) return null

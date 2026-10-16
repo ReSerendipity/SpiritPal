@@ -48,12 +48,7 @@ const MAX_PATTERN_LENGTH = 100
 const MAX_COMMAND_LENGTH = 1000
 
 /** 全局禁止的通配路径片段（敏感目录，配合 Rust 侧路径白名单双端兜底） */
-const FORBIDDEN_PATH_SEGMENTS = [
-  /[/\\]\.ssh[/\\]/i,
-  /[/\\]\.gnupg[/\\]/i,
-  /[/\\]\.aws[/\\]/i,
-  /[/\\]\.config[/\\]/i,
-]
+const FORBIDDEN_PATH_SEGMENTS = [/[/\\]\.ssh[/\\]/i, /[/\\]\.gnupg[/\\]/i, /[/\\]\.aws[/\\]/i, /[/\\]\.config[/\\]/i]
 
 /** 允许的应用名字符模式（字母、数字、空格、点、下划线、连字符） */
 const SAFE_APP_NAME_PATTERN = /^[a-zA-Z0-9\u4e00-\u9fff\s._-]+$/
@@ -131,10 +126,7 @@ const pathField = z
   .string()
   .max(MAX_PATH_LENGTH, `路径不能超过 ${MAX_PATH_LENGTH} 字符`)
   .refine((val) => !DANGEROUS_CHARS.test(val), '路径包含危险字符')
-  .refine(
-    (val) => !FORBIDDEN_PATH_SEGMENTS.some((re) => re.test(val)),
-    '路径指向敏感目录，已被拦截',
-  )
+  .refine((val) => !FORBIDDEN_PATH_SEGMENTS.some((re) => re.test(val)), '路径指向敏感目录，已被拦截')
 
 /** read_file 工具参数 schema */
 export const readFileSchema = z.object({
@@ -170,8 +162,19 @@ export const writeFileSchema = z.object({
 // - Windows：tasklist / ipconfig / whoami / hostname / systeminfo / netstat / ping
 // - Unix：ls / pwd / date / df / free / uname（ps 已从 Rust 白名单移除）
 const EXECUTE_ALLOWED_PREFIXES = [
-  'tasklist', 'ipconfig', 'whoami', 'hostname', 'systeminfo', 'netstat', 'ping',
-  'ls', 'pwd', 'date', 'df', 'free', 'uname',
+  'tasklist',
+  'ipconfig',
+  'whoami',
+  'hostname',
+  'systeminfo',
+  'netstat',
+  'ping',
+  'ls',
+  'pwd',
+  'date',
+  'df',
+  'free',
+  'uname',
 ]
 const EXECUTE_FORBIDDEN_CHARS = /[&|><^;`$()[\]{}%!\r\n]/
 const EXECUTE_DANGEROUS_PREFIX = /^(rm\s+-rf|del\s+\/[sfq]|format\s+[a-z]:|shutdown|reboot)/i
@@ -227,10 +230,7 @@ export interface ValidationResult {
  * @param params LLM 返回的原始参数
  * @returns 校验结果
  */
-export function validateToolParams(
-  toolName: string,
-  params: Record<string, unknown>,
-): ValidationResult {
+export function validateToolParams(toolName: string, params: Record<string, unknown>): ValidationResult {
   const schema = TOOL_SCHEMAS[toolName]
   if (!schema) {
     return {

@@ -21,9 +21,9 @@ export type HiddenState = 'normal' | 'climbing' | 'hiding_wall' | 'peeking'
 
 export interface HiddenStateInfo {
   state: HiddenState
-  duration: number          // 当前状态持续时间（毫秒）
-  startedAt: number         // 状态开始时间戳
-  edgeDir?: 'left' | 'right' | 'top' | 'bottom'  // 边缘方向（爬墙时）
+  duration: number // 当前状态持续时间（毫秒）
+  startedAt: number // 状态开始时间戳
+  edgeDir?: 'left' | 'right' | 'top' | 'bottom' // 边缘方向（爬墙时）
 }
 
 // ============ 配置常量 ============

@@ -81,15 +81,15 @@ export const STANDARD_SPRITE_LAYOUT: SpriteLayoutConfig = {
     rows: ATLAS.rows,
   },
   rows: [
-    { name: 'idle',   row: 0, frameMax: 6, fps: 8,  loop: true,  nextRow: null },
-    { name: 'walk',   row: 1, frameMax: 8, fps: 10, loop: true,  nextRow: null },
-    { name: 'eat',    row: 2, frameMax: 8, fps: 8,  loop: true,  nextRow: 'idle' },
-    { name: 'sleep',  row: 3, frameMax: 4, fps: 4,  loop: true,  nextRow: null },
-    { name: 'pet',    row: 4, frameMax: 5, fps: 8,  loop: false, nextRow: 'happy' },
-    { name: 'happy',  row: 5, frameMax: 8, fps: 10, loop: false, nextRow: 'idle' },
-    { name: 'sad',    row: 6, frameMax: 6, fps: 6,  loop: true,  nextRow: null },
-    { name: 'sick',   row: 7, frameMax: 6, fps: 6,  loop: true,  nextRow: null },
-    { name: 'special', row: 8, frameMax: 6, fps: 8,  loop: false, nextRow: 'idle' },
+    { name: 'idle', row: 0, frameMax: 6, fps: 8, loop: true, nextRow: null },
+    { name: 'walk', row: 1, frameMax: 8, fps: 10, loop: true, nextRow: null },
+    { name: 'eat', row: 2, frameMax: 8, fps: 8, loop: true, nextRow: 'idle' },
+    { name: 'sleep', row: 3, frameMax: 4, fps: 4, loop: true, nextRow: null },
+    { name: 'pet', row: 4, frameMax: 5, fps: 8, loop: false, nextRow: 'happy' },
+    { name: 'happy', row: 5, frameMax: 8, fps: 10, loop: false, nextRow: 'idle' },
+    { name: 'sad', row: 6, frameMax: 6, fps: 6, loop: true, nextRow: null },
+    { name: 'sick', row: 7, frameMax: 6, fps: 6, loop: true, nextRow: null },
+    { name: 'special', row: 8, frameMax: 6, fps: 8, loop: false, nextRow: 'idle' },
   ],
 }
 
@@ -111,11 +111,11 @@ export const EXTENDED_SPRITE_LAYOUT: SpriteLayoutConfig = {
     // 标准 9 行
     ...STANDARD_SPRITE_LAYOUT.rows,
     // 编码反应 6 行
-    { name: 'coding_thinking',   row: 9,  frameMax: 6, fps: 6,  loop: true,  nextRow: null },
-    { name: 'coding_editing',    row: 10, frameMax: 8, fps: 10, loop: true,  nextRow: null },
-    { name: 'coding_testing',    row: 11, frameMax: 6, fps: 8,  loop: true,  nextRow: null },
-    { name: 'coding_success',    row: 12, frameMax: 6, fps: 10, loop: false, nextRow: 'happy' },
-    { name: 'coding_error',      row: 13, frameMax: 6, fps: 8,  loop: false, nextRow: 'sad' },
+    { name: 'coding_thinking', row: 9, frameMax: 6, fps: 6, loop: true, nextRow: null },
+    { name: 'coding_editing', row: 10, frameMax: 8, fps: 10, loop: true, nextRow: null },
+    { name: 'coding_testing', row: 11, frameMax: 6, fps: 8, loop: true, nextRow: null },
+    { name: 'coding_success', row: 12, frameMax: 6, fps: 10, loop: false, nextRow: 'happy' },
+    { name: 'coding_error', row: 13, frameMax: 6, fps: 8, loop: false, nextRow: 'sad' },
     { name: 'coding_celebrating', row: 14, frameMax: 8, fps: 10, loop: false, nextRow: 'happy' },
   ],
 }

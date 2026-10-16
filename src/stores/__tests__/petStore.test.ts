@@ -142,8 +142,16 @@ describe('petStore', () => {
   describe('applyPendingRecovery（喂食渐进恢复）', () => {
     function base(overrides: Partial<ReturnType<typeof usePetStore.getState>['stats'][string]> = {}) {
       return {
-        hunger: 50, mood: 50, health: 80, affection: 0, level: 1, exp: 0, coins: 0,
-        lastTickAt: 0, lastInteractionAt: 0, lastAffectionDecayAt: 0,
+        hunger: 50,
+        mood: 50,
+        health: 80,
+        affection: 0,
+        level: 1,
+        exp: 0,
+        coins: 0,
+        lastTickAt: 0,
+        lastInteractionAt: 0,
+        lastAffectionDecayAt: 0,
         ...overrides,
       } as ReturnType<typeof usePetStore.getState>['stats'][string]
     }
@@ -316,7 +324,6 @@ describe('petStore', () => {
       expect(usePetStore.getState().sharedCoins).toBe(100)
     })
   })
-
 
   describe('dropRandomCoins（正态分布金币掉落）', () => {
     it('返回值在 [1, 50] 范围内且为整数', () => {
@@ -507,7 +514,6 @@ describe('petStore', () => {
       expect(usePetStore.getState().position).toEqual({ x: 100, y: 200 })
     })
   })
-
 
   describe('setBackground', () => {
     it('设置背景配置', () => {

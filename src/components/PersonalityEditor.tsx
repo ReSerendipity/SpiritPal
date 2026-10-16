@@ -21,10 +21,21 @@
  */
 import { useState, useCallback } from 'react'
 import {
-  RotateCcw, Eye, Plus, Trash2, Sparkles, Clock, Baby, Flame, BookOpen, Zap, Candy, type LucideIcon } from 'lucide-react'
+  RotateCcw,
+  Eye,
+  Plus,
+  Trash2,
+  Sparkles,
+  Clock,
+  Baby,
+  Flame,
+  BookOpen,
+  Zap,
+  Candy,
+  type LucideIcon,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
-
   composePersonalityPrompt,
   buildDefaultPersonalityConfig,
   getEffectivePersonalityConfig,
@@ -34,8 +45,14 @@ import {
 import { PERSONALITY_TEMPLATES } from '@/lib/ai/personalityTemplates'
 import { getCharacter, getAllCharacters } from '@/lib/data/characters'
 import type {
-  Personality, PersonalityConfig, SpeakingStyle, InteractionPreferences,
-  SchedulePeriod, Tone, WordPreference, InteractionFrequency,
+  Personality,
+  PersonalityConfig,
+  SpeakingStyle,
+  InteractionPreferences,
+  SchedulePeriod,
+  Tone,
+  WordPreference,
+  InteractionFrequency,
 } from '@/lib/data/types'
 import { useSettingsStore } from '@/stores/settingsStore'
 
@@ -64,7 +81,7 @@ function RadarChart({
   const cx = size / 2
   const cy = size / 2
   const maxR = 80
-  const levels = 5  // 网格层数
+  const levels = 5 // 网格层数
 
   // 计算第 i 个维度的角度（从正上方开始，顺时针）
   function angleOf(i: number): number {
@@ -125,13 +142,7 @@ function RadarChart({
     <svg data-testid="radar-svg" width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="mx-auto">
       {/* 网格五边形 */}
       {[1, 2, 3, 4, 5].map((lv) => (
-        <path
-          key={lv}
-          d={gridPath(lv)}
-          fill="none"
-          stroke="rgba(74,54,38,0.12)"
-          strokeWidth={1}
-        />
+        <path key={lv} d={gridPath(lv)} fill="none" stroke="rgba(74,54,38,0.12)" strokeWidth={1} />
       ))}
       {/* 轴线（高亮当前拖动的维度轴） */}
       {axes.map((a, i) => {
@@ -139,41 +150,34 @@ function RadarChart({
         return (
           <line
             key={i}
-            x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2}
+            x1={a.x1}
+            y1={a.y1}
+            x2={a.x2}
+            y2={a.y2}
             stroke={isHot ? 'rgb(234,88,12)' : 'rgba(74,54,38,0.12)'}
             strokeWidth={isHot ? 2 : 1}
           />
         )
       })}
       {/* 数据填充 */}
-      <path
-        d={dataPath}
-        fill="rgba(251,191,36,0.25)"
-        stroke="rgb(251,191,36)"
-        strokeWidth={2}
-      />
+      <path d={dataPath} fill="rgba(251,191,36,0.25)" stroke="rgb(251,191,36)" strokeWidth={2} />
       {/* 数据点（高亮维度放大） */}
       {DIM_KEYS.map((key, i) => {
         const p = pointOf(i, personality[key])
         const isHot = key === highlight
         return (
-          <circle
-            key={key}
-            cx={p.x} cy={p.y} r={isHot ? 5 : 3}
-            fill={isHot ? 'rgb(234,88,12)' : 'rgb(251,191,36)'}
-          />
+          <circle key={key} cx={p.x} cy={p.y} r={isHot ? 5 : 3} fill={isHot ? 'rgb(234,88,12)' : 'rgb(251,191,36)'} />
         )
       })}
       {/* 维度标签（高亮维度加粗着色） */}
       {labels.map((l) => (
         <text
           key={l.key}
-          x={l.x} y={l.y}
+          x={l.x}
+          y={l.y}
           textAnchor={l.anchor as 'middle' | 'start' | 'end'}
           dominantBaseline="middle"
-          className={`text-[10px] ${
-            l.key === highlight ? 'fill-tangerine-deep font-bold' : 'fill-ink-muted'
-          }`}
+          className={`text-[10px] ${l.key === highlight ? 'fill-tangerine-deep font-bold' : 'fill-ink-muted'}`}
         >
           {l.label}
         </text>
@@ -255,18 +259,9 @@ const TONE_OPTIONS: { value: Tone }[] = [
   { value: 'cold' },
   { value: 'enthusiastic' },
 ]
-const WORD_OPTIONS: { value: WordPreference }[] = [
-  { value: 'formal' },
-  { value: 'colloquial' },
-  { value: 'internet' },
-]
+const WORD_OPTIONS: { value: WordPreference }[] = [{ value: 'formal' }, { value: 'colloquial' }, { value: 'internet' }]
 
-function SpeakingStyleEditor({
-  style, onChange,
-}: {
-  style: SpeakingStyle
-  onChange: (style: SpeakingStyle) => void
-}) {
+function SpeakingStyleEditor({ style, onChange }: { style: SpeakingStyle; onChange: (style: SpeakingStyle) => void }) {
   const { t } = useTranslation()
   const [newPhrase, setNewPhrase] = useState('')
 
@@ -292,7 +287,9 @@ function SpeakingStyleEditor({
             className="w-full rounded-lg bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
           >
             {TONE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{t(`personality.tone.${o.value}`)}</option>
+              <option key={o.value} value={o.value}>
+                {t(`personality.tone.${o.value}`)}
+              </option>
             ))}
           </select>
         </div>
@@ -304,7 +301,9 @@ function SpeakingStyleEditor({
             className="w-full rounded-lg bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
           >
             {WORD_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{t(`personality.word.${o.value}`)}</option>
+              <option key={o.value} value={o.value}>
+                {t(`personality.word.${o.value}`)}
+              </option>
             ))}
           </select>
         </div>
@@ -315,7 +314,9 @@ function SpeakingStyleEditor({
           <input
             value={newPhrase}
             onChange={(e) => setNewPhrase(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') addPhrase() }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') addPhrase()
+            }}
             placeholder={t('personality.speaking.catchphrasePlaceholder')}
             className="flex-1 rounded-lg bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
           />
@@ -334,10 +335,7 @@ function SpeakingStyleEditor({
                 className="flex items-center gap-1 rounded-full bg-tangerine/20 px-3 py-1 text-xs text-tangerine-deep"
               >
                 {phrase}
-                <button
-                  onClick={() => removePhrase(idx)}
-                  className="text-ink-faint hover:text-error"
-                >
+                <button onClick={() => removePhrase(idx)} className="text-ink-faint hover:text-error">
                   <Trash2 size={12} />
                 </button>
               </span>
@@ -350,14 +348,11 @@ function SpeakingStyleEditor({
 }
 
 // ============ 互动偏好编辑器 ============
-const FREQ_OPTIONS: { value: InteractionFrequency }[] = [
-  { value: 'high' },
-  { value: 'medium' },
-  { value: 'low' },
-]
+const FREQ_OPTIONS: { value: InteractionFrequency }[] = [{ value: 'high' }, { value: 'medium' }, { value: 'low' }]
 
 function InteractionPrefsEditor({
-  prefs, onChange,
+  prefs,
+  onChange,
 }: {
   prefs: InteractionPreferences
   onChange: (prefs: InteractionPreferences) => void
@@ -419,7 +414,8 @@ function InteractionPrefsEditor({
 
 // ============ 作息时间可视化编辑器 ============
 function ScheduleEditor({
-  schedule, onChange,
+  schedule,
+  onChange,
 }: {
   schedule: SchedulePeriod[]
   onChange: (schedule: SchedulePeriod[]) => void
@@ -451,7 +447,11 @@ function ScheduleEditor({
               style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
               title={`${p.start}:00 - ${p.end}:00 (${p.type === 'active' ? t('personality.schedule.active') : t('personality.schedule.sleep')})`}
             >
-              {widthPct > 8 ? (p.type === 'active' ? t('personality.schedule.active') : t('personality.schedule.sleep')) : ''}
+              {widthPct > 8
+                ? p.type === 'active'
+                  ? t('personality.schedule.active')
+                  : t('personality.schedule.sleep')
+                : ''}
             </div>
           )
         })}
@@ -474,9 +474,7 @@ function ScheduleEditor({
             <button
               onClick={() => updatePeriod(p.id, { type: p.type === 'active' ? 'sleep' : 'active' })}
               className={`rounded px-2 py-1 text-[10px] font-medium ${
-                p.type === 'active'
-                  ? 'bg-tangerine/30 text-tangerine-deep'
-                  : 'bg-info/30 text-info'
+                p.type === 'active' ? 'bg-tangerine/30 text-tangerine-deep' : 'bg-info/30 text-info'
               }`}
             >
               {p.type === 'active' ? t('personality.schedule.active') : t('personality.schedule.sleep')}
@@ -503,10 +501,7 @@ function ScheduleEditor({
               />
               <span className="text-[10px] text-ink-muted">{t('personality.schedule.hourUnit')}</span>
             </div>
-            <button
-              onClick={() => removePeriod(p.id)}
-              className="text-ink-muted hover:text-error"
-            >
+            <button onClick={() => removePeriod(p.id)} className="text-ink-muted hover:text-error">
               <Trash2 size={14} />
             </button>
           </div>
@@ -624,7 +619,10 @@ export function PersonalityEditor() {
     if (!template) return
     setConfig({
       personality: { ...template.config.personality },
-      speakingStyle: { ...template.config.speakingStyle, catchphrases: [...template.config.speakingStyle.catchphrases] },
+      speakingStyle: {
+        ...template.config.speakingStyle,
+        catchphrases: [...template.config.speakingStyle.catchphrases],
+      },
       interactionPrefs: { ...template.config.interactionPrefs },
       schedule: template.config.schedule.map((s: SchedulePeriod) => ({ ...s })),
       systemPrompt: template.config.systemPrompt,
@@ -687,7 +685,9 @@ export function PersonalityEditor() {
       {/* 雷达图 + 滑块 */}
       <div className="grid grid-cols-2 gap-4 rounded-xl bg-surface/50 p-4">
         <div>
-          <div className="mb-2 text-center text-xs font-semibold text-tangerine-deep">{t('personality.radar.title')}</div>
+          <div className="mb-2 text-center text-xs font-semibold text-tangerine-deep">
+            {t('personality.radar.title')}
+          </div>
           <RadarChart personality={config.personality} highlight={activeDim} />
         </div>
         <div className="flex flex-col justify-center">
@@ -749,14 +749,17 @@ export function PersonalityEditor() {
           onClick={() => setShowPrompt(!showPrompt)}
           className="flex items-center gap-1 rounded-lg bg-surface px-3 py-2 text-sm text-ink hover:bg-cream-deep"
         >
-          <Eye size={14} /> {showPrompt ? t('personality.systemPrompt.hide') : t('personality.systemPrompt.preview')} {t('personality.systemPrompt.synthesizedNote')}
+          <Eye size={14} /> {showPrompt ? t('personality.systemPrompt.hide') : t('personality.systemPrompt.preview')}{' '}
+          {t('personality.systemPrompt.synthesizedNote')}
         </button>
       </div>
 
       {/* 合成 Prompt 预览 */}
       {showPrompt && (
         <div className="rounded-xl bg-surface p-4">
-          <div className="mb-2 text-xs font-semibold text-tangerine-deep">{t('personality.systemPrompt.synthesizedNote')}</div>
+          <div className="mb-2 text-xs font-semibold text-tangerine-deep">
+            {t('personality.systemPrompt.synthesizedNote')}
+          </div>
           <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap text-[11px] leading-relaxed text-ink">
             {composePersonalityPrompt(config.personality)}
           </pre>
@@ -764,9 +767,7 @@ export function PersonalityEditor() {
       )}
 
       {savedTip && (
-        <div className="rounded-full bg-green-600 px-4 py-1.5 text-center text-sm">
-          {t('personality.action.saved')}
-        </div>
+        <div className="rounded-full bg-green-600 px-4 py-1.5 text-center text-sm">{t('personality.action.saved')}</div>
       )}
     </div>
   )

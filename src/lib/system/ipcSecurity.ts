@@ -139,7 +139,8 @@ class TokenManager {
     // 检查上一个 Token（轮转期间短暂有效）
     if (this.previousToken && token === this.previousToken) {
       const elapsed = Date.now() - this.tokenCreatedAt
-      if (elapsed < 5000) { // 5 秒宽限期
+      if (elapsed < 5000) {
+        // 5 秒宽限期
         return { authenticated: true }
       }
     }
@@ -259,7 +260,8 @@ export function validateIpcMessage(
 
   // 3. 时间戳检查（拒绝过期消息）
   const now = Date.now()
-  if (Math.abs(now - envelope.timestamp) > 30000) { // 30 秒窗口
+  if (Math.abs(now - envelope.timestamp) > 30000) {
+    // 30 秒窗口
     return { valid: false, error: '消息时间戳过期' }
   }
 
@@ -315,10 +317,7 @@ export class IpcSecurityManager extends EventEmitter {
   }
 
   /** 处理收到的 IPC 消息 */
-  processMessage(
-    envelope: IpcEnvelope,
-    connectionId: string,
-  ): { accepted: boolean; error?: string } {
+  processMessage(envelope: IpcEnvelope, connectionId: string): { accepted: boolean; error?: string } {
     // 1. 速率限制
     const rateResult = this.rateLimiter.check(connectionId)
     if (!rateResult.allowed) {

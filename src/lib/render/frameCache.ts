@@ -160,11 +160,15 @@ export class LRUCache<K extends string | number, V> {
   /**
    * 设置缓存值
    */
-  set(key: K, value: V, metadata?: {
-    size?: number
-    ttl?: number
-    tags?: string[]
-  }): void {
+  set(
+    key: K,
+    value: V,
+    metadata?: {
+      size?: number
+      ttl?: number
+      tags?: string[]
+    },
+  ): void {
     // 如果已存在，先删除
     if (this.cache.has(key)) {
       this.cache.delete(key)
@@ -281,13 +285,13 @@ export class LRUCache<K extends string | number, V> {
 
     const keysToDelete: K[] = []
     for (const [key, item] of this.cache.entries()) {
-      if (item.tags.some(tag => tags.includes(tag))) {
+      if (item.tags.some((tag) => tags.includes(tag))) {
         keysToDelete.push(key)
         deletedCount++
       }
     }
 
-    keysToDelete.forEach(key => this.cache.delete(key))
+    keysToDelete.forEach((key) => this.cache.delete(key))
 
     return deletedCount
   }
@@ -352,17 +356,12 @@ export class LRUCache<K extends string | number, V> {
    */
   private checkCapacityAndCleanup(): void {
     // 按访问顺序排序（最久未访问在前）
-    const sorted = Array.from(this.cache.entries())
-      .sort((a, b) => a[1].lastAccessedAt - b[1].lastAccessedAt)
+    const sorted = Array.from(this.cache.entries()).sort((a, b) => a[1].lastAccessedAt - b[1].lastAccessedAt)
 
     const maxBytes = this.config.maxSizeMB * 1024 * 1024
 
     // 超过最大数量或最大大小，开始清理
-    while (
-      (this.cache.size >= this.config.maxItems ||
-       this.calculateTotalSize() >= maxBytes) &&
-      sorted.length > 0
-    ) {
+    while ((this.cache.size >= this.config.maxItems || this.calculateTotalSize() >= maxBytes) && sorted.length > 0) {
       const [oldestKey] = sorted.shift()!
       this.cache.delete(oldestKey)
     }
@@ -457,11 +456,15 @@ export class FrameAnimationCache {
   /**
    * 缓存帧数据
    */
-  cacheFrame(key: FrameCacheKey, data: unknown, metadata?: {
-    size?: number
-    ttl?: number
-    tags?: string[]
-  }): void {
+  cacheFrame(
+    key: FrameCacheKey,
+    data: unknown,
+    metadata?: {
+      size?: number
+      ttl?: number
+      tags?: string[]
+    },
+  ): void {
     const cacheKey = this.keyGenerator(key)
     this.cache.set(cacheKey, data, metadata)
   }
@@ -478,7 +481,7 @@ export class FrameAnimationCache {
       }
     }
 
-    keysToDelete.forEach(key => this.cache.delete(key))
+    keysToDelete.forEach((key) => this.cache.delete(key))
   }
 
   /**
@@ -501,18 +504,14 @@ export class FrameAnimationCache {
 let lruInstance: LRUCache<string | number, unknown> | null = null
 let frameInstance: FrameAnimationCache | null = null
 
-export function getLRUCache<K extends string | number, V>(
-  config?: LRUCacheConfig,
-): LRUCache<K, V> {
+export function getLRUCache<K extends string | number, V>(config?: LRUCacheConfig): LRUCache<K, V> {
   if (!lruInstance) {
     lruInstance = new LRUCache<string, V>(config) as unknown as LRUCache<string | number, unknown>
   }
   return lruInstance as unknown as LRUCache<K, V>
 }
 
-export function getFrameAnimationCache(
-  config?: LRUCacheConfig,
-): FrameAnimationCache {
+export function getFrameAnimationCache(config?: LRUCacheConfig): FrameAnimationCache {
   if (!frameInstance) {
     frameInstance = new FrameAnimationCache(config)
   }

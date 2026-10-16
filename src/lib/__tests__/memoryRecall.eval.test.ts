@@ -176,9 +176,7 @@ describe('B-4-3：记忆召回评测集（45 条）', () => {
 
     for (const c of CASES) {
       const results = await mgr.retrieve(c.query)
-      const hit = results
-        .slice(0, 5)
-        .some((r) => `${r.memory.user} ${r.memory.assistant}`.includes(c.expect))
+      const hit = results.slice(0, 5).some((r) => `${r.memory.user} ${r.memory.assistant}`.includes(c.expect))
       if (hit) hits++
       else misses.push(c.id)
     }

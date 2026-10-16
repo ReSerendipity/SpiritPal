@@ -58,25 +58,24 @@ export function startMcpAppBridge(): (() => void) | null {
   if (!isDesktopRuntime()) return null
   let unlisten: UnlistenFn | null = null
   // 监听 Rust 侧发来的工具调用请求
-  void listen<{ id: string; tool: string; arguments?: Record<string, unknown> }>(
-    'mcp://request',
-    (event) => {
-      const { id, tool, arguments: args } = event.payload
-      void handleMcpRequestPayload({ id, tool, arguments: args ?? {} })
-        .then((result) => {
-          // 回填挂起的 HTTP 响应
-          void invoke('mcp_respond', { id, result }).catch(() => {
-            /* 忽略回调失败 */
-          })
+  void listen<{ id: string; tool: string; arguments?: Record<string, unknown> }>('mcp://request', (event) => {
+    const { id, tool, arguments: args } = event.payload
+    void handleMcpRequestPayload({ id, tool, arguments: args ?? {} })
+      .then((result) => {
+        // 回填挂起的 HTTP 响应
+        void invoke('mcp_respond', { id, result }).catch(() => {
+          /* 忽略回调失败 */
         })
-        .catch(() => {
-          void invoke('mcp_respond', {
-            id,
-            result: JSON.stringify({ isError: true, text: 'tool execution failed' }),
-          }).catch(() => { /* 忽略 */ })
+      })
+      .catch(() => {
+        void invoke('mcp_respond', {
+          id,
+          result: JSON.stringify({ isError: true, text: 'tool execution failed' }),
+        }).catch(() => {
+          /* 忽略 */
         })
-    },
-  ).then((fn) => {
+      })
+  }).then((fn) => {
     unlisten = fn
   })
   return () => {

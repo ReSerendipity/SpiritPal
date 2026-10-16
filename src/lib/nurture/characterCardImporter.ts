@@ -104,7 +104,7 @@ export function extractCharCardFromPNG(buffer: ArrayBuffer): SillyTavernCharacte
   const bytes = new Uint8Array(buffer)
 
   // 验证 PNG 签名
-  const PNG_SIGNATURE = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+  const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
   for (let i = 0; i < PNG_SIGNATURE.length; i++) {
     if (bytes[i] !== PNG_SIGNATURE[i]) {
       return null
@@ -139,15 +139,11 @@ export function extractCharCardFromPNG(buffer: ArrayBuffer): SillyTavernCharacte
         nullIdx++
       }
 
-      const keyword = new TextDecoder().decode(
-        bytes.slice(dataStart, nullIdx),
-      )
+      const keyword = new TextDecoder().decode(bytes.slice(dataStart, nullIdx))
 
       if (keyword === CHAR_CARD_KEY) {
         // 提取 Base64 编码的角色卡数据
-        const textData = new TextDecoder().decode(
-          bytes.slice(nullIdx + 1, dataStart + chunkLength),
-        )
+        const textData = new TextDecoder().decode(bytes.slice(nullIdx + 1, dataStart + chunkLength))
 
         try {
           // Base64 解码 → JSON 解析
@@ -222,41 +218,59 @@ interface PersonalityMappingRule {
 
 const PERSONALITY_RULES: PersonalityMappingRule[] = [
   // 温暖/友善
-  { keywords: ['温柔', '善良', '体贴', '关心', '暖', 'caring', 'kind', 'warm', 'sweet'],
-    delta: { warmth: 0.3, liveliness: 0.1, dependence: 0.1 } },
+  {
+    keywords: ['温柔', '善良', '体贴', '关心', '暖', 'caring', 'kind', 'warm', 'sweet'],
+    delta: { warmth: 0.3, liveliness: 0.1, dependence: 0.1 },
+  },
   // 冷淡/严肃
-  { keywords: ['冷漠', '冷淡', '严肃', '冷酷', 'cold', 'serious', 'stoic', 'aloof'],
-    delta: { warmth: -0.3, directness: 0.2, rationality: 0.2 } },
+  {
+    keywords: ['冷漠', '冷淡', '严肃', '冷酷', 'cold', 'serious', 'stoic', 'aloof'],
+    delta: { warmth: -0.3, directness: 0.2, rationality: 0.2 },
+  },
   // 活泼/开朗
-  { keywords: ['活泼', '开朗', '外向', '热情', '元气', 'lively', 'cheerful', 'energetic', 'bubbly'],
-    delta: { liveliness: 0.4, warmth: 0.1 } },
+  {
+    keywords: ['活泼', '开朗', '外向', '热情', '元气', 'lively', 'cheerful', 'energetic', 'bubbly'],
+    delta: { liveliness: 0.4, warmth: 0.1 },
+  },
   // 沉静/内向
-  { keywords: ['安静', '内向', '沉静', '害羞', 'quiet', 'shy', 'introverted', 'reserved'],
-    delta: { liveliness: -0.3, dependence: 0.1 } },
+  {
+    keywords: ['安静', '内向', '沉静', '害羞', 'quiet', 'shy', 'introverted', 'reserved'],
+    delta: { liveliness: -0.3, dependence: 0.1 },
+  },
   // 粘人/依赖
-  { keywords: ['粘人', '依赖', '撒娇', 'clingy', 'dependent', 'attached'],
-    delta: { dependence: 0.4, warmth: 0.1 } },
+  { keywords: ['粘人', '依赖', '撒娇', 'clingy', 'dependent', 'attached'], delta: { dependence: 0.4, warmth: 0.1 } },
   // 独立/自主
-  { keywords: ['独立', '自主', '坚强', 'independent', 'strong', 'self-reliant'],
-    delta: { dependence: -0.3, rationality: 0.1 } },
+  {
+    keywords: ['独立', '自主', '坚强', 'independent', 'strong', 'self-reliant'],
+    delta: { dependence: -0.3, rationality: 0.1 },
+  },
   // 直率/坦白
-  { keywords: ['直率', '坦白', '直接', '直言', 'blunt', 'direct', 'honest', 'frank'],
-    delta: { directness: 0.4 } },
+  { keywords: ['直率', '坦白', '直接', '直言', 'blunt', 'direct', 'honest', 'frank'], delta: { directness: 0.4 } },
   // 含蓄/委婉
-  { keywords: ['含蓄', '委婉', '委曲', '隐晦', 'subtle', 'indirect', 'diplomatic'],
-    delta: { directness: -0.3, warmth: 0.1 } },
+  {
+    keywords: ['含蓄', '委婉', '委曲', '隐晦', 'subtle', 'indirect', 'diplomatic'],
+    delta: { directness: -0.3, warmth: 0.1 },
+  },
   // 理性/冷静
-  { keywords: ['理性', '冷静', '逻辑', '分析', 'rational', 'logical', 'analytical', 'calm'],
-    delta: { rationality: 0.4, directness: 0.1 } },
+  {
+    keywords: ['理性', '冷静', '逻辑', '分析', 'rational', 'logical', 'analytical', 'calm'],
+    delta: { rationality: 0.4, directness: 0.1 },
+  },
   // 感性/情绪化
-  { keywords: ['感性', '情绪', '多愁', '浪漫', 'emotional', 'romantic', 'sensitive', 'moody'],
-    delta: { rationality: -0.3, warmth: 0.1, dependence: 0.1 } },
+  {
+    keywords: ['感性', '情绪', '多愁', '浪漫', 'emotional', 'romantic', 'sensitive', 'moody'],
+    delta: { rationality: -0.3, warmth: 0.1, dependence: 0.1 },
+  },
   // 傲娇/吐槽
-  { keywords: ['傲娇', '吐槽', '毒舌', 'tsundere', 'sarcastic', 'snarky'],
-    delta: { warmth: -0.1, directness: 0.3, liveliness: 0.2 } },
+  {
+    keywords: ['傲娇', '吐槽', '毒舌', 'tsundere', 'sarcastic', 'snarky'],
+    delta: { warmth: -0.1, directness: 0.3, liveliness: 0.2 },
+  },
   // 可爱/萌
-  { keywords: ['可爱', '萌', '呆萌', 'cute', 'adorable', 'moe'],
-    delta: { warmth: 0.2, liveliness: 0.2, dependence: 0.1 } },
+  {
+    keywords: ['可爱', '萌', '呆萌', 'cute', 'adorable', 'moe'],
+    delta: { warmth: 0.2, liveliness: 0.2, dependence: 0.1 },
+  },
 ]
 
 /**
@@ -267,10 +281,7 @@ const PERSONALITY_RULES: PersonalityMappingRule[] = [
  * @param personality 角色性格标签
  * @returns 五维性格参数
  */
-export function inferPersonalityFromDescription(
-  description: string,
-  personality?: string,
-): Personality {
+export function inferPersonalityFromDescription(description: string, personality?: string): Personality {
   const text = `${description} ${personality ?? ''}`.toLowerCase()
 
   // 初始化五维参数
@@ -312,10 +323,7 @@ export function inferPersonalityFromDescription(
  * @param config AI 配置
  * @returns 五维性格参数（null 表示推断失败）
  */
-export async function inferPersonalityWithLLM(
-  description: string,
-  config?: AIConfig,
-): Promise<Personality | null> {
+export async function inferPersonalityWithLLM(description: string, config?: AIConfig): Promise<Personality | null> {
   if (!config) return null
 
   const systemPrompt = getPrompt('character.analyze_personality')
@@ -360,10 +368,7 @@ export async function inferPersonalityWithLLM(
  * @param llmConfig LLM 配置（可选，用于 LLM 驱动的性格推断）
  * @returns 导入结果
  */
-export async function importCharacterCard(
-  card: SillyTavernCharacterCard,
-  llmConfig?: AIConfig,
-): Promise<ImportResult> {
+export async function importCharacterCard(card: SillyTavernCharacterCard, llmConfig?: AIConfig): Promise<ImportResult> {
   const warnings: string[] = []
   const errors: string[] = []
 
@@ -393,16 +398,15 @@ export async function importCharacterCard(
     card.scenario ? `场景: ${card.scenario}` : '',
     card.personality ? `性格: ${card.personality}` : '',
     card.post_history_instructions ? `后续指令: ${card.post_history_instructions}` : '',
-  ].filter(Boolean).join('\n\n')
+  ]
+    .filter(Boolean)
+    .join('\n\n')
 
   // 标志短语（首条消息作为口头禅的候选）
   profile.signaturePhrase = card.first_mes?.slice(0, 30) ?? ''
 
   // 五维性格参数推断
-  const descriptionText = [
-    card.description,
-    card.personality,
-  ].filter(Boolean).join('\n')
+  const descriptionText = [card.description, card.personality].filter(Boolean).join('\n')
 
   // 优先使用 LLM 推断，回退到关键词匹配
   let personality: Personality | null = null
@@ -414,10 +418,7 @@ export async function importCharacterCard(
   }
 
   if (!personality) {
-    personality = inferPersonalityFromDescription(
-      card.description ?? '',
-      card.personality,
-    )
+    personality = inferPersonalityFromDescription(card.description ?? '', card.personality)
     warnings.push('性格参数由关键词匹配推断，精度有限')
   }
 

@@ -45,9 +45,7 @@ const PEEK_SCALE_MAX = 1.0
 /** 探头动画持续时间（毫秒） */
 const PEEK_DURATION_MS = 1500
 
-export function useDockVisualFeedback(
-  options: DockVisualFeedbackOptions,
-): DockVisualFeedbackReturn {
+export function useDockVisualFeedback(options: DockVisualFeedbackOptions): DockVisualFeedbackReturn {
   const { containerRef, dockDir, dragging, facingRef, enabled = true } = options
 
   const [isDocked, setIsDocked] = useState(false)
@@ -56,40 +54,42 @@ export function useDockVisualFeedback(
   const peekTimeoutRef = useRef<number | null>(null)
 
   /** 根据停靠方向调整朝向 */
-  const adjustFacingForDock = useCallback((dir: DockDir) => {
-    if (!facingRef.current || !dir) return
+  const adjustFacingForDock = useCallback(
+    (dir: DockDir) => {
+      if (!facingRef.current || !dir) return
 
-    const spriteEl = containerRef.current?.querySelector('[data-sprite]') as HTMLElement | null
-    if (!spriteEl) return
+      const spriteEl = containerRef.current?.querySelector('[data-sprite]') as HTMLElement | null
+      if (!spriteEl) return
 
-    switch (dir) {
-      case 'left':
-        // 左侧边缘 → 朝右（面向屏幕中心）
-        facingRef.current = 'right'
-        spriteEl.style.transform = `scaleX(1) scale(1) rotate(0deg)`
-        break
-      case 'right':
-        // 右侧边缘 → 朝左
-        facingRef.current = 'left'
-        spriteEl.style.transform = `scaleX(-1) scale(1) rotate(0deg)`
-        break
-      case 'top':
-        // 上侧边缘 → 默认朝右
-        facingRef.current = 'right'
-        spriteEl.style.transform = `scaleX(1) scale(1) rotate(0deg)`
-        break
-      case 'bottom':
-        // 下侧边缘 → 默认朝右
-        facingRef.current = 'right'
-        spriteEl.style.transform = `scaleX(1) scale(1) rotate(0deg)`
-        break
-    }
-  }, [containerRef, facingRef])
+      switch (dir) {
+        case 'left':
+          // 左侧边缘 → 朝右（面向屏幕中心）
+          facingRef.current = 'right'
+          spriteEl.style.transform = `scaleX(1) scale(1) rotate(0deg)`
+          break
+        case 'right':
+          // 右侧边缘 → 朝左
+          facingRef.current = 'left'
+          spriteEl.style.transform = `scaleX(-1) scale(1) rotate(0deg)`
+          break
+        case 'top':
+          // 上侧边缘 → 默认朝右
+          facingRef.current = 'right'
+          spriteEl.style.transform = `scaleX(1) scale(1) rotate(0deg)`
+          break
+        case 'bottom':
+          // 下侧边缘 → 默认朝右
+          facingRef.current = 'right'
+          spriteEl.style.transform = `scaleX(1) scale(1) rotate(0deg)`
+          break
+      }
+    },
+    [containerRef, facingRef],
+  )
 
   // 吸附时更新表情和朝向
   useEffect(() => {
     if (!enabled || dragging) {
-
       setIsDocked(false)
       setExpression('normal')
       setPeekScale(PEEK_SCALE_MAX)

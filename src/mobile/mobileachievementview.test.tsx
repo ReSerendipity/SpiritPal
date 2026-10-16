@@ -13,7 +13,15 @@ vi.mock('@/lib/nurture/achievementSystem', () => ({
     getProgress: vi.fn(() => 0),
   })),
   ACHIEVEMENTS: [
-    { id: 'a1', name: '初次互动', description: '第一次点击', icon: '🏆', category: 'interaction', tier: 'star', reward: 5 },
+    {
+      id: 'a1',
+      name: '初次互动',
+      description: '第一次点击',
+      icon: '🏆',
+      category: 'interaction',
+      tier: 'star',
+      reward: 5,
+    },
   ],
   BADGE_NAMES: { none: '无', star: '星辰', moon: '皓月', sun: '骄阳', crown: '皇冠' },
   BADGE_COLORS: { none: '#9e9e9e', star: '#ffd54f', moon: '#cfd8dc', sun: '#ff8a65', crown: '#ffc107' },

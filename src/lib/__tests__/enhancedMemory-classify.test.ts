@@ -71,7 +71,7 @@ describe('EnhancedMemoryManager', () => {
     })
   })
 
-describe('assessImportance 重要度评估', () => {
+  describe('assessImportance 重要度评估', () => {
     it('长文本 (>100字符) 获得加分', () => {
       const longText = 'a'.repeat(101)
       const mem = mgr.addExchange(longText, '回复')
@@ -106,7 +106,7 @@ describe('assessImportance 重要度评估', () => {
     })
   })
 
-describe('assessEmotion 情感强度', () => {
+  describe('assessEmotion 情感强度', () => {
     it('感叹号增加情感强度', () => {
       const mem = mgr.addExchange('好开心!!!', '太好了')
       expect(mem.emotionalIntensity).toBeGreaterThan(0.2)
@@ -123,7 +123,7 @@ describe('assessEmotion 情感强度', () => {
     })
   })
 
-describe('extractTags 标签提取', () => {
+  describe('extractTags 标签提取', () => {
     it('按频率排序取前5', () => {
       const mem = mgr.addExchange('apple apple banana cherry', 'ok')
       expect(mem.tags[0]).toBe('apple')

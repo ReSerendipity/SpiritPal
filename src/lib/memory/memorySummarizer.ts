@@ -121,8 +121,8 @@ export class MemorySummarizer {
         generatedAt: Date.now(),
         memoryCount: memories.length,
         timeRange: {
-          start: Math.min(...memories.map(m => new Date(m.created_at).getTime())),
-          end: Math.max(...memories.map(m => new Date(m.created_at).getTime())),
+          start: Math.min(...memories.map((m) => new Date(m.created_at).getTime())),
+          end: Math.max(...memories.map((m) => new Date(m.created_at).getTime())),
         },
         confidence: 0.85, // TODO: 从 LLM 响应中提取置信度
       }
@@ -182,10 +182,7 @@ export class MemorySummarizer {
    * 增量更新摘要
    * 当新记忆加入时，只重新计算受影响的部分
    */
-  async incrementallyUpdateSummary(
-    existingSummary: MemorySummary,
-    newMemories: MemoryEntry[],
-  ): Promise<MemorySummary> {
+  async incrementallyUpdateSummary(existingSummary: MemorySummary, newMemories: MemoryEntry[]): Promise<MemorySummary> {
     // 简单的实现：合并后重新生成
     // TODO: 优化为真正的增量算法
     const allMemories: MemoryEntry[] = [
@@ -205,12 +202,18 @@ export class MemorySummarizer {
   ): string {
     const systemPrompt = getPrompt('memory.summarize')
       .replace('{max_tokens}', String(this.config.maxTokens))
-      .replace('{style}', this.config.style === 'narrative' ? '叙述式' : this.config.style === 'detailed' ? '详细列举' : '精简概括')
+      .replace(
+        '{style}',
+        this.config.style === 'narrative' ? '叙述式' : this.config.style === 'detailed' ? '详细列举' : '精简概括',
+      )
 
-    const userContent = memories.slice(-20).map((m, _idx) => {
-      const date = new Date(m.created_at).toLocaleString('zh-CN')
-      return `[${date}] 主人：${m.user}\n[${date}] 宠物：${m.assistant}`
-    }).join('\n')
+    const userContent = memories
+      .slice(-20)
+      .map((m, _idx) => {
+        const date = new Date(m.created_at).toLocaleString('zh-CN')
+        return `[${date}] 主人：${m.user}\n[${date}] 宠物：${m.assistant}`
+      })
+      .join('\n')
 
     let fullPrompt = `${systemPrompt}\n\n对话记录：\n${userContent}`
 
@@ -229,7 +232,7 @@ export class MemorySummarizer {
     // 这里使用简化实现
 
     // 模拟 LLM 延迟
-    await new Promise(resolve => setTimeout(resolve, 500))
+    await new Promise((resolve) => setTimeout(resolve, 500))
 
     // 简单的启发式摘要（实际应调用 Vision/Text LLM）
     return this.simpleHeuristicSummary(prompt)
@@ -239,7 +242,7 @@ export class MemorySummarizer {
    * 简单启发式摘要（降级方案）
    */
   private simpleHeuristicSummary(prompt: string): string {
-    const lines = prompt.split('\n').filter(l => l.includes('：'))
+    const lines = prompt.split('\n').filter((l) => l.includes('：'))
 
     if (lines.length === 0) {
       return '暂无有效记忆内容'
@@ -248,10 +251,10 @@ export class MemorySummarizer {
     // 提取每句话的关键词
     const keywords = lines
       .slice(0, 10)
-      .map(l => l.split('：')[1]?.substring(0, 30).trim())
+      .map((l) => l.split('：')[1]?.substring(0, 30).trim())
       .filter(Boolean)
 
-    return `在最近的一段对话中，主要讨论了以下内容：\n${keywords.map(k => `- ${k}`).join('\n')}`
+    return `在最近的一段对话中，主要讨论了以下内容：\n${keywords.map((k) => `- ${k}`).join('\n')}`
   }
 
   /**
@@ -276,7 +279,7 @@ export class MemorySummarizer {
       { pattern: /(开始启动)/i, type: 'start' },
     ]
 
-    memories.forEach(m => {
+    memories.forEach((m) => {
       const text = (m.user + m.assistant).toLowerCase()
       for (const { pattern, type } of eventPatterns) {
         const match = text.match(pattern)
@@ -291,27 +294,27 @@ export class MemorySummarizer {
     })
 
     // 按时间排序并去重
-    return events
-      .sort((a, b) => b.timestamp - a.timestamp)
-      .slice(0, 5)
+    return events.sort((a, b) => b.timestamp - a.timestamp).slice(0, 5)
   }
 
   /**
    * 情感分析
    */
-  private analyzeSentiment(memories: Array<{ created_at: string; user: string; assistant: string }>): 'positive' | 'neutral' | 'negative' {
+  private analyzeSentiment(
+    memories: Array<{ created_at: string; user: string; assistant: string }>,
+  ): 'positive' | 'neutral' | 'negative' {
     let positiveScore = 0
     let negativeScore = 0
 
     const positiveWords = ['开心', '高兴', '棒', '好', '喜欢', '爱', '赞', '耶']
     const negativeWords = ['难过', '生气', '烦', '累', '讨厌', '恨', '糟', '唉']
 
-    memories.forEach(m => {
+    memories.forEach((m) => {
       const text = (m.user + m.assistant).toLowerCase()
-      positiveWords.forEach(word => {
+      positiveWords.forEach((word) => {
         if (text.includes(word)) positiveScore++
       })
-      negativeWords.forEach(word => {
+      negativeWords.forEach((word) => {
         if (text.includes(word)) negativeScore++
       })
     })
@@ -329,17 +332,17 @@ export class MemorySummarizer {
 
     // 预定义话题关键词
     const topics: Record<string, string[]> = {
-      '编程': ['代码', 'bug', '程序', '开发', '写代码', 'commit', 'git'],
-      '学习': ['学习', '看书', '上课', '考试', '作业', '论文'],
-      '游戏': ['游戏', '玩', '通关', '升级', 'boss'],
-      '工作': ['工作', '开会', '项目', '任务', '报告'],
-      '生活': ['吃饭', '睡觉', '出门', '购物', '逛街'],
+      编程: ['代码', 'bug', '程序', '开发', '写代码', 'commit', 'git'],
+      学习: ['学习', '看书', '上课', '考试', '作业', '论文'],
+      游戏: ['游戏', '玩', '通关', '升级', 'boss'],
+      工作: ['工作', '开会', '项目', '任务', '报告'],
+      生活: ['吃饭', '睡觉', '出门', '购物', '逛街'],
     }
 
-    memories.forEach(m => {
+    memories.forEach((m) => {
       const text = (m.user + m.assistant).toLowerCase()
       Object.entries(topics).forEach(([topic, keywords]) => {
-        if (keywords.some(k => text.includes(k))) {
+        if (keywords.some((k) => text.includes(k))) {
           topicCounts.set(topic, (topicCounts.get(topic) || 0) + 1)
         }
       })
@@ -361,7 +364,7 @@ export class MemorySummarizer {
   ): Map<string, Array<{ created_at: string; user: string; assistant: string }>> {
     const groups = new Map<string, Array<{ created_at: string; user: string; assistant: string }>>()
 
-    memories.forEach(m => {
+    memories.forEach((m) => {
       // 时间戳缺失或非法时跳过：Invalid Date 调 toISOString() 会抛 RangeError
       const timestamp = Date.parse(m.created_at)
       if (Number.isNaN(timestamp)) return
@@ -397,7 +400,10 @@ export class MemorySummarizer {
    */
   private generateCacheKey(memories: MemoryEntry[]): string {
     // 使用记忆的 ID 和内容哈希作为缓存键
-    const ids = memories.map(m => m.created_at + m.user.length).sort().join('|')
+    const ids = memories
+      .map((m) => m.created_at + m.user.length)
+      .sort()
+      .join('|')
     return `summary_${ids}`
   }
 
@@ -424,9 +430,11 @@ export class MemorySummarizer {
   /**
    * 创建降级摘要
    */
-  private createFallbackSummary(memories: Array<{ created_at: string; user: string; assistant: string }>): MemorySummary {
+  private createFallbackSummary(
+    memories: Array<{ created_at: string; user: string; assistant: string }>,
+  ): MemorySummary {
     const recent = memories.slice(-5)
-    const texts = recent.map(m => m.user + m.assistant).join(' ')
+    const texts = recent.map((m) => m.user + m.assistant).join(' ')
 
     return {
       text: texts.substring(0, 200) + (texts.length > 200 ? '...' : ''),

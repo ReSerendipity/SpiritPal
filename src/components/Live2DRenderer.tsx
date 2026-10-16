@@ -82,9 +82,9 @@ async function loadLive2D() {
     // 社区方案：应用不随包分发 Cubism Core（Live2D 专有许可）。
     // 用户需自行从 Live2D 官网下载 Cubism SDK，将 live2dcubismcore.js 放入应用数据目录。
     throw new Error(
-      'Live2D 渲染需要 Cubism Core 运行时。请从 Live2D 官网下载 Cubism SDK for Web，'
-      + '将解压后 Core 目录中的 live2dcubismcore.js 复制到应用数据目录后重启应用。'
-      + '（设置 → 关于 → Live2D 查看详细指引）当前已自动切换为精灵图模式。'
+      'Live2D 渲染需要 Cubism Core 运行时。请从 Live2D 官网下载 Cubism SDK for Web，' +
+        '将解压后 Core 目录中的 live2dcubismcore.js 复制到应用数据目录后重启应用。' +
+        '（设置 → 关于 → Live2D 查看详细指引）当前已自动切换为精灵图模式。',
     )
   }
   const { Live2DModel } = await import(/* @vite-ignore */ '@jannchie/pixi-live2d-display/cubism4')
@@ -106,8 +106,8 @@ const DEFAULT_STATE_MOTION_MAP: Record<PetState, string> = {
   sick: 'Sick',
   pet: 'FlickHead',
   hide: 'Idle',
-  climbing: 'Idle',    // 爬墙状态复用 Idle motion
-  peeking: 'Idle',     // 探头状态复用 Idle motion
+  climbing: 'Idle', // 爬墙状态复用 Idle motion
+  peeking: 'Idle', // 探头状态复用 Idle motion
   hiding_wall: 'Idle', // 躲藏状态无动画
 }
 
@@ -119,10 +119,7 @@ const DEFAULT_STATE_MOTION_MAP: Record<PetState, string> = {
  * @returns motion group名称
  */
 // eslint-disable-next-line react-refresh/only-export-components -- 该函数被 MobilePetView 等组件复用，保持组件文件内导出以维持公共 API
-export function getMotionGroupForState(
-  state: PetState,
-  motionMap?: Record<string, string>,
-): string {
+export function getMotionGroupForState(state: PetState, motionMap?: Record<string, string>): string {
   return motionMap?.[state] ?? DEFAULT_STATE_MOTION_MAP[state] ?? 'Idle'
 }
 
@@ -163,222 +160,226 @@ export interface Live2DRendererProps {
  * 使用forwardRef暴露命令式API，支持动作播放、表情切换和视线跟随。
  * 自动管理Pixi Application生命周期和模型资源清理。
  */
-export const Live2DRenderer = forwardRef<Live2DRendererHandle, Live2DRendererProps>(
-  function Live2DRenderer(
-    {
-      modelPath,
-      scale = 1,
-      opacity = 1,
-      width = 300,
-      height = 400,
-      motionMap,
-      onReady,
-      onError,
-    },
-    ref,
-  ) {
-    const containerRef = useRef<HTMLDivElement>(null)
-    const appRef = useRef<Application | null>(null)
-    const modelRef = useRef<Live2DModel | null>(null)
-    const readyRef = useRef(false)
-    // 缓存最新 props 供命令式调用读取
-    const motionMapRef = useRef(motionMap)
-    motionMapRef.current = motionMap
+export const Live2DRenderer = forwardRef<Live2DRendererHandle, Live2DRendererProps>(function Live2DRenderer(
+  { modelPath, scale = 1, opacity = 1, width = 300, height = 400, motionMap, onReady, onError },
+  ref,
+) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const appRef = useRef<Application | null>(null)
+  const modelRef = useRef<Live2DModel | null>(null)
+  const readyRef = useRef(false)
+  // 缓存最新 props 供命令式调用读取
+  const motionMapRef = useRef(motionMap)
+  motionMapRef.current = motionMap
 
-    // ============ 创建 Pixi Application + 加载 Live2D 模型 ============
-    useEffect(() => {
-      let destroyed = false
-      let app: Application | null = null
+  // ============ 创建 Pixi Application + 加载 Live2D 模型 ============
+  useEffect(() => {
+    let destroyed = false
+    let app: Application | null = null
 
-      // 1. 动态加载 Live2D Cubism（缺失时优雅降级）
-      loadLive2D()
-        .then(async (Live2DModel) => {
-          if (destroyed) return
+    // 1. 动态加载 Live2D Cubism（缺失时优雅降级）
+    loadLive2D()
+      .then(async (Live2DModel) => {
+        if (destroyed) return
 
-          // 2. 创建 Pixi Application（透明背景，PixiJS 8 异步初始化）
-          app = new Application()
-          await app.init({
-            width,
-            height,
-            backgroundAlpha: 0,
-            antialias: true,
-            resolution: window.devicePixelRatio || 1,
-            autoDensity: true,
-            powerPreference: 'high-performance',
-            // 与 Live2D 模型共用 Ticker.shared，避免双 ticker 导致动画/渲染不同步
-            sharedTicker: true,
-          })
-          appRef.current = app
-
-          // 设置帧率上限
-          Ticker.shared.maxFPS = 60
-          app.ticker.maxFPS = 60
-
-          // 3. 挂载 canvas 到容器
-          const container = containerRef.current
-          if (container) {
-            const canvas = app.canvas
-            canvas.style.display = 'block'
-            canvas.style.width = `${width}px`
-            canvas.style.height = `${height}px`
-            canvas.style.background = 'transparent'
-            container.appendChild(canvas)
-          }
-
-          // 4. 异步加载 Live2D 模型
-          return Live2DModel.from(modelPath, { ticker: Ticker.shared }).then((model) => {
-            if (destroyed) {
-              model.destroy()
-              return
-            }
-            modelRef.current = model
-
-            // autoMapper 接线：用真实模型参数名扫描并建立标准参数映射（不伪造）
-            try {
-              const mapper = getParamAutoMapper()
-              // 不同 Cubism 版本的 internalModel 暴露的参数枚举 API 不一致
-              // （有的只有 coreModel.getParameterIds），故按运行时守卫取值
-              type ParameterIdSource = {
-                getModelParameterIds?: () => unknown[]
-                coreModel?: { getParameterIds?: () => unknown[] }
-              }
-              const internal = model.internalModel as ParameterIdSource | undefined
-              let ids: string[] = []
-              if (internal) {
-                if (typeof internal.getModelParameterIds === 'function') {
-                  ids = internal.getModelParameterIds() as string[]
-                } else if (internal.coreModel && typeof internal.coreModel.getParameterIds === 'function') {
-                  ids = internal.coreModel.getParameterIds() as string[]
-                }
-              }
-              if (Array.isArray(ids) && ids.length > 0) {
-                mapper.autoDiscover(ids)
-                const stats = mapper.getStats()
-                if (stats.total > 0) {
-                  console.info(`[Live2D] 参数自动映射：${stats.mapped}/${stats.total}（覆盖率 ${Math.round(stats.coverage * 100)}%）`)
-                }
-              }
-            } catch {
-              // 忽略参数映射失败（不影响渲染）
-            }
-
-            // 计算适配缩放
-            // [FIX] 首帧前 model.width/height 可能为 0（|| 1 兜底会让 scale 放大数倍，模型画到画布外不可见），
-            // 优先用 internalModel.originalWidth/Height（moc3 声明的原始画布尺寸）
-            const natW = model.internalModel?.originalWidth || model.width || 1
-            const natH = model.internalModel?.originalHeight || model.height || 1
-            const fit = Math.min(width / natW, height / natH)
-            const finalScale = fit * scale
-            model.scale.set(finalScale)
-            model.x = (width - natW * finalScale) / 2
-            model.y = (height - natH * finalScale) / 2
-            model.alpha = opacity
-            Logger.info('[L2DBG] fit nat=' + natW + 'x' + natH + ' scale=' + finalScale.toFixed(4))
-
-            app!.stage.addChild(model as unknown as import('pixi.js').Container)
-
-            // 自动播放 idle 动作
-            try {
-              const idleGroup = getMotionGroupForState('idle', motionMapRef.current)
-              model.motion(idleGroup, 0)
-            } catch {
-              // 忽略
-            }
-
-            readyRef.current = true
-            onReady?.()
-          })
+        // 2. 创建 Pixi Application（透明背景，PixiJS 8 异步初始化）
+        app = new Application()
+        await app.init({
+          width,
+          height,
+          backgroundAlpha: 0,
+          antialias: true,
+          resolution: window.devicePixelRatio || 1,
+          autoDensity: true,
+          powerPreference: 'high-performance',
+          // 与 Live2D 模型共用 Ticker.shared，避免双 ticker 导致动画/渲染不同步
+          sharedTicker: true,
         })
-        .catch((err: unknown) => {
-          if (destroyed) return
-          const msg = err instanceof Error ? err.message : String(err)
-          onError?.(new Error(msg.includes('Live2DCubismCore')
-            ? 'Live2DCubismCore not loaded — place live2dcubismcore.js in public/'
-            : `Live2D init failed: ${msg}`))
-        })
+        appRef.current = app
 
-      return () => {
-        destroyed = true
-        readyRef.current = false
-        if (modelRef.current) {
-          try { modelRef.current.destroy({ children: true }) } catch { /* ignore */ }
-          modelRef.current = null
+        // 设置帧率上限
+        Ticker.shared.maxFPS = 60
+        app.ticker.maxFPS = 60
+
+        // 3. 挂载 canvas 到容器
+        const container = containerRef.current
+        if (container) {
+          const canvas = app.canvas
+          canvas.style.display = 'block'
+          canvas.style.width = `${width}px`
+          canvas.style.height = `${height}px`
+          canvas.style.background = 'transparent'
+          container.appendChild(canvas)
         }
-        if (appRef.current) {
-          try { appRef.current.destroy(true, { children: true }) } catch { /* ignore */ }
-          appRef.current = null
-        }
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [modelPath])
 
-    // ============ scale / 尺寸变化时重新计算 ============
-    useEffect(() => {
-      const app = appRef.current
-      if (!app) return
-      // 同步 PIXI renderer 尺寸（petSize 滚轮缩放时触发）
-      try {
-        app.renderer.resize(width, height)
-        const canvas = app.canvas
-        canvas.style.width = `${width}px`
-        canvas.style.height = `${height}px`
-      } catch {
-        // 忽略
-      }
-      const model = modelRef.current
-      if (!model) return
-      const modelW = model.width || 1
-      const modelH = model.height || 1
-      const fit = Math.min(width / modelW, height / modelH)
-      const finalScale = fit * scale
-      model.scale.set(finalScale)
-      model.x = (width - modelW * finalScale) / 2
-      model.y = (height - modelH * finalScale) / 2
-    }, [scale, width, height])
-
-    // ============ opacity 变化时更新 ============
-    useEffect(() => {
-      const model = modelRef.current
-      if (!model) return
-      model.alpha = opacity
-    }, [opacity])
-
-    // ============ 暴露命令式 API ============
-    useImperativeHandle(
-      ref,
-      (): Live2DRendererHandle => ({
-        playMotion: (group: string, index?: number) => {
-          const model = modelRef.current
-          if (!model || !readyRef.current) return
-          try {
-            // index 缺省时 pixi-live2d-display 会随机选择
-            model.motion(group, index)
-          } catch {
-            // 忽略动作不存在等错误
+        // 4. 异步加载 Live2D 模型
+        return Live2DModel.from(modelPath, { ticker: Ticker.shared }).then((model) => {
+          if (destroyed) {
+            model.destroy()
+            return
           }
-        },
-        setExpression: (name: string) => {
-          const model = modelRef.current
-          if (!model || !readyRef.current) return
+          modelRef.current = model
+
+          // autoMapper 接线：用真实模型参数名扫描并建立标准参数映射（不伪造）
           try {
-            model.expression(name)
+            const mapper = getParamAutoMapper()
+            // 不同 Cubism 版本的 internalModel 暴露的参数枚举 API 不一致
+            // （有的只有 coreModel.getParameterIds），故按运行时守卫取值
+            type ParameterIdSource = {
+              getModelParameterIds?: () => unknown[]
+              coreModel?: { getParameterIds?: () => unknown[] }
+            }
+            const internal = model.internalModel as ParameterIdSource | undefined
+            let ids: string[] = []
+            if (internal) {
+              if (typeof internal.getModelParameterIds === 'function') {
+                ids = internal.getModelParameterIds() as string[]
+              } else if (internal.coreModel && typeof internal.coreModel.getParameterIds === 'function') {
+                ids = internal.coreModel.getParameterIds() as string[]
+              }
+            }
+            if (Array.isArray(ids) && ids.length > 0) {
+              mapper.autoDiscover(ids)
+              const stats = mapper.getStats()
+              if (stats.total > 0) {
+                console.info(
+                  `[Live2D] 参数自动映射：${stats.mapped}/${stats.total}（覆盖率 ${Math.round(stats.coverage * 100)}%）`,
+                )
+              }
+            }
           } catch {
-            // 忽略表情不存在
+            // 忽略参数映射失败（不影响渲染）
           }
-        },
-        focus: (x: number, y: number) => {
-          const model = modelRef.current
-          if (!model || !readyRef.current) return
+
+          // 计算适配缩放
+          // [FIX] 首帧前 model.width/height 可能为 0（|| 1 兜底会让 scale 放大数倍，模型画到画布外不可见），
+          // 优先用 internalModel.originalWidth/Height（moc3 声明的原始画布尺寸）
+          const natW = model.internalModel?.originalWidth || model.width || 1
+          const natH = model.internalModel?.originalHeight || model.height || 1
+          const fit = Math.min(width / natW, height / natH)
+          const finalScale = fit * scale
+          model.scale.set(finalScale)
+          model.x = (width - natW * finalScale) / 2
+          model.y = (height - natH * finalScale) / 2
+          model.alpha = opacity
+          Logger.info('[L2DBG] fit nat=' + natW + 'x' + natH + ' scale=' + finalScale.toFixed(4))
+
+          app!.stage.addChild(model as unknown as import('pixi.js').Container)
+
+          // 自动播放 idle 动作
           try {
-            model.focus(x, y)
+            const idleGroup = getMotionGroupForState('idle', motionMapRef.current)
+            model.motion(idleGroup, 0)
           } catch {
             // 忽略
           }
-        },
-        isReady: () => readyRef.current,
-      }),
-      [],
-    )
+
+          readyRef.current = true
+          onReady?.()
+        })
+      })
+      .catch((err: unknown) => {
+        if (destroyed) return
+        const msg = err instanceof Error ? err.message : String(err)
+        onError?.(
+          new Error(
+            msg.includes('Live2DCubismCore')
+              ? 'Live2DCubismCore not loaded — place live2dcubismcore.js in public/'
+              : `Live2D init failed: ${msg}`,
+          ),
+        )
+      })
+
+    return () => {
+      destroyed = true
+      readyRef.current = false
+      if (modelRef.current) {
+        try {
+          modelRef.current.destroy({ children: true })
+        } catch {
+          /* ignore */
+        }
+        modelRef.current = null
+      }
+      if (appRef.current) {
+        try {
+          appRef.current.destroy(true, { children: true })
+        } catch {
+          /* ignore */
+        }
+        appRef.current = null
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modelPath])
+
+  // ============ scale / 尺寸变化时重新计算 ============
+  useEffect(() => {
+    const app = appRef.current
+    if (!app) return
+    // 同步 PIXI renderer 尺寸（petSize 滚轮缩放时触发）
+    try {
+      app.renderer.resize(width, height)
+      const canvas = app.canvas
+      canvas.style.width = `${width}px`
+      canvas.style.height = `${height}px`
+    } catch {
+      // 忽略
+    }
+    const model = modelRef.current
+    if (!model) return
+    const modelW = model.width || 1
+    const modelH = model.height || 1
+    const fit = Math.min(width / modelW, height / modelH)
+    const finalScale = fit * scale
+    model.scale.set(finalScale)
+    model.x = (width - modelW * finalScale) / 2
+    model.y = (height - modelH * finalScale) / 2
+  }, [scale, width, height])
+
+  // ============ opacity 变化时更新 ============
+  useEffect(() => {
+    const model = modelRef.current
+    if (!model) return
+    model.alpha = opacity
+  }, [opacity])
+
+  // ============ 暴露命令式 API ============
+  useImperativeHandle(
+    ref,
+    (): Live2DRendererHandle => ({
+      playMotion: (group: string, index?: number) => {
+        const model = modelRef.current
+        if (!model || !readyRef.current) return
+        try {
+          // index 缺省时 pixi-live2d-display 会随机选择
+          model.motion(group, index)
+        } catch {
+          // 忽略动作不存在等错误
+        }
+      },
+      setExpression: (name: string) => {
+        const model = modelRef.current
+        if (!model || !readyRef.current) return
+        try {
+          model.expression(name)
+        } catch {
+          // 忽略表情不存在
+        }
+      },
+      focus: (x: number, y: number) => {
+        const model = modelRef.current
+        if (!model || !readyRef.current) return
+        try {
+          model.focus(x, y)
+        } catch {
+          // 忽略
+        }
+      },
+      isReady: () => readyRef.current,
+    }),
+    [],
+  )
 
   return (
     <div
@@ -388,9 +389,8 @@ export const Live2DRenderer = forwardRef<Live2DRendererHandle, Live2DRendererPro
         width: `${width}px`,
         height: `${height}px`,
         background: 'transparent',
-          pointerEvents: 'none',
-        }}
-      />
-    )
-  },
-)
+        pointerEvents: 'none',
+      }}
+    />
+  )
+})

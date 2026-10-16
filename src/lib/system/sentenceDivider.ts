@@ -35,15 +35,10 @@
 // ============ 配置常量 ============
 
 /** 句子结束标点（中英文） */
-const SENTENCE_END_PUNCTUATION = new Set([
-  '。', '！', '？', '.', '!', '?',
-  '…', '……',
-])
+const SENTENCE_END_PUNCTUATION = new Set(['。', '！', '？', '.', '!', '?', '…', '……'])
 
 /** 句子内部逗号（用于首句提前分割） */
-const COMMA_PUNCTUATION = new Set([
-  '，', ',', '、', '；', ';',
-])
+const COMMA_PUNCTUATION = new Set(['，', ',', '、', '；', ';'])
 
 /** 最大缓冲长度 — 超过此长度强制分割 */
 const MAX_BUFFER_LENGTH = 200
@@ -150,8 +145,12 @@ export class SentenceDivider {
         if (this.buffer[i] === '…' && i + 1 < this.buffer.length && this.buffer[i + 1] === '…') {
           return i + 1
         }
-        if (this.buffer[i] === '.' && i + 2 < this.buffer.length
-          && this.buffer[i + 1] === '.' && this.buffer[i + 2] === '.') {
+        if (
+          this.buffer[i] === '.' &&
+          i + 2 < this.buffer.length &&
+          this.buffer[i + 1] === '.' &&
+          this.buffer[i + 2] === '.'
+        ) {
           return i + 2
         }
         return i
@@ -253,9 +252,7 @@ export class SentenceDivider {
  * @param chunks 流式文本片段的异步迭代器
  * @returns 句子的异步迭代器
  */
-export async function* divideSentences(
-  chunks: AsyncIterable<string>,
-): AsyncGenerator<DividedSentence> {
+export async function* divideSentences(chunks: AsyncIterable<string>): AsyncGenerator<DividedSentence> {
   const divider = new SentenceDivider()
 
   for await (const chunk of chunks) {

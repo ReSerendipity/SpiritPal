@@ -70,9 +70,7 @@ export function MobileCollectionView() {
             </div>
 
             {/* 描述 */}
-            {set.description && (
-              <div className={`mt-1.5 text-[11px] ${subTextClass}`}>{set.description}</div>
-            )}
+            {set.description && <div className={`mt-1.5 text-[11px] ${subTextClass}`}>{set.description}</div>}
 
             {/* 物品列表 */}
             <div className="mt-2 flex flex-wrap gap-1.5">

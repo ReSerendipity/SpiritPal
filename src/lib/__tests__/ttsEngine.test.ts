@@ -149,7 +149,7 @@ describe('createApiTTSGenerate', () => {
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({
-          'Authorization': 'Bearer test-key',
+          Authorization: 'Bearer test-key',
         }),
       }),
     )

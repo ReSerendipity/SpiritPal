@@ -84,7 +84,9 @@ export function usePetBehavior(options: UsePetBehaviorOptions): UsePetBehaviorRe
   const musicSwayingRef = useRef<boolean>(false)
   const lastInteractionTypeRef = useRef<string>('')
   const lastInteractionAtRef = useRef<number>(0)
-  const startWalkAnimationRef = useRef<(targetX: number, animId: AnimationId, onComplete?: () => void) => void>(() => {})
+  const startWalkAnimationRef = useRef<(targetX: number, animId: AnimationId, onComplete?: () => void) => void>(
+    () => {},
+  )
   // pickBehaviorRef：打破 scheduleNextBehavior ↔ pickBehavior 的循环依赖，
   // 定时器回调始终调用最新一次渲染产生的 pickBehavior
   const pickBehaviorRef = useRef<() => void>(() => {})
@@ -177,9 +179,12 @@ export function usePetBehavior(options: UsePetBehaviorOptions): UsePetBehaviorRe
     pickBehaviorRef.current = pickBehavior
   })
 
-  const setStartWalkAnimation = useCallback((fn: (targetX: number, animId: AnimationId, onComplete?: () => void) => void) => {
-    startWalkAnimationRef.current = fn
-  }, [])
+  const setStartWalkAnimation = useCallback(
+    (fn: (targetX: number, animId: AnimationId, onComplete?: () => void) => void) => {
+      startWalkAnimationRef.current = fn
+    },
+    [],
+  )
 
   useEffect(() => {
     return () => {

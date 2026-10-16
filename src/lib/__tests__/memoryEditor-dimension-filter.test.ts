@@ -8,11 +8,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { EnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
-import {
-  MemoryEditor,
-  createMemoryEditor,
-  type MemorySearchOptions,
-} from '@/lib/memory/memoryEditor'
+import { MemoryEditor, createMemoryEditor, type MemorySearchOptions } from '@/lib/memory/memoryEditor'
 import { type EnhancedMemory } from '@/lib/memory/memoryTypes'
 
 vi.mock('@/lib/memory/enhancedMemory', () => ({

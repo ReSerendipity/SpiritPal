@@ -263,7 +263,12 @@ export function getAllPromptVersions(): Record<string, number> {
 /**
  * 获取所有 Prompt 的摘要（用于诊断/调试）
  */
-export function getPromptRegistrySummary(): Array<{ key: string; version: number; lastModified: string; changeLog: string }> {
+export function getPromptRegistrySummary(): Array<{
+  key: string
+  version: number
+  lastModified: string
+  changeLog: string
+}> {
   return Object.values(PROMPT_REGISTRY).map((def) => ({
     key: def.key,
     version: def.version,

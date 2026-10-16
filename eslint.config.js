@@ -37,26 +37,29 @@ export default tseslint.config(
       'react-hooks/preserve-manual-memoization': 'off',
       'react-hooks/immutability': 'off',
       'react-hooks/no-access-of-unmounted-ref-in-render': 'off',
-      'import/order': ['warn', {
-        groups: [
-          'builtin',       // Node.js / Tauri 官方
-          'external',      // 第三方库
-          'internal',      // 本地项目 (@/ 别名)
-          'parent',        // 相对路径上级
-          'sibling',       // 相对路径同级
-          'index',         // 同目录 index
-          'type',          // type-only imports
-        ],
-        pathGroups: [
-          { pattern: 'react', group: 'builtin' },
-          { pattern: 'react-dom', group: 'builtin' },
-          { pattern: '@tauri-apps/**', group: 'builtin' },
-          { pattern: '@/**', group: 'internal' },
-        ],
-        pathGroupsExcludedImportTypes: ['react'],
-        'newlines-between': 'never',
-        alphabetize: { order: 'asc', caseInsensitive: true },
-      }],
+      'import/order': [
+        'warn',
+        {
+          groups: [
+            'builtin', // Node.js / Tauri 官方
+            'external', // 第三方库
+            'internal', // 本地项目 (@/ 别名)
+            'parent', // 相对路径上级
+            'sibling', // 相对路径同级
+            'index', // 同目录 index
+            'type', // type-only imports
+          ],
+          pathGroups: [
+            { pattern: 'react', group: 'builtin' },
+            { pattern: 'react-dom', group: 'builtin' },
+            { pattern: '@tauri-apps/**', group: 'builtin' },
+            { pattern: '@/**', group: 'internal' },
+          ],
+          pathGroupsExcludedImportTypes: ['react'],
+          'newlines-between': 'never',
+          alphabetize: { order: 'asc', caseInsensitive: true },
+        },
+      ],
     },
   },
 )

@@ -56,7 +56,7 @@ describe('2.2: 记忆时间线索引', () => {
       expect(timeline.length).toBeGreaterThanOrEqual(1)
       const d = new Date(fixed)
       const expectedKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-      const todayEntry = timeline.find(e => e.dateKey === expectedKey)
+      const todayEntry = timeline.find((e) => e.dateKey === expectedKey)
       expect(todayEntry).toBeDefined()
       expect(todayEntry!.count).toBe(2)
       expect(todayEntry!.memories.length).toBe(2)
@@ -201,8 +201,8 @@ describe('2.2: 记忆时间线索引', () => {
 
       // 确认 episodic memory 中有 8 月的记忆
       const episodic = mgr.getEpisodicMemories()
-      const augustInEpisodic = episodic.filter(m =>
-        new Date(m.created_at).getMonth() === 7 // August
+      const augustInEpisodic = episodic.filter(
+        (m) => new Date(m.created_at).getMonth() === 7, // August
       )
       // 如果没有 8 月记忆在 episodic 中，用更多数据重试
       if (augustInEpisodic.length === 0) {

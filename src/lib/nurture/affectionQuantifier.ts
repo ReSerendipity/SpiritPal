@@ -239,9 +239,7 @@ export class AffectionQuantifier {
 
       if (matchCount > 0) {
         const qualityMultiplier = tag.qualityMultiplier ?? 1.0
-        const weightedDelta = Math.round(
-          tag.affectionDelta * matchCount * qualityMultiplier * interactionQuality,
-        )
+        const weightedDelta = Math.round(tag.affectionDelta * matchCount * qualityMultiplier * interactionQuality)
 
         extracted.push({
           name: tag.name,
@@ -263,10 +261,7 @@ export class AffectionQuantifier {
     }
 
     // 限制单次最大变化量
-    totalAffectionDelta = Math.max(
-      -this.MAX_SINGLE_DELTA,
-      Math.min(this.MAX_SINGLE_DELTA, totalAffectionDelta),
-    )
+    totalAffectionDelta = Math.max(-this.MAX_SINGLE_DELTA, Math.min(this.MAX_SINGLE_DELTA, totalAffectionDelta))
 
     // 找主导情感
     let dominantEmotion: string | null = null
@@ -292,11 +287,7 @@ export class AffectionQuantifier {
    * 提取情感并写入 petStore
    * @returns 情感提取结果
    */
-  extractAndApply(
-    characterId: string,
-    text: string,
-    interactionQuality: number = 1.0,
-  ): EmotionExtractionResult {
+  extractAndApply(characterId: string, text: string, interactionQuality: number = 1.0): EmotionExtractionResult {
     const result = this.extractEmotions(text, interactionQuality)
 
     if (result.totalAffectionDelta !== 0) {

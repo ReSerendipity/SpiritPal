@@ -16,14 +16,8 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 // ─── 路径配置 ───────────────────────────────────────────
-const CONFIG_DIR = path.resolve(
-  __dirname,
-  '../public/pets/shimeji/configs',
-)
-const OUTPUT_DIR = path.resolve(
-  __dirname,
-  '../public/pets/shimeji/profiles',
-)
+const CONFIG_DIR = path.resolve(__dirname, '../public/pets/shimeji/configs')
+const OUTPUT_DIR = path.resolve(__dirname, '../public/pets/shimeji/profiles')
 
 // ─── WindowPet 类型（简化） ──────────────────────────────
 interface WindowPetState {
@@ -165,37 +159,12 @@ function randomThemeColor(): { primary: string; secondary: string } {
 /** 根据状态名生成气泡消息 */
 function buildBubbleMessages(name: string): CharacterProfile['bubbleMessages'] {
   return {
-    idle: [
-      `${name}在发呆…`,
-      '今天天气不错呢~',
-      '有什么好玩的事吗？',
-      '嗯…想休息一下…',
-    ],
-    hungry: [
-      '肚子好饿…',
-      '想吃东西…',
-      '有没有零食呀？',
-    ],
-    sad: [
-      '呜呜…',
-      '有点难过…',
-      '抱抱我…',
-    ],
-    pet: [
-      '好舒服~',
-      '嘿嘿，再摸摸~',
-      '最喜欢被摸头了！',
-    ],
-    feed: [
-      '好好吃！',
-      '谢谢主人！',
-      '吃饱了~',
-    ],
-    pomodoroDone: [
-      '休息一下！',
-      '辛苦啦~',
-      '要不要休息一会儿？',
-    ],
+    idle: [`${name}在发呆…`, '今天天气不错呢~', '有什么好玩的事吗？', '嗯…想休息一下…'],
+    hungry: ['肚子好饿…', '想吃东西…', '有没有零食呀？'],
+    sad: ['呜呜…', '有点难过…', '抱抱我…'],
+    pet: ['好舒服~', '嘿嘿，再摸摸~', '最喜欢被摸头了！'],
+    feed: ['好好吃！', '谢谢主人！', '吃饱了~'],
+    pomodoroDone: ['休息一下！', '辛苦啦~', '要不要休息一会儿？'],
   }
 }
 

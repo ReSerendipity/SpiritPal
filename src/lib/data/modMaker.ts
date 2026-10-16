@@ -76,14 +76,7 @@ export interface DialogueTurnState {
 /** 气泡消息的六个触发键 */
 export type BubbleKey = keyof DialogueConfJSON['bubbleMessages']
 
-export const BUBBLE_KEYS: readonly BubbleKey[] = [
-  'idle',
-  'hungry',
-  'sad',
-  'pet',
-  'feed',
-  'pomodoroDone',
-] as const
+export const BUBBLE_KEYS: readonly BubbleKey[] = ['idle', 'hungry', 'sad', 'pet', 'feed', 'pomodoroDone'] as const
 
 /** PetState 可选项（供下拉选择） */
 export const PET_STATE_OPTIONS: readonly PetState[] = [
@@ -104,12 +97,7 @@ export const PET_STATE_OPTIONS: readonly PetState[] = [
 ] as const
 
 /** 精灵图类型可选项 */
-export const SPRITE_TYPE_OPTIONS: readonly PetConfJSON['spriteType'][] = [
-  'atlas',
-  'svg',
-  'gif',
-  'video',
-] as const
+export const SPRITE_TYPE_OPTIONS: readonly PetConfJSON['spriteType'][] = ['atlas', 'svg', 'gif', 'video'] as const
 
 /**
  * 编辑器扁平表单状态
@@ -179,15 +167,13 @@ export function createEmptyEditorState(): EditorState {
   const tpl = createModTemplate()
   const { petConf, actConf, itemsConf, dialogueConf } = tpl
 
-  const anchorRows: AnchorRowState[] = Object.entries(actConf?.anchors ?? {}).map(
-    ([key, value]) => ({
-      key,
-      anchorX: value.anchorX,
-      anchorY: value.anchorY,
-      loop: value.loop,
-      next: value.next ?? '',
-    }),
-  )
+  const anchorRows: AnchorRowState[] = Object.entries(actConf?.anchors ?? {}).map(([key, value]) => ({
+    key,
+    anchorX: value.anchorX,
+    anchorY: value.anchorY,
+    loop: value.loop,
+    next: value.next ?? '',
+  }))
 
   return {
     // 清单
@@ -315,9 +301,7 @@ export function buildCharacterMod(state: EditorState): CharacterMod {
         ]),
     ),
     motionMap: Object.fromEntries(
-      state.motionMap
-        .filter((row) => row.key.trim().length > 0)
-        .map((row) => [row.key.trim(), row.value]),
+      state.motionMap.filter((row) => row.key.trim().length > 0).map((row) => [row.key.trim(), row.value]),
     ),
   }
 

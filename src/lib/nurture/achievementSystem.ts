@@ -95,28 +95,226 @@ export interface AchievementStats {
  * @constant
  */
 export const ACHIEVEMENTS: Achievement[] = [
-  { id: 'first-click', name: '初次见面', description: '第一次点击宠物', icon: '👋', category: 'interaction', tier: 'star', condition: (s) => s.totalClicks >= 1, reward: 5 },
-  { id: 'click-100', name: '摸摸手', description: '点击宠物100次', icon: '👆', category: 'interaction', tier: 'moon', condition: (s) => s.totalClicks >= 100, reward: 20 },
-  { id: 'click-500', name: '互动达人', description: '点击宠物500次', icon: '✋', category: 'interaction', tier: 'sun', condition: (s) => s.totalClicks >= 500, reward: 50 },
-  { id: 'pet-50', name: '摸头杀', description: '摸头50次', icon: '🤚', category: 'interaction', tier: 'star', condition: (s) => s.totalPets >= 50, reward: 10 },
-  { id: 'pet-200', name: '亲密无间', description: '摸头200次', icon: '💖', category: 'interaction', tier: 'sun', condition: (s) => s.totalPets >= 200, reward: 40 },
-  { id: 'feed-30', name: '美食家', description: '喂食30次', icon: '🍽️', category: 'interaction', tier: 'moon', condition: (s) => s.totalFeeds >= 30, reward: 15 },
-  { id: 'play-20', name: '玩伴', description: '玩耍20次', icon: '🎮', category: 'interaction', tier: 'moon', condition: (s) => s.totalPlays >= 20, reward: 15 },
-  { id: 'bathe-10', name: '香喷喷', description: '洗澡10次', icon: '🛁', category: 'interaction', tier: 'star', condition: (s) => s.totalBathes >= 10, reward: 10 },
-  { id: 'chat-50', name: '话痨', description: '聊天50轮', icon: '💬', category: 'nurturing', tier: 'moon', condition: (s) => s.totalChats >= 50, reward: 25 },
-  { id: 'chat-200', name: '知心好友', description: '聊天200轮', icon: '🗣️', category: 'nurturing', tier: 'sun', condition: (s) => s.totalChats >= 200, reward: 60 },
-  { id: 'affection-lv3', name: '好朋友', description: '亲密度达到Lv3', icon: '💛', category: 'nurturing', tier: 'moon', condition: (s) => s.maxAffectionLevel >= 3, reward: 30 },
-  { id: 'affection-lv5', name: '挚友', description: '亲密度达到Lv5', icon: '💗', category: 'nurturing', tier: 'crown', condition: (s) => s.maxAffectionLevel >= 5, reward: 100 },
-  { id: 'pomodoro-1', name: '初次专注', description: '完成第一个番茄钟', icon: '🍅', category: 'focus', tier: 'star', condition: (s) => s.totalPomodoros >= 1, reward: 10 },
-  { id: 'pomodoro-10', name: '专注新手', description: '完成10个番茄钟', icon: '⏰', category: 'focus', tier: 'moon', condition: (s) => s.totalPomodoros >= 10, reward: 30 },
-  { id: 'pomodoro-50', name: '专注大师', description: '完成50个番茄钟', icon: '🏆', category: 'focus', tier: 'sun', condition: (s) => s.totalPomodoros >= 50, reward: 80 },
-  { id: 'pomodoro-600', name: '时间管理大师', description: '累计专注600分钟', icon: '⏱️', category: 'focus', tier: 'crown', condition: (s) => s.totalPomodoroMinutes >= 600, reward: 120 },
-  { id: 'buy-10', name: '购物新手', description: '购买10件物品', icon: '🛒', category: 'collection', tier: 'star', condition: (s) => s.totalItemsBought >= 10, reward: 10 },
-  { id: 'buy-50', name: '购物达人', description: '购买50件物品', icon: '🛍️', category: 'collection', tier: 'sun', condition: (s) => s.totalItemsBought >= 50, reward: 40 },
-  { id: 'use-30', name: '物品使用', description: '使用30件物品', icon: '📦', category: 'collection', tier: 'moon', condition: (s) => s.totalItemsUsed >= 30, reward: 20 },
-  { id: 'login-7', name: '一周陪伴', description: '连续登录7天', icon: '📅', category: 'special', tier: 'moon', condition: (s) => s.consecutiveLoginDays >= 7, reward: 30 },
-  { id: 'login-30', name: '月度陪伴', description: '累计登录30天', icon: '📆', category: 'special', tier: 'sun', condition: (s) => s.totalLoginDays >= 30, reward: 60 },
-  { id: 'all-chars', name: '全角色收集', description: '解锁全部角色', icon: '🌟', category: 'special', tier: 'crown', condition: (s) => s.charactersUnlocked >= 3, reward: 100 },
+  {
+    id: 'first-click',
+    name: '初次见面',
+    description: '第一次点击宠物',
+    icon: '👋',
+    category: 'interaction',
+    tier: 'star',
+    condition: (s) => s.totalClicks >= 1,
+    reward: 5,
+  },
+  {
+    id: 'click-100',
+    name: '摸摸手',
+    description: '点击宠物100次',
+    icon: '👆',
+    category: 'interaction',
+    tier: 'moon',
+    condition: (s) => s.totalClicks >= 100,
+    reward: 20,
+  },
+  {
+    id: 'click-500',
+    name: '互动达人',
+    description: '点击宠物500次',
+    icon: '✋',
+    category: 'interaction',
+    tier: 'sun',
+    condition: (s) => s.totalClicks >= 500,
+    reward: 50,
+  },
+  {
+    id: 'pet-50',
+    name: '摸头杀',
+    description: '摸头50次',
+    icon: '🤚',
+    category: 'interaction',
+    tier: 'star',
+    condition: (s) => s.totalPets >= 50,
+    reward: 10,
+  },
+  {
+    id: 'pet-200',
+    name: '亲密无间',
+    description: '摸头200次',
+    icon: '💖',
+    category: 'interaction',
+    tier: 'sun',
+    condition: (s) => s.totalPets >= 200,
+    reward: 40,
+  },
+  {
+    id: 'feed-30',
+    name: '美食家',
+    description: '喂食30次',
+    icon: '🍽️',
+    category: 'interaction',
+    tier: 'moon',
+    condition: (s) => s.totalFeeds >= 30,
+    reward: 15,
+  },
+  {
+    id: 'play-20',
+    name: '玩伴',
+    description: '玩耍20次',
+    icon: '🎮',
+    category: 'interaction',
+    tier: 'moon',
+    condition: (s) => s.totalPlays >= 20,
+    reward: 15,
+  },
+  {
+    id: 'bathe-10',
+    name: '香喷喷',
+    description: '洗澡10次',
+    icon: '🛁',
+    category: 'interaction',
+    tier: 'star',
+    condition: (s) => s.totalBathes >= 10,
+    reward: 10,
+  },
+  {
+    id: 'chat-50',
+    name: '话痨',
+    description: '聊天50轮',
+    icon: '💬',
+    category: 'nurturing',
+    tier: 'moon',
+    condition: (s) => s.totalChats >= 50,
+    reward: 25,
+  },
+  {
+    id: 'chat-200',
+    name: '知心好友',
+    description: '聊天200轮',
+    icon: '🗣️',
+    category: 'nurturing',
+    tier: 'sun',
+    condition: (s) => s.totalChats >= 200,
+    reward: 60,
+  },
+  {
+    id: 'affection-lv3',
+    name: '好朋友',
+    description: '亲密度达到Lv3',
+    icon: '💛',
+    category: 'nurturing',
+    tier: 'moon',
+    condition: (s) => s.maxAffectionLevel >= 3,
+    reward: 30,
+  },
+  {
+    id: 'affection-lv5',
+    name: '挚友',
+    description: '亲密度达到Lv5',
+    icon: '💗',
+    category: 'nurturing',
+    tier: 'crown',
+    condition: (s) => s.maxAffectionLevel >= 5,
+    reward: 100,
+  },
+  {
+    id: 'pomodoro-1',
+    name: '初次专注',
+    description: '完成第一个番茄钟',
+    icon: '🍅',
+    category: 'focus',
+    tier: 'star',
+    condition: (s) => s.totalPomodoros >= 1,
+    reward: 10,
+  },
+  {
+    id: 'pomodoro-10',
+    name: '专注新手',
+    description: '完成10个番茄钟',
+    icon: '⏰',
+    category: 'focus',
+    tier: 'moon',
+    condition: (s) => s.totalPomodoros >= 10,
+    reward: 30,
+  },
+  {
+    id: 'pomodoro-50',
+    name: '专注大师',
+    description: '完成50个番茄钟',
+    icon: '🏆',
+    category: 'focus',
+    tier: 'sun',
+    condition: (s) => s.totalPomodoros >= 50,
+    reward: 80,
+  },
+  {
+    id: 'pomodoro-600',
+    name: '时间管理大师',
+    description: '累计专注600分钟',
+    icon: '⏱️',
+    category: 'focus',
+    tier: 'crown',
+    condition: (s) => s.totalPomodoroMinutes >= 600,
+    reward: 120,
+  },
+  {
+    id: 'buy-10',
+    name: '购物新手',
+    description: '购买10件物品',
+    icon: '🛒',
+    category: 'collection',
+    tier: 'star',
+    condition: (s) => s.totalItemsBought >= 10,
+    reward: 10,
+  },
+  {
+    id: 'buy-50',
+    name: '购物达人',
+    description: '购买50件物品',
+    icon: '🛍️',
+    category: 'collection',
+    tier: 'sun',
+    condition: (s) => s.totalItemsBought >= 50,
+    reward: 40,
+  },
+  {
+    id: 'use-30',
+    name: '物品使用',
+    description: '使用30件物品',
+    icon: '📦',
+    category: 'collection',
+    tier: 'moon',
+    condition: (s) => s.totalItemsUsed >= 30,
+    reward: 20,
+  },
+  {
+    id: 'login-7',
+    name: '一周陪伴',
+    description: '连续登录7天',
+    icon: '📅',
+    category: 'special',
+    tier: 'moon',
+    condition: (s) => s.consecutiveLoginDays >= 7,
+    reward: 30,
+  },
+  {
+    id: 'login-30',
+    name: '月度陪伴',
+    description: '累计登录30天',
+    icon: '📆',
+    category: 'special',
+    tier: 'sun',
+    condition: (s) => s.totalLoginDays >= 30,
+    reward: 60,
+  },
+  {
+    id: 'all-chars',
+    name: '全角色收集',
+    description: '解锁全部角色',
+    icon: '🌟',
+    category: 'special',
+    tier: 'crown',
+    condition: (s) => s.charactersUnlocked >= 3,
+    reward: 100,
+  },
 ]
 
 // ============ 等级徽章计算 ============
@@ -268,17 +466,41 @@ export class AchievementManager {
   // ============ 更新统计 ============
 
   /** 记录一次点击 */
-  recordClick(): void { this.stats.totalClicks++; this.checkAchievements(); this.save() }
+  recordClick(): void {
+    this.stats.totalClicks++
+    this.checkAchievements()
+    this.save()
+  }
   /** 记录一次摸头 */
-  recordPet(): void { this.stats.totalPets++; this.checkAchievements(); this.save() }
+  recordPet(): void {
+    this.stats.totalPets++
+    this.checkAchievements()
+    this.save()
+  }
   /** 记录一次喂食 */
-  recordFeed(): void { this.stats.totalFeeds++; this.checkAchievements(); this.save() }
+  recordFeed(): void {
+    this.stats.totalFeeds++
+    this.checkAchievements()
+    this.save()
+  }
   /** 记录一次玩耍 */
-  recordPlay(): void { this.stats.totalPlays++; this.checkAchievements(); this.save() }
+  recordPlay(): void {
+    this.stats.totalPlays++
+    this.checkAchievements()
+    this.save()
+  }
   /** 记录一次洗澡 */
-  recordBathe(): void { this.stats.totalBathes++; this.checkAchievements(); this.save() }
+  recordBathe(): void {
+    this.stats.totalBathes++
+    this.checkAchievements()
+    this.save()
+  }
   /** 记录一次聊天 */
-  recordChat(): void { this.stats.totalChats++; this.checkAchievements(); this.save() }
+  recordChat(): void {
+    this.stats.totalChats++
+    this.checkAchievements()
+    this.save()
+  }
 
   /**
    * 记录一次番茄钟完成
@@ -295,11 +517,22 @@ export class AchievementManager {
    * 记录获得金币
    * @param {number} amount - 金币数量
    */
-  recordCoinsEarned(amount: number): void { this.stats.totalCoinsEarned += amount; this.save() }
+  recordCoinsEarned(amount: number): void {
+    this.stats.totalCoinsEarned += amount
+    this.save()
+  }
   /** 记录购买物品 */
-  recordItemBought(): void { this.stats.totalItemsBought++; this.checkAchievements(); this.save() }
+  recordItemBought(): void {
+    this.stats.totalItemsBought++
+    this.checkAchievements()
+    this.save()
+  }
   /** 记录使用物品 */
-  recordItemUsed(): void { this.stats.totalItemsUsed++; this.checkAchievements(); this.save() }
+  recordItemUsed(): void {
+    this.stats.totalItemsUsed++
+    this.checkAchievements()
+    this.save()
+  }
 
   /**
    * 记录用户登录，计算连续登录天数
@@ -423,26 +656,46 @@ export class AchievementManager {
   getProgress(ach: Achievement): number {
     const s = this.stats
     switch (ach.id) {
-      case 'first-click': return Math.min(1, s.totalClicks / 1)
-      case 'click-100': return Math.min(1, s.totalClicks / 100)
-      case 'click-500': return Math.min(1, s.totalClicks / 500)
-      case 'pet-50': return Math.min(1, s.totalPets / 50)
-      case 'pet-200': return Math.min(1, s.totalPets / 200)
-      case 'feed-30': return Math.min(1, s.totalFeeds / 30)
-      case 'play-20': return Math.min(1, s.totalPlays / 20)
-      case 'bathe-10': return Math.min(1, s.totalBathes / 10)
-      case 'chat-50': return Math.min(1, s.totalChats / 50)
-      case 'chat-200': return Math.min(1, s.totalChats / 200)
-      case 'pomodoro-1': return Math.min(1, s.totalPomodoros / 1)
-      case 'pomodoro-10': return Math.min(1, s.totalPomodoros / 10)
-      case 'pomodoro-50': return Math.min(1, s.totalPomodoros / 50)
-      case 'pomodoro-600': return Math.min(1, s.totalPomodoroMinutes / 600)
-      case 'buy-10': return Math.min(1, s.totalItemsBought / 10)
-      case 'buy-50': return Math.min(1, s.totalItemsBought / 50)
-      case 'use-30': return Math.min(1, s.totalItemsUsed / 30)
-      case 'login-7': return Math.min(1, s.consecutiveLoginDays / 7)
-      case 'login-30': return Math.min(1, s.totalLoginDays / 30)
-      default: return 0
+      case 'first-click':
+        return Math.min(1, s.totalClicks / 1)
+      case 'click-100':
+        return Math.min(1, s.totalClicks / 100)
+      case 'click-500':
+        return Math.min(1, s.totalClicks / 500)
+      case 'pet-50':
+        return Math.min(1, s.totalPets / 50)
+      case 'pet-200':
+        return Math.min(1, s.totalPets / 200)
+      case 'feed-30':
+        return Math.min(1, s.totalFeeds / 30)
+      case 'play-20':
+        return Math.min(1, s.totalPlays / 20)
+      case 'bathe-10':
+        return Math.min(1, s.totalBathes / 10)
+      case 'chat-50':
+        return Math.min(1, s.totalChats / 50)
+      case 'chat-200':
+        return Math.min(1, s.totalChats / 200)
+      case 'pomodoro-1':
+        return Math.min(1, s.totalPomodoros / 1)
+      case 'pomodoro-10':
+        return Math.min(1, s.totalPomodoros / 10)
+      case 'pomodoro-50':
+        return Math.min(1, s.totalPomodoros / 50)
+      case 'pomodoro-600':
+        return Math.min(1, s.totalPomodoroMinutes / 600)
+      case 'buy-10':
+        return Math.min(1, s.totalItemsBought / 10)
+      case 'buy-50':
+        return Math.min(1, s.totalItemsBought / 50)
+      case 'use-30':
+        return Math.min(1, s.totalItemsUsed / 30)
+      case 'login-7':
+        return Math.min(1, s.consecutiveLoginDays / 7)
+      case 'login-30':
+        return Math.min(1, s.totalLoginDays / 30)
+      default:
+        return 0
     }
   }
 

@@ -31,53 +31,55 @@ import type { WeatherAction } from '@/lib/system/weatherAwareness'
 
 // 基础状态（10 种）
 type BasicAnim =
-  | 'idle' | 'breathing' | 'blink' | 'sleep' | 'drowsy'
-  | 'awake' | 'sit' | 'stand' | 'lie_down' | 'stretch'
+  'idle' | 'breathing' | 'blink' | 'sleep' | 'drowsy' | 'awake' | 'sit' | 'stand' | 'lie_down' | 'stretch'
 
 // 情绪表现（12 种）
 type EmotionAnim =
-  | 'happy' | 'excited' | 'laugh' | 'giggle' | 'sad' | 'cry'
-  | 'angry' | 'annoyed' | 'surprised' | 'confused' | 'shy' | 'embarrassed'
+  | 'happy'
+  | 'excited'
+  | 'laugh'
+  | 'giggle'
+  | 'sad'
+  | 'cry'
+  | 'angry'
+  | 'annoyed'
+  | 'surprised'
+  | 'confused'
+  | 'shy'
+  | 'embarrassed'
 
 // 交互响应（10 种）
-type InteractionAnim =
-  | 'pet_head' | 'being_held' | 'feed' | 'eat' | 'drink'
-  | 'play' | 'hug' | 'poke' | 'drag' | 'drop'
+type InteractionAnim = 'pet_head' | 'being_held' | 'feed' | 'eat' | 'drink' | 'play' | 'hug' | 'poke' | 'drag' | 'drop'
 
 // 养成相关（8 种）
 type NurtureAnim =
-  | 'sick' | 'recovering' | 'level_up' | 'hungry_starving'
-  | 'full_satisfied' | 'bath' | 'clean' | 'dirty'
+  'sick' | 'recovering' | 'level_up' | 'hungry_starving' | 'full_satisfied' | 'bath' | 'clean' | 'dirty'
 
 // 环境感知（6 种）
 type EnvironmentAnim =
-  | 'rain_umbrella' | 'hot_fanning' | 'cold_shivering'
-  | 'sunny_happy' | 'music_sway' | 'coding_companion'
+  'rain_umbrella' | 'hot_fanning' | 'cold_shivering' | 'sunny_happy' | 'music_sway' | 'coding_companion'
 
 // 编码反应（6 种）— 参考 OpenPets allowedReactions 扩展
 // 编程陪伴模式专用，映射到精灵图扩展行
-type CodingAnim =
-  | 'thinking' | 'editing' | 'testing' | 'success' | 'error' | 'celebrating'
+type CodingAnim = 'thinking' | 'editing' | 'testing' | 'success' | 'error' | 'celebrating'
 
 // 特殊/稀有（5 种，含 2.4 新增 hide）
 type SpecialAnim = 'anniversary' | 'birthday' | 'dream' | 'daydream' | 'hide'
 
 export type AnimationId =
-  | BasicAnim | EmotionAnim | InteractionAnim | NurtureAnim
-  | EnvironmentAnim | CodingAnim | SpecialAnim
+  BasicAnim | EmotionAnim | InteractionAnim | NurtureAnim | EnvironmentAnim | CodingAnim | SpecialAnim
 
-export type AnimationCategory =
-  | 'basic' | 'emotion' | 'interaction' | 'nurture' | 'environment' | 'coding' | 'special'
+export type AnimationCategory = 'basic' | 'emotion' | 'interaction' | 'nurture' | 'environment' | 'coding' | 'special'
 
 // ============ 编码反应 → 精灵图 PetState 映射 ============
 // 参考 OpenPets packages/client/src/protocol.ts:allowedReactions
 // 编码反应映射到现有 PetState 值 + ANIMATION_ROWS 中的扩展行
 export const CODING_REACTION_TO_PETSTATE: Record<CodingAnim, PetState> = {
-  thinking: 'sit',      // 思考中 → 坐着（等待行的变体）
-  editing: 'walk',      // 编辑中 → 走动（运行行的变体）
-  testing: 'idle',      // 测试中 → 待机（审查行的变体）
-  success: 'happy',     // 成功 → 开心（跳跃行的变体）
-  error: 'sad',         // 错误 → 伤心（失败行的变体）
+  thinking: 'sit', // 思考中 → 坐着（等待行的变体）
+  editing: 'walk', // 编辑中 → 走动（运行行的变体）
+  testing: 'idle', // 测试中 → 待机（审查行的变体）
+  success: 'happy', // 成功 → 开心（跳跃行的变体）
+  error: 'sad', // 错误 → 伤心（失败行的变体）
   celebrating: 'happy', // 庆祝 → 开心（挥手行的变体）
 }
 
@@ -95,89 +97,602 @@ export const CODING_REACTION_TO_MOTION: Record<CodingAnim, string> = {
 
 export interface AnimationDef {
   id: AnimationId
-  name: string          // 中文名称
+  name: string // 中文名称
   category: AnimationCategory
-  triggers: string[]    // 触发条件描述（人可读，如 "hp < 20" 或 "interaction: pet_head"）
-  duration: number      // 单次播放时长（毫秒）
-  priority: number      // 优先级（数字越大越优先）
+  triggers: string[] // 触发条件描述（人可读，如 "hp < 20" 或 "interaction: pet_head"）
+  duration: number // 单次播放时长（毫秒）
+  priority: number // 优先级（数字越大越优先）
   spriteState: PetState // 映射到精灵图 PetState（用于 SpriteRenderer）
-  motionGroup: string   // 映射到 Live2D motion group
+  motionGroup: string // 映射到 Live2D motion group
 }
 
 // ============ 50 种动画目录 ============
 
 export const ANIMATION_CATALOG: AnimationDef[] = [
   // ===== 基础状态（10 种）=====
-  { id: 'idle', name: '待机', category: 'basic', triggers: ['default', 'fallback'], duration: 5000, priority: 1, spriteState: 'idle', motionGroup: 'Idle' },
-  { id: 'breathing', name: '呼吸', category: 'basic', triggers: ['idle for >10s'], duration: 4000, priority: 1, spriteState: 'idle', motionGroup: 'Idle' },
-  { id: 'blink', name: '眨眼', category: 'basic', triggers: ['idle for >5s'], duration: 800, priority: 1, spriteState: 'idle', motionGroup: 'Idle' },
-  { id: 'sleep', name: '睡眠', category: 'basic', triggers: ['time 0-8', 'idle >5min'], duration: 10000, priority: 2, spriteState: 'sleep', motionGroup: 'Sleep' },
-  { id: 'drowsy', name: '困倦', category: 'basic', triggers: ['time 23-24 or 0-2'], duration: 6000, priority: 2, spriteState: 'sleep', motionGroup: 'Sleep' },
-  { id: 'awake', name: '醒来', category: 'basic', triggers: ['after sleep'], duration: 2000, priority: 2, spriteState: 'idle', motionGroup: 'Idle' },
-  { id: 'sit', name: '坐下', category: 'basic', triggers: ['random idle'], duration: 5000, priority: 1, spriteState: 'sit', motionGroup: 'Sit' },
-  { id: 'stand', name: '站立', category: 'basic', triggers: ['random idle'], duration: 4000, priority: 1, spriteState: 'idle', motionGroup: 'Idle' },
-  { id: 'lie_down', name: '趴下', category: 'basic', triggers: ['random idle', 'tired'], duration: 6000, priority: 1, spriteState: 'sit', motionGroup: 'Sit' },
-  { id: 'stretch', name: '伸展', category: 'basic', triggers: ['after sleep', 'after sit'], duration: 2000, priority: 1, spriteState: 'walk', motionGroup: 'Walk' },
+  {
+    id: 'idle',
+    name: '待机',
+    category: 'basic',
+    triggers: ['default', 'fallback'],
+    duration: 5000,
+    priority: 1,
+    spriteState: 'idle',
+    motionGroup: 'Idle',
+  },
+  {
+    id: 'breathing',
+    name: '呼吸',
+    category: 'basic',
+    triggers: ['idle for >10s'],
+    duration: 4000,
+    priority: 1,
+    spriteState: 'idle',
+    motionGroup: 'Idle',
+  },
+  {
+    id: 'blink',
+    name: '眨眼',
+    category: 'basic',
+    triggers: ['idle for >5s'],
+    duration: 800,
+    priority: 1,
+    spriteState: 'idle',
+    motionGroup: 'Idle',
+  },
+  {
+    id: 'sleep',
+    name: '睡眠',
+    category: 'basic',
+    triggers: ['time 0-8', 'idle >5min'],
+    duration: 10000,
+    priority: 2,
+    spriteState: 'sleep',
+    motionGroup: 'Sleep',
+  },
+  {
+    id: 'drowsy',
+    name: '困倦',
+    category: 'basic',
+    triggers: ['time 23-24 or 0-2'],
+    duration: 6000,
+    priority: 2,
+    spriteState: 'sleep',
+    motionGroup: 'Sleep',
+  },
+  {
+    id: 'awake',
+    name: '醒来',
+    category: 'basic',
+    triggers: ['after sleep'],
+    duration: 2000,
+    priority: 2,
+    spriteState: 'idle',
+    motionGroup: 'Idle',
+  },
+  {
+    id: 'sit',
+    name: '坐下',
+    category: 'basic',
+    triggers: ['random idle'],
+    duration: 5000,
+    priority: 1,
+    spriteState: 'sit',
+    motionGroup: 'Sit',
+  },
+  {
+    id: 'stand',
+    name: '站立',
+    category: 'basic',
+    triggers: ['random idle'],
+    duration: 4000,
+    priority: 1,
+    spriteState: 'idle',
+    motionGroup: 'Idle',
+  },
+  {
+    id: 'lie_down',
+    name: '趴下',
+    category: 'basic',
+    triggers: ['random idle', 'tired'],
+    duration: 6000,
+    priority: 1,
+    spriteState: 'sit',
+    motionGroup: 'Sit',
+  },
+  {
+    id: 'stretch',
+    name: '伸展',
+    category: 'basic',
+    triggers: ['after sleep', 'after sit'],
+    duration: 2000,
+    priority: 1,
+    spriteState: 'walk',
+    motionGroup: 'Walk',
+  },
 
   // ===== 情绪表现（12 种）=====
-  { id: 'happy', name: '开心', category: 'emotion', triggers: ['mood >= 70'], duration: 3000, priority: 3, spriteState: 'happy', motionGroup: 'TapBody' },
-  { id: 'excited', name: '兴奋', category: 'emotion', triggers: ['mood >= 90'], duration: 3000, priority: 4, spriteState: 'happy', motionGroup: 'TapBody' },
-  { id: 'laugh', name: '大笑', category: 'emotion', triggers: ['mood >= 85'], duration: 2500, priority: 4, spriteState: 'happy', motionGroup: 'TapBody' },
-  { id: 'giggle', name: '咯咯笑', category: 'emotion', triggers: ['mood >= 60'], duration: 2000, priority: 3, spriteState: 'happy', motionGroup: 'TapBody' },
-  { id: 'sad', name: '伤心', category: 'emotion', triggers: ['mood < 40'], duration: 4000, priority: 3, spriteState: 'sad', motionGroup: 'FlickHead' },
-  { id: 'cry', name: '哭泣', category: 'emotion', triggers: ['mood < 15'], duration: 4000, priority: 4, spriteState: 'sad', motionGroup: 'FlickHead' },
-  { id: 'angry', name: '生气', category: 'emotion', triggers: ['mood < 10', 'over-interaction'], duration: 3000, priority: 4, spriteState: 'sick', motionGroup: 'Sick' },
-  { id: 'annoyed', name: '不耐烦', category: 'emotion', triggers: ['mood < 30', 'frequent poke'], duration: 2500, priority: 3, spriteState: 'sad', motionGroup: 'FlickHead' },
-  { id: 'surprised', name: '惊讶', category: 'emotion', triggers: ['sudden event'], duration: 1500, priority: 3, spriteState: 'pet', motionGroup: 'FlickHead' },
-  { id: 'confused', name: '困惑', category: 'emotion', triggers: ['network offline'], duration: 2500, priority: 3, spriteState: 'sad', motionGroup: 'FlickHead' },
-  { id: 'shy', name: '害羞', category: 'emotion', triggers: ['praise', 'compliment'], duration: 2500, priority: 3, spriteState: 'pet', motionGroup: 'FlickHead' },
-  { id: 'embarrassed', name: '尴尬', category: 'emotion', triggers: ['after stumble'], duration: 2500, priority: 3, spriteState: 'sad', motionGroup: 'FlickHead' },
+  {
+    id: 'happy',
+    name: '开心',
+    category: 'emotion',
+    triggers: ['mood >= 70'],
+    duration: 3000,
+    priority: 3,
+    spriteState: 'happy',
+    motionGroup: 'TapBody',
+  },
+  {
+    id: 'excited',
+    name: '兴奋',
+    category: 'emotion',
+    triggers: ['mood >= 90'],
+    duration: 3000,
+    priority: 4,
+    spriteState: 'happy',
+    motionGroup: 'TapBody',
+  },
+  {
+    id: 'laugh',
+    name: '大笑',
+    category: 'emotion',
+    triggers: ['mood >= 85'],
+    duration: 2500,
+    priority: 4,
+    spriteState: 'happy',
+    motionGroup: 'TapBody',
+  },
+  {
+    id: 'giggle',
+    name: '咯咯笑',
+    category: 'emotion',
+    triggers: ['mood >= 60'],
+    duration: 2000,
+    priority: 3,
+    spriteState: 'happy',
+    motionGroup: 'TapBody',
+  },
+  {
+    id: 'sad',
+    name: '伤心',
+    category: 'emotion',
+    triggers: ['mood < 40'],
+    duration: 4000,
+    priority: 3,
+    spriteState: 'sad',
+    motionGroup: 'FlickHead',
+  },
+  {
+    id: 'cry',
+    name: '哭泣',
+    category: 'emotion',
+    triggers: ['mood < 15'],
+    duration: 4000,
+    priority: 4,
+    spriteState: 'sad',
+    motionGroup: 'FlickHead',
+  },
+  {
+    id: 'angry',
+    name: '生气',
+    category: 'emotion',
+    triggers: ['mood < 10', 'over-interaction'],
+    duration: 3000,
+    priority: 4,
+    spriteState: 'sick',
+    motionGroup: 'Sick',
+  },
+  {
+    id: 'annoyed',
+    name: '不耐烦',
+    category: 'emotion',
+    triggers: ['mood < 30', 'frequent poke'],
+    duration: 2500,
+    priority: 3,
+    spriteState: 'sad',
+    motionGroup: 'FlickHead',
+  },
+  {
+    id: 'surprised',
+    name: '惊讶',
+    category: 'emotion',
+    triggers: ['sudden event'],
+    duration: 1500,
+    priority: 3,
+    spriteState: 'pet',
+    motionGroup: 'FlickHead',
+  },
+  {
+    id: 'confused',
+    name: '困惑',
+    category: 'emotion',
+    triggers: ['network offline'],
+    duration: 2500,
+    priority: 3,
+    spriteState: 'sad',
+    motionGroup: 'FlickHead',
+  },
+  {
+    id: 'shy',
+    name: '害羞',
+    category: 'emotion',
+    triggers: ['praise', 'compliment'],
+    duration: 2500,
+    priority: 3,
+    spriteState: 'pet',
+    motionGroup: 'FlickHead',
+  },
+  {
+    id: 'embarrassed',
+    name: '尴尬',
+    category: 'emotion',
+    triggers: ['after stumble'],
+    duration: 2500,
+    priority: 3,
+    spriteState: 'sad',
+    motionGroup: 'FlickHead',
+  },
 
   // ===== 交互响应（10 种）=====
-  { id: 'pet_head', name: '被摸头', category: 'interaction', triggers: ['interaction: pet_head'], duration: 1500, priority: 10, spriteState: 'pet', motionGroup: 'FlickHead' },
-  { id: 'being_held', name: '被抱起', category: 'interaction', triggers: ['interaction: being_held'], duration: 3000, priority: 10, spriteState: 'drag', motionGroup: 'TapBody' },
-  { id: 'feed', name: '喂食', category: 'interaction', triggers: ['interaction: feed'], duration: 1500, priority: 10, spriteState: 'eat', motionGroup: 'Eat' },
-  { id: 'eat', name: '进食', category: 'interaction', triggers: ['interaction: eat'], duration: 2000, priority: 10, spriteState: 'eat', motionGroup: 'Eat' },
-  { id: 'drink', name: '饮水', category: 'interaction', triggers: ['interaction: drink'], duration: 1800, priority: 10, spriteState: 'eat', motionGroup: 'Eat' },
-  { id: 'play', name: '玩耍', category: 'interaction', triggers: ['interaction: play'], duration: 2000, priority: 10, spriteState: 'happy', motionGroup: 'TapBody' },
-  { id: 'hug', name: '拥抱', category: 'interaction', triggers: ['interaction: hug'], duration: 2500, priority: 10, spriteState: 'happy', motionGroup: 'TapBody' },
-  { id: 'poke', name: '戳一下', category: 'interaction', triggers: ['interaction: poke'], duration: 1200, priority: 9, spriteState: 'pet', motionGroup: 'FlickHead' },
-  { id: 'drag', name: '被拖拽', category: 'interaction', triggers: ['interaction: drag'], duration: 2000, priority: 10, spriteState: 'drag', motionGroup: 'TapBody' },
-  { id: 'drop', name: '被放下', category: 'interaction', triggers: ['interaction: drop'], duration: 1500, priority: 10, spriteState: 'idle', motionGroup: 'Idle' },
+  {
+    id: 'pet_head',
+    name: '被摸头',
+    category: 'interaction',
+    triggers: ['interaction: pet_head'],
+    duration: 1500,
+    priority: 10,
+    spriteState: 'pet',
+    motionGroup: 'FlickHead',
+  },
+  {
+    id: 'being_held',
+    name: '被抱起',
+    category: 'interaction',
+    triggers: ['interaction: being_held'],
+    duration: 3000,
+    priority: 10,
+    spriteState: 'drag',
+    motionGroup: 'TapBody',
+  },
+  {
+    id: 'feed',
+    name: '喂食',
+    category: 'interaction',
+    triggers: ['interaction: feed'],
+    duration: 1500,
+    priority: 10,
+    spriteState: 'eat',
+    motionGroup: 'Eat',
+  },
+  {
+    id: 'eat',
+    name: '进食',
+    category: 'interaction',
+    triggers: ['interaction: eat'],
+    duration: 2000,
+    priority: 10,
+    spriteState: 'eat',
+    motionGroup: 'Eat',
+  },
+  {
+    id: 'drink',
+    name: '饮水',
+    category: 'interaction',
+    triggers: ['interaction: drink'],
+    duration: 1800,
+    priority: 10,
+    spriteState: 'eat',
+    motionGroup: 'Eat',
+  },
+  {
+    id: 'play',
+    name: '玩耍',
+    category: 'interaction',
+    triggers: ['interaction: play'],
+    duration: 2000,
+    priority: 10,
+    spriteState: 'happy',
+    motionGroup: 'TapBody',
+  },
+  {
+    id: 'hug',
+    name: '拥抱',
+    category: 'interaction',
+    triggers: ['interaction: hug'],
+    duration: 2500,
+    priority: 10,
+    spriteState: 'happy',
+    motionGroup: 'TapBody',
+  },
+  {
+    id: 'poke',
+    name: '戳一下',
+    category: 'interaction',
+    triggers: ['interaction: poke'],
+    duration: 1200,
+    priority: 9,
+    spriteState: 'pet',
+    motionGroup: 'FlickHead',
+  },
+  {
+    id: 'drag',
+    name: '被拖拽',
+    category: 'interaction',
+    triggers: ['interaction: drag'],
+    duration: 2000,
+    priority: 10,
+    spriteState: 'drag',
+    motionGroup: 'TapBody',
+  },
+  {
+    id: 'drop',
+    name: '被放下',
+    category: 'interaction',
+    triggers: ['interaction: drop'],
+    duration: 1500,
+    priority: 10,
+    spriteState: 'idle',
+    motionGroup: 'Idle',
+  },
 
   // ===== 养成相关（8 种）=====
-  { id: 'sick', name: '生病', category: 'nurture', triggers: ['health <= 0'], duration: 5000, priority: 8, spriteState: 'sick', motionGroup: 'Sick' },
-  { id: 'recovering', name: '恢复中', category: 'nurture', triggers: ['health 1-30 after sick'], duration: 4000, priority: 6, spriteState: 'sick', motionGroup: 'Sick' },
-  { id: 'level_up', name: '升级', category: 'nurture', triggers: ['level increased'], duration: 3000, priority: 9, spriteState: 'happy', motionGroup: 'TapBody' },
-  { id: 'hungry_starving', name: '饥饿', category: 'nurture', triggers: ['hp < 20'], duration: 4000, priority: 7, spriteState: 'sad', motionGroup: 'FlickHead' },
-  { id: 'full_satisfied', name: '吃饱满足', category: 'nurture', triggers: ['hp >= 95 and mood >= 70'], duration: 3000, priority: 5, spriteState: 'happy', motionGroup: 'TapBody' },
-  { id: 'bath', name: '洗澡', category: 'nurture', triggers: ['interaction: bath'], duration: 2500, priority: 10, spriteState: 'happy', motionGroup: 'TapBody' },
-  { id: 'clean', name: '干净', category: 'nurture', triggers: ['after bath'], duration: 3000, priority: 4, spriteState: 'happy', motionGroup: 'TapBody' },
-  { id: 'dirty', name: '脏兮兮', category: 'nurture', triggers: ['no bath for >3 days'], duration: 3000, priority: 4, spriteState: 'sad', motionGroup: 'FlickHead' },
+  {
+    id: 'sick',
+    name: '生病',
+    category: 'nurture',
+    triggers: ['health <= 0'],
+    duration: 5000,
+    priority: 8,
+    spriteState: 'sick',
+    motionGroup: 'Sick',
+  },
+  {
+    id: 'recovering',
+    name: '恢复中',
+    category: 'nurture',
+    triggers: ['health 1-30 after sick'],
+    duration: 4000,
+    priority: 6,
+    spriteState: 'sick',
+    motionGroup: 'Sick',
+  },
+  {
+    id: 'level_up',
+    name: '升级',
+    category: 'nurture',
+    triggers: ['level increased'],
+    duration: 3000,
+    priority: 9,
+    spriteState: 'happy',
+    motionGroup: 'TapBody',
+  },
+  {
+    id: 'hungry_starving',
+    name: '饥饿',
+    category: 'nurture',
+    triggers: ['hp < 20'],
+    duration: 4000,
+    priority: 7,
+    spriteState: 'sad',
+    motionGroup: 'FlickHead',
+  },
+  {
+    id: 'full_satisfied',
+    name: '吃饱满足',
+    category: 'nurture',
+    triggers: ['hp >= 95 and mood >= 70'],
+    duration: 3000,
+    priority: 5,
+    spriteState: 'happy',
+    motionGroup: 'TapBody',
+  },
+  {
+    id: 'bath',
+    name: '洗澡',
+    category: 'nurture',
+    triggers: ['interaction: bath'],
+    duration: 2500,
+    priority: 10,
+    spriteState: 'happy',
+    motionGroup: 'TapBody',
+  },
+  {
+    id: 'clean',
+    name: '干净',
+    category: 'nurture',
+    triggers: ['after bath'],
+    duration: 3000,
+    priority: 4,
+    spriteState: 'happy',
+    motionGroup: 'TapBody',
+  },
+  {
+    id: 'dirty',
+    name: '脏兮兮',
+    category: 'nurture',
+    triggers: ['no bath for >3 days'],
+    duration: 3000,
+    priority: 4,
+    spriteState: 'sad',
+    motionGroup: 'FlickHead',
+  },
 
   // ===== 环境感知（6 种）=====
-  { id: 'rain_umbrella', name: '雨天打伞', category: 'environment', triggers: ['weather: rain'], duration: 4000, priority: 6, spriteState: 'sad', motionGroup: 'FlickHead' },
-  { id: 'hot_fanning', name: '炎热扇风', category: 'environment', triggers: ['weather: hot', 'temp > 30'], duration: 4000, priority: 6, spriteState: 'sad', motionGroup: 'FlickHead' },
-  { id: 'cold_shivering', name: '寒冷发抖', category: 'environment', triggers: ['weather: cold', 'temp < 5'], duration: 4000, priority: 6, spriteState: 'sad', motionGroup: 'FlickHead' },
-  { id: 'sunny_happy', name: '晴天开心', category: 'environment', triggers: ['weather: sunny'], duration: 3000, priority: 5, spriteState: 'happy', motionGroup: 'TapBody' },
-  { id: 'music_sway', name: '音乐摇摆', category: 'environment', triggers: ['music: playing'], duration: 5000, priority: 5, spriteState: 'happy', motionGroup: 'TapBody' },
-  { id: 'coding_companion', name: '编程陪伴', category: 'environment', triggers: ['workState: coding'], duration: 6000, priority: 5, spriteState: 'sit', motionGroup: 'Sit' },
+  {
+    id: 'rain_umbrella',
+    name: '雨天打伞',
+    category: 'environment',
+    triggers: ['weather: rain'],
+    duration: 4000,
+    priority: 6,
+    spriteState: 'sad',
+    motionGroup: 'FlickHead',
+  },
+  {
+    id: 'hot_fanning',
+    name: '炎热扇风',
+    category: 'environment',
+    triggers: ['weather: hot', 'temp > 30'],
+    duration: 4000,
+    priority: 6,
+    spriteState: 'sad',
+    motionGroup: 'FlickHead',
+  },
+  {
+    id: 'cold_shivering',
+    name: '寒冷发抖',
+    category: 'environment',
+    triggers: ['weather: cold', 'temp < 5'],
+    duration: 4000,
+    priority: 6,
+    spriteState: 'sad',
+    motionGroup: 'FlickHead',
+  },
+  {
+    id: 'sunny_happy',
+    name: '晴天开心',
+    category: 'environment',
+    triggers: ['weather: sunny'],
+    duration: 3000,
+    priority: 5,
+    spriteState: 'happy',
+    motionGroup: 'TapBody',
+  },
+  {
+    id: 'music_sway',
+    name: '音乐摇摆',
+    category: 'environment',
+    triggers: ['music: playing'],
+    duration: 5000,
+    priority: 5,
+    spriteState: 'happy',
+    motionGroup: 'TapBody',
+  },
+  {
+    id: 'coding_companion',
+    name: '编程陪伴',
+    category: 'environment',
+    triggers: ['workState: coding'],
+    duration: 6000,
+    priority: 5,
+    spriteState: 'sit',
+    motionGroup: 'Sit',
+  },
 
   // ===== 编码反应（6 种）— 参考 OpenPets allowedReactions =====
-  { id: 'thinking', name: '思考中', category: 'coding', triggers: ['coding: thinking', 'workState: thinking'], duration: 5000, priority: 7, spriteState: 'sit', motionGroup: 'Sit' },
-  { id: 'editing', name: '编辑中', category: 'coding', triggers: ['coding: editing', 'workState: editing'], duration: 4000, priority: 7, spriteState: 'walk', motionGroup: 'Walk' },
-  { id: 'testing', name: '测试中', category: 'coding', triggers: ['coding: testing', 'workState: testing'], duration: 4000, priority: 7, spriteState: 'idle', motionGroup: 'Idle' },
-  { id: 'success', name: '构建成功', category: 'coding', triggers: ['coding: success', 'build: passed'], duration: 3000, priority: 8, spriteState: 'happy', motionGroup: 'TapBody' },
-  { id: 'error', name: '构建失败', category: 'coding', triggers: ['coding: error', 'build: failed'], duration: 3000, priority: 8, spriteState: 'sad', motionGroup: 'FlickHead' },
-  { id: 'celebrating', name: '里程碑达成', category: 'coding', triggers: ['coding: celebrating', 'milestone: achieved'], duration: 4000, priority: 9, spriteState: 'happy', motionGroup: 'TapBody' },
+  {
+    id: 'thinking',
+    name: '思考中',
+    category: 'coding',
+    triggers: ['coding: thinking', 'workState: thinking'],
+    duration: 5000,
+    priority: 7,
+    spriteState: 'sit',
+    motionGroup: 'Sit',
+  },
+  {
+    id: 'editing',
+    name: '编辑中',
+    category: 'coding',
+    triggers: ['coding: editing', 'workState: editing'],
+    duration: 4000,
+    priority: 7,
+    spriteState: 'walk',
+    motionGroup: 'Walk',
+  },
+  {
+    id: 'testing',
+    name: '测试中',
+    category: 'coding',
+    triggers: ['coding: testing', 'workState: testing'],
+    duration: 4000,
+    priority: 7,
+    spriteState: 'idle',
+    motionGroup: 'Idle',
+  },
+  {
+    id: 'success',
+    name: '构建成功',
+    category: 'coding',
+    triggers: ['coding: success', 'build: passed'],
+    duration: 3000,
+    priority: 8,
+    spriteState: 'happy',
+    motionGroup: 'TapBody',
+  },
+  {
+    id: 'error',
+    name: '构建失败',
+    category: 'coding',
+    triggers: ['coding: error', 'build: failed'],
+    duration: 3000,
+    priority: 8,
+    spriteState: 'sad',
+    motionGroup: 'FlickHead',
+  },
+  {
+    id: 'celebrating',
+    name: '里程碑达成',
+    category: 'coding',
+    triggers: ['coding: celebrating', 'milestone: achieved'],
+    duration: 4000,
+    priority: 9,
+    spriteState: 'happy',
+    motionGroup: 'TapBody',
+  },
 
   // ===== 特殊/稀有（5 种，含 2.4 hide）=====
-  { id: 'anniversary', name: '纪念日', category: 'special', triggers: ['anniversary date'], duration: 4000, priority: 9, spriteState: 'happy', motionGroup: 'TapBody' },
-  { id: 'birthday', name: '生日', category: 'special', triggers: ['birthday date'], duration: 4000, priority: 9, spriteState: 'happy', motionGroup: 'TapBody' },
-  { id: 'dream', name: '做梦', category: 'special', triggers: ['sleeping >5min'], duration: 5000, priority: 3, spriteState: 'sleep', motionGroup: 'Sleep' },
-  { id: 'daydream', name: '发呆', category: 'special', triggers: ['idle >2min'], duration: 4000, priority: 2, spriteState: 'idle', motionGroup: 'Idle' },
+  {
+    id: 'anniversary',
+    name: '纪念日',
+    category: 'special',
+    triggers: ['anniversary date'],
+    duration: 4000,
+    priority: 9,
+    spriteState: 'happy',
+    motionGroup: 'TapBody',
+  },
+  {
+    id: 'birthday',
+    name: '生日',
+    category: 'special',
+    triggers: ['birthday date'],
+    duration: 4000,
+    priority: 9,
+    spriteState: 'happy',
+    motionGroup: 'TapBody',
+  },
+  {
+    id: 'dream',
+    name: '做梦',
+    category: 'special',
+    triggers: ['sleeping >5min'],
+    duration: 5000,
+    priority: 3,
+    spriteState: 'sleep',
+    motionGroup: 'Sleep',
+  },
+  {
+    id: 'daydream',
+    name: '发呆',
+    category: 'special',
+    triggers: ['idle >2min'],
+    duration: 4000,
+    priority: 2,
+    spriteState: 'idle',
+    motionGroup: 'Idle',
+  },
   // 2.4: 隐藏互动状态——贴边时偶发触发，素材缺失时回退 idle
-  { id: 'hide', name: '躲藏', category: 'special', triggers: ['docked at edge', 'random 5% when docked'], duration: 6000, priority: 3, spriteState: 'hide', motionGroup: 'Idle' },
+  {
+    id: 'hide',
+    name: '躲藏',
+    category: 'special',
+    triggers: ['docked at edge', 'random 5% when docked'],
+    duration: 6000,
+    priority: 3,
+    spriteState: 'hide',
+    motionGroup: 'Idle',
+  },
 ]
 
 // 动画总数（验证 ≥50）
@@ -186,7 +701,10 @@ export const ANIMATION_COUNT = ANIMATION_CATALOG.length
 // ============ 查询辅助 ============
 
 const ANIMATION_MAP: Record<AnimationId, AnimationDef> = ANIMATION_CATALOG.reduce(
-  (acc, anim) => { acc[anim.id] = anim; return acc },
+  (acc, anim) => {
+    acc[anim.id] = anim
+    return acc
+  },
   {} as Record<AnimationId, AnimationDef>,
 )
 
@@ -207,18 +725,18 @@ export function animationIdToMotionGroup(id: AnimationId): string {
 // ============ 动画上下文 ============
 
 export interface AnimationContext {
-  petState: PetState          // 当前渲染状态
-  hp: number                  // 饱食度 0-100（hunger）
-  mood: number                // 心情 0-100
-  health: number              // 健康 0-100
-  affection: number           // 亲密度 0-9999
-  level: number               // 等级 1-256
-  weather: WeatherAction      // 天气行为动作
-  workState: WorkState        // 工作状态
-  time: number                // 当前小时 0-23
-  lastInteraction: number     // 上次交互时间戳（ms）
-  interactionType?: string    // 上次交互类型（pet_head/feed/play/drag/...）
-  musicPlaying: boolean       // 是否正在播放音乐
+  petState: PetState // 当前渲染状态
+  hp: number // 饱食度 0-100（hunger）
+  mood: number // 心情 0-100
+  health: number // 健康 0-100
+  affection: number // 亲密度 0-9999
+  level: number // 等级 1-256
+  weather: WeatherAction // 天气行为动作
+  workState: WorkState // 工作状态
+  time: number // 当前小时 0-23
+  lastInteraction: number // 上次交互时间戳（ms）
+  interactionType?: string // 上次交互类型（pet_head/feed/play/drag/...）
+  musicPlaying: boolean // 是否正在播放音乐
   codingSubState?: 'thinking' | 'editing' | 'testing' | 'success' | 'error' | 'celebrating'
   // 编码子状态（仅 workState='coding' 时有效）
 }

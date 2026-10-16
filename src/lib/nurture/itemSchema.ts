@@ -33,8 +33,16 @@ export type ExtendedItemType = InventoryItem['type'] | 'dialogue' | 'subpet'
 
 /** 全部物品类型列表 */
 export const ALL_ITEM_TYPES: ExtendedItemType[] = [
-  'food', 'toy', 'medicine', 'accessory', 'consumable', 'collection',
-  'dialogue', 'autofeed', 'coin', 'subpet',
+  'food',
+  'toy',
+  'medicine',
+  'accessory',
+  'consumable',
+  'collection',
+  'dialogue',
+  'autofeed',
+  'coin',
+  'subpet',
 ]
 
 /** 物品类型显示名称 */

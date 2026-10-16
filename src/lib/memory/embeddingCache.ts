@@ -316,10 +316,7 @@ let instance: EmbeddingCacheManager | null = null
  * @param maxSize 缓存上限（首次调用时生效）
  * @param ttlMs TTL 毫秒数（首次调用时生效）
  */
-export function getEmbeddingCacheManager(
-  maxSize?: number,
-  ttlMs?: number,
-): EmbeddingCacheManager {
+export function getEmbeddingCacheManager(maxSize?: number, ttlMs?: number): EmbeddingCacheManager {
   if (!instance) {
     instance = new EmbeddingCacheManager(maxSize, ttlMs)
   }

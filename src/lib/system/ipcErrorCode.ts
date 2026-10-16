@@ -127,7 +127,12 @@ function inferTypeFromMessage(message: string): IpcErrorTypeCode {
   const lower = message.toLowerCase()
 
   // 权限相关
-  if (lower.includes('permission') || lower.includes('denied') || lower.includes('scope') || lower.includes('capability')) {
+  if (
+    lower.includes('permission') ||
+    lower.includes('denied') ||
+    lower.includes('scope') ||
+    lower.includes('capability')
+  ) {
     return IpcErrorType.PERMISSION
   }
 
@@ -137,12 +142,24 @@ function inferTypeFromMessage(message: string): IpcErrorTypeCode {
   }
 
   // 参数校验
-  if (lower.includes('invalid') || lower.includes('out of range') || lower.includes('missing') || lower.includes('参数') || lower.includes('validation')) {
+  if (
+    lower.includes('invalid') ||
+    lower.includes('out of range') ||
+    lower.includes('missing') ||
+    lower.includes('参数') ||
+    lower.includes('validation')
+  ) {
     return IpcErrorType.VALIDATION
   }
 
   // 系统错误
-  if (lower.includes('io') || lower.includes('database') || lower.includes('db') || lower.includes('encrypt') || lower.includes('系统')) {
+  if (
+    lower.includes('io') ||
+    lower.includes('database') ||
+    lower.includes('db') ||
+    lower.includes('encrypt') ||
+    lower.includes('系统')
+  ) {
     return IpcErrorType.SYSTEM
   }
 

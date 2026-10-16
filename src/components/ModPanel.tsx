@@ -23,13 +23,29 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  Package, Upload, Download, Trash2, Power, FileJson,
-  Plus, Copy, Check, AlertCircle, Box, Archive, FolderSearch, Shield, Loader2,
+  Package,
+  Upload,
+  Download,
+  Trash2,
+  Power,
+  FileJson,
+  Plus,
+  Copy,
+  Check,
+  AlertCircle,
+  Box,
+  Archive,
+  FolderSearch,
+  Shield,
+  Loader2,
 } from 'lucide-react'
 import { CHARACTERS } from '@/lib/data/characters'
 import {
-  getModManager, createModTemplate,
-  type ModInfo, type CharacterMod, type ScannedModInfo,
+  getModManager,
+  createModTemplate,
+  type ModInfo,
+  type CharacterMod,
+  type ScannedModInfo,
 } from '@/lib/data/modManager'
 import { resolveModThumbnail } from '@/lib/data/modThumbnail'
 import type { CharacterProfile } from '@/lib/data/types'
@@ -44,13 +60,7 @@ import { trackModInstall } from '@/lib/system/analytics'
 /** 模组卡片缩略图：有图渲染缩略图，无图渲染 Package 占位图 */
 function ModCardThumbnail({ url }: { url: string | null | undefined }) {
   if (url) {
-    return (
-      <img
-        src={url}
-        alt=""
-        className="h-12 w-12 shrink-0 rounded-lg border border-ink/10 object-cover"
-      />
-    )
+    return <img src={url} alt="" className="h-12 w-12 shrink-0 rounded-lg border border-ink/10 object-cover" />
   }
   return (
     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-ink/10 bg-surface/50">
@@ -88,9 +98,7 @@ export function ModPanel() {
   // 模组列表变化时异步解析每个卡片的缩略图（preview.png / manifest.thumbnail）
   useEffect(() => {
     let cancelled = false
-    void Promise.all(
-      mods.map(async (m) => ({ id: m.id, url: await resolveModThumbnail(m) })),
-    ).then((results) => {
+    void Promise.all(mods.map(async (m) => ({ id: m.id, url: await resolveModThumbnail(m) }))).then((results) => {
       if (cancelled) return
       setThumbnailUrls((prev) => {
         const next = { ...prev }
@@ -304,7 +312,10 @@ export function ModPanel() {
       {/* 操作按钮 */}
       <div className="flex flex-wrap gap-2">
         <button
-          onClick={() => { setJsonInput(''); setShowImport(true) }}
+          onClick={() => {
+            setJsonInput('')
+            setShowImport(true)
+          }}
           className="flex items-center gap-1.5 rounded-lg bg-tangerine px-3 py-1.5 text-xs font-medium text-white hover:bg-tangerine-deep"
         >
           <Upload size={14} /> 导入模组
@@ -335,13 +346,7 @@ export function ModPanel() {
         >
           <Plus size={14} /> 创建新模组
         </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json"
-          onChange={handleFileImport}
-          className="hidden"
-        />
+        <input ref={fileInputRef} type="file" accept=".json" onChange={handleFileImport} className="hidden" />
       </div>
 
       {/* SHA-256 校验结果显示 */}
@@ -366,7 +371,9 @@ export function ModPanel() {
                 <span className="text-ink">{sm.name}</span>
                 <span className="text-ink-faint">· {sm.id}</span>
               </div>
-              <span className="truncate text-[10px] text-ink-faint" title={sm.path}>{sm.path}</span>
+              <span className="truncate text-[10px] text-ink-faint" title={sm.path}>
+                {sm.path}
+              </span>
             </div>
           ))}
         </div>
@@ -398,9 +405,7 @@ export function ModPanel() {
             <div
               key={mod.id}
               className={`rounded-lg border p-3 transition-colors ${
-                selectedMod?.id === mod.id
-                  ? 'border-tangerine bg-tangerine/5'
-                  : 'border-ink/10 bg-surface/50'
+                selectedMod?.id === mod.id ? 'border-tangerine bg-tangerine/5' : 'border-ink/10 bg-surface/50'
               } ${mod.enabled ? '' : 'opacity-50'}`}
             >
               <div className="flex items-start justify-between gap-2">
@@ -432,9 +437,7 @@ export function ModPanel() {
                   <button
                     onClick={() => handleToggle(mod.id, !mod.enabled)}
                     className={`rounded p-1.5 transition-colors ${
-                      mod.enabled
-                        ? 'text-success hover:bg-success/20'
-                        : 'text-ink-muted hover:bg-blush-soft/20'
+                      mod.enabled ? 'text-success hover:bg-success/20' : 'text-ink-muted hover:bg-blush-soft/20'
                     }`}
                     title={mod.enabled ? '禁用' : '启用'}
                   >
@@ -500,26 +503,24 @@ export function ModPanel() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-2xl rounded-2xl bg-cream-deep p-5">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold">
-                {jsonInput ? '导入/编辑模组 JSON' : '导入模组'}
-              </h3>
-              <button
-                onClick={() => setShowImport(false)}
-                className="text-ink-muted hover:text-white"
-              >
+              <h3 className="text-sm font-semibold">{jsonInput ? '导入/编辑模组 JSON' : '导入模组'}</h3>
+              <button onClick={() => setShowImport(false)} className="text-ink-muted hover:text-white">
                 ✕
               </button>
             </div>
             <textarea
               value={jsonInput}
               onChange={(e) => setJsonInput(e.target.value)}
-              placeholder='粘贴模组 JSON，或点击「创建新模组」从模板开始...'
+              placeholder="粘贴模组 JSON，或点击「创建新模组」从模板开始..."
               rows={16}
               className="w-full resize-none rounded-lg bg-surface p-3 font-mono text-xs text-success placeholder-ink-muted focus:outline-none focus:ring-1 focus:ring-tangerine"
             />
             <div className="mt-3 flex justify-end gap-2">
               <button
-                onClick={() => { setJsonInput(''); setShowImport(false) }}
+                onClick={() => {
+                  setJsonInput('')
+                  setShowImport(false)
+                }}
                 className="rounded-lg px-4 py-2 text-xs text-ink-muted hover:bg-cream-deep/50"
               >
                 取消
@@ -541,10 +542,7 @@ export function ModPanel() {
           <div className="w-full max-w-md rounded-2xl bg-cream-deep p-5">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold">创建新模组</h3>
-              <button
-                onClick={() => setShowCreate(false)}
-                className="text-ink-muted hover:text-white"
-              >
+              <button onClick={() => setShowCreate(false)} className="text-ink-muted hover:text-white">
                 ✕
               </button>
             </div>
@@ -557,18 +555,14 @@ export function ModPanel() {
                   <Plus size={16} className="text-tangerine-deep" />
                   从空白模板创建
                 </div>
-                <div className="mt-1 text-[11px] text-ink-muted">
-                  创建一个基础模组模板，手动编辑所有字段
-                </div>
+                <div className="mt-1 text-[11px] text-ink-muted">创建一个基础模组模板，手动编辑所有字段</div>
               </button>
               <div className="rounded-lg border border-ink/10 bg-surface p-3 text-left">
                 <div className="flex items-center gap-2 text-sm">
                   <Package size={16} className="text-info" />
                   基于内置角色创建
                 </div>
-                <div className="mt-1 text-[11px] text-ink-muted">
-                  选择一个内置角色导出为模组 JSON，修改后重新导入
-                </div>
+                <div className="mt-1 text-[11px] text-ink-muted">选择一个内置角色导出为模组 JSON，修改后重新导入</div>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {CHARACTERS.map((c) => (
                     <button

@@ -114,15 +114,15 @@ export function diffAtlas(meta) {
       const k = declaredW / width
       issues.push(
         `cols=${cols} 与素材不符：声明宽 ${declaredW}px，实际 ${width}px（真实列数 ${realCols}）` +
-        (k < 1
-          ? ` → 整图被横向压缩到 ${k.toFixed(3)}×，单个视口格内并排 ${(1 / k).toFixed(2)} 帧（表现为角色重叠排排站）`
-          : ` → 整图被横向拉伸到 ${k.toFixed(3)}×，取帧越界（表现为只露半截/动作乱跳）`),
+          (k < 1
+            ? ` → 整图被横向压缩到 ${k.toFixed(3)}×，单个视口格内并排 ${(1 / k).toFixed(2)} 帧（表现为角色重叠排排站）`
+            : ` → 整图被横向拉伸到 ${k.toFixed(3)}×，取帧越界（表现为只露半截/动作乱跳）`),
       )
     }
     if (declaredH !== height) {
       issues.push(
         `rows=${rows} 与素材不符：声明高 ${declaredH}px，实际 ${height}px（真实行数 ${realRows}）` +
-        ' → 纵向缩放错位，动画行会串到相邻行',
+          ' → 纵向缩放错位，动画行会串到相邻行',
       )
     }
   }
@@ -160,7 +160,14 @@ export function checkProfile(profile, resolveAsset) {
   const id = profile?.id ?? '(no-id)'
   const asset = typeof profile?.spriteAsset === 'string' ? profile.spriteAsset : ''
   if (!asset) {
-    return { id, asset, fileExists: false, size: null, issues: ['spriteAsset 为空（渲染器会拿到 url() 非法值）'], suggested: null }
+    return {
+      id,
+      asset,
+      fileExists: false,
+      size: null,
+      issues: ['spriteAsset 为空（渲染器会拿到 url() 非法值）'],
+      suggested: null,
+    }
   }
   const filePath = resolveAsset(asset)
   if (!existsSync(filePath)) {
@@ -191,7 +198,11 @@ export function checkProfile(profile, resolveAsset) {
  */
 export function assetToFilePath(asset, profilesDir = DEFAULT_PROFILES_DIR) {
   let decoded = String(asset)
-  try { decoded = decodeURIComponent(decoded) } catch { /* 保留原样 */ }
+  try {
+    decoded = decodeURIComponent(decoded)
+  } catch {
+    /* 保留原样 */
+  }
   if (decoded.startsWith('/')) return join(ROOT, 'public', decoded.slice(1))
   return resolve(dirname(profilesDir), decoded)
 }
@@ -222,7 +233,14 @@ export function checkAtlasLayouts(options = {}) {
     try {
       profile = JSON.parse(readFileSync(join(profilesDir, file), 'utf8'))
     } catch (e) {
-      problems.push({ id: file, asset: '', fileExists: false, size: null, issues: [`JSON 解析失败：${e.message}`], suggested: null })
+      problems.push({
+        id: file,
+        asset: '',
+        fileExists: false,
+        size: null,
+        issues: [`JSON 解析失败：${e.message}`],
+        suggested: null,
+      })
       checked += 1
       continue
     }
@@ -256,7 +274,8 @@ function main() {
     process.exitCode = 0
     return
   }
-  const summary = `atlas-layout-check: ${checked} profiles checked, ${problems.length} inconsistent` +
+  const summary =
+    `atlas-layout-check: ${checked} profiles checked, ${problems.length} inconsistent` +
     (unknownFormat.length > 0 ? `, ${unknownFormat.length} unknown-format skipped` : '')
   process.stdout.write(summary + '\n')
   process.exitCode = problems.length > 0 ? 1 : 0

@@ -49,10 +49,7 @@ function loadPersisted(viewByKey: string): {
   }
 }
 
-function savePersisted(
-  viewByKey: string,
-  state: { collected: string[]; equipped: string[]; claimed: string[] },
-): void {
+function savePersisted(viewByKey: string, state: { collected: string[]; equipped: string[]; claimed: string[] }): void {
   try {
     let all: Record<string, unknown> = {}
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -98,10 +95,7 @@ export function useCollections(): {
   const [persisted, setPersisted] = useState(() => loadPersisted(viewByKey))
 
   // 背包中的收藏品 id（派生）
-  const presentIds = useMemo(
-    () => inventory.filter((i) => i.type === 'collection').map((i) => i.id),
-    [inventory],
-  )
+  const presentIds = useMemo(() => inventory.filter((i) => i.type === 'collection').map((i) => i.id), [inventory])
 
   // 有效已收集 = 持久化 collected ∪ 背包现存收藏品（渲染期派生，立即反映背包状态，
   // 不依赖 effect 同步时序；持久化写入由下方 effect 延后完成）
@@ -155,9 +149,7 @@ export function useCollections(): {
     // 同步 setState 会触发级联渲染（react-hooks 规则），延后到微任务执行，语义不变
     const task = window.setTimeout(() => {
       setPersisted((prev) => {
-        const collected = Array.from(
-          new Set([...prev.collected, ...Array.from(present)]),
-        )
+        const collected = Array.from(new Set([...prev.collected, ...Array.from(present)]))
         const next = { ...prev, collected }
         savePersisted(viewByKey, next)
         return next
@@ -194,12 +186,17 @@ export function useCollections(): {
   })
 
   const overallPercentage = Math.round(
-    (sets.reduce((acc, s) => acc + s.collectedCount, 0) /
-      sets.reduce((acc, s) => acc + s.totalCount, 0) || 0) * 100,
+    (sets.reduce((acc, s) => acc + s.collectedCount, 0) / sets.reduce((acc, s) => acc + s.totalCount, 0) || 0) * 100,
   )
 
   const persist = useCallback(
-    (updater: (prev: { collected: string[]; equipped: string[]; claimed: string[] }) => { collected: string[]; equipped: string[]; claimed: string[] }) => {
+    (
+      updater: (prev: { collected: string[]; equipped: string[]; claimed: string[] }) => {
+        collected: string[]
+        equipped: string[]
+        claimed: string[]
+      },
+    ) => {
       setPersisted((prev) => {
         const next = updater(prev)
         savePersisted(viewByKey, next)

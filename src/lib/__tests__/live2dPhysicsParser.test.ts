@@ -34,12 +34,8 @@ const OFFICIAL_CONFIG = JSON.stringify({
   PhysicsSettings: [
     {
       Id: 'HairSetting',
-      Input: [
-        { Source: { Target: 'Parameter', Id: 'ParamAngleX' }, Weight: 60, Type: 'Angle' },
-      ],
-      Output: [
-        { Destination: { Target: 'Parameter', Id: 'ParamHairSide' }, Scale: 12, Weight: 100 },
-      ],
+      Input: [{ Source: { Target: 'Parameter', Id: 'ParamAngleX' }, Weight: 60, Type: 'Angle' }],
+      Output: [{ Destination: { Target: 'Parameter', Id: 'ParamHairSide' }, Scale: 12, Weight: 100 }],
       Vertices: [{ Mobility: 0.6, Delay: 0.2, Acceleration: 1, Radius: 5, Length: 2 }],
       PhysicsDetail: { Gravity: { X: 0, Y: -1 } },
     },
@@ -143,9 +139,7 @@ describe('Live2DPysicsParser 参数更新', () => {
     expect(Math.abs(driven.last['ParamHairFront']!)).toBeGreaterThan(0)
 
     const released = runFrames(parser, 400, 0)
-    expect(Math.abs(released.last['ParamHairFront']!)).toBeLessThan(
-      Math.abs(driven.last['ParamHairFront']!),
-    )
+    expect(Math.abs(released.last['ParamHairFront']!)).toBeLessThan(Math.abs(driven.last['ParamHairFront']!))
     // 全程有界（旧实现会持续被推离零点）
     expect(driven.maxAbs).toBeLessThan(90)
   })

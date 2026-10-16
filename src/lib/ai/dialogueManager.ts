@@ -70,7 +70,7 @@ export interface DialogueGraph {
   meta?: {
     title?: string
     description?: string
-    requiredItemId?: string  // 需要的对话物品 ID
+    requiredItemId?: string // 需要的对话物品 ID
     unlockCondition?: string // 解锁条件
   }
 }
@@ -178,10 +178,7 @@ export class DialogueManager {
   /** 对话标记集合（当前会话中设置的标记） */
   private sessionFlags: Set<string> = new Set()
 
-  constructor(
-    conditionEvaluator?: ConditionEvaluator,
-    rewardCallback?: (itemIds: string[]) => void
-  ) {
+  constructor(conditionEvaluator?: ConditionEvaluator, rewardCallback?: (itemIds: string[]) => void) {
     this.conditionEvaluator = conditionEvaluator ?? (() => true)
     this.rewardCallback = rewardCallback ?? null
   }
@@ -465,7 +462,7 @@ export class DialogueManager {
     this.sessionFlags.clear()
     this.effectHandlers = []
     this.rewardCallback = null
-    this.conditionEvaluator = (() => true)
+    this.conditionEvaluator = () => true
   }
 }
 

@@ -54,8 +54,8 @@ describe('selectTopK', () => {
       { id: 5, score: 0.3 },
     ]
     const result = selectTopK(items, 3, (a, b) => a.score - b.score, 'desc')
-    expect(result.map(r => r.id)).toEqual([2, 4, 3])
-    expect(result.map(r => r.score)).toEqual([0.9, 0.7, 0.5])
+    expect(result.map((r) => r.id)).toEqual([2, 4, 3])
+    expect(result.map((r) => r.score)).toEqual([0.9, 0.7, 0.5])
   })
 
   it('返回Top-K最小元素（升序）', () => {
@@ -67,11 +67,14 @@ describe('selectTopK', () => {
       { id: 5, score: 0.3 },
     ]
     const result = selectTopK(items, 2, (a, b) => a.score - b.score, 'asc')
-    expect(result.map(r => r.id)).toEqual([1, 5])
+    expect(result.map((r) => r.id)).toEqual([1, 5])
   })
 
   it('K大于等于数组长度时返回全部元素', () => {
-    const items = [{ id: 1, score: 0.5 }, { id: 2, score: 0.8 }]
+    const items = [
+      { id: 1, score: 0.5 },
+      { id: 2, score: 0.8 },
+    ]
     const result = selectTopK(items, 5, (a, b) => a.score - b.score, 'desc')
     expect(result.length).toBe(2)
   })
@@ -223,7 +226,7 @@ describe('unique', () => {
       { id: 1, name: 'a2' },
     ]
     const result = unique(items, (item) => item.id)
-    expect(result.map(r => r.id)).toEqual([1, 2])
+    expect(result.map((r) => r.id)).toEqual([1, 2])
   })
 
   it('空数组返回空', () => {
@@ -241,7 +244,7 @@ describe('groupBy', () => {
     const result = groupBy(items, (item) => item.type)
     expect(result.fruit.length).toBe(2)
     expect(result.veg.length).toBe(1)
-    expect(result.fruit.map(f => f.name)).toEqual(['apple', 'banana'])
+    expect(result.fruit.map((f) => f.name)).toEqual(['apple', 'banana'])
   })
 
   it('空数组返回空对象', () => {
@@ -260,7 +263,9 @@ describe('delay', () => {
 
   it('延迟指定时间后resolve', async () => {
     let resolved = false
-    const promise = delay(100).then(() => { resolved = true })
+    const promise = delay(100).then(() => {
+      resolved = true
+    })
     expect(resolved).toBe(false)
     vi.advanceTimersByTime(100)
     await promise
@@ -285,7 +290,8 @@ describe('retry', () => {
   })
 
   it('失败后重试', async () => {
-    const fn = vi.fn()
+    const fn = vi
+      .fn()
       .mockRejectedValueOnce(new Error('fail1'))
       .mockRejectedValueOnce(new Error('fail2'))
       .mockResolvedValue('ok')
@@ -395,8 +401,10 @@ describe('safeAsync', () => {
 
   it('失败时返回defaultValue', async () => {
     const result = await safeAsync(
-      async () => { throw new Error('fail') },
-      { defaultValue: 'fallback' }
+      async () => {
+        throw new Error('fail')
+      },
+      { defaultValue: 'fallback' },
     )
     expect(result).toBe('fallback')
   })
@@ -404,8 +412,10 @@ describe('safeAsync', () => {
   it('失败时调用onError', async () => {
     const onError = vi.fn()
     await safeAsync(
-      async () => { throw new Error('test') },
-      { onError }
+      async () => {
+        throw new Error('test')
+      },
+      { onError },
     )
     expect(onError).toHaveBeenCalledTimes(1)
     expect(onError).toHaveBeenCalledWith(expect.any(Error))
@@ -427,8 +437,10 @@ describe('safeSync', () => {
 
   it('失败时返回defaultValue', () => {
     const result = safeSync(
-      () => { throw new Error('fail') },
-      { defaultValue: 0 }
+      () => {
+        throw new Error('fail')
+      },
+      { defaultValue: 0 },
     )
     expect(result).toBe(0)
   })
@@ -617,7 +629,7 @@ describe('LRUCache', () => {
     lru.set('a', 1)
     expect(lru.get('a')).toBe(1)
 
-    await new Promise(r => setTimeout(r, 80))
+    await new Promise((r) => setTimeout(r, 80))
     expect(lru.get('a')).toBeUndefined()
   })
 })

@@ -28,22 +28,31 @@ import type { NurturingStats } from '@/lib/data/types'
 
 /** 情感标签类型 */
 export type EmotionTag =
-  | 'love'        // 爱意
-  | 'happy'       // 开心
-  | 'grateful'    // 感激
-  | 'excited'     // 兴奋
-  | 'warm'        // 温暖
-  | 'neutral'     // 中性
-  | 'worried'     // 担心
-  | 'sad'         // 伤心
-  | 'angry'       // 生气
-  | 'cold'        // 冷淡
+  | 'love' // 爱意
+  | 'happy' // 开心
+  | 'grateful' // 感激
+  | 'excited' // 兴奋
+  | 'warm' // 温暖
+  | 'neutral' // 中性
+  | 'worried' // 担心
+  | 'sad' // 伤心
+  | 'angry' // 生气
+  | 'cold' // 冷淡
   | 'disappointed' // 失望
 
 /** 情感标签列表 */
 export const ALL_EMOTION_TAGS: EmotionTag[] = [
-  'love', 'happy', 'grateful', 'excited', 'warm', 'neutral',
-  'worried', 'sad', 'angry', 'cold', 'disappointed',
+  'love',
+  'happy',
+  'grateful',
+  'excited',
+  'warm',
+  'neutral',
+  'worried',
+  'sad',
+  'angry',
+  'cold',
+  'disappointed',
 ]
 
 /** 情感标签显示名称 */
@@ -65,17 +74,17 @@ export const EMOTION_TAG_LABELS: Record<EmotionTag, string> = {
 
 /** 默认情感→亲密度变化映射 */
 export const DEFAULT_EMOTION_AFFECTION_MAP: Record<EmotionTag, number> = {
-  love:         10,  // 爱意 +10
-  happy:         5,  // 开心 +5
-  grateful:      8,  // 感激 +8
-  excited:       4,  // 兴奋 +4
-  warm:          3,  // 温暖 +3
-  neutral:       0,  // 中性 0
-  worried:      -2,  // 担心 -2
-  sad:          -3,  // 伤心 -3
-  angry:        -5,  // 生气 -5
-  cold:         -4,  // 冷淡 -4
-  disappointed: -6,  // 失望 -6
+  love: 10, // 爱意 +10
+  happy: 5, // 开心 +5
+  grateful: 8, // 感激 +8
+  excited: 4, // 兴奋 +4
+  warm: 3, // 温暖 +3
+  neutral: 0, // 中性 0
+  worried: -2, // 担心 -2
+  sad: -3, // 伤心 -3
+  angry: -5, // 生气 -5
+  cold: -4, // 冷淡 -4
+  disappointed: -6, // 失望 -6
 }
 
 // ============ 正则模式 ============
@@ -190,13 +199,13 @@ export class AffectionNumericEngine {
 
     // 去重（同一情感只保留最高优先级）
     const seenEmotions = new Set<EmotionTag>()
-    const uniqueMatches = matches.filter(m => {
+    const uniqueMatches = matches.filter((m) => {
       if (seenEmotions.has(m.emotion)) return false
       seenEmotions.add(m.emotion)
       return true
     })
 
-    const emotions = uniqueMatches.map(m => m.emotion)
+    const emotions = uniqueMatches.map((m) => m.emotion)
     const primaryEmotion = emotions.length > 0 ? emotions[0] : 'neutral'
 
     // 计算亲密度变化
@@ -206,7 +215,7 @@ export class AffectionNumericEngine {
       emotions,
       primaryEmotion,
       affectionDelta,
-      matches: uniqueMatches.map(m => ({ emotion: m.emotion, matchedText: m.matchedText })),
+      matches: uniqueMatches.map((m) => ({ emotion: m.emotion, matchedText: m.matchedText })),
     }
   }
 
@@ -315,7 +324,7 @@ export class AffectionNumericEngine {
 
   /** 移除情感模式 */
   removePattern(emotion: EmotionTag): void {
-    this.patterns = this.patterns.filter(p => p.emotion !== emotion)
+    this.patterns = this.patterns.filter((p) => p.emotion !== emotion)
   }
 
   /** 获取当前映射 */
@@ -338,7 +347,7 @@ export class AffectionNumericEngine {
   /** 获取正面情感比例 */
   getPositiveRatio(): number {
     if (this.history.length === 0) return 0.5
-    const positive = this.history.filter(h => h.delta > 0).length
+    const positive = this.history.filter((h) => h.delta > 0).length
     return positive / this.history.length
   }
 

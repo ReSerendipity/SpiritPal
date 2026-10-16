@@ -186,9 +186,7 @@ export class DiarySystemManager {
 
   private generateSimpleSummary(exchanges: { user: string; assistant: string }[]): string {
     // 取用户消息的关键片段拼接
-    const userMessages = exchanges
-      .map((e) => e.user.slice(0, 50))
-      .filter((m) => m.length > 0)
+    const userMessages = exchanges.map((e) => e.user.slice(0, 50)).filter((m) => m.length > 0)
 
     if (userMessages.length <= 3) {
       return `今天聊了${exchanges.length}轮，话题包括：${userMessages.join('、')}`
@@ -232,8 +230,20 @@ export class DiarySystemManager {
   /** 简单停用词检查 */
   private isStopWord(word: string): boolean {
     const stopWords = new Set([
-      '今天', '昨天', '现在', '这个', '那个', '什么', '怎么',
-      '可以', '就是', '然后', '所以', '因为', '但是', '不过',
+      '今天',
+      '昨天',
+      '现在',
+      '这个',
+      '那个',
+      '什么',
+      '怎么',
+      '可以',
+      '就是',
+      '然后',
+      '所以',
+      '因为',
+      '但是',
+      '不过',
     ])
     return stopWords.has(word)
   }
@@ -241,8 +251,37 @@ export class DiarySystemManager {
   // ============ 情感倾向计算 ============
 
   private calculateSentiment(exchanges: { user: string; assistant: string }[]): number {
-    const positiveWords = ['开心', '喜欢', '幸福', '感动', '温暖', '兴奋', '快乐', '好', '棒', '厉害', 'happy', 'love', 'great', 'good']
-    const negativeWords = ['难过', '讨厌', '伤心', '生气', '焦虑', '失望', '烦', '累', '无聊', 'sad', 'hate', 'bad', 'angry']
+    const positiveWords = [
+      '开心',
+      '喜欢',
+      '幸福',
+      '感动',
+      '温暖',
+      '兴奋',
+      '快乐',
+      '好',
+      '棒',
+      '厉害',
+      'happy',
+      'love',
+      'great',
+      'good',
+    ]
+    const negativeWords = [
+      '难过',
+      '讨厌',
+      '伤心',
+      '生气',
+      '焦虑',
+      '失望',
+      '烦',
+      '累',
+      '无聊',
+      'sad',
+      'hate',
+      'bad',
+      'angry',
+    ]
 
     let score = 0
     for (const { user, assistant } of exchanges) {
@@ -264,8 +303,15 @@ export class DiarySystemManager {
   private extractKeyEvents(exchanges: { user: string; assistant: string }[]): string[] {
     const events: string[] = []
     const eventPatterns = [
-      /生日/g, /纪念日/g, /结婚/g, /毕业/g, /入职/g, /搬家/g,
-      /birthday/gi, /anniversary/gi, /graduation/gi,
+      /生日/g,
+      /纪念日/g,
+      /结婚/g,
+      /毕业/g,
+      /入职/g,
+      /搬家/g,
+      /birthday/gi,
+      /anniversary/gi,
+      /graduation/gi,
     ]
 
     for (const { user } of exchanges) {
@@ -289,11 +335,7 @@ export class DiarySystemManager {
 
     // P1-1 修复：将 exchangeCount/sentimentScore/keyEvents 编码到 tags 中，
     // 以便 loadEntries 时能恢复这些字段（之前全部丢失）。
-    const tags = [
-      ...entry.topics,
-      `exchanges:${entry.exchangeCount}`,
-      `sentiment:${entry.sentimentScore.toFixed(2)}`,
-    ]
+    const tags = [...entry.topics, `exchanges:${entry.exchangeCount}`, `sentiment:${entry.sentimentScore.toFixed(2)}`]
     if (entry.keyEvents.length > 0) {
       tags.push(`event:${entry.keyEvents.join('|')}`)
     }
@@ -347,7 +389,9 @@ export class DiarySystemManager {
               date,
               summary: mem.user.replace(/\[日记 \d{4}-\d{2}-\d{2}\] /, ''),
               exchangeCount,
-              topics: mem.tags.filter(t => !t.startsWith('exchanges:') && !t.startsWith('sentiment:') && !t.startsWith('event:')),
+              topics: mem.tags.filter(
+                (t) => !t.startsWith('exchanges:') && !t.startsWith('sentiment:') && !t.startsWith('event:'),
+              ),
               sentimentScore,
               keyEvents,
               createdAt: new Date(mem.created_at).getTime(),
@@ -401,8 +445,7 @@ export class DiarySystemManager {
    * 获取所有日记条目（按日期降序）
    */
   getAllDiaries(): DiaryEntry[] {
-    return [...this.entries.values()]
-      .sort((a, b) => b.date.localeCompare(a.date))
+    return [...this.entries.values()].sort((a, b) => b.date.localeCompare(a.date))
   }
 
   /**
@@ -411,10 +454,11 @@ export class DiarySystemManager {
    */
   searchDiaries(query: string): DiaryEntry[] {
     const lower = query.toLowerCase()
-    return this.getAllDiaries().filter((entry) =>
-      entry.summary.toLowerCase().includes(lower) ||
-      entry.topics.some((t) => t.includes(lower)) ||
-      entry.keyEvents.some((e) => e.toLowerCase().includes(lower)),
+    return this.getAllDiaries().filter(
+      (entry) =>
+        entry.summary.toLowerCase().includes(lower) ||
+        entry.topics.some((t) => t.includes(lower)) ||
+        entry.keyEvents.some((e) => e.toLowerCase().includes(lower)),
     )
   }
 
@@ -484,10 +528,7 @@ const managers = new Map<string, DiarySystemManager>()
  * @param characterId 角色 ID
  * @param config 可选配置
  */
-export function getDiarySystemManager(
-  characterId: string,
-  config?: Partial<DiaryConfig>,
-): DiarySystemManager {
+export function getDiarySystemManager(characterId: string, config?: Partial<DiaryConfig>): DiarySystemManager {
   let mgr = managers.get(characterId)
   if (!mgr) {
     mgr = new DiarySystemManager(characterId, config)

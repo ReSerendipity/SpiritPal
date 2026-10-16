@@ -112,7 +112,7 @@ export interface SearchResult {
 export interface RatingSubmission {
   modId: string
   version: string
-  rating: number  // 1-5
+  rating: number // 1-5
   review?: string
 }
 
@@ -223,10 +223,7 @@ export class ModDistributionClient {
   /**
    * 上传模组到社区仓库
    */
-  async upload(
-    packagePath: string,
-    changelog?: string,
-  ): Promise<UploadResult> {
+  async upload(packagePath: string, changelog?: string): Promise<UploadResult> {
     try {
       const { readFile } = await import('@tauri-apps/plugin-fs')
       const fileData = await readFile(packagePath)
@@ -246,7 +243,7 @@ export class ModDistributionClient {
         return { success: false, error }
       }
 
-      const result = await response.json() as { modId: string; version: string }
+      const result = (await response.json()) as { modId: string; version: string }
       return { success: true, modId: result.modId, version: result.version }
     } catch (e) {
       return { success: false, error: `上传失败: ${e}` }
@@ -270,11 +267,7 @@ export class ModDistributionClient {
   /**
    * 获取模组的评分和评论
    */
-  async getRatings(
-    modId: string,
-    offset = 0,
-    limit = 20,
-  ): Promise<{ ratings: RatingSubmission[]; total: number }> {
+  async getRatings(modId: string, offset = 0, limit = 20): Promise<{ ratings: RatingSubmission[]; total: number }> {
     return this.request('GET', `/api/mods/${modId}/ratings?offset=${offset}&limit=${limit}`)
   }
 

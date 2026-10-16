@@ -32,8 +32,17 @@ describe('normalizeId（id 规范化与冲突表）', () => {
 
   it('OC_CLAW_ID_MAP 覆盖 11 只 OC-Claw 全部 id（无遗漏）', () => {
     const srcIds = [
-      'doro.codex-pet', 'elaina-2', 'homie', 'linnea-2', 'mambo',
-      'naruto', 'nezuko', 'phoebe.codex-pet', 'skirk-2', 'taffy', 'wukong',
+      'doro.codex-pet',
+      'elaina-2',
+      'homie',
+      'linnea-2',
+      'mambo',
+      'naruto',
+      'nezuko',
+      'phoebe.codex-pet',
+      'skirk-2',
+      'taffy',
+      'wukong',
     ]
     for (const s of srcIds) {
       const out = normalizeId(s, 'occlaw')
@@ -47,7 +56,14 @@ describe('normalizeId（id 规范化与冲突表）', () => {
 describe('视频状态命名对齐（VIDEO_STATE_FILES vs SpriteRenderer stateToVideoFile）', () => {
   it('8 个状态全部有映射，且文件名与约定一致', () => {
     expect(Object.keys(VIDEO_STATE_FILES).sort()).toEqual([
-      'angry', 'dance', 'eat', 'headpat', 'idle', 'rest', 'spin', 'walk',
+      'angry',
+      'dance',
+      'eat',
+      'headpat',
+      'idle',
+      'rest',
+      'spin',
+      'walk',
     ])
     expect(VIDEO_STATE_FILES.idle).toBe('idle.webm')
     expect(VIDEO_STATE_FILES.rest).toBe('rest.webm') // sleep/sit/sad 共用

@@ -39,8 +39,7 @@ const extractOllamaDelta: DeltaExtractor = (json) => {
   return obj.message?.content ?? null
 }
 
-const isOllamaDone: TerminationChecker = (json) =>
-  (json as { done?: boolean }).done === true
+const isOllamaDone: TerminationChecker = (json) => (json as { done?: boolean }).done === true
 
 describe('readTextStream — SSE 协议', () => {
   it('解析 data: 行并提取 delta', async () => {
@@ -48,10 +47,7 @@ describe('readTextStream — SSE 协议', () => {
       'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n',
       'data: {"choices":[{"delta":{"content":" World"}}]}\n\n',
     ])
-    const result = await readTextStream(
-      body,
-      { lineType: 'sse', extractDelta: extractOpenAIDelta },
-    )
+    const result = await readTextStream(body, { lineType: 'sse', extractDelta: extractOpenAIDelta })
     expect(result).toBe('Hello World')
   })
 
@@ -62,10 +58,7 @@ describe('readTextStream — SSE 协议', () => {
       ': keep-alive\n',
       '\n',
     ])
-    const result = await readTextStream(
-      body,
-      { lineType: 'sse', extractDelta: extractOpenAIDelta },
-    )
+    const result = await readTextStream(body, { lineType: 'sse', extractDelta: extractOpenAIDelta })
     expect(result).toBe('Hi')
   })
 
@@ -77,21 +70,13 @@ describe('readTextStream — SSE 协议', () => {
       'data: [DONE]\n\n',
       'data: {"choices":[{"delta":{"content":" after"}}]}\n\n',
     ])
-    const result = await readTextStream(
-      body,
-      { lineType: 'sse', extractDelta: extractOpenAIDelta },
-    )
+    const result = await readTextStream(body, { lineType: 'sse', extractDelta: extractOpenAIDelta })
     expect(result).toBe('Hi after')
   })
 
   it('data: 后带空格时仍能正确裁剪', async () => {
-    const body = streamFromChunks([
-      'data:   {"choices":[{"delta":{"content":"padded"}}]}\n\n',
-    ])
-    const result = await readTextStream(
-      body,
-      { lineType: 'sse', extractDelta: extractOpenAIDelta },
-    )
+    const body = streamFromChunks(['data:   {"choices":[{"delta":{"content":"padded"}}]}\n\n'])
+    const result = await readTextStream(body, { lineType: 'sse', extractDelta: extractOpenAIDelta })
     expect(result).toBe('padded')
   })
 
@@ -101,22 +86,13 @@ describe('readTextStream — SSE 协议', () => {
       'data: {"choices":[{"delta":{"content":"a"}}]}\n',
       'data: {"choices":[{"delta":{"content":"b"}}]}\n\n',
     ])
-    const result = await readTextStream(
-      body,
-      { lineType: 'sse', extractDelta: extractOpenAIDelta },
-    )
+    const result = await readTextStream(body, { lineType: 'sse', extractDelta: extractOpenAIDelta })
     expect(result).toBe('ab')
   })
 
   it('JSON 解析失败的行被跳过', async () => {
-    const body = streamFromChunks([
-      'data: {invalid json}\n\n',
-      'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n',
-    ])
-    const result = await readTextStream(
-      body,
-      { lineType: 'sse', extractDelta: extractOpenAIDelta },
-    )
+    const body = streamFromChunks(['data: {invalid json}\n\n', 'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n'])
+    const result = await readTextStream(body, { lineType: 'sse', extractDelta: extractOpenAIDelta })
     expect(result).toBe('ok')
   })
 
@@ -126,10 +102,8 @@ describe('readTextStream — SSE 协议', () => {
       'data: {"type":"message_stop"}\n\n',
       'data: {"type":"content_block_delta","delta":{"text":"ignored"}}\n\n',
     ])
-    const extractClaude: DeltaExtractor = (json) =>
-      (json as { delta?: { text?: string } }).delta?.text ?? null
-    const isMessageStop: TerminationChecker = (json) =>
-      (json as { type?: string }).type === 'message_stop'
+    const extractClaude: DeltaExtractor = (json) => (json as { delta?: { text?: string } }).delta?.text ?? null
+    const isMessageStop: TerminationChecker = (json) => (json as { type?: string }).type === 'message_stop'
     const result = await readTextStream(body, {
       lineType: 'sse',
       extractDelta: extractClaude,
@@ -139,14 +113,8 @@ describe('readTextStream — SSE 协议', () => {
   })
 
   it('跨 chunk 的行边界：不完整行保留到下一轮', async () => {
-    const body = streamFromChunks([
-      'data: {"choices":[{"delta":{"content":"He',
-      'llo"}}]}\n\n',
-    ])
-    const result = await readTextStream(
-      body,
-      { lineType: 'sse', extractDelta: extractOpenAIDelta },
-    )
+    const body = streamFromChunks(['data: {"choices":[{"delta":{"content":"He', 'llo"}}]}\n\n'])
+    const result = await readTextStream(body, { lineType: 'sse', extractDelta: extractOpenAIDelta })
     expect(result).toBe('Hello')
   })
 
@@ -156,11 +124,7 @@ describe('readTextStream — SSE 协议', () => {
       'data: {"choices":[{"delta":{"content":"y"}}]}\n\n',
     ])
     const seen: string[] = []
-    await readTextStream(
-      body,
-      { lineType: 'sse', extractDelta: extractOpenAIDelta },
-      (c) => seen.push(c),
-    )
+    await readTextStream(body, { lineType: 'sse', extractDelta: extractOpenAIDelta }, (c) => seen.push(c))
     expect(seen).toEqual(['x', 'y'])
   })
 
@@ -232,10 +196,7 @@ describe('readTextStream — raw_json 协议', () => {
 
 describe('readTextStream — 提取器边界', () => {
   it('extractDelta 返回 null 时不追加内容', async () => {
-    const body = streamFromChunks([
-      'data: {"type":"ping"}\n\n',
-      'data: {"choices":[{"delta":{"content":"real"}}]}\n\n',
-    ])
+    const body = streamFromChunks(['data: {"type":"ping"}\n\n', 'data: {"choices":[{"delta":{"content":"real"}}]}\n\n'])
     const result = await readTextStream(body, {
       lineType: 'sse',
       extractDelta: extractOpenAIDelta,
@@ -247,11 +208,7 @@ describe('readTextStream — 提取器边界', () => {
     const alwaysEmpty: DeltaExtractor = () => ''
     const body = streamFromChunks(['data: {"a":1}\n\n'])
     const seen: string[] = []
-    await readTextStream(
-      body,
-      { lineType: 'sse', extractDelta: alwaysEmpty },
-      (c) => seen.push(c),
-    )
+    await readTextStream(body, { lineType: 'sse', extractDelta: alwaysEmpty }, (c) => seen.push(c))
     expect(seen).toEqual([])
   })
 

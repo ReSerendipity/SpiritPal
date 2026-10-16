@@ -183,16 +183,16 @@ export const DEFAULT_THEME: DeclarativeTheme = {
   version: '1.0.0',
   viewBox: { width: 300, height: 400, minScale: 0.5, maxScale: 2.0 },
   states: [
-    { name: 'idle',  frames: [0, 1, 2, 3], loop: true,  fps: 8, next: undefined },
-    { name: 'walk',  frames: [4, 5, 6, 7], loop: true,  fps: 10, next: 'idle' },
-    { name: 'sit',   frames: [8, 9],       loop: true,  fps: 6,  next: 'idle' },
-    { name: 'sleep', frames: [10, 11],     loop: true,  fps: 4 },
+    { name: 'idle', frames: [0, 1, 2, 3], loop: true, fps: 8, next: undefined },
+    { name: 'walk', frames: [4, 5, 6, 7], loop: true, fps: 10, next: 'idle' },
+    { name: 'sit', frames: [8, 9], loop: true, fps: 6, next: 'idle' },
+    { name: 'sleep', frames: [10, 11], loop: true, fps: 4 },
     { name: 'happy', frames: [12, 13, 14], loop: false, fps: 12, next: 'idle' },
-    { name: 'sad',   frames: [15, 16],     loop: true,  fps: 6,  next: 'idle' },
-    { name: 'sick',  frames: [17, 18],     loop: true,  fps: 4 },
-    { name: 'eat',   frames: [19, 20, 21], loop: false, fps: 10, next: 'idle' },
-    { name: 'pet',   frames: [22, 23],     loop: false, fps: 8,  next: 'happy' },
-    { name: 'drag',  frames: [24, 25],     loop: true,  fps: 10 },
+    { name: 'sad', frames: [15, 16], loop: true, fps: 6, next: 'idle' },
+    { name: 'sick', frames: [17, 18], loop: true, fps: 4 },
+    { name: 'eat', frames: [19, 20, 21], loop: false, fps: 10, next: 'idle' },
+    { name: 'pet', frames: [22, 23], loop: false, fps: 8, next: 'happy' },
+    { name: 'drag', frames: [24, 25], loop: true, fps: 10 },
   ],
   eyeTracking: {
     enabled: true,
@@ -210,13 +210,13 @@ export const DEFAULT_THEME: DeclarativeTheme = {
     idleSwitchMaxMs: 8000,
   },
   hitBoxes: [
-    { name: 'head',  rect: { x: 100, y: 50, width: 100, height: 80 },  reaction: 'pet', cursor: 'pointer' },
-    { name: 'body',  rect: { x: 80, y: 130, width: 140, height: 150 }, reaction: 'touch', cursor: 'grab' },
+    { name: 'head', rect: { x: 100, y: 50, width: 100, height: 80 }, reaction: 'pet', cursor: 'pointer' },
+    { name: 'body', rect: { x: 80, y: 130, width: 140, height: 150 }, reaction: 'touch', cursor: 'grab' },
   ],
   reactions: [
-    { name: 'pet',    trigger: 'click',  target: 'head',  animation: 'pet',   bubbleKey: 'pet.pet', cooldown: 1000 },
-    { name: 'touch',  trigger: 'click',  target: 'body',  animation: 'happy', bubbleKey: 'pet.happy', cooldown: 500 },
-    { name: 'drag',   trigger: 'drag',   animation: 'drag' },
+    { name: 'pet', trigger: 'click', target: 'head', animation: 'pet', bubbleKey: 'pet.pet', cooldown: 1000 },
+    { name: 'touch', trigger: 'click', target: 'body', animation: 'happy', bubbleKey: 'pet.happy', cooldown: 500 },
+    { name: 'drag', trigger: 'drag', animation: 'drag' },
   ],
   colors: {
     primary: '#FFB6C1',
@@ -335,9 +335,14 @@ export function removeThemeCSSVars(theme: DeclarativeTheme): void {
   const root = document.documentElement
 
   const colorKeys = [
-    '--color-primary', '--color-secondary', '--color-background',
-    '--color-text', '--color-accent', '--color-success',
-    '--color-warning', '--color-error',
+    '--color-primary',
+    '--color-secondary',
+    '--color-background',
+    '--color-text',
+    '--color-accent',
+    '--color-success',
+    '--color-warning',
+    '--color-error',
   ]
 
   for (const key of colorKeys) {
@@ -370,11 +375,7 @@ export function findHitBox(theme: DeclarativeTheme, name: string): HitBoxConfig 
 /**
  * 检测点击位置命中的区域
  */
-export function hitTest(
-  theme: DeclarativeTheme,
-  x: number,
-  y: number,
-): HitBoxConfig | undefined {
+export function hitTest(theme: DeclarativeTheme, x: number, y: number): HitBoxConfig | undefined {
   return theme.hitBoxes.find((h) => {
     const { x: hx, y: hy, width, height } = h.rect
     return x >= hx && x <= hx + width && y >= hy && y <= hy + height

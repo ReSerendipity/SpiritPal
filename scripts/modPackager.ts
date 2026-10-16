@@ -12,7 +12,16 @@
  * 参考：Vim-Vivace plugin-packaging / VSCode Extension Packager
  */
 
-import { createWriteStream, existsSync, readFileSync, readdirSync, statSync, renameSync, unlinkSync, writeFileSync } from 'fs'
+import {
+  createWriteStream,
+  existsSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from 'fs'
 import { join, relative } from 'path'
 import { promises as fsPromises } from 'fs'
 
@@ -184,7 +193,7 @@ export class ModPackager {
    * 判断是否应该排除
    */
   private shouldExclude(path: string): boolean {
-    return this.options.exclude.some(pattern => {
+    return this.options.exclude.some((pattern) => {
       if (pattern.startsWith('*')) {
         // 后缀匹配
         return path.endsWith(pattern.slice(1))
@@ -209,7 +218,7 @@ export class ModPackager {
       }
     }
 
-    const fileDetails = files.map(file => ({
+    const fileDetails = files.map((file) => ({
       path: file,
       size: statSync(join(this.options.sourceDir, file)).size,
     }))
@@ -227,10 +236,12 @@ export class ModPackager {
       spiritpalVersion: pkg.spiritpalVersion || '^1.0.0',
       type: pkg.modType || 'mix',
       entryPoint: pkg.main,
-      dependencies: pkg.dependencies ? Object.entries(pkg.dependencies).map(([id, version]: [string, any]) => ({
-        id,
-        version: typeof version === 'string' ? version : version.version,
-      })) : [],
+      dependencies: pkg.dependencies
+        ? Object.entries(pkg.dependencies).map(([id, version]: [string, any]) => ({
+            id,
+            version: typeof version === 'string' ? version : version.version,
+          }))
+        : [],
       files: fileDetails,
       tags: pkg.tags || [],
       license: pkg.license || 'MIT',

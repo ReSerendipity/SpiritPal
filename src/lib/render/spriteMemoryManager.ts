@@ -249,11 +249,7 @@ export class SpriteMemoryManager {
   /**
    * 获取指定帧（优先从帧缓存获取，否则从精灵图裁剪）
    */
-  getFrame(
-    characterId: string,
-    row: number,
-    col: number,
-  ): HTMLCanvasElement | null {
+  getFrame(characterId: string, row: number, col: number): HTMLCanvasElement | null {
     const key = `${characterId}:${row}:${col}`
 
     // 尝试帧缓存
@@ -278,10 +274,14 @@ export class SpriteMemoryManager {
 
     ctx.drawImage(
       sprite.image,
-      col * sprite.cellW, row * sprite.cellH,
-      sprite.cellW, sprite.cellH,
-      0, 0,
-      sprite.cellW, sprite.cellH,
+      col * sprite.cellW,
+      row * sprite.cellH,
+      sprite.cellW,
+      sprite.cellH,
+      0,
+      0,
+      sprite.cellW,
+      sprite.cellH,
     )
 
     // 缓存帧
@@ -327,8 +327,7 @@ export class SpriteMemoryManager {
     if (this.mergedResult) {
       const existingIds = new Set(this.mergedResult.characterIds)
       const requestedIds = new Set(characterIds)
-      if (existingIds.size === requestedIds.size &&
-          [...requestedIds].every((id) => existingIds.has(id))) {
+      if (existingIds.size === requestedIds.size && [...requestedIds].every((id) => existingIds.has(id))) {
         return this.mergedResult
       }
     }
@@ -393,7 +392,7 @@ export class SpriteMemoryManager {
     return {
       spriteCacheCount: this.spriteCache.size,
       frameCacheCount: this.frameCache.size,
-      estimatedMemoryMB: Math.round(this.estimatedMemoryUsage / (1024 * 1024) * 100) / 100,
+      estimatedMemoryMB: Math.round((this.estimatedMemoryUsage / (1024 * 1024)) * 100) / 100,
       lruSize: this.lruOrder.length,
     }
   }
@@ -410,10 +409,7 @@ export class SpriteMemoryManager {
    */
   startIdleCheck(): void {
     if (this.idleCheckTimer) return
-    this.idleCheckTimer = setInterval(
-      () => this.cleanupIdle(),
-      this.config.idleCheckInterval,
-    )
+    this.idleCheckTimer = setInterval(() => this.cleanupIdle(), this.config.idleCheckInterval)
   }
 
   /**

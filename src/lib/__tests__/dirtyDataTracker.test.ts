@@ -72,9 +72,13 @@ describe('dirtyDataTracker', () => {
     it('should persist detected issues via upsertDirtyIssue', async () => {
       mocks.scanDirtyData.mockResolvedValueOnce([
         {
-          table: 'inventory', column: 'character_id', rowId: 'inv-1',
-          dataType: 'ORPHAN_REFERENCE', severity: 'medium',
-          description: '背包物品引用的角色 char-deleted 不存在', detectedAt: 100,
+          table: 'inventory',
+          column: 'character_id',
+          rowId: 'inv-1',
+          dataType: 'ORPHAN_REFERENCE',
+          severity: 'medium',
+          description: '背包物品引用的角色 char-deleted 不存在',
+          detectedAt: 100,
         },
       ])
 
@@ -91,10 +95,14 @@ describe('dirtyDataTracker', () => {
     it('should detect invalid JSON in characters.stats via sp_dirty_scan', async () => {
       mocks.scanDirtyData.mockResolvedValueOnce([
         {
-          table: 'characters', column: 'stats', rowId: 'char-1',
-          dataType: 'DATA_TYPE_MISMATCH', severity: 'high',
+          table: 'characters',
+          column: 'stats',
+          rowId: 'char-1',
+          dataType: 'DATA_TYPE_MISMATCH',
+          severity: 'high',
           description: '角色 char-1 的 stats 字段不是有效 JSON',
-          details: 'not-json-{{{', detectedAt: 200,
+          details: 'not-json-{{{',
+          detectedAt: 200,
         },
       ])
 
@@ -132,8 +140,31 @@ describe('dirtyDataTracker', () => {
 
     it('should return summary with issues', async () => {
       mocks.listDirtyIssues.mockResolvedValueOnce([
-        makeRow({ id: 1, table: 'inventory', rowId: 'inv-1', payload: JSON.stringify({ table: 'inventory', column: null, severity: 'medium', description: 'x', details: null }) }),
-        makeRow({ id: 2, table: 'characters', rowId: 'char-1', kind: 'CONSTRAINT_VIOLATION', payload: JSON.stringify({ table: 'characters', column: 'stats', severity: 'high', description: 'y', details: null }) }),
+        makeRow({
+          id: 1,
+          table: 'inventory',
+          rowId: 'inv-1',
+          payload: JSON.stringify({
+            table: 'inventory',
+            column: null,
+            severity: 'medium',
+            description: 'x',
+            details: null,
+          }),
+        }),
+        makeRow({
+          id: 2,
+          table: 'characters',
+          rowId: 'char-1',
+          kind: 'CONSTRAINT_VIOLATION',
+          payload: JSON.stringify({
+            table: 'characters',
+            column: 'stats',
+            severity: 'high',
+            description: 'y',
+            details: null,
+          }),
+        }),
       ])
 
       const summary = await getDirtyDataSummary()
@@ -173,7 +204,13 @@ describe('dirtyDataTracker', () => {
           table: 'characters',
           rowId: 'char-1',
           kind: 'DATA_TYPE_MISMATCH',
-          payload: JSON.stringify({ table: 'characters', column: 'stats', severity: 'high', description: 'Invalid JSON', details: null }),
+          payload: JSON.stringify({
+            table: 'characters',
+            column: 'stats',
+            severity: 'high',
+            description: 'Invalid JSON',
+            details: null,
+          }),
         }),
         makeRow({ id: 2, table: 'inventory', rowId: 'inv-2' }), // 其他表应被过滤
       ])

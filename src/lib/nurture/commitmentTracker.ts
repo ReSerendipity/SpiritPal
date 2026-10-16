@@ -47,7 +47,7 @@ export interface Commitment {
 export interface ExtractedCommitment {
   content: string
   actor: 'owner' | 'pet' | 'both'
-  due: string | null  // ISO 日期字符串或 null
+  due: string | null // ISO 日期字符串或 null
   repeat: 'null' | 'daily' | 'weekly' | null
 }
 

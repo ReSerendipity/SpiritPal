@@ -114,9 +114,7 @@ describe('TagCloud', () => {
 
   it('最多显示 30 个标签', () => {
     // 创建 40 个不同标签的记忆
-    const manyTags = Array.from({ length: 40 }, (_, i) =>
-      createMemory({ tags: [`tag-${i}`] })
-    )
+    const manyTags = Array.from({ length: 40 }, (_, i) => createMemory({ tags: [`tag-${i}`] }))
     render(<TagCloud memories={manyTags} />)
     const tagButtons = screen.getAllByRole('button')
     expect(tagButtons.length).toBeLessThanOrEqual(30)
@@ -132,9 +130,7 @@ describe('TagCloud', () => {
   it('频率大于1的标签显示计数', () => {
     render(<TagCloud memories={sampleMemories} />)
     // "开心" 出现 3 次，应该显示计数
-    const happyButton = screen.getAllByRole('button').find(
-      (btn) => btn.textContent?.includes('开心')
-    )
+    const happyButton = screen.getAllByRole('button').find((btn) => btn.textContent?.includes('开心'))
     expect(happyButton?.textContent).toMatch(/\(\d+\)/) // 包含 (3) 格式
   })
 })
@@ -148,9 +144,11 @@ describe('EmotionCurve', () => {
 
   it('近 30 天无记忆时显示空状态', () => {
     // 创建超过 30 天前的记忆
-    const oldMemories = [createMemory({
-      created_at: new Date(Date.now() - 60 * 86400000).toISOString(),
-    })]
+    const oldMemories = [
+      createMemory({
+        created_at: new Date(Date.now() - 60 * 86400000).toISOString(),
+      }),
+    ]
     render(<EmotionCurve memories={oldMemories} />)
     expect(screen.getByText('近 30 天无记忆数据')).toBeInTheDocument()
   })
@@ -186,9 +184,7 @@ describe('EmotionCurve', () => {
     const circles = container.querySelectorAll('circle')
     // 颜色走语义令牌（fill-tangerine 等 Tailwind 工具类）而非硬编码 hex，
     // 以便深色主题下自动换色
-    const highEmotionCircle = Array.from(circles).find((c) =>
-      c.classList.contains('fill-tangerine')
-    )
+    const highEmotionCircle = Array.from(circles).find((c) => c.classList.contains('fill-tangerine'))
     expect(highEmotionCircle).toBeTruthy()
   })
 
@@ -228,7 +224,7 @@ describe('TimeDensityChart', () => {
     const longMemories = Array.from({ length: 15 }, (_, i) =>
       createMemory({
         created_at: new Date(Date.now() - (14 - i) * 30 * 86400000).toISOString(),
-      })
+      }),
     )
     const { container } = render(<TimeDensityChart memories={longMemories} />)
     const bars = container.querySelectorAll('.rounded-t')
@@ -260,7 +256,7 @@ describe('TimeDensityChart', () => {
     const manyMemories = Array.from({ length: 20 }, (_, i) =>
       createMemory({
         created_at: new Date(Date.now() - i * 86400000).toISOString(), // 每天一条
-      })
+      }),
     )
     const { container } = render(<TimeDensityChart memories={manyMemories} />)
     const bars = container.querySelectorAll('.rounded-t')
@@ -283,7 +279,7 @@ describe('MemoryPanel 可视化模式集成', () => {
         <TagCloud memories={sampleMemories} />
         <EmotionCurve memories={sampleMemories} />
         <TimeDensityChart memories={sampleMemories} />
-      </div>
+      </div>,
     )
 
     // 标签云渲染
@@ -307,13 +303,11 @@ describe('MemoryPanel 可视化模式集成', () => {
         <TagCloud memories={sampleMemories} onSelectTag={onSelectTag} selectedTag="开心" />
         <EmotionCurve memories={sampleMemories} />
         <TimeDensityChart memories={sampleMemories} />
-      </div>
+      </div>,
     )
 
     // 标签云显示"开心"标签高亮
-    const happyBtn = screen.getAllByRole('button').find(
-      (b) => b.textContent?.includes('开心')
-    )
+    const happyBtn = screen.getAllByRole('button').find((b) => b.textContent?.includes('开心'))
     expect(happyBtn?.className).toContain('bg-tangerine/20')
 
     // 情感曲线和密度图都基于 sampleMemories 渲染
