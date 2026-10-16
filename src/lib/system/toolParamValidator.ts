@@ -47,8 +47,31 @@ const MAX_PATTERN_LENGTH = 100
 /** 命令最大长度 */
 const MAX_COMMAND_LENGTH = 1000
 
-/** 全局禁止的通配路径片段（敏感目录，配合 Rust 侧路径白名单双端兜底） */
-const FORBIDDEN_PATH_SEGMENTS = [/[/\\]\.ssh[/\\]/i, /[/\\]\.gnupg[/\\]/i, /[/\\]\.aws[/\\]/i, /[/\\]\.config[/\\]/i]
+/**
+ * 全局禁止的通配路径片段（敏感目录，配合 Rust 侧路径白名单双端兜底）。
+ *
+ * GAP-03 收口（2026-10-16）：原仅覆盖 .ssh/.gnupg/.aws/.config 四类 dot 目录，
+ * Windows 系统路径在 TS 层畅通（评测集 A04 实测登记为 Rust 兜底项）；
+ * 现补上 Windows 侧敏感目录，TS 层即拒绝（评测集 A04 已搬回计分表）。
+ *
+ * 刻意不拦 AppData：宠物自身数据目录（配置/记忆库/日志）位于 AppData 之下，
+ * 拦截会误伤全部合法读写；「AppData 内的持久化注入点」（开始菜单/计划任务 XML）
+ * 已由 start menu 段单独覆盖。
+ */
+const FORBIDDEN_PATH_SEGMENTS = [
+  // —— dot 目录凭据（原有）——
+  /[/\\]\.ssh[/\\]/i,
+  /[/\\]\.gnupg[/\\]/i,
+  /[/\\]\.aws[/\\]/i,
+  /[/\\]\.config[/\\]/i,
+  // —— Windows 系统敏感目录（GAP-03，2026-10-16）——
+  /[/\\]windows[/\\]system32[/\\]/i, // 凭据库（config\SAM）与系统二进制
+  /[/\\]windows[/\\]syswow64[/\\]/i, // 32 位兼容层系统二进制
+  /[/\\]windows[/\\]start menu[/\\]/i, // 开始菜单 = 经典持久化注入点（中文系统物理目录名仍是 Start Menu）
+  /[/\\]program files( \([xX]86\))?[/\\]/i, // 系统级安装目录（写=持久化、读=越权枚举）
+  /[/\\]programdata[/\\]/i, // 全用户可写数据目录（计划任务/服务持久化载体）
+  // 段匹配要求两侧均为分隔符：目录名含子串（如 mywindows/）不误伤
+]
 
 /** 允许的应用名字符模式（字母、数字、空格、点、下划线、连字符） */
 const SAFE_APP_NAME_PATTERN = /^[a-zA-Z0-9\u4e00-\u9fff\s._-]+$/
