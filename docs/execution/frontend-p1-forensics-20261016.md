@@ -35,18 +35,53 @@
 
 > 已排除误报：`PetWindow.tsx:482/547`、`PomodoroOverlay.tsx:42` 为 ref 同步型 effect（deps 在后续行），非缺陷。
 
-## 3. Props Drilling / 过度封装线索
+## 3. Props Drilling / 过度封装 / 无效重渲染 —— 终版判定（2026-10-16 补实测）
 
-- `createContext = 0` + zustand store 并存： Props Drilling 的风险结构存在（无 Context 兜底），但是否构成实际 drilling 需组件树级数据流分析，静态扫描无法定论。
-- 过度封装：未做组件粒度过细的判定（需 Profiler render 计数），登记待办。
+### 3.1 无效重渲染 —— React Profiler 实测（`src/components/__tests__/frontend-p1-profiler.test.tsx`）
 
-## 4. 结论与后续建议（2026-10-16 复核后）
+订阅面结构（静态）：带选择器订阅 **182 处**（petStore 110 / chatStore 45 / settingsStore 27）；
+无选择器整店订阅**仅 2 处**（`SettingsWindow.tsx:214`、`MobileSettingsView.tsx:140`，均在低频、
+用户驱动的 settingsStore 上）；另有 35 处 `useChatStore.getState()` 非响应式读取（不构成重渲染面）。
 
-| 报告项 | 本次结论 | 建议后续动作 |
+Profiler 实测（jsdom，提交计数为判定口径；镜像仓内两种真实订阅写法）：
+
+| 判定 | 结果 |
+| --- | --- |
+| 选择器订阅（镜像 AchievementPanel:24/36 写法）在无关字段（sharedCoins / 其它角色 stats）变化时 | **0 次重渲染**（防线成立） |
+| 选择器订阅在所选字段变化时 | **恰好 1 次**重渲染（不欠渲染） |
+| 整店订阅（镜像 SettingsWindow:214 写法）对任意 settingsStore 变化 | **每次都重渲染**（2 次无关变化 → 2 次 update 提交） |
+| 整店订阅被 petStore 变化波及 | **0 次**（跨 store 不串扰） |
+
+**结论：无效重渲染在现有订阅面下不构成实际问题。** 选择器订阅占绝对主导（182:2）；
+仅有的 2 处整店订阅挂在低频 store 上，实测代价存在但触发频率低（用户打开设置页操作时才发生）。
+若未来出现 petStore（高频）整店订阅，本测试的镜像断言是现成的回归防线。
+
+### 3.2 Props Drilling —— 结构风险未兑现
+
+- 身份/状态数据（`currentCharacterId` 等）由组件**直接从 store 读取**（ChatWindow / MemoryPanel /
+  AlbumPanel / CoinDisplay 等），不走 props 链——`createContext = 0` 的结构风险被 store 直读消解。
+- 全 src 唯一的 JSX 层 `characterId` 接力是到 **SpriteRenderer 叶子组件**的**一级传递**
+  （`PetWindow.tsx:1724`、`MobilePetView.tsx:739`），深度 1，属正常叶子传参而非 drilling。
+
+**结论：未发现实际 Props Drilling。** Profiler 全树接力深度测量无必要（无候选链）。
+
+### 3.3 过度封装 —— 未发现实例
+
+- 全 components/ + mobile/ 无「仅渲染 children / 裸转发 {...props}」的透传组件（0 处）。
+- `src/components/ui/` 的 BrandButton/BrandInput/BrandSelect/BrandSwitch 为真样式原语
+  （variant/size 映射表 + 受控 props），属设计系统层而非无意义封装。
+
+**结论：未发现过度封装。** 该项与 Profiler 帧耗时测量一并撤销排期（无可测对象）。
+
+## 4. 终版结论（2026-10-16 三轮取证后）
+
+| 报告项 | 终版结论 | 证据 |
 | --- | --- | --- |
-| Props Drilling | 无法静态判定（结构风险存在：无 Context 层） | 用 React DevTools Profiler 抓一次真实会话的 render 树 |
-| 过度封装 | 未判定 | 同上 |
-| 无效重渲染 | 线索：memo 覆盖面 1/全量组件 | Profiler 统计后对热点组件补 `React.memo` |
-| 无限循环 | **已核实无可修复对象**：3 处嫌疑全部证伪 + exhaustive-deps 全 src 0 告警 | 无需排期；新增 effect 由既有 lint 规则把守 |
+| Props Drilling | **未发现**（结构风险被 store 直读消解；唯一接力深度 1 到叶子） | §3.2 静态证据 |
+| 过度封装 | **未发现**（0 透传件；BrandUI 为真设计系统层） | §3.3 静态证据 |
+| 无效重渲染 | **不构成实际问题**（选择器订阅 182:2 绝对主导；2 处整店订阅挂在低频 store；实测 0/1/1/0 提交计数） | §3.1 Profiler 实测 |
+| 无限循环 | **已核实无可修复对象**：3 处嫌疑全部证伪 + exhaustive-deps 全 src 0 告警 | §2 复核记录 |
 
-**本次不实施任何重构**（交接单红线）；本复核为纯取证更新，无代码改动。
+四项全部收口。后续防线：本 Profiler 测试作为订阅面回归门禁；新增 effect 由
+`react-hooks/exhaustive-deps` lint 把守。React DevTools Profiler 真机帧耗时测量
+（性能调优场景）不再属于「未能判断」的取证欠账，如需调优另行立项。
