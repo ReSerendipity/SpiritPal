@@ -12,19 +12,29 @@ vi.mock('@/lib/system/runtimeMonitor', () => {
     runtimeMonitor: {
       getLLMMetrics: () => ({
         totalCalls: mockTotalCalls,
-        avgLatency: mockLatencies.length > 0
-          ? Math.round(mockLatencies.reduce((a, b) => a + b, 0) / mockLatencies.length)
-          : 0,
-        p95Latency: mockLatencies.length > 0
-          ? Math.round([...mockLatencies].sort((a, b) => a - b)[Math.floor(mockLatencies.length * 0.95)] ?? mockLatencies[mockLatencies.length - 1]!)
-          : 0,
+        avgLatency:
+          mockLatencies.length > 0 ? Math.round(mockLatencies.reduce((a, b) => a + b, 0) / mockLatencies.length) : 0,
+        p95Latency:
+          mockLatencies.length > 0
+            ? Math.round(
+                [...mockLatencies].sort((a, b) => a - b)[Math.floor(mockLatencies.length * 0.95)] ??
+                  mockLatencies[mockLatencies.length - 1]!,
+              )
+            : 0,
         maxLatency: mockLatencies.length > 0 ? Math.max(...mockLatencies) : 0,
         recentLatencies: [...mockLatencies],
         errorRate: mockTotalCalls > 0 ? mockErrors / mockTotalCalls : 0,
       }),
       // 测试辅助：设置模拟延迟数据
-      _setMockLatencies: (latencies: number[]) => { mockLatencies = latencies; mockTotalCalls = latencies.length },
-      _reset: () => { mockLatencies = []; mockErrors = 0; mockTotalCalls = 0 },
+      _setMockLatencies: (latencies: number[]) => {
+        mockLatencies = latencies
+        mockTotalCalls = latencies.length
+      },
+      _reset: () => {
+        mockLatencies = []
+        mockErrors = 0
+        mockTotalCalls = 0
+      },
       start: vi.fn(),
       stop: vi.fn(),
       startLLMCall: vi.fn(),
@@ -47,14 +57,17 @@ describe('LatencySLOManager', () => {
   beforeEach(() => {
     resetLatencySLOManager()
     monitor._reset()
-    manager = new LatencySLOManager({
-      ...DEFAULT_SLO_CONFIG,
-      p95ThresholdMs: 5000,
-      p95CriticalMs: 10000,
-      p95RecoveryMs: 3000,
-      minSampleSize: 5,
-      minDegradeDurationMs: 0, // 测试中不设最小保持时间
-    }, 'gpt-4')
+    manager = new LatencySLOManager(
+      {
+        ...DEFAULT_SLO_CONFIG,
+        p95ThresholdMs: 5000,
+        p95CriticalMs: 10000,
+        p95RecoveryMs: 3000,
+        minSampleSize: 5,
+        minDegradeDurationMs: 0, // 测试中不设最小保持时间
+      },
+      'gpt-4',
+    )
   })
 
   afterEach(() => {
@@ -110,14 +123,17 @@ describe('LatencySLOManager', () => {
 
   describe('hysteresis', () => {
     it('should not switch back immediately after degrading', () => {
-      const mgr = new LatencySLOManager({
-        ...DEFAULT_SLO_CONFIG,
-        p95ThresholdMs: 5000,
-        p95CriticalMs: 10000,
-        p95RecoveryMs: 3000,
-        minSampleSize: 3,
-        minDegradeDurationMs: 60000, // 60s minimum
-      }, 'gpt-4')
+      const mgr = new LatencySLOManager(
+        {
+          ...DEFAULT_SLO_CONFIG,
+          p95ThresholdMs: 5000,
+          p95CriticalMs: 10000,
+          p95RecoveryMs: 3000,
+          minSampleSize: 3,
+          minDegradeDurationMs: 60000, // 60s minimum
+        },
+        'gpt-4',
+      )
 
       // 降级
       monitor._setMockLatencies([6000, 6100, 6200])

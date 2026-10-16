@@ -204,11 +204,7 @@ async function fetchWithTimeout(
  * @returns Response 对象
  * @throws 所有重试失败后抛出最后一次错误
  */
-async function fetchWithRetry(
-  url: string,
-  options: RequestInit,
-  maxRetries: number = MAX_RETRIES,
-): Promise<Response> {
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries: number = MAX_RETRIES): Promise<Response> {
   let lastError: Error | null = null
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {

@@ -186,10 +186,7 @@ async function* splitLayer(
  * 跳过 Think 内容（不送 TTS）
  * 对正常句子同时产出 Display 和 TTS 事件
  */
-async function* actionLayer(
-  source: AsyncGenerator<StreamEvent>,
-  enableTTS: boolean,
-): AsyncGenerator<StreamEvent> {
+async function* actionLayer(source: AsyncGenerator<StreamEvent>, enableTTS: boolean): AsyncGenerator<StreamEvent> {
   for await (const event of source) {
     // Think 内容：仅显示，不送 TTS
     if (event.type === StreamEventType.ThinkContent) {
@@ -238,10 +235,7 @@ async function* displayLayer(
 ): AsyncGenerator<StreamEvent> {
   for await (const event of source) {
     // 显示相关事件
-    if (
-      event.type === StreamEventType.TextDelta ||
-      event.type === StreamEventType.ThinkContent
-    ) {
+    if (event.type === StreamEventType.TextDelta || event.type === StreamEventType.ThinkContent) {
       // 触发显示回调
       onDisplay?.(event)
       yield event
@@ -302,9 +296,7 @@ async function* ttsLayer(
   await Promise.all(ttsPromises)
 
   // 按序号排序输出 TTS 结果
-  const sortedResults = ttsYieldQueue.sort(
-    (a, b) => (a.sentenceIndex ?? 0) - (b.sentenceIndex ?? 0),
-  )
+  const sortedResults = ttsYieldQueue.sort((a, b) => (a.sentenceIndex ?? 0) - (b.sentenceIndex ?? 0))
   for (const result of sortedResults) {
     yield result
   }
@@ -354,12 +346,7 @@ export async function* streamPipeline(
   source: AsyncIterable<string>,
   options: PipelineOptions = {},
 ): AsyncGenerator<StreamEvent> {
-  const {
-    sentenceDivider,
-    enableTTS = false,
-    ttsCallback,
-    onDisplay,
-  } = options
+  const { sentenceDivider, enableTTS = false, ttsCallback, onDisplay } = options
 
   // 构建管道：Split → Action → Display → [TTS]
   let pipe = splitLayer(source, sentenceDivider)

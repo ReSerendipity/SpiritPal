@@ -151,9 +151,7 @@ async function cleanupExpiredEntities(config: CleanupConfig): Promise<number> {
  * @param config 清理配置（可选，使用默认值）
  * @returns 清理结果
  */
-export async function cleanupZombieData(
-  config: Partial<CleanupConfig> = {},
-): Promise<CleanupResult> {
+export async function cleanupZombieData(config: Partial<CleanupConfig> = {}): Promise<CleanupResult> {
   const cfg = { ...DEFAULT_CONFIG, ...config }
   const errors: string[] = []
   let cleanedBlobs = 0

@@ -17,25 +17,25 @@
 
 /** 基础情绪类别 */
 export type BasicEmotion =
-  | 'happy'      // 开心
-  | 'sad'        // 难过
-  | 'angry'      // 生气
-  | 'excited'    // 兴奋
-  | 'calm'       // 平静
-  | 'confused'   // 困惑
-  | 'tired'      // 疲惫
-  | 'surprised'  // 惊讶
-  | 'neutral'    // 中性
+  | 'happy' // 开心
+  | 'sad' // 难过
+  | 'angry' // 生气
+  | 'excited' // 兴奋
+  | 'calm' // 平静
+  | 'confused' // 困惑
+  | 'tired' // 疲惫
+  | 'surprised' // 惊讶
+  | 'neutral' // 中性
 
 /** 复合情绪（由基础情绪组合而成） */
 export type ComplexEmotion =
-  | 'proud'          // 自豪 (happy + proud)
-  | 'frustrated'     // 沮丧 (sad + angry)
-  | 'anxious'        // 焦虑 (tired + anxious)
-  | 'curious'        // 好奇 (confused + excited)
-  | 'content'        // 满足 (happy + calm)
-  | 'disappointed'   // 失望 (sad + neutral)
-  | string           // 允许自定义
+  | 'proud' // 自豪 (happy + proud)
+  | 'frustrated' // 沮丧 (sad + angry)
+  | 'anxious' // 焦虑 (tired + anxious)
+  | 'curious' // 好奇 (confused + excited)
+  | 'content' // 满足 (happy + calm)
+  | 'disappointed' // 失望 (sad + neutral)
+  | string // 允许自定义
 
 export interface EmotionData {
   /** 情绪标签 */
@@ -157,9 +157,7 @@ const EMOTION_AROUSAL: Record<BasicEmotion, number> = {
 }
 
 /** 由 LLM 情绪标签数组得到记忆回写所需的 { valence, arousal }（取最后一个标签） */
-export function moodFromEmotionTags(
-  animations: string[],
-): { valence: number; arousal: number } | undefined {
+export function moodFromEmotionTags(animations: string[]): { valence: number; arousal: number } | undefined {
   if (!animations || animations.length === 0) return undefined
   const last = animations[animations.length - 1]
   const emotion = LLM_TAG_TO_BASIC[last]
@@ -188,7 +186,7 @@ export class EmotionAnalyzer {
     Object.entries(EMOTION_KEYWORDS).forEach(([emotion, keywords]) => {
       if (keywords.length === 0) return
 
-      const matches = keywords.filter(k => lowerText.includes(k)).length
+      const matches = keywords.filter((k) => lowerText.includes(k)).length
       const score = matches / keywords.length
 
       if (score > maxScore) {
@@ -334,15 +332,10 @@ export class EmotionStateManager {
       this.updateTodayStats(emotionData.emotion)
     } else {
       // 更新持续时间
-      this.currentState.duration = Math.floor(
-        (Date.now() - this.currentState.startedAt) / 1000
-      )
+      this.currentState.duration = Math.floor((Date.now() - this.currentState.startedAt) / 1000)
 
       // 平滑过渡强度
-      this.currentState.intensity = this.smoothTransition(
-        this.currentState.intensity,
-        emotionData.intensity
-      )
+      this.currentState.intensity = this.smoothTransition(this.currentState.intensity, emotionData.intensity)
     }
 
     // 更新整体情感倾向
@@ -387,8 +380,7 @@ export class EmotionStateManager {
     // 如果是复合情绪，转换为最接近的基础情绪
     const basicEmotion = this.toBasicEmotion(emotion)
 
-    this.currentState.todayStats[basicEmotion] =
-      (this.currentState.todayStats[basicEmotion] || 0) + 1
+    this.currentState.todayStats[basicEmotion] = (this.currentState.todayStats[basicEmotion] || 0) + 1
   }
 
   /**

@@ -92,9 +92,7 @@ export function TagCloud({ memories, onSelectTag, selectedTag }: TagCloudProps) 
             key={tag}
             onClick={() => onSelectTag?.(tag)}
             className={`rounded px-1.5 py-0.5 transition-colors ${getTagSize(freq)} ${getTagColor(freq)} ${
-              selectedTag === tag
-                ? 'bg-tangerine/20 ring-1 ring-tangerine'
-                : 'hover:bg-ink/5'
+              selectedTag === tag ? 'bg-tangerine/20 ring-1 ring-tangerine' : 'hover:bg-ink/5'
             }`}
             title={`${tag}: ${freq} 条记忆`}
           >
@@ -136,9 +134,7 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
   const chartData = useMemo(() => {
     // 取最近 30 天的数据，按天聚合情感强度
     const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000
-    const recentMemories = memories.filter(
-      (m) => new Date(m.created_at).getTime() > thirtyDaysAgo,
-    )
+    const recentMemories = memories.filter((m) => new Date(m.created_at).getTime() > thirtyDaysAgo)
 
     if (recentMemories.length === 0) return []
 
@@ -208,91 +204,90 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
         </div>
         <div className="pl-9">
           <svg
-          className="w-full"
-          height={chartHeight + 20}
-          viewBox={`0 0 ${chartData.length * 30} ${chartHeight + 20}`}
-          preserveAspectRatio="none"
-        >
-          {/* 背景网格线 */}
-          {[0.25, 0.5, 0.75].map((ratio) => (
-            <line
-              key={ratio}
-              x1={0}
-              y1={chartHeight * (1 - ratio)}
-              x2={chartData.length * 30}
-              y2={chartHeight * (1 - ratio)}
-              className="stroke-ink/8"
-              strokeWidth={1}
-            />
-          ))}
-
-          {/* 情感曲线（填充区域） */}
-          {chartData.length > 1 && (
-            <>
-              <path
-                d={chartData
-                  .map((d, i) => {
-                    const x = i * 30 + 15
-                    const y = chartHeight - (d.avgIntensity / maxAvg) * (chartHeight - 10)
-                    return `${i === 0 ? 'M' : 'L'} ${x} ${y}`
-                  })
-                  .join(' ')}
-                className="fill-none stroke-tangerine/80"
-                strokeWidth={2}
+            className="w-full"
+            height={chartHeight + 20}
+            viewBox={`0 0 ${chartData.length * 30} ${chartHeight + 20}`}
+            preserveAspectRatio="none"
+          >
+            {/* 背景网格线 */}
+            {[0.25, 0.5, 0.75].map((ratio) => (
+              <line
+                key={ratio}
+                x1={0}
+                y1={chartHeight * (1 - ratio)}
+                x2={chartData.length * 30}
+                y2={chartHeight * (1 - ratio)}
+                className="stroke-ink/8"
+                strokeWidth={1}
               />
-              {/* 填充区域 */}
-              <path
-                d={
-                  chartData
+            ))}
+
+            {/* 情感曲线（填充区域） */}
+            {chartData.length > 1 && (
+              <>
+                <path
+                  d={chartData
                     .map((d, i) => {
                       const x = i * 30 + 15
                       const y = chartHeight - (d.avgIntensity / maxAvg) * (chartHeight - 10)
                       return `${i === 0 ? 'M' : 'L'} ${x} ${y}`
                     })
-                    .join(' ') +
-                  ` L ${((chartData.length - 1) * 30 + 15)} ${chartHeight} L 15 ${chartHeight} Z`
-                }
-                className="fill-tangerine/12"
-              />
-            </>
-          )}
+                    .join(' ')}
+                  className="fill-none stroke-tangerine/80"
+                  strokeWidth={2}
+                />
+                {/* 填充区域 */}
+                <path
+                  d={
+                    chartData
+                      .map((d, i) => {
+                        const x = i * 30 + 15
+                        const y = chartHeight - (d.avgIntensity / maxAvg) * (chartHeight - 10)
+                        return `${i === 0 ? 'M' : 'L'} ${x} ${y}`
+                      })
+                      .join(' ') + ` L ${(chartData.length - 1) * 30 + 15} ${chartHeight} L 15 ${chartHeight} Z`
+                  }
+                  className="fill-tangerine/12"
+                />
+              </>
+            )}
 
-          {/* 数据点 */}
-          {chartData.map((d, i) => {
-            const x = i * 30 + 15
-            const y = chartHeight - (d.avgIntensity / maxAvg) * (chartHeight - 10)
-            return (
-              <circle
+            {/* 数据点 */}
+            {chartData.map((d, i) => {
+              const x = i * 30 + 15
+              const y = chartHeight - (d.avgIntensity / maxAvg) * (chartHeight - 10)
+              return (
+                <circle
+                  key={i}
+                  cx={x}
+                  cy={y}
+                  r={3}
+                  className={`stroke-ink/30 ${
+                    d.avgIntensity > 0.7
+                      ? 'fill-tangerine'
+                      : d.avgIntensity > 0.3
+                        ? 'fill-ink-muted'
+                        : 'fill-tangerine-deep'
+                  }`}
+                  strokeWidth={1}
+                />
+              )
+            })}
+
+            {/* 日期标签 */}
+            {chartData.map((d, i) => (
+              <text
                 key={i}
-                cx={x}
-                cy={y}
-                r={3}
-                className={`stroke-ink/30 ${
-                  d.avgIntensity > 0.7
-                    ? 'fill-tangerine'
-                    : d.avgIntensity > 0.3
-                      ? 'fill-ink-muted'
-                      : 'fill-tangerine-deep'
-                }`}
-                strokeWidth={1}
-              />
-            )
-          })}
-
-          {/* 日期标签 */}
-          {chartData.map((d, i) => (
-            <text
-              key={i}
-              x={i * 30 + 15}
-              y={chartHeight + 14}
-              textAnchor="middle"
-              className="fill-ink/40"
-              fontSize={8}
-            >
-              {d.date}
-            </text>
-          ))}
-        </svg>
+                x={i * 30 + 15}
+                y={chartHeight + 14}
+                textAnchor="middle"
+                className="fill-ink/40"
+                fontSize={8}
+              >
+                {d.date}
+              </text>
+            ))}
+          </svg>
         </div>
       </div>
 
@@ -314,8 +309,8 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
         className="mt-1 border-t border-ink/8 pt-1.5 text-[10px] leading-4 text-ink-faint"
         data-testid="emotion-conclusion"
       >
-        纵轴 = 当日平均情感强度（0~1）；峰值 {peakDay.avgIntensity.toFixed(2)}（{peakDay.date}）
-        · 共 {chartData.length} 天有记忆
+        纵轴 = 当日平均情感强度（0~1）；峰值 {peakDay.avgIntensity.toFixed(2)}（{peakDay.date}） · 共 {chartData.length}{' '}
+        天有记忆
       </div>
     </div>
   )
@@ -353,12 +348,15 @@ export function TimeDensityChart({ memories, onSelectMonth, selectedMonth }: Tim
       .slice(-12) // 最近 12 个月
   }, [memories])
 
-  const handleClick = useCallback((month: string) => {
-    if (onSelectMonth) {
-      // 再次点击同一个月 → 取消选择
-      onSelectMonth(selectedMonth === month ? null : month)
-    }
-  }, [onSelectMonth, selectedMonth])
+  const handleClick = useCallback(
+    (month: string) => {
+      if (onSelectMonth) {
+        // 再次点击同一个月 → 取消选择
+        onSelectMonth(selectedMonth === month ? null : month)
+      }
+    },
+    [onSelectMonth, selectedMonth],
+  )
 
   if (monthlyData.length === 0) {
     return (
@@ -400,14 +398,13 @@ export function TimeDensityChart({ memories, onSelectMonth, selectedMonth }: Tim
           const height = Math.max(2, (count / maxCount) * barHeight)
           const ratio = count / maxCount
           const isSelected = selectedMonth === month
-          const color =
-            isSelected
-              ? 'bg-tangerine ring-2 ring-tangerine/30'
-              : ratio > 0.7
+          const color = isSelected
+            ? 'bg-tangerine ring-2 ring-tangerine/30'
+            : ratio > 0.7
               ? 'bg-tangerine'
               : ratio > 0.4
-              ? 'bg-tangerine/70'
-              : 'bg-tangerine-deep/50'
+                ? 'bg-tangerine/70'
+                : 'bg-tangerine-deep/50'
           return (
             <button
               key={month}
@@ -419,10 +416,7 @@ export function TimeDensityChart({ memories, onSelectMonth, selectedMonth }: Tim
               <span className="text-[8px] tabular-nums leading-3 text-ink-faint" data-testid="density-count">
                 {count}
               </span>
-              <div
-                className={`w-full rounded-t ${color} transition-all`}
-                style={{ height }}
-              />
+              <div className={`w-full rounded-t ${color} transition-all`} style={{ height }} />
               <span className={`mt-1 text-[8px] ${isSelected ? 'font-bold text-tangerine' : 'text-ink-faint'}`}>
                 {month.slice(5)}
               </span>

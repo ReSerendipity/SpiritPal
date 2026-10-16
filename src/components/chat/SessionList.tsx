@@ -59,10 +59,13 @@ export function SessionList({ onClose }: SessionListProps) {
     onClose()
   }, [createSession, onClose])
 
-  const handleSwitch = useCallback((id: string) => {
-    switchSession(id)
-    onClose()
-  }, [switchSession, onClose])
+  const handleSwitch = useCallback(
+    (id: string) => {
+      switchSession(id)
+      onClose()
+    },
+    [switchSession, onClose],
+  )
 
   const handleStartRename = useCallback((session: ChatSession) => {
     setRenamingId(session.id)
@@ -77,15 +80,21 @@ export function SessionList({ onClose }: SessionListProps) {
     setRenamingId(null)
   }, [renamingId, renameValue, renameSession])
 
-  const handleDelete = useCallback((id: string) => {
-    deleteSession(id)
-    setMenuId(null)
-  }, [deleteSession])
+  const handleDelete = useCallback(
+    (id: string) => {
+      deleteSession(id)
+      setMenuId(null)
+    },
+    [deleteSession],
+  )
 
-  const handlePin = useCallback((id: string) => {
-    togglePinSession(id)
-    setMenuId(null)
-  }, [togglePinSession])
+  const handlePin = useCallback(
+    (id: string) => {
+      togglePinSession(id)
+      setMenuId(null)
+    },
+    [togglePinSession],
+  )
 
   // 按日期分组
   const groups: { label: string; sessions: ChatSession[] }[] = []
@@ -124,9 +133,7 @@ export function SessionList({ onClose }: SessionListProps) {
 
       {/* 会话列表 */}
       <div className="flex-1 overflow-y-auto px-2 pb-2" onClick={() => setMenuId(null)}>
-        {charSessions.length === 0 && (
-          <div className="mt-8 text-center text-xs text-ink-faint">暂无历史对话</div>
-        )}
+        {charSessions.length === 0 && <div className="mt-8 text-center text-xs text-ink-faint">暂无历史对话</div>}
         {groups.map((group) => (
           <div key={group.label}>
             <div className="sticky top-0 z-10 px-2 py-1 text-[11px] font-medium text-ink-faint bg-cream-deep/95">
@@ -139,9 +146,7 @@ export function SessionList({ onClose }: SessionListProps) {
                 <div
                   key={session.id}
                   className={`group relative mb-0.5 flex items-center rounded-lg px-2 py-1.5 text-sm transition-colors ${
-                    isActive
-                      ? 'bg-tangerine/12 text-tangerine-deep'
-                      : 'text-ink hover:bg-ink/6'
+                    isActive ? 'bg-tangerine/12 text-tangerine-deep' : 'text-ink hover:bg-ink/6'
                   }`}
                 >
                   {isRenaming ? (
@@ -171,7 +176,10 @@ export function SessionList({ onClose }: SessionListProps) {
                       </button>
                       <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                         <button
-                          onClick={(e) => { e.stopPropagation(); setMenuId(menuId === session.id ? null : session.id) }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setMenuId(menuId === session.id ? null : session.id)
+                          }}
                           className="rounded p-0.5 text-ink-faint hover:bg-ink/10"
                         >
                           <MoreHorizontal size={12} />

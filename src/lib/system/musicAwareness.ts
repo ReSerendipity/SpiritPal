@@ -33,10 +33,10 @@
 export type MusicPlaybackState = 'playing' | 'paused' | 'none'
 
 export interface MusicInfo {
-  title: string       // 曲名
-  artist: string      // 艺术家
-  album: string       // 专辑
-  artwork: string     // 封面 URL（若有）
+  title: string // 曲名
+  artist: string // 艺术家
+  album: string // 专辑
+  artwork: string // 封面 URL（若有）
 }
 
 export interface MusicStatus {
@@ -55,7 +55,7 @@ export class MusicAwarenessManager {
   private prevMetaRef: string = ''
 
   // 配置
-  private readonly POLL_INTERVAL = 2000  // 每 2 秒轮询一次（mediaSession 无 metadata 变化事件）
+  private readonly POLL_INTERVAL = 2000 // 每 2 秒轮询一次（mediaSession 无 metadata 变化事件）
 
   start(): void {
     if (this.pollTimer !== null) return
@@ -77,7 +77,7 @@ export class MusicAwarenessManager {
     const ms = navigator.mediaSession
 
     // 播放状态
-    const rawState = ms.playbackState  // 'playing' | 'paused' | 'none'
+    const rawState = ms.playbackState // 'playing' | 'paused' | 'none'
     const state: MusicPlaybackState = rawState === 'playing' ? 'playing' : rawState === 'paused' ? 'paused' : 'none'
 
     // metadata

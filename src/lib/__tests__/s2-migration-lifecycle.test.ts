@@ -104,19 +104,21 @@ vi.mock('@/lib/memory/entityLinking', () => ({
 // ============ 辅助函数 ============
 
 /** 构造模拟 MemoryRow */
-function makeMemoryRow(overrides: Partial<{
-  id: number
-  character_id: string
-  memory_id: string
-  content: string
-  assistant: string
-  tier: string
-  importance: number
-  is_autobiographical: number
-  created_at: number
-  access_count: number
-  last_accessed: number
-}> = {}) {
+function makeMemoryRow(
+  overrides: Partial<{
+    id: number
+    character_id: string
+    memory_id: string
+    content: string
+    assistant: string
+    tier: string
+    importance: number
+    is_autobiographical: number
+    created_at: number
+    access_count: number
+    last_accessed: number
+  }> = {},
+) {
   return {
     id: overrides.id ?? 1,
     character_id: overrides.character_id ?? 'test-char',
@@ -151,7 +153,15 @@ describe('S2: 遗忘/巩固/合并行级化验证', () => {
   })
 
   it('applyForgetting 删除记忆时应同步删除 SQLite 行', async () => {
-    const { isMemoryMigrated, isLegacyMode, deleteMemory, getMemoriesByTier, getMemorySummary, getMemoryState, getSetting } = await import('@/lib/data/db')
+    const {
+      isMemoryMigrated,
+      isLegacyMode,
+      deleteMemory,
+      getMemoriesByTier,
+      getMemorySummary,
+      getMemoryState,
+      getSetting,
+    } = await import('@/lib/data/db')
     const { EnhancedMemoryManager } = await import('@/lib/memory/enhancedMemory')
 
     vi.mocked(isMemoryMigrated).mockResolvedValue(true)
@@ -161,7 +171,16 @@ describe('S2: 遗忘/巩固/合并行级化验证', () => {
     // 加载一些记忆（模拟行级路径）— 使用极低 importance 和极旧的时间
     const oldTime = Date.now() - 365 * 86400000 // 1 年前
     vi.mocked(getMemoriesByTier).mockResolvedValue([
-      makeMemoryRow({ id: 10, memory_id: 'mem-forgot-1', content: '旧记忆', tier: 'episodic', importance: 5, created_at: oldTime, last_accessed: oldTime, access_count: 0 }),
+      makeMemoryRow({
+        id: 10,
+        memory_id: 'mem-forgot-1',
+        content: '旧记忆',
+        tier: 'episodic',
+        importance: 5,
+        created_at: oldTime,
+        last_accessed: oldTime,
+        access_count: 0,
+      }),
     ])
     vi.mocked(getMemorySummary).mockResolvedValue('')
     vi.mocked(getMemoryState).mockResolvedValue(null)
@@ -178,7 +197,8 @@ describe('S2: 遗忘/巩固/合并行级化验证', () => {
   })
 
   it('clear 在行级路径下应调用 clearAllMemoryData', async () => {
-    const { isMemoryMigrated, isLegacyMode, clearAllMemoryData, getMemoriesByTier, getMemorySummary, getMemoryState } = await import('@/lib/data/db')
+    const { isMemoryMigrated, isLegacyMode, clearAllMemoryData, getMemoriesByTier, getMemorySummary, getMemoryState } =
+      await import('@/lib/data/db')
     const { EnhancedMemoryManager } = await import('@/lib/memory/enhancedMemory')
 
     vi.mocked(isMemoryMigrated).mockResolvedValue(true)
@@ -195,7 +215,8 @@ describe('S2: 遗忘/巩固/合并行级化验证', () => {
   })
 
   it('applyPromotion 在行级路径下应更新 tier + is_autobiographical', async () => {
-    const { isMemoryMigrated, isLegacyMode, updateMemoryRow, getMemoriesByTier, getMemorySummary, getMemoryState } = await import('@/lib/data/db')
+    const { isMemoryMigrated, isLegacyMode, updateMemoryRow, getMemoriesByTier, getMemorySummary, getMemoryState } =
+      await import('@/lib/data/db')
     const { EnhancedMemoryManager } = await import('@/lib/memory/enhancedMemory')
 
     vi.mocked(isMemoryMigrated).mockResolvedValue(true)

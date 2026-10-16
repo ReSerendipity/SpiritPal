@@ -26,6 +26,12 @@
  */
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+// LLM 维度 P1：输出内容护栏（毒性关键词 + PII 掩码）。
+// 此前 filterLLMOutput 全仓生产 import = 0（护栏建成未接线），LLM 输出未经内容护栏
+// 直达 UI。这里把它接在「助手内容写入 store」这一收敛点上：桌面端 ChatWindow 与
+// 移动端 MobileChatView 的所有落库路径都经过本 store，渲染层从 store 取值，因此
+// UI 渲染、SQLite 持久化、以及下游导出/记忆提取读到的都是护栏后的内容。
+import { filterLLMOutput } from '@/lib/ai/toxicityFilter'
 import { sqliteStorage } from '@/lib/data/db'
 import type { ChatMessage, ChatSession, MessageMetrics, SessionSearchHit } from '@/lib/data/types'
 import i18n from '@/lib/system/i18n'
@@ -108,6 +114,27 @@ function getCurrentCharacterId(): string {
   return usePetStore.getState().currentCharacterId
 }
 
+// ============ 输出内容护栏（LLM 维度 P1）============
+
+/**
+ * 对助手产出的文本施加统一的内容护栏（毒性关键词 → 阻断兜底；邮箱/手机/身份证 → 掩码）。
+ *
+ * 为什么不放在渲染层：
+ * - 渲染层过滤只能挡住「显示」，挡不住「落库」——记忆提取、SQLite 持久化、后续导出
+ *   读到的仍是原始文本；本 store 是桌面端与移动端共用的唯一写入收敛点，在此过滤可
+ *   同时收紧渲染、持久化与下游消费三个面。
+ * - 过滤幂等（掩码后的文本再次过滤不会二次变形，三类正则均带边界断言），因此流式
+ *   过程中多次写入同一段文本不会累积损坏。
+ *
+ * @param role   消息角色（仅 assistant 的产出属于 LLM 输出，user 原文不动）
+ * @param text   待过滤文本
+ * @returns 护栏后的文本；pass 级原样返回
+ */
+function guardAssistantText(role: ChatMessage['role'], text: string): string {
+  if (role !== 'assistant' || !text) return text
+  return filterLLMOutput(text).filteredText
+}
+
 /** 通用辅助：更新当前活跃会话的消息列表 */
 function updateActiveMessages(
   set: (fn: (state: ChatStoreState) => Partial<ChatStoreState>) => void,
@@ -120,9 +147,8 @@ function updateActiveMessages(
     if (!sessionId) return state
     const list = state.messagesBySession[sessionId] ?? []
     const updated = updater(list)
-    const trimmed = updated.length > MAX_MESSAGES_PER_SESSION
-      ? updated.slice(updated.length - MAX_MESSAGES_PER_SESSION)
-      : updated
+    const trimmed =
+      updated.length > MAX_MESSAGES_PER_SESSION ? updated.slice(updated.length - MAX_MESSAGES_PER_SESSION) : updated
     return {
       ...extra,
       messagesBySession: {
@@ -166,9 +192,7 @@ function migrateFromLegacy(persisted: Record<string, unknown>): Partial<ChatStor
     }
     const sessionId = genId()
     const firstUser = messages.find((m) => m.role === 'user')
-    const title = firstUser
-      ? firstUser.content.slice(0, 24) + (firstUser.content.length > 24 ? '…' : '')
-      : '历史对话'
+    const title = firstUser ? firstUser.content.slice(0, 24) + (firstUser.content.length > 24 ? '…' : '') : '历史对话'
 
     sessions[charId] = [
       {
@@ -298,9 +322,7 @@ export const useChatStore = create<ChatStoreState>()(
         set((state) => ({
           sessions: {
             ...state.sessions,
-            [charId]: (state.sessions[charId] ?? []).map((s) =>
-              s.id === sessionId ? { ...s, title } : s,
-            ),
+            [charId]: (state.sessions[charId] ?? []).map((s) => (s.id === sessionId ? { ...s, title } : s)),
           },
         }))
       },
@@ -310,9 +332,7 @@ export const useChatStore = create<ChatStoreState>()(
         set((state) => ({
           sessions: {
             ...state.sessions,
-            [charId]: (state.sessions[charId] ?? []).map((s) =>
-              s.id === sessionId ? { ...s, pinned: !s.pinned } : s,
-            ),
+            [charId]: (state.sessions[charId] ?? []).map((s) => (s.id === sessionId ? { ...s, pinned: !s.pinned } : s)),
           },
         }))
       },
@@ -339,8 +359,7 @@ export const useChatStore = create<ChatStoreState>()(
             if (idx === -1) continue
             const start = Math.max(0, idx - 15)
             const end = Math.min(m.content.length, idx + q.length + 15)
-            const snippet =
-              (start > 0 ? '…' : '') + m.content.slice(start, end) + (end < m.content.length ? '…' : '')
+            const snippet = (start > 0 ? '…' : '') + m.content.slice(start, end) + (end < m.content.length ? '…' : '')
             hits.push({ sessionId: session.id, messageId: m.id, snippet, timestamp: m.timestamp })
           }
         }
@@ -393,9 +412,10 @@ export const useChatStore = create<ChatStoreState>()(
 
           const existing = messagesBySession[sessionId] ?? []
           const combined = [...existing, userMsg, assistantMsg]
-          const trimmed = combined.length > MAX_MESSAGES_PER_SESSION
-            ? combined.slice(combined.length - MAX_MESSAGES_PER_SESSION)
-            : combined
+          const trimmed =
+            combined.length > MAX_MESSAGES_PER_SESSION
+              ? combined.slice(combined.length - MAX_MESSAGES_PER_SESSION)
+              : combined
 
           // 更新会话元数据
           const charSessions = (sessions[charId] ?? []).map((s) => {
@@ -403,9 +423,10 @@ export const useChatStore = create<ChatStoreState>()(
             const newCount = trimmed.length
             // 首条消息时自动设置标题
             const defaultTitle = i18n.t('chat.sessionDefault')
-            const title = s.title === defaultTitle && existing.length === 0
-              ? text.slice(0, 24) + (text.length > 24 ? '…' : '')
-              : s.title
+            const title =
+              s.title === defaultTitle && existing.length === 0
+                ? text.slice(0, 24) + (text.length > 24 ? '…' : '')
+                : s.title
             return { ...s, updatedAt: Date.now(), messageCount: newCount, title }
           })
 
@@ -449,8 +470,18 @@ export const useChatStore = create<ChatStoreState>()(
             (list) =>
               list.map((m) => {
                 const chunks = buffered.get(m.id)
-                if (chunks) return { ...m, content: m.content + chunks, isStreaming: false }
-                if (m.id === messageId) return { ...m, isStreaming: false }
+                if (chunks) {
+                  return {
+                    ...m,
+                    content: guardAssistantText(m.role, m.content + chunks),
+                    isStreaming: false,
+                  }
+                }
+                // 无残留 chunk 也要过一次护栏：桌面端内容全部经 appendAssistantChunk 累积，
+                // 此前从未过滤，这里是它进入「最终态」的唯一时机。
+                if (m.id === messageId) {
+                  return { ...m, content: guardAssistantText(m.role, m.content), isStreaming: false }
+                }
                 return m
               }),
             { isLoading: false, abortController: null },
@@ -458,7 +489,10 @@ export const useChatStore = create<ChatStoreState>()(
         } else {
           updateActiveMessages(
             set,
-            (list) => list.map((m) => (m.id === messageId ? { ...m, isStreaming: false } : m)),
+            (list) =>
+              list.map((m) =>
+                m.id === messageId ? { ...m, content: guardAssistantText(m.role, m.content), isStreaming: false } : m,
+              ),
             { isLoading: false, abortController: null },
           )
         }
@@ -518,9 +552,10 @@ export const useChatStore = create<ChatStoreState>()(
 
           const existing = messagesBySession[sessionId] ?? []
           const combined = [...existing, message]
-          const trimmed = combined.length > MAX_MESSAGES_PER_SESSION
-            ? combined.slice(combined.length - MAX_MESSAGES_PER_SESSION)
-            : combined
+          const trimmed =
+            combined.length > MAX_MESSAGES_PER_SESSION
+              ? combined.slice(combined.length - MAX_MESSAGES_PER_SESSION)
+              : combined
 
           return {
             sessions,
@@ -532,17 +567,13 @@ export const useChatStore = create<ChatStoreState>()(
 
       flagMessage: (messageId, violations) => {
         updateActiveMessages(set, (list) =>
-          list.map((m) =>
-            m.id === messageId
-              ? { ...m, flagged: true, consistencyViolations: violations }
-              : m,
-          ),
+          list.map((m) => (m.id === messageId ? { ...m, flagged: true, consistencyViolations: violations } : m)),
         )
       },
 
       updateMessageContent: (messageId, content) => {
         updateActiveMessages(set, (list) =>
-          list.map((m) => (m.id === messageId ? { ...m, content } : m)),
+          list.map((m) => (m.id === messageId ? { ...m, content: guardAssistantText(m.role, content) } : m)),
         )
       },
 
@@ -557,17 +588,16 @@ export const useChatStore = create<ChatStoreState>()(
       },
 
       updateMessageThink: (messageId, thinkContent) => {
+        // 内心独白同属 LLM 产出且会渲染给用户（折叠展示），一并过护栏
         updateActiveMessages(set, (list) =>
-          list.map((m) => (m.id === messageId ? { ...m, thinkContent } : m)),
+          list.map((m) => (m.id === messageId ? { ...m, thinkContent: guardAssistantText(m.role, thinkContent) } : m)),
         )
       },
 
       // ---- P0-3: 发送状态机 ----
 
       setMessageStatus: (messageId, status) => {
-        updateActiveMessages(set, (list) =>
-          list.map((m) => (m.id === messageId ? { ...m, sendStatus: status } : m)),
-        )
+        updateActiveMessages(set, (list) => list.map((m) => (m.id === messageId ? { ...m, sendStatus: status } : m)))
       },
 
       // ---- 指标回写 ----
@@ -578,9 +608,7 @@ export const useChatStore = create<ChatStoreState>()(
           const sessionId = state.activeSessionByCharacter[charId]
           if (!sessionId) return state
           const list = state.messagesBySession[sessionId] ?? []
-          const updatedList = list.map((m) =>
-            m.id === messageId ? { ...m, metrics } : m,
-          )
+          const updatedList = list.map((m) => (m.id === messageId ? { ...m, metrics } : m))
           // 更新会话级汇总
           const charSessions = (state.sessions[charId] ?? []).map((s) => {
             if (s.id !== sessionId) return s

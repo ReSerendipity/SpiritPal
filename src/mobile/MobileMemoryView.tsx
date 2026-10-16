@@ -89,12 +89,14 @@ export function MobileMemoryView() {
       </div>
       {/* 子页面切换 */}
       <div className="flex gap-1 p-2">
-        {([
-          { id: 'viz', labelKey: 'memory.visual', icon: BarChart3 },
-          { id: 'list', labelKey: 'memory.list', icon: List },
-          { id: 'graph', labelKey: 'memory.graph', icon: Network },
-          { id: 'semantic', labelKey: 'memory.semantic', icon: BookOpen },
-        ] as const).map((tabDef) => {
+        {(
+          [
+            { id: 'viz', labelKey: 'memory.visual', icon: BarChart3 },
+            { id: 'list', labelKey: 'memory.list', icon: List },
+            { id: 'graph', labelKey: 'memory.graph', icon: Network },
+            { id: 'semantic', labelKey: 'memory.semantic', icon: BookOpen },
+          ] as const
+        ).map((tabDef) => {
           const Icon = tabDef.icon
           const isActive = subView === tabDef.id
           return (
@@ -185,10 +187,7 @@ export function MobileMemoryView() {
         <div className="flex min-h-0 flex-1 flex-col gap-1 px-3 pb-4">
           <p className="text-[10px] leading-4 text-ink-faint">{t('memory.graphHint')}</p>
           <div className="min-h-0 flex-1">
-            <EntityGraphView
-              emptyTitle={t('memory.graphEmpty')}
-              emptyHint={t('memory.graphEmptyHint')}
-            />
+            <EntityGraphView emptyTitle={t('memory.graphEmpty')} emptyHint={t('memory.graphEmptyHint')} />
           </div>
         </div>
       )}

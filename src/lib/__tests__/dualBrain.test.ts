@@ -21,7 +21,9 @@ describe('assessComplexity（复杂度评估）', () => {
 
   it('含推理关键词的复杂问题应判定为 slow', () => {
     // 组合推理/工具关键词使 score ≥ 0.6（0.35*推理1 + 0.25*工具1 + 长度项）
-    const result = assessComplexity('请帮我分析这个算法的复杂度，推理它的退化情况，评估性能，设计优化方案，计算复杂度，然后打开相关文档搜索资料并执行分析')
+    const result = assessComplexity(
+      '请帮我分析这个算法的复杂度，推理它的退化情况，评估性能，设计优化方案，计算复杂度，然后打开相关文档搜索资料并执行分析',
+    )
     expect(result.dimensions.reasoning).toBeGreaterThan(0.3)
     expect(result.suggestedBrain).toBe('slow')
   })
@@ -82,9 +84,15 @@ describe('P1-2 双脑路由打点', () => {
     // 用内存 Map 模拟 localStorage（node env 无 localStorage）
     vi.stubGlobal('localStorage', {
       getItem: (k: string) => store[k] ?? null,
-      setItem: (k: string, v: string) => { store[k] = v },
-      removeItem: (k: string) => { delete store[k] },
-      clear: () => { store = {} },
+      setItem: (k: string, v: string) => {
+        store[k] = v
+      },
+      removeItem: (k: string) => {
+        delete store[k]
+      },
+      clear: () => {
+        store = {}
+      },
     })
   })
 
@@ -139,9 +147,7 @@ describe('P2-2 复杂度参数可调', () => {
     const input = '请分析并设计一个方案，然后打开文档搜索资料执行分析'
     const before = assessComplexity(input).score
     const w = getComplexityParams()
-    const doubled = Object.fromEntries(
-      Object.entries(w.weights).map(([k, v]) => [k, (v as number) * 2]),
-    )
+    const doubled = Object.fromEntries(Object.entries(w.weights).map(([k, v]) => [k, (v as number) * 2]))
     setComplexityParams({ weights: doubled as typeof w.weights })
     const after = assessComplexity(input).score
     expect(after).toBeCloseTo(before, 5)

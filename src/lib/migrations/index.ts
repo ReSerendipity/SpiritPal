@@ -27,7 +27,6 @@
  * ```
  */
 
-
 // ============ 迁移文件导入 ============
 // 在此处导入所有迁移文件
 import { v001_initialSchema } from './v001_initial_schema'
@@ -53,6 +52,4 @@ export const allMigrations: Migration[] = [
  * 当前 Schema 版本号（等于最后一个迁移的版本号）
  * 用于快速检测是否需要迁移
  */
-export const CURRENT_SCHEMA_VERSION = allMigrations.length > 0
-  ? Math.max(...allMigrations.map(m => m.version))
-  : 0
+export const CURRENT_SCHEMA_VERSION = allMigrations.length > 0 ? Math.max(...allMigrations.map((m) => m.version)) : 0

@@ -142,7 +142,8 @@ export class CollectionManager {
   /** 收藏进度（套装ID → 进度） */
   private progress: Map<string, CollectionProgress> = new Map()
   /** 奖励领取回调 */
-  private onRewardClaim: ((setId: string, fvReward: number, bonusRewards?: CollectionSet['bonusRewards']) => void) | null = null
+  private onRewardClaim:
+    ((setId: string, fvReward: number, bonusRewards?: CollectionSet['bonusRewards']) => void) | null = null
   /** 进度变化回调 */
   private onProgressChange: ((setData: CollectionDisplayData[]) => void) | null = null
 
@@ -310,9 +311,7 @@ export class CollectionManager {
 
       // 查找下一件未收集物品
       const missingItemId = set.itemIds.find((id) => !prog.collectedItems.has(id))
-      const nextMissingItem = missingItemId
-        ? allItems.find((i) => i.id === missingItemId) ?? null
-        : null
+      const nextMissingItem = missingItemId ? (allItems.find((i) => i.id === missingItemId) ?? null) : null
 
       result.push({
         set,
@@ -362,7 +361,9 @@ export class CollectionManager {
   // ============ 回调设置 ============
 
   /** 设置奖励领取回调 */
-  setOnRewardClaim(callback: (setId: string, fvReward: number, bonusRewards?: CollectionSet['bonusRewards']) => void): void {
+  setOnRewardClaim(
+    callback: (setId: string, fvReward: number, bonusRewards?: CollectionSet['bonusRewards']) => void,
+  ): void {
     this.onRewardClaim = callback
   }
 
@@ -403,13 +404,15 @@ export class CollectionManager {
   }
 
   /** 反序列化进度数据 */
-  deserialize(data: Array<{
-    setId: string
-    collectedItems: string[]
-    completed: boolean
-    rewardClaimed: boolean
-    inUseItems: string[]
-  }>): void {
+  deserialize(
+    data: Array<{
+      setId: string
+      collectedItems: string[]
+      completed: boolean
+      rewardClaimed: boolean
+      inUseItems: string[]
+    }>,
+  ): void {
     for (const item of data) {
       const prog = this.progress.get(item.setId)
       if (!prog) continue

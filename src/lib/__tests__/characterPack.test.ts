@@ -156,7 +156,12 @@ describe('parseCharacterPack: CharacterPackConfig 格式', () => {
   it('should use ATLAS defaults when atlasLayout is missing', () => {
     const result = parseCharacterPack(makePackConfig({ atlasLayout: undefined }))
     expect(result.ok).toBe(true)
-    expect(result.profile!.atlasLayout).toEqual({ cellW: ATLAS.cellW, cellH: ATLAS.cellH, cols: ATLAS.cols, rows: ATLAS.rows })
+    expect(result.profile!.atlasLayout).toEqual({
+      cellW: ATLAS.cellW,
+      cellH: ATLAS.cellH,
+      cols: ATLAS.cols,
+      rows: ATLAS.rows,
+    })
   })
 
   it('should use author as source when tags is missing', () => {
@@ -192,7 +197,13 @@ describe('parseCharacterPack: CharacterResourcePackage 格式', () => {
     expect(result.profile!.displayName).toBe('Test Dog')
     expect(result.profile!.spriteAsset).toBe('/pets/test-dog/spritesheet.png')
     expect(result.profile!.spriteType).toBe('atlas')
-    expect(result.profile!.personality).toEqual({ warmth: 0.7, liveliness: 0.3, dependence: 0.5, directness: -0.2, rationality: 0.1 })
+    expect(result.profile!.personality).toEqual({
+      warmth: 0.7,
+      liveliness: 0.3,
+      dependence: 0.5,
+      directness: -0.2,
+      rationality: 0.1,
+    })
     expect(result.profile!.signaturePhrase).toBe('汪汪！')
     expect(result.profile!.classicQuotes).toEqual(['我是一只狗'])
     expect(result.profile!.bubbleMessages.idle).toEqual(['汪...'])
@@ -251,7 +262,13 @@ describe('parseCharacterPack: PetMetadata 格式', () => {
     expect(result.profile!.spriteAsset).toBe('spritesheet.webp')
     expect(result.profile!.spriteType).toBe('atlas')
     expect(result.profile!.atlasLayout).toEqual({ cellW: 192, cellH: 208, cols: 8, rows: 9 })
-    expect(result.profile!.personality).toEqual({ warmth: -0.3, liveliness: 0.8, dependence: 0.2, directness: 0.5, rationality: -0.1 })
+    expect(result.profile!.personality).toEqual({
+      warmth: -0.3,
+      liveliness: 0.8,
+      dependence: 0.2,
+      directness: 0.5,
+      rationality: -0.1,
+    })
     expect(result.profile!.systemPrompt).toBe('你是一只狐狸。')
     expect(result.profile!.source).toBe('PipelineBot')
     expect(result.profile!.type).toBe('community')
@@ -260,7 +277,12 @@ describe('parseCharacterPack: PetMetadata 格式', () => {
   it('should use ATLAS defaults when atlas is missing', () => {
     const result = parseCharacterPack(makePetMetadata({ atlas: undefined }))
     expect(result.ok).toBe(true)
-    expect(result.profile!.atlasLayout).toEqual({ cellW: ATLAS.cellW, cellH: ATLAS.cellH, cols: ATLAS.cols, rows: ATLAS.rows })
+    expect(result.profile!.atlasLayout).toEqual({
+      cellW: ATLAS.cellW,
+      cellH: ATLAS.cellH,
+      cols: ATLAS.cols,
+      rows: ATLAS.rows,
+    })
   })
 
   it('should auto-set chromaKey for video type', () => {

@@ -291,16 +291,24 @@ export class ImageAdapter extends EventEmitter implements RenderAdapter {
   }
 
   /** 获取当前行号 */
-  getCurrentRow(): number { return this.currentRow }
+  getCurrentRow(): number {
+    return this.currentRow
+  }
 
   /** 设置当前行号 */
-  setCurrentRow(row: number): void { this.currentRow = row }
+  setCurrentRow(row: number): void {
+    this.currentRow = row
+  }
 
   /** 获取当前帧号 */
-  getCurrentFrame(): number { return this.currentFrame }
+  getCurrentFrame(): number {
+    return this.currentFrame
+  }
 
   /** 设置当前帧号 */
-  setCurrentFrame(frame: number): void { this.currentFrame = frame }
+  setCurrentFrame(frame: number): void {
+    this.currentFrame = frame
+  }
 
   /** 获取图集布局 */
   getAtlasLayout(): { cellW: number; cellH: number; cols: number; rows: number } | undefined {
@@ -397,10 +405,7 @@ export function createAdapter(ctx: AdapterSelectionContext): RenderAdapter {
   }
 
   // 图集/精灵图角色
-  if (
-    (ctx.spriteType === 'atlas' || ctx.spriteType === 'svg' || ctx.spriteType === 'gif') &&
-    ctx.spritePath
-  ) {
+  if ((ctx.spriteType === 'atlas' || ctx.spriteType === 'svg' || ctx.spriteType === 'gif') && ctx.spritePath) {
     return new ImageAdapter({
       spritePath: ctx.spritePath,
       atlasLayout: ctx.atlasLayout,

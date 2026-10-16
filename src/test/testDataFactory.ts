@@ -95,10 +95,7 @@ export function createTestCharacter(options: TestCharacterOptions = {}): TestCha
  * @param baseOptions - 基础选项（每个角色基于此覆盖）
  * @returns 角色数组
  */
-export function createTestCharacters(
-  count: number,
-  baseOptions: TestCharacterOptions = {},
-): TestCharacter[] {
+export function createTestCharacters(count: number, baseOptions: TestCharacterOptions = {}): TestCharacter[] {
   return Array.from({ length: count }, (_, i) =>
     createTestCharacter({
       ...baseOptions,
@@ -187,10 +184,7 @@ export function createTestMemory(options: TestMemoryOptions = {}): MemoryRow {
  * @param baseOptions - 基础选项
  * @returns 记忆行数组
  */
-export function createTestMemories(
-  count: number,
-  baseOptions: TestMemoryOptions = {},
-): MemoryRow[] {
+export function createTestMemories(count: number, baseOptions: TestMemoryOptions = {}): MemoryRow[] {
   return Array.from({ length: count }, (_, i) =>
     createTestMemory({
       ...baseOptions,

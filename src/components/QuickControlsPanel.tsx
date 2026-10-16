@@ -18,8 +18,18 @@
  */
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
-  Volume2, VolumeX, Volume1, Sun, Moon, Clipboard,
-  Copy, Trash2, Pin, Search, ChevronUp, ChevronDown,
+  Volume2,
+  VolumeX,
+  Volume1,
+  Sun,
+  Moon,
+  Clipboard,
+  Copy,
+  Trash2,
+  Pin,
+  Search,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react'
 import { getClipboardManager, type ClipboardEntry } from '@/lib/system/clipboardManager'
 import { getSystemControls } from '@/lib/system/systemControls'
@@ -236,7 +246,10 @@ export function QuickControlsPanel() {
                     <Pin size={12} />
                   </button>
                   <button
-                    onClick={() => { clipMgr.deleteEntry(entry.id); refreshClipboard() }}
+                    onClick={() => {
+                      clipMgr.deleteEntry(entry.id)
+                      refreshClipboard()
+                    }}
                     className="rounded p-1 text-ink-muted hover:bg-error/20 hover:text-error"
                     title="删除"
                   >

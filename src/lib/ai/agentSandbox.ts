@@ -21,7 +21,7 @@
  * @requires ./agentTools - 工具模式定义、工具权限映射
  */
 
-import { isToolAvailableInMode, isToolConfirmationRequired, ToolMode, getToolsForMode } from './agentTools'
+import { isToolAvailableInMode, decideToolGate, ToolMode, getToolsForMode } from './agentTools'
 
 // ============ 类型定义 ============
 
@@ -45,59 +45,52 @@ export interface PermissionRequest {
 }
 
 export type AgentPermission =
-  | 'open_app'        // 打开应用
-  | 'web_search'      // 网络搜索
-  | 'set_reminder'    // 设置提醒
-  | 'read_files'      // 读取文件
-  | 'write_files'     // 写入文件
+  | 'open_app' // 打开应用
+  | 'web_search' // 网络搜索
+  | 'set_reminder' // 设置提醒
+  | 'read_files' // 读取文件
+  | 'write_files' // 写入文件
   | 'execute_command' // 执行命令
-  | 'pet_control'     // 宠物操作
-  | 'weather_access'  // 天气访问
+  | 'pet_control' // 宠物操作
+  | 'weather_access' // 天气访问
   | 'schedule_access' // 日程访问
 
 /** 工具 → 所需权限映射 */
 const TOOL_PERMISSION_MAP: Record<string, AgentPermission[]> = {
-  'open_application': ['open_app'],
-  'search_web': ['web_search'],
-  'set_reminder': ['set_reminder'],
-  'manage_schedule': ['schedule_access'],
-  'adjust_pet_state': ['pet_control'],
-  'get_weather': ['weather_access'],
-  'get_pet_status': [], // 读取宠物状态不需要特殊权限
-  'read_file': ['read_files'],
-  'list_directory': ['read_files'],
-  'search_files': ['read_files'],
-  'write_file': ['write_files'],
-  'execute_command': ['execute_command'],
+  open_application: ['open_app'],
+  search_web: ['web_search'],
+  set_reminder: ['set_reminder'],
+  manage_schedule: ['schedule_access'],
+  adjust_pet_state: ['pet_control'],
+  get_weather: ['weather_access'],
+  get_pet_status: [], // 读取宠物状态不需要特殊权限
+  read_file: ['read_files'],
+  list_directory: ['read_files'],
+  search_files: ['read_files'],
+  write_file: ['write_files'],
+  execute_command: ['execute_command'],
 }
 
 /** 工具 → 风险等级 */
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical'
 
 const TOOL_RISK_MAP: Record<string, RiskLevel> = {
-  'open_application': 'medium',
-  'search_web': 'low',
-  'set_reminder': 'low',
-  'manage_schedule': 'low',
-  'adjust_pet_state': 'low',
-  'get_weather': 'low',
-  'get_pet_status': 'low',
-  'read_file': 'medium',
-  'list_directory': 'low',
-  'search_files': 'low',
-  'write_file': 'high',
-  'execute_command': 'critical',
+  open_application: 'medium',
+  search_web: 'low',
+  set_reminder: 'low',
+  manage_schedule: 'low',
+  adjust_pet_state: 'low',
+  get_weather: 'low',
+  get_pet_status: 'low',
+  read_file: 'medium',
+  list_directory: 'low',
+  search_files: 'low',
+  write_file: 'high',
+  execute_command: 'critical',
 }
 
 /** 文件系统沙箱 — 允许读取的目录白名单 */
-const ALLOWED_READ_DIRS = [
-  'Desktop',
-  'Documents',
-  'Downloads',
-  'Pictures',
-  'Music',
-  'Videos',
-]
+const ALLOWED_READ_DIRS = ['Desktop', 'Documents', 'Downloads', 'Pictures', 'Music', 'Videos']
 
 /** 文件系统沙箱 — 禁止写入的目录黑名单 */
 const FORBIDDEN_WRITE_PATTERNS = [
@@ -153,12 +146,7 @@ export class AgentSandbox {
       this.permissions.set(perm, 'granted')
     }
     // 中高风险权限默认拒绝
-    const defaultDenied: AgentPermission[] = [
-      'open_app',
-      'read_files',
-      'write_files',
-      'execute_command',
-    ]
+    const defaultDenied: AgentPermission[] = ['open_app', 'read_files', 'write_files', 'execute_command']
     for (const perm of defaultDenied) {
       this.permissions.set(perm, 'denied')
     }
@@ -176,7 +164,9 @@ export class AgentSandbox {
     params?: Record<string, unknown>,
   ): { allowed: boolean; reason?: string; riskLevel: RiskLevel; needsConfirmation: boolean } {
     const riskLevel = TOOL_RISK_MAP[toolName] ?? 'medium'
-    const needsConfirmation = isToolConfirmationRequired(toolName)
+    // 确认语义（2026-10-16）：静态豁免名单 + 语义注入初筛统一决策（与 aiAgent 两条执行路径等价）
+    const gate = decideToolGate(toolName, params)
+    const needsConfirmation = gate.confirmationRequired
 
     // 1. 模式检查：工具是否在当前模式下可用
     if (!isToolAvailableInMode(toolName, mode)) {
@@ -200,7 +190,12 @@ export class AgentSandbox {
       const path = String(params.path)
       const forbidden = FORBIDDEN_WRITE_PATTERNS.some((p) => p.test(path))
       if (forbidden) {
-        return { allowed: false, reason: `路径「${path}」在沙箱保护范围内，禁止写入`, riskLevel: 'critical', needsConfirmation: true }
+        return {
+          allowed: false,
+          reason: `路径「${path}」在沙箱保护范围内，禁止写入`,
+          riskLevel: 'critical',
+          needsConfirmation: true,
+        }
       }
     }
 
@@ -284,8 +279,15 @@ export class AgentSandbox {
   getAllPermissions(): Record<AgentPermission, PermissionStatus> {
     const result = {} as Record<AgentPermission, PermissionStatus>
     const allPerms: AgentPermission[] = [
-      'open_app', 'web_search', 'set_reminder', 'read_files',
-      'write_files', 'execute_command', 'pet_control', 'weather_access', 'schedule_access',
+      'open_app',
+      'web_search',
+      'set_reminder',
+      'read_files',
+      'write_files',
+      'execute_command',
+      'pet_control',
+      'weather_access',
+      'schedule_access',
     ]
     for (const perm of allPerms) {
       result[perm] = this.permissions.get(perm) ?? 'denied'
@@ -298,14 +300,16 @@ export class AgentSandbox {
     this.permissions.clear()
     // 重新应用默认值
     const defaultGranted: AgentPermission[] = [
-      'web_search', 'pet_control', 'weather_access', 'schedule_access', 'set_reminder',
+      'web_search',
+      'pet_control',
+      'weather_access',
+      'schedule_access',
+      'set_reminder',
     ]
     for (const perm of defaultGranted) {
       this.permissions.set(perm, 'granted')
     }
-    const defaultDenied: AgentPermission[] = [
-      'open_app', 'read_files', 'write_files', 'execute_command',
-    ]
+    const defaultDenied: AgentPermission[] = ['open_app', 'read_files', 'write_files', 'execute_command']
     for (const perm of defaultDenied) {
       this.permissions.set(perm, 'denied')
     }
@@ -344,9 +348,8 @@ export class AgentSandbox {
     const tools = getToolsForMode(mode)
     return tools.map((tool) => {
       const perms = TOOL_PERMISSION_MAP[tool] ?? []
-      const permStatus = perms.length > 0
-        ? this.permissions.get(perms[0]) ?? 'denied'
-        : 'granted' as PermissionStatus
+      const permStatus =
+        perms.length > 0 ? (this.permissions.get(perms[0]) ?? 'denied') : ('granted' as PermissionStatus)
       return {
         tool,
         risk: TOOL_RISK_MAP[tool] ?? 'medium',

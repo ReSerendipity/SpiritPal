@@ -34,14 +34,28 @@
 
 /** 标准参数 ID */
 export type StandardParamId =
-  | 'brow_up' | 'brow_down' | 'brow_angry'
-  | 'eye_open' | 'eye_close' | 'eye_happy' | 'eye_wide'
-  | 'mouth_open' | 'mouth_smile' | 'mouth_angry' | 'mouth_surprised'
-  | 'head_tilt_x' | 'head_tilt_y' | 'head_tilt_z'
-  | 'body_breath' | 'body_bounce'
-  | 'arm_left' | 'arm_right'
-  | 'hair_swing' | 'ear_wiggle'
-  | 'tail_wag' | 'wing_flap'
+  | 'brow_up'
+  | 'brow_down'
+  | 'brow_angry'
+  | 'eye_open'
+  | 'eye_close'
+  | 'eye_happy'
+  | 'eye_wide'
+  | 'mouth_open'
+  | 'mouth_smile'
+  | 'mouth_angry'
+  | 'mouth_surprised'
+  | 'head_tilt_x'
+  | 'head_tilt_y'
+  | 'head_tilt_z'
+  | 'body_breath'
+  | 'body_bounce'
+  | 'arm_left'
+  | 'arm_right'
+  | 'hair_swing'
+  | 'ear_wiggle'
+  | 'tail_wag'
+  | 'wing_flap'
 
 /** 参数映射条目 */
 export interface ParamMappingEntry {
@@ -70,137 +84,137 @@ export interface ParamMappingEntry {
  */
 export const PARAM_FUZZY_MAP: Record<string, StandardParamId> = {
   // ===== 眉毛 =====
-  'parambrowly': 'brow_up',
-  'parambrowry': 'brow_up',
-  'parambrowl_y': 'brow_up',
-  'parambrowr_y': 'brow_up',
-  'brow_ly': 'brow_up',
-  'brow_ry': 'brow_up',
-  'browlefty': 'brow_up',
-  'browrighty': 'brow_up',
-  'browup': 'brow_up',
-  'brow_raise': 'brow_up',
-  '眉毛上': 'brow_up',
+  parambrowly: 'brow_up',
+  parambrowry: 'brow_up',
+  parambrowl_y: 'brow_up',
+  parambrowr_y: 'brow_up',
+  brow_ly: 'brow_up',
+  brow_ry: 'brow_up',
+  browlefty: 'brow_up',
+  browrighty: 'brow_up',
+  browup: 'brow_up',
+  brow_raise: 'brow_up',
+  眉毛上: 'brow_up',
 
-  'parambrowl_y_down': 'brow_down',
-  'parambrowr_y_down': 'brow_down',
-  'brow_down': 'brow_down',
-  'browlower': 'brow_down',
-  'brow_frown': 'brow_down',
-  '眉毛下': 'brow_down',
+  parambrowl_y_down: 'brow_down',
+  parambrowr_y_down: 'brow_down',
+  brow_down: 'brow_down',
+  browlower: 'brow_down',
+  brow_frown: 'brow_down',
+  眉毛下: 'brow_down',
 
-  'parambrowangry': 'brow_angry',
-  'brow_angry': 'brow_angry',
-  'browangry': 'brow_angry',
-  '眉毛怒': 'brow_angry',
+  parambrowangry: 'brow_angry',
+  brow_angry: 'brow_angry',
+  browangry: 'brow_angry',
+  眉毛怒: 'brow_angry',
 
   // ===== 眼睛 =====
-  'parameyely': 'eye_open',
-  'parameyery': 'eye_open',
-  'parameyel_y': 'eye_open',
-  'parameyer_y': 'eye_open',
-  'eye_ly': 'eye_open',
-  'eye_ry': 'eye_open',
-  'eyelefty': 'eye_open',
-  'eyerighty': 'eye_open',
-  'eyeopen': 'eye_open',
-  'eye_open': 'eye_open',
-  'eye_blink': 'eye_close',
-  'eyeblink': 'eye_close',
-  'parameyeblink': 'eye_close',
-  'eyeclose': 'eye_close',
-  'eye_close': 'eye_close',
-  '眨眼': 'eye_close',
+  parameyely: 'eye_open',
+  parameyery: 'eye_open',
+  parameyel_y: 'eye_open',
+  parameyer_y: 'eye_open',
+  eye_ly: 'eye_open',
+  eye_ry: 'eye_open',
+  eyelefty: 'eye_open',
+  eyerighty: 'eye_open',
+  eyeopen: 'eye_open',
+  eye_open: 'eye_open',
+  eye_blink: 'eye_close',
+  eyeblink: 'eye_close',
+  parameyeblink: 'eye_close',
+  eyeclose: 'eye_close',
+  eye_close: 'eye_close',
+  眨眼: 'eye_close',
 
-  'parameyehappy': 'eye_happy',
-  'eyehappy': 'eye_happy',
-  'eye_happy': 'eye_happy',
-  'eye_smile': 'eye_happy',
+  parameyehappy: 'eye_happy',
+  eyehappy: 'eye_happy',
+  eye_happy: 'eye_happy',
+  eye_smile: 'eye_happy',
 
-  'parameyewide': 'eye_wide',
-  'eyewide': 'eye_wide',
-  'eye_wide': 'eye_wide',
+  parameyewide: 'eye_wide',
+  eyewide: 'eye_wide',
+  eye_wide: 'eye_wide',
 
   // ===== 嘴巴 =====
-  'parammouthopeny': 'mouth_open',
-  'mouthopeny': 'mouth_open',
-  'mouth_open_y': 'mouth_open',
-  'mouthopen': 'mouth_open',
-  'mouth_open': 'mouth_open',
-  '口开': 'mouth_open',
+  parammouthopeny: 'mouth_open',
+  mouthopeny: 'mouth_open',
+  mouth_open_y: 'mouth_open',
+  mouthopen: 'mouth_open',
+  mouth_open: 'mouth_open',
+  口开: 'mouth_open',
 
-  'parammouthsmile': 'mouth_smile',
-  'mouthsmile': 'mouth_smile',
-  'mouth_smile': 'mouth_smile',
-  'mouthhappy': 'mouth_smile',
-  '口笑': 'mouth_smile',
+  parammouthsmile: 'mouth_smile',
+  mouthsmile: 'mouth_smile',
+  mouth_smile: 'mouth_smile',
+  mouthhappy: 'mouth_smile',
+  口笑: 'mouth_smile',
 
-  'parammouthangry': 'mouth_angry',
-  'mouthangry': 'mouth_angry',
-  'mouth_angry': 'mouth_angry',
-  '口怒': 'mouth_angry',
+  parammouthangry: 'mouth_angry',
+  mouthangry: 'mouth_angry',
+  mouth_angry: 'mouth_angry',
+  口怒: 'mouth_angry',
 
-  'parammouthsurprised': 'mouth_surprised',
-  'mouthsurprised': 'mouth_surprised',
-  'mouth_surprised': 'mouth_surprised',
-  'mouthwow': 'mouth_surprised',
-  '口惊': 'mouth_surprised',
+  parammouthsurprised: 'mouth_surprised',
+  mouthsurprised: 'mouth_surprised',
+  mouth_surprised: 'mouth_surprised',
+  mouthwow: 'mouth_surprised',
+  口惊: 'mouth_surprised',
 
   // ===== 头部 =====
-  'paramanglex': 'head_tilt_x',
-  'paramangley': 'head_tilt_y',
-  'paramanglez': 'head_tilt_z',
-  'angle_x': 'head_tilt_x',
-  'angle_y': 'head_tilt_y',
-  'angle_z': 'head_tilt_z',
-  'anglex': 'head_tilt_x',
-  'angley': 'head_tilt_y',
-  'anglez': 'head_tilt_z',
-  'headtiltx': 'head_tilt_x',
-  'headtilty': 'head_tilt_y',
-  'headtiltz': 'head_tilt_z',
-  '头x': 'head_tilt_x',
-  '头y': 'head_tilt_y',
-  '头z': 'head_tilt_z',
+  paramanglex: 'head_tilt_x',
+  paramangley: 'head_tilt_y',
+  paramanglez: 'head_tilt_z',
+  angle_x: 'head_tilt_x',
+  angle_y: 'head_tilt_y',
+  angle_z: 'head_tilt_z',
+  anglex: 'head_tilt_x',
+  angley: 'head_tilt_y',
+  anglez: 'head_tilt_z',
+  headtiltx: 'head_tilt_x',
+  headtilty: 'head_tilt_y',
+  headtiltz: 'head_tilt_z',
+  头x: 'head_tilt_x',
+  头y: 'head_tilt_y',
+  头z: 'head_tilt_z',
 
   // ===== 身体 =====
-  'parambreath': 'body_breath',
-  'breath': 'body_breath',
-  'body_breath': 'body_breath',
-  'breathing': 'body_breath',
-  '呼吸': 'body_breath',
+  parambreath: 'body_breath',
+  breath: 'body_breath',
+  body_breath: 'body_breath',
+  breathing: 'body_breath',
+  呼吸: 'body_breath',
 
-  'parambodyanglez': 'body_bounce',
-  'bodyanglez': 'body_bounce',
-  'body_bounce': 'body_bounce',
-  'bodyangle': 'body_bounce',
+  parambodyanglez: 'body_bounce',
+  bodyanglez: 'body_bounce',
+  body_bounce: 'body_bounce',
+  bodyangle: 'body_bounce',
 
   // ===== 手臂 =====
-  'paramarmly': 'arm_left',
-  'paramarmry': 'arm_right',
-  'arm_ly': 'arm_left',
-  'arm_ry': 'arm_right',
-  'armlefty': 'arm_left',
-  'armrighty': 'arm_right',
+  paramarmly: 'arm_left',
+  paramarmry: 'arm_right',
+  arm_ly: 'arm_left',
+  arm_ry: 'arm_right',
+  armlefty: 'arm_left',
+  armrighty: 'arm_right',
 
   // ===== 头发/装饰 =====
-  'paramhairswing': 'hair_swing',
-  'hairswing': 'hair_swing',
-  'hair_swing': 'hair_swing',
-  '头发': 'hair_swing',
+  paramhairswing: 'hair_swing',
+  hairswing: 'hair_swing',
+  hair_swing: 'hair_swing',
+  头发: 'hair_swing',
 
-  'paramearwiggle': 'ear_wiggle',
-  'earwiggle': 'ear_wiggle',
-  'ear_wiggle': 'ear_wiggle',
+  paramearwiggle: 'ear_wiggle',
+  earwiggle: 'ear_wiggle',
+  ear_wiggle: 'ear_wiggle',
 
-  'paramtailwag': 'tail_wag',
-  'tailwag': 'tail_wag',
-  'tail_wag': 'tail_wag',
-  '尾巴': 'tail_wag',
+  paramtailwag: 'tail_wag',
+  tailwag: 'tail_wag',
+  tail_wag: 'tail_wag',
+  尾巴: 'tail_wag',
 
-  'paramwingflap': 'wing_flap',
-  'wingflap': 'wing_flap',
-  'wing_flap': 'wing_flap',
+  paramwingflap: 'wing_flap',
+  wingflap: 'wing_flap',
+  wing_flap: 'wing_flap',
 }
 
 // ============ 参数自动映射器 ============

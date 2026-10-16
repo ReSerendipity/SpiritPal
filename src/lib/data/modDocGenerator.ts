@@ -227,11 +227,7 @@ export function generateReadme(mod: CharacterMod, meta?: ReadmeMeta): string {
  * @param outputPath 目标文件路径（建议 xxx/README.md）
  * @param meta 清单级元信息，可选
  */
-export async function saveReadme(
-  mod: CharacterMod,
-  outputPath: string,
-  meta?: ReadmeMeta,
-): Promise<void> {
+export async function saveReadme(mod: CharacterMod, outputPath: string, meta?: ReadmeMeta): Promise<void> {
   const content = generateReadme(mod, meta)
   await writeTextFile(outputPath, content)
 }

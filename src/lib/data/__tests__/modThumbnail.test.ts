@@ -66,9 +66,7 @@ describe('resolveModThumbnail', () => {
   })
 
   it('preview 缺失时回退 thumbnail.png', async () => {
-    existsMock.mockImplementation(
-      (p: string) => Promise.resolve(p === '/mods/demo-pet/thumbnail.png'),
-    )
+    existsMock.mockImplementation((p: string) => Promise.resolve(p === '/mods/demo-pet/thumbnail.png'))
     const url = await resolveModThumbnail(makeMod('/mods/demo-pet'))
     expect(url).toBe('http://asset.localhost//mods/demo-pet/thumbnail.png')
   })
@@ -76,9 +74,7 @@ describe('resolveModThumbnail', () => {
   it('候选文件全缺失时回退 manifest.thumbnail 字段', async () => {
     readTextMock.mockResolvedValue(JSON.stringify({ thumbnail: 'art/cover.png' }))
     existsMock.mockImplementation((p: string) =>
-      Promise.resolve(
-        p === '/mods/demo-pet/manifest.json' || p === '/mods/demo-pet/art/cover.png',
-      ),
+      Promise.resolve(p === '/mods/demo-pet/manifest.json' || p === '/mods/demo-pet/art/cover.png'),
     )
     const url = await resolveModThumbnail(makeMod('/mods/demo-pet'))
     expect(readTextMock).toHaveBeenCalledWith('/mods/demo-pet/manifest.json')
@@ -88,9 +84,7 @@ describe('resolveModThumbnail', () => {
   it('manifest.icon 作为 thumbnail 的回退字段', async () => {
     readTextMock.mockResolvedValue(JSON.stringify({ icon: 'art/icon.png' }))
     existsMock.mockImplementation((p: string) =>
-      Promise.resolve(
-        p === '/mods/demo-pet/manifest.json' || p === '/mods/demo-pet/art/icon.png',
-      ),
+      Promise.resolve(p === '/mods/demo-pet/manifest.json' || p === '/mods/demo-pet/art/icon.png'),
     )
     const url = await resolveModThumbnail(makeMod('/mods/demo-pet'))
     expect(url).toBe('http://asset.localhost//mods/demo-pet/art/icon.png')

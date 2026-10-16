@@ -55,7 +55,7 @@ import {
   // 导致 agentTools 已实现的 search_files / execute_command 在 isToolAllowed 下不可用。
   getToolsForMode,
   isToolAvailableInMode,
-  isToolConfirmationRequired,
+  decideToolGate,
   ToolMode as AgentToolMode,
 } from './agentTools'
 import { loadAIConfig } from './aiConfig'
@@ -91,10 +91,30 @@ const INTENT_KEYWORDS: IntentKeyword[] = [
   { tool: 'search_web', keywords: ['搜索', '查一下', '查询', '搜索一下', '帮我查', 'search', 'google'] },
   // P0-4 修复：移除单独的"记得"——它会拦截"你还记得我们上次聊过的 XX 吗"这类记忆召回请求，
   // 导致回忆功能根本走不到。改为更精确的组合词，仅在明确表达"提醒我"意图时才触发提醒工具。
-  { tool: 'set_reminder', keywords: ['提醒', '定时', '记得提醒', '别忘了', '记着提醒', '到时候叫我', '到点提醒', 'remind', 'reminder', 'timer'] },
+  {
+    tool: 'set_reminder',
+    keywords: [
+      '提醒',
+      '定时',
+      '记得提醒',
+      '别忘了',
+      '记着提醒',
+      '到时候叫我',
+      '到点提醒',
+      'remind',
+      'reminder',
+      'timer',
+    ],
+  },
   { tool: 'get_weather', keywords: ['天气', 'weather', '温度多少', '下雨吗'] },
-  { tool: 'get_pet_status', keywords: ['宠物状态', '状态如何', '饱食度', '心情如何', '等级多少', 'hp多少', '查看状态'] },
-  { tool: 'adjust_pet_state', keywords: ['喂食', '喂一下', '玩耍', '玩一下', '睡觉', '洗澡', '摸头', '摸一下', '撸猫'] },
+  {
+    tool: 'get_pet_status',
+    keywords: ['宠物状态', '状态如何', '饱食度', '心情如何', '等级多少', 'hp多少', '查看状态'],
+  },
+  {
+    tool: 'adjust_pet_state',
+    keywords: ['喂食', '喂一下', '玩耍', '玩一下', '睡觉', '洗澡', '摸头', '摸一下', '撸猫'],
+  },
   { tool: 'manage_schedule', keywords: ['日程', 'schedule', '查看日程', '取消日程', '删除日程', '有什么安排'] },
 ]
 
@@ -207,7 +227,8 @@ export const AGENT_TOOLS: ToolDefinition[] = [
   },
   {
     name: 'execute_command',
-    description: '执行受限只读命令（白名单：tasklist/ipconfig/dir/type/whoami/netstat 等，禁止链式/重定向/任意 shell；高风险操作，必须用户确认）',
+    description:
+      '执行受限只读命令（白名单：tasklist/ipconfig/dir/type/whoami/netstat 等，禁止链式/重定向/任意 shell；高风险操作，必须用户确认）',
     parameters: {
       command: { type: 'string', description: '单条只读命令', required: true },
     },
@@ -343,7 +364,10 @@ export async function processAgentRequest(
   // 当用户消息包含多步操作意图时，路由到 processReActRequest 进行多步推理-行动循环。
   if (detectMultiStepIntent(userMessage)) {
     try {
-      const reactResult = await processReActRequest(userMessage, config, characterId, { maxRounds: 5, toolMode: 'agent' })
+      const reactResult = await processReActRequest(userMessage, config, characterId, {
+        maxRounds: 5,
+        toolMode: 'agent',
+      })
       return reactResult.answer
     } catch (reactErr) {
       console.warn('[SpiritPal] ReAct 执行失败，回退到单轮 Agent:', reactErr)
@@ -359,9 +383,7 @@ export async function processAgentRequest(
     if (aiConfig.apiKey || aiConfig.provider === 'ollama') {
       const client = getLLMClient(aiConfig)
       // T-7: 注入记忆上下文到 system prompt
-      const systemPrompt = memoryContext
-        ? `${AGENT_SYSTEM_PROMPT}\n\n${memoryContext}`
-        : AGENT_SYSTEM_PROMPT
+      const systemPrompt = memoryContext ? `${AGENT_SYSTEM_PROMPT}\n\n${memoryContext}` : AGENT_SYSTEM_PROMPT
       const messages: ChatMessage[] = [
         {
           id: 'agent-sys',
@@ -419,8 +441,13 @@ export async function processAgentRequest(
     }
     const sanitizedParams = validation.sanitizedParams ?? plan.params
 
-    // 3.2 确认闸门（默认拒绝 + 豁免名单之外必须用户确认，fail-closed）
-    if (isToolConfirmationRequired(plan.tool)) {
+    // 3.2 确认闸门（默认拒绝 + 豁免名单之外必须用户确认，fail-closed）；
+    //     语义注入初筛（2026-10-16）：豁免名单内的工具若参数命中注入特征，同样升级为必须确认
+    const gate = decideToolGate(plan.tool, sanitizedParams)
+    if (gate.injectionHits.length > 0) {
+      console.warn('[aiAgent] 工具参数语义注入初筛命中', plan.tool, gate.injectionHits)
+    }
+    if (gate.confirmationRequired) {
       const confirmation = await requestToolConfirmation(plan.tool, sanitizedParams, 'worker')
       if (!confirmation.approved) {
         return `🔧 已拒绝执行「${plan.tool}」：${confirmation.reason ?? '用户未确认'}`
@@ -496,7 +523,7 @@ export function isToolAllowed(mode: ToolMode, toolName: string): boolean {
  */
 export function getAvailableTools(mode: ToolMode): ToolDefinition[] {
   const allowedNames = getToolsForMode(mode as unknown as AgentToolMode)
-  return AGENT_TOOLS.filter(t => allowedNames.includes(t.name))
+  return AGENT_TOOLS.filter((t) => allowedNames.includes(t.name))
 }
 
 /**
@@ -570,9 +597,7 @@ export interface ReActRound {
 const REACT_SYSTEM_PROMPT = getPrompt('agent.react')
 
 /** 解析 ReAct LLM 响应 */
-function parseReActResponse(
-  response: string,
-): {
+function parseReActResponse(response: string): {
   thought: string
   action?: { tool: string; params: Record<string, unknown> }
   answer?: string
@@ -651,7 +676,7 @@ export async function processReActRequest(
 
   // 构建工具描述
   const toolDescriptions = availableTools
-    .map(t => `- ${t.name}: ${t.description} 参数: ${JSON.stringify(t.parameters)}`)
+    .map((t) => `- ${t.name}: ${t.description} 参数: ${JSON.stringify(t.parameters)}`)
     .join('\n')
 
   const systemPrompt = REACT_SYSTEM_PROMPT.replace('{tool_descriptions}', toolDescriptions)
@@ -713,7 +738,7 @@ export async function processReActRequest(
         }
 
         // 执行工具（P0-1：接入 zod 参数校验 + 确认闸门）
-        const toolDef = availableTools.find(t => t.name === tool)
+        const toolDef = availableTools.find((t) => t.name === tool)
         let observation: string
 
         if (!toolDef) {
@@ -727,8 +752,13 @@ export async function processReActRequest(
             } else {
               const sanitizedParams = validation.sanitizedParams ?? params
 
-              // 2. 确认闸门（豁免名单之外必须用户确认，fail-closed）
-              if (isToolConfirmationRequired(tool)) {
+              // 2. 确认闸门（豁免名单之外必须用户确认，fail-closed）；
+              //    语义注入初筛（2026-10-16）：豁免名单内的工具若参数命中注入特征，同样升级为必须确认
+              const gate = decideToolGate(tool, sanitizedParams)
+              if (gate.injectionHits.length > 0) {
+                console.warn('[aiAgent] 工具参数语义注入初筛命中', tool, gate.injectionHits)
+              }
+              if (gate.confirmationRequired) {
                 const confirmation = await requestToolConfirmation(tool, sanitizedParams, toolMode)
                 if (!confirmation.approved) {
                   observation = `已拒绝执行「${tool}」：${confirmation.reason ?? '用户未确认'}`

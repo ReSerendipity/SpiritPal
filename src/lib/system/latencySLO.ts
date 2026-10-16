@@ -63,12 +63,12 @@ export interface SLOState {
 // ============ 默认 SLO 配置 ============
 
 export const DEFAULT_SLO_CONFIG: SLOConfig = {
-  p95ThresholdMs: 5000,   // 5s → Level 1
-  p95CriticalMs: 10000,   // 10s → Level 2
-  p95RecoveryMs: 3000,     // 3s 以下才恢复
-  degradedModel: 'fast',   // 降级模型标识（由调用方映射到实际模型）
+  p95ThresholdMs: 5000, // 5s → Level 1
+  p95CriticalMs: 10000, // 10s → Level 2
+  p95RecoveryMs: 3000, // 3s 以下才恢复
+  degradedModel: 'fast', // 降级模型标识（由调用方映射到实际模型）
   fallbackModel: 'ollama', // 兜底模型标识
-  minSampleSize: 5,        // 至少 5 个样本才评估
+  minSampleSize: 5, // 至少 5 个样本才评估
   minDegradeDurationMs: 30000, // 降级至少保持 30s
 }
 

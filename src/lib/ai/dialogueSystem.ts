@@ -156,11 +156,7 @@ export class DialogueSystem {
    * @param treeId 对话树 ID
    * @param savedState 恢复的对话状态（可选，用于持久化恢复）
    */
-  startDialogue(
-    characterId: string,
-    treeId: string,
-    savedState?: Partial<DialogueState>,
-  ): DialogueState | null {
+  startDialogue(characterId: string, treeId: string, savedState?: Partial<DialogueState>): DialogueState | null {
     const tree = this.trees.get(treeId)
     if (!tree) return null
 
@@ -226,11 +222,7 @@ export class DialogueSystem {
    * 栈式回溯：当前节点入栈，跳转到目标节点
    * @returns 选择后的对话状态，null 表示对话结束
    */
-  selectOption(
-    characterId: string,
-    optionIndex: number,
-    ctx: InterpolationContext,
-  ): DialogueState | null {
+  selectOption(characterId: string, optionIndex: number, ctx: InterpolationContext): DialogueState | null {
     const state = this.activeStates.get(characterId)
     if (!state || state.finished) return null
 
@@ -324,14 +316,17 @@ export class DialogueSystem {
   /**
    * 恢复对话状态（从持久化数据）
    */
-  deserializeState(characterId: string, data: {
-    treeId: string
-    currentNodeId: string
-    history: string[]
-    flags: string[]
-    finished: boolean
-    startedAt: number
-  }): DialogueState | null {
+  deserializeState(
+    characterId: string,
+    data: {
+      treeId: string
+      currentNodeId: string
+      history: string[]
+      flags: string[]
+      finished: boolean
+      startedAt: number
+    },
+  ): DialogueState | null {
     const state: DialogueState = {
       treeId: data.treeId,
       currentNodeId: data.currentNodeId,
@@ -421,13 +416,20 @@ function evaluateCondition(condition: DialogueCondition, ctx: InterpolationConte
   const rightNum = typeof rightValue === 'number' ? rightValue : parseFloat(String(rightValue))
 
   switch (condition.operator) {
-    case '>':  return leftNum > rightNum
-    case '>=': return leftNum >= rightNum
-    case '<':  return leftNum < rightNum
-    case '<=': return leftNum <= rightNum
-    case '==': return leftValue == rightValue
-    case '!=': return leftValue != rightValue
-    default:   return false
+    case '>':
+      return leftNum > rightNum
+    case '>=':
+      return leftNum >= rightNum
+    case '<':
+      return leftNum < rightNum
+    case '<=':
+      return leftNum <= rightNum
+    case '==':
+      return leftValue == rightValue
+    case '!=':
+      return leftValue != rightValue
+    default:
+      return false
   }
 }
 

@@ -63,7 +63,7 @@ export interface AgentStateEvents {
 
 /** 代理状态映射到编码反应 */
 const AGENT_STATE_TO_CODING_REACTION: Record<AgentState, CodingReaction | null> = {
-  idle: null,           // 空闲时不触发编码反应
+  idle: null, // 空闲时不触发编码反应
   thinking: 'thinking', // 思考中
   executing: 'editing', // 执行中（映射为编辑）
   waiting_input: 'testing', // 等待输入（映射为测试等待）

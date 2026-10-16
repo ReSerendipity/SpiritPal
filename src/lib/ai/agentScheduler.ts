@@ -132,12 +132,7 @@ export class AgentScheduler {
   /**
    * 注册间隔任务（快捷方法）
    */
-  registerInterval(
-    id: string,
-    name: string,
-    execute: () => Promise<void>,
-    intervalMs?: number,
-  ): string {
+  registerInterval(id: string, name: string, execute: () => Promise<void>, intervalMs?: number): string {
     return this.register({
       id,
       name,
@@ -151,12 +146,7 @@ export class AgentScheduler {
   /**
    * 注册 cron 任务（快捷方法）
    */
-  registerCron(
-    id: string,
-    name: string,
-    execute: () => Promise<void>,
-    cronExpression: string,
-  ): string {
+  registerCron(id: string, name: string, execute: () => Promise<void>, cronExpression: string): string {
     return this.register({
       id,
       name,
@@ -170,12 +160,7 @@ export class AgentScheduler {
   /**
    * 注册一次性任务（快捷方法）
    */
-  registerOnce(
-    id: string,
-    name: string,
-    execute: () => Promise<void>,
-    runAt: number,
-  ): string {
+  registerOnce(id: string, name: string, execute: () => Promise<void>, runAt: number): string {
     return this.register({
       id,
       name,
@@ -275,13 +260,13 @@ export class AgentScheduler {
     switch (schedule.type) {
       case 'interval': {
         const interval = schedule.intervalMs ?? this.config.defaultIntervalMs
-        return lastRunAt === null || (now - lastRunAt) >= interval
+        return lastRunAt === null || now - lastRunAt >= interval
       }
       case 'cron': {
         if (!schedule.cronExpression) return false
         const parsed = parseCronExpression(schedule.cronExpression)
         if (!parsed) return false
-        return lastRunAt === null || (now - (lastRunAt ?? 0)) >= parsed.intervalMs
+        return lastRunAt === null || now - (lastRunAt ?? 0) >= parsed.intervalMs
       }
       case 'once': {
         if (!schedule.runAt) return false

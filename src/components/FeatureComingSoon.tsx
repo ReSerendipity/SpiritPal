@@ -21,9 +21,7 @@ export function FeatureComingSoon({ title, description }: FeatureComingSoonProps
       </div>
       <div className="text-sm font-semibold text-ink">「{title}」功能尚未完善</div>
       <p className="max-w-[280px] text-xs leading-relaxed text-ink-muted">{description}</p>
-      <div className="mt-1 rounded-full bg-cream-deep px-3 py-1 text-[11px] text-ink-faint">
-        敬请期待后续版本
-      </div>
+      <div className="mt-1 rounded-full bg-cream-deep px-3 py-1 text-[11px] text-ink-faint">敬请期待后续版本</div>
     </div>
   )
 }

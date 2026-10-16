@@ -4,12 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import {
-  SubpetStateMachine,
-  canTransition,
-  transitionSubpetState,
-  isSubpetActive,
-} from '@/lib/nurture/subpetState'
+import { SubpetStateMachine, canTransition, transitionSubpetState, isSubpetActive } from '@/lib/nurture/subpetState'
 
 describe('subpetState', () => {
   describe('纯函数转换表', () => {

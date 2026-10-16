@@ -28,12 +28,12 @@ import type { AnimationRow, PetState } from '@/lib/data/types'
 // ============ 编码反应类型 ============
 /** 编码反应状态（6 种，对应新增的 6 行精灵图） */
 export type CodingReaction =
-  | 'thinking'     // 思考中 — 宠物正在处理/推理
-  | 'editing'      // 编辑中 — 宠物正在编写代码
-  | 'testing'      // 测试中 — 宠物正在运行测试
-  | 'success'      // 成功 — 操作成功
-  | 'error'        // 错误 — 遇到错误
-  | 'celebrating'  // 庆祝 — 庆祝成功
+  | 'thinking' // 思考中 — 宠物正在处理/推理
+  | 'editing' // 编辑中 — 宠物正在编写代码
+  | 'testing' // 测试中 — 宠物正在运行测试
+  | 'success' // 成功 — 操作成功
+  | 'error' // 错误 — 遇到错误
+  | 'celebrating' // 庆祝 — 庆祝成功
 
 /** 编码反应总数 */
 export const CODING_REACTION_COUNT = 6
@@ -52,12 +52,12 @@ export const EXTENDED_ROW_COUNT = BASE_ROW_COUNT + CODING_REACTION_COUNT // 15
  * 帧数参考原 ANIMATION_ROWS 的典型帧数（6-8 帧）
  */
 export const CODING_REACTION_ROWS: Record<CodingReaction, AnimationRow> = {
-  thinking:    { row: 9,  frames: 6 },  // 思考中：6 帧（类似 idle）
-  editing:     { row: 10, frames: 8 },  // 编辑中：8 帧（类似 walk，有手部动作）
-  testing:     { row: 11, frames: 6 },  // 测试中：6 帧（类似 waiting，等待反馈）
-  success:     { row: 12, frames: 5 },  // 成功：5 帧（类似 jumping）
-  error:       { row: 13, frames: 8 },  // 错误：8 帧（类似 failed，摇晃/叹气）
-  celebrating: { row: 14, frames: 6 },  // 庆祝：6 帧（类似 waving + 跳跃混合）
+  thinking: { row: 9, frames: 6 }, // 思考中：6 帧（类似 idle）
+  editing: { row: 10, frames: 8 }, // 编辑中：8 帧（类似 walk，有手部动作）
+  testing: { row: 11, frames: 6 }, // 测试中：6 帧（类似 waiting，等待反馈）
+  success: { row: 12, frames: 5 }, // 成功：5 帧（类似 jumping）
+  error: { row: 13, frames: 8 }, // 错误：8 帧（类似 failed，摇晃/叹气）
+  celebrating: { row: 14, frames: 6 }, // 庆祝：6 帧（类似 waving + 跳跃混合）
 }
 
 // ============ 编码反应 → 动画 ID 映射 ============
@@ -73,11 +73,11 @@ export const CODING_REACTION_ROWS: Record<CodingReaction, AnimationRow> = {
  * - celebrating → excited（兴奋/庆祝）
  */
 export const CODING_REACTION_TO_ANIMATION: Record<CodingReaction, string> = {
-  thinking:    'coding_companion',
-  editing:     'coding_companion',
-  testing:     'coding_companion',
-  success:     'level_up',
-  error:       'confused',
+  thinking: 'coding_companion',
+  editing: 'coding_companion',
+  testing: 'coding_companion',
+  success: 'level_up',
+  error: 'confused',
   celebrating: 'excited',
 }
 
@@ -89,12 +89,12 @@ export const CODING_REACTION_TO_ANIMATION: Record<CodingReaction, string> = {
  * 当精灵图不支持扩展行时，回退到基础 PetState
  */
 export const CODING_REACTION_TO_PET_STATE: Record<CodingReaction, PetState> = {
-  thinking:    'sit',    // 思考 → 坐下
-  editing:     'sit',    // 编辑 → 坐下
-  testing:     'idle',   // 测试 → 待机
-  success:     'happy',  // 成功 → 开心
-  error:       'sad',    // 错误 → 伤心
-  celebrating: 'happy',  // 庆祝 → 开心
+  thinking: 'sit', // 思考 → 坐下
+  editing: 'sit', // 编辑 → 坐下
+  testing: 'idle', // 测试 → 待机
+  success: 'happy', // 成功 → 开心
+  error: 'sad', // 错误 → 伤心
+  celebrating: 'happy', // 庆祝 → 开心
 }
 
 // ============ OpenPets 反应名 → 编码反应映射 ============
@@ -103,11 +103,11 @@ export const CODING_REACTION_TO_PET_STATE: Record<CodingReaction, PetState> = {
  * 与 types.ts 中的 OPENPETS_REACTION_MAP 互补
  */
 export const OPENPETS_TO_CODING_REACTION: Record<string, CodingReaction> = {
-  thinking:    'thinking',
-  editing:     'editing',
-  testing:     'testing',
-  success:     'success',
-  error:       'error',
+  thinking: 'thinking',
+  editing: 'editing',
+  testing: 'testing',
+  success: 'success',
+  error: 'error',
   celebrating: 'celebrating',
 }
 
@@ -118,9 +118,7 @@ export const OPENPETS_TO_CODING_REACTION: Record<string, CodingReaction> = {
  * 原有代码使用 ANIMATION_ROWS 时，新增的编码反应行不会影响已有映射
  * 需要编码反应的代码使用 EXTENDED_ANIMATION_ROWS
  */
-export function getExtendedAnimationRows(
-  baseRows: Record<string, AnimationRow>,
-): Record<string, AnimationRow> {
+export function getExtendedAnimationRows(baseRows: Record<string, AnimationRow>): Record<string, AnimationRow> {
   return {
     ...baseRows,
     ...CODING_REACTION_ROWS,

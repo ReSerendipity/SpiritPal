@@ -150,9 +150,15 @@ export function createMockContext(options: MockContextOptions = {}) {
   const storage = new Map<string, unknown>()
   const storageImpl = {
     get: vi.fn(async (key: string) => storage.get(key) ?? null),
-    set: vi.fn(async (key: string, value: unknown) => { storage.set(key, value) }),
-    delete: vi.fn(async (key: string) => { storage.delete(key) }),
-    clear: vi.fn(async () => { storage.clear() }),
+    set: vi.fn(async (key: string, value: unknown) => {
+      storage.set(key, value)
+    }),
+    delete: vi.fn(async (key: string) => {
+      storage.delete(key)
+    }),
+    clear: vi.fn(async () => {
+      storage.clear()
+    }),
     entries: vi.fn(async () => Array.from(storage.entries())),
   }
 
@@ -163,7 +169,7 @@ export function createMockContext(options: MockContextOptions = {}) {
     emit: vi.fn((event: string, payload: unknown) => {
       events.push({ event, payload })
       const listeners = eventListeners.get(event) ?? []
-      listeners.forEach(fn => fn(payload))
+      listeners.forEach((fn) => fn(payload))
     }),
     listen: vi.fn((event: string, callback: (payload: unknown) => void) => {
       const listeners = eventListeners.get(event) ?? []
@@ -183,9 +189,7 @@ export function createMockContext(options: MockContextOptions = {}) {
    * @param expectedAnim - 期望的动画ID
    */
   const expectReacted = (expectedAnim: string) => {
-    const reactionEvent = events.find(e =>
-      e.event === 'spiritpal-mcp-react' && e.payload === expectedAnim,
-    )
+    const reactionEvent = events.find((e) => e.event === 'spiritpal-mcp-react' && e.payload === expectedAnim)
     expect(reactionEvent).toBeDefined()
   }
 
@@ -194,9 +198,7 @@ export function createMockContext(options: MockContextOptions = {}) {
    * @param expectedMessage - 期望的消息文本
    */
   const expectSpoke = (expectedMessage: string) => {
-    const sayEvent = events.find(e =>
-      e.event === 'spiritpal-mcp-say' && e.payload === expectedMessage,
-    )
+    const sayEvent = events.find((e) => e.event === 'spiritpal-mcp-say' && e.payload === expectedMessage)
     expect(sayEvent).toBeDefined()
   }
 
@@ -205,7 +207,7 @@ export function createMockContext(options: MockContextOptions = {}) {
    * @param command - 期望调用的命令名
    */
   const expectCommandCalled = (command: string) => {
-    const call = invokeCalls.find(c => c.command === command)
+    const call = invokeCalls.find((c) => c.command === command)
     expect(call).toBeDefined()
   }
 
@@ -222,7 +224,7 @@ export function createMockContext(options: MockContextOptions = {}) {
    * @param event - 期望触发的事件名
    */
   const expectEventEmitted = (event: string) => {
-    const found = events.find(e => e.event === event)
+    const found = events.find((e) => e.event === event)
     expect(found).toBeDefined()
   }
 

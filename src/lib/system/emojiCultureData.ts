@@ -404,12 +404,14 @@ export function getCulturalEmoji(key: string, locale: CultureLocale): EmojiSet {
   const set = CULTURE_EMOJI_MAP[key]
   if (!set || !set.primary) {
     // Fallback to default culture
-    return CULTURE_EMOJI_MAP.greeting?.primary['zh-CN'] || {
-      primary: '😊',
-      alternatives: [],
-      context: '',
-      category: 'neutral',
-    }
+    return (
+      CULTURE_EMOJI_MAP.greeting?.primary['zh-CN'] || {
+        primary: '😊',
+        alternatives: [],
+        context: '',
+        category: 'neutral',
+      }
+    )
   }
 
   return set.primary[locale] || set.primary['zh-CN']

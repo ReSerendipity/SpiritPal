@@ -200,7 +200,9 @@ export class DataManager {
     data.memories = memories
     data.enhancedMemories = enhancedMemories
     if (Object.keys(memories).length > 0 || Object.keys(enhancedMemories).length > 0) {
-      data.exportedItems?.push(`记忆与对话历史（${Object.keys(enhancedMemories).length + Object.keys(memories).length} 个角色）`)
+      data.exportedItems?.push(
+        `记忆与对话历史（${Object.keys(enhancedMemories).length + Object.keys(memories).length} 个角色）`,
+      )
     }
 
     // 成就数据

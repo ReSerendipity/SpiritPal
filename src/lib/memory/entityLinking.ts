@@ -313,7 +313,7 @@ export class EntityManager {
    * P4-3：时间感知检索——根据时间实体筛选记忆
    */
   getTemporalEntities(): EntityNode[] {
-    return Array.from(this.entities.values()).filter(e => e.type === 'time')
+    return Array.from(this.entities.values()).filter((e) => e.type === 'time')
   }
 
   // ============ 清空 ============

@@ -107,7 +107,9 @@ export class ScreenshotManager {
         this.screenshots = this.screenshots.slice(0, Math.floor(this.screenshots.length / 2))
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(this.screenshots))
-        } catch { /* 忽略 */ }
+        } catch {
+          /* 忽略 */
+        }
       }
     }
     this.notifyListeners()
@@ -215,12 +217,7 @@ export class ScreenshotManager {
    * @param caption 截图说明（可选）
    * @returns 创建的截图对象
    */
-  captureFromImage(
-    imageUrl: string,
-    characterId: string,
-    characterName: string,
-    caption?: string,
-  ): Screenshot | null {
+  captureFromImage(imageUrl: string, characterId: string, characterName: string, caption?: string): Screenshot | null {
     const screenshot: Screenshot = {
       id: `ss_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       characterId,
@@ -305,9 +302,7 @@ export class ScreenshotManager {
     try {
       const response = await fetch(ss.dataUrl)
       const blob = await response.blob()
-      await navigator.clipboard.write([
-        new ClipboardItem({ 'image/png': blob }),
-      ])
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
       return true
     } catch {
       return false
@@ -496,7 +491,9 @@ export class PrivateScreenshotManager {
     // 使用 Canvas 实现模糊
     const img = new Image()
     img.src = dataUrl
-    await new Promise((resolve) => { img.onload = resolve })
+    await new Promise((resolve) => {
+      img.onload = resolve
+    })
 
     const canvas = document.createElement('canvas')
     canvas.width = img.width
@@ -507,11 +504,7 @@ export class PrivateScreenshotManager {
     // 对每个敏感区域应用模糊
     for (const area of areas) {
       ctx.filter = 'blur(10px)'
-      ctx.drawImage(
-        canvas,
-        area.x, area.y, area.width, area.height,
-        area.x, area.y, area.width, area.height,
-      )
+      ctx.drawImage(canvas, area.x, area.y, area.width, area.height, area.x, area.y, area.width, area.height)
       ctx.filter = 'none'
     }
 

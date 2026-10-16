@@ -198,10 +198,7 @@ class WindowEventBus {
    * @param event 事件名（必须为 WindowEventMap 中注册的键）
    * @param payload 事件载荷
    */
-  async emit<K extends keyof WindowEventMap>(
-    event: K,
-    payload: WindowEventMap[K],
-  ): Promise<void> {
+  async emit<K extends keyof WindowEventMap>(event: K, payload: WindowEventMap[K]): Promise<void> {
     try {
       await emit(event as string, payload)
     } catch (e) {
@@ -340,11 +337,13 @@ export function useWindowEvent<K extends keyof WindowEventMap>(
 
     let unlisten: (() => void) | null = null
 
-    windowEventBus.on(event, (payload) => {
-      handlerRef.current(payload)
-    }).then((fn) => {
-      unlisten = fn
-    })
+    windowEventBus
+      .on(event, (payload) => {
+        handlerRef.current(payload)
+      })
+      .then((fn) => {
+        unlisten = fn
+      })
 
     return () => {
       unlisten?.()

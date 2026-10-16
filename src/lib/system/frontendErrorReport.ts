@@ -71,9 +71,7 @@ export function installGlobalErrorReport(): void {
   installed = true
 
   window.addEventListener('error', (event) => {
-    reportError(
-      `uncaught: ${event.message ?? 'unknown error'} @ ${event.filename ?? '?'}:${event.lineno ?? '?'}`,
-    )
+    reportError(`uncaught: ${event.message ?? 'unknown error'} @ ${event.filename ?? '?'}:${event.lineno ?? '?'}`)
   })
 
   window.addEventListener('unhandledrejection', (event) => {

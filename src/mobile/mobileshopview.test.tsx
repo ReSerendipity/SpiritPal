@@ -9,8 +9,18 @@ vi.mock('@/lib/nurture/shopManager', () => ({
   ShopLockState: { NONE: 0, FVLOCK: 1, PETLIMIT: 2 },
   getShopManager: vi.fn(() => ({
     getCatalog: vi.fn(() => [
-      { item: { id: 'food-1', type: 'food', name: '测试食物', icon: '🍎', price: 10, description: '补充饱食' }, lockState: 0, sellPrice: 5, owned: 0 },
-      { item: { id: 'toy-1', type: 'toy', name: '测试玩具', icon: '🧸', price: 20, description: '玩耍' }, lockState: 0, sellPrice: 10, owned: 1 },
+      {
+        item: { id: 'food-1', type: 'food', name: '测试食物', icon: '🍎', price: 10, description: '补充饱食' },
+        lockState: 0,
+        sellPrice: 5,
+        owned: 0,
+      },
+      {
+        item: { id: 'toy-1', type: 'toy', name: '测试玩具', icon: '🧸', price: 20, description: '玩耍' },
+        lockState: 0,
+        sellPrice: 10,
+        owned: 1,
+      },
     ]),
     buyItem: vi.fn(() => true),
     sellItem: vi.fn(() => true),

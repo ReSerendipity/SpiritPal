@@ -52,7 +52,13 @@ export function usePetMemoryTriggers(options: UsePetMemoryTriggersOptions): void
             const client = getLLMClient()
             const prompt = buildRecallRenderPrompt(candidate, contextHints)
             const response = await client.chatOnce([
-              { id: 'recall-sys', role: 'system', content: '你是SpiritPal桌面宠物，正在自然地提起一段回忆。用一两句话表达，保持角色性格。只输出你要说的话，不要加说明。', timestamp: Date.now() },
+              {
+                id: 'recall-sys',
+                role: 'system',
+                content:
+                  '你是SpiritPal桌面宠物，正在自然地提起一段回忆。用一两句话表达，保持角色性格。只输出你要说的话，不要加说明。',
+                timestamp: Date.now(),
+              },
               { id: 'recall-user', role: 'user', content: prompt, timestamp: Date.now() },
             ])
             return response.trim()

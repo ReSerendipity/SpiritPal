@@ -30,17 +30,17 @@
 
 /** 已知的路径穿越攻击模式 */
 const TRAVERSAL_PATTERNS: RegExp[] = [
-  /\.\./,                    // 父目录引用
-  /\.\.\//,                  // Unix 父目录
-  /\.\.\\/,                  // Windows 父目录
-  /%2e%2e%2f/i,              // URL 编码 ../
-  /%2e%2e%5c/i,              // URL 编码 ..\
-  /\.\.%2f/i,                // 混合编码
-  /\.\.%5c/i,                // 混合编码
-  /%252e%252e%252f/i,        // 双重 URL 编码
-  /\.\.\.\./,                // 超长父目录引用
-  /\0/,                       // 空字节注入
-  /\.\.[/\\]+[^\s]/,        // 后跟路径的父目录引用
+  /\.\./, // 父目录引用
+  /\.\.\//, // Unix 父目录
+  /\.\.\\/, // Windows 父目录
+  /%2e%2e%2f/i, // URL 编码 ../
+  /%2e%2e%5c/i, // URL 编码 ..\
+  /\.\.%2f/i, // 混合编码
+  /\.\.%5c/i, // 混合编码
+  /%252e%252e%252f/i, // 双重 URL 编码
+  /\.\.\.\./, // 超长父目录引用
+  /\0/, // 空字节注入
+  /\.\.[/\\]+[^\s]/, // 后跟路径的父目录引用
 ]
 
 // ============ 规范化 ============
@@ -167,8 +167,7 @@ export function isPathWithinAllowedDirs(path: string, allowedDirs: string[]): bo
   for (const dir of allowedDirs) {
     const normalizedDir = normpath(dir).toLowerCase()
     // 严格前缀匹配：target 必须以 dir + 分隔符 开头，或者等于 dir
-    if (normalizedTarget === normalizedDir ||
-        normalizedTarget.startsWith(normalizedDir + '/')) {
+    if (normalizedTarget === normalizedDir || normalizedTarget.startsWith(normalizedDir + '/')) {
       return true
     }
   }

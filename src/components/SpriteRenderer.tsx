@@ -51,19 +51,31 @@ interface SpriteRendererProps {
  */
 function stateToAnimKey(state: PetState): string {
   switch (state) {
-    case 'idle': return 'idle'
-    case 'walk': return 'walk'
-    case 'sleep': return 'waiting'
-    case 'sit': return 'waiting'
-    case 'eat': return 'waving'
-    case 'drag': return 'jumping'
-    case 'happy': return 'jumping'
-    case 'sad': return 'failed'
-    case 'sick': return 'failed'
-    case 'pet': return 'waving'
+    case 'idle':
+      return 'idle'
+    case 'walk':
+      return 'walk'
+    case 'sleep':
+      return 'waiting'
+    case 'sit':
+      return 'waiting'
+    case 'eat':
+      return 'waving'
+    case 'drag':
+      return 'jumping'
+    case 'happy':
+      return 'jumping'
+    case 'sad':
+      return 'failed'
+    case 'sick':
+      return 'failed'
+    case 'pet':
+      return 'waving'
     // 2.4: hide 状态复用 idle 动画行（无专用素材时回退）
-    case 'hide': return 'idle'
-    default: return 'idle'
+    case 'hide':
+      return 'idle'
+    default:
+      return 'idle'
   }
 }
 
@@ -72,19 +84,31 @@ function stateToAnimKey(state: PetState): string {
  */
 function stateToVideoFile(state: PetState): string {
   switch (state) {
-    case 'idle': return 'idle.webm'
-    case 'walk': return 'walk.webm'
-    case 'sleep': return 'rest.webm'
-    case 'sit': return 'rest.webm'
-    case 'eat': return 'eat.webm'
-    case 'drag': return 'spin.webm'
-    case 'happy': return 'dance.webm'
-    case 'sad': return 'rest.webm'
-    case 'sick': return 'angry.webm'
-    case 'pet': return 'headpat.webm'
+    case 'idle':
+      return 'idle.webm'
+    case 'walk':
+      return 'walk.webm'
+    case 'sleep':
+      return 'rest.webm'
+    case 'sit':
+      return 'rest.webm'
+    case 'eat':
+      return 'eat.webm'
+    case 'drag':
+      return 'spin.webm'
+    case 'happy':
+      return 'dance.webm'
+    case 'sad':
+      return 'rest.webm'
+    case 'sick':
+      return 'angry.webm'
+    case 'pet':
+      return 'headpat.webm'
     // 2.4: hide 状态复用 idle 视频（无专用素材时回退）
-    case 'hide': return 'idle.webm'
-    default: return 'idle.webm'
+    case 'hide':
+      return 'idle.webm'
+    default:
+      return 'idle.webm'
   }
 }
 
@@ -94,14 +118,7 @@ function stateToVideoFile(state: PetState): string {
  * 根据角色精灵图类型自动选择图集/视频/SVG渲染方式，支持状态切换动画。
  * 视频模式使用双缓冲技术避免切换闪白。
  */
-export function SpriteRenderer({
-  characterId,
-  state,
-  size = 1,
-  className,
-  style,
-  onFrameChange,
-}: SpriteRendererProps) {
+export function SpriteRenderer({ characterId, state, size = 1, className, style, onFrameChange }: SpriteRendererProps) {
   const character = getCharacter(characterId)
   const [frame, setFrame] = useState(0)
   const rafRef = useRef<number>(0)
@@ -164,9 +181,10 @@ export function SpriteRenderer({
   }
 
   // 视频类型：视频 URL 为派生值（每次渲染直接计算；字符串原语值比较，下游 effect 不受影响）
-  const videoSrc = character?.spriteType === 'video'
-    ? `${character.spriteAsset.replace(/\/[^/]*$/, '')}/${stateToVideoFile(state)}`
-    : ''
+  const videoSrc =
+    character?.spriteType === 'video'
+      ? `${character.spriteAsset.replace(/\/[^/]*$/, '')}/${stateToVideoFile(state)}`
+      : ''
 
   // 图集帧动画
   useEffect(() => {
@@ -193,26 +211,24 @@ export function SpriteRenderer({
   }, [animRow.frames, state, character?.spriteType])
 
   // ===== 双缓冲视频切换逻辑（移植自 OC-Claw） =====
-  const finishSwap = useCallback((newFront: 0 | 1) => {
-    activeBufferRef.current = newFront
-    setActiveBuffer(newFront)
-    // 只暂停旧缓冲区 —— 绝不清除旧 src
-    // setActiveBuffer 触发异步 React 渲染设置 visibility:hidden，
-    // 但 removeAttribute('src')+load() 会在 React 隐藏元素之前清除帧缓冲，导致闪白
-    // 旧内容是安全的：旧缓冲区被隐藏，loadWithFallback 在它再次成为前缓冲之前会替换 src
-    const old = newFront === 0 ? videoRefB.current : videoRefA.current
-    if (old) {
-      old.pause()
-    }
-  }, [setActiveBuffer])
+  const finishSwap = useCallback(
+    (newFront: 0 | 1) => {
+      activeBufferRef.current = newFront
+      setActiveBuffer(newFront)
+      // 只暂停旧缓冲区 —— 绝不清除旧 src
+      // setActiveBuffer 触发异步 React 渲染设置 visibility:hidden，
+      // 但 removeAttribute('src')+load() 会在 React 隐藏元素之前清除帧缓冲，导致闪白
+      // 旧内容是安全的：旧缓冲区被隐藏，loadWithFallback 在它再次成为前缓冲之前会替换 src
+      const old = newFront === 0 ? videoRefB.current : videoRefA.current
+      if (old) {
+        old.pause()
+      }
+    },
+    [setActiveBuffer],
+  )
 
   const loadWithFallback = useCallback(
-    (
-      target: HTMLVideoElement,
-      url: string,
-      onReady: () => void,
-      onFailed: () => void,
-    ) => {
+    (target: HTMLVideoElement, url: string, onReady: () => void, onFailed: () => void) => {
       let settled = false
       const onPlaying = () => {
         if (settled) return
@@ -304,10 +320,15 @@ export function SpriteRenderer({
     }
 
     // 非首次：在后缓冲加载新视频，播放就绪后交换到前缓冲
-    loadWithFallback(back, videoSrc, () => {
-      maybeDetectChromaKey(back)
-      finishSwap(backIdx)
-    }, handleVideoFailed)
+    loadWithFallback(
+      back,
+      videoSrc,
+      () => {
+        maybeDetectChromaKey(back)
+        finishSwap(backIdx)
+      },
+      handleVideoFailed,
+    )
     // 说明：state 只在 handleVideoFailed 的回退分支里读一次，而本 effect 的键 videoSrc
     // 已由 state 派生（不同状态对应不同视频 URL）；把 state 也列进依赖会在 videoSrc
     // 未变化时重复触发视频加载。
@@ -427,7 +448,7 @@ export function SpriteRenderer({
       objectFit: 'contain',
       filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.25))',
       // 色度键模式下 video 仅作解码源，一律隐藏；普通模式按双缓冲前后切换
-      visibility: chromaActive ? 'hidden' : (isFront ? 'visible' : 'hidden'),
+      visibility: chromaActive ? 'hidden' : isFront ? 'visible' : 'hidden',
       pointerEvents: 'none',
       ...style,
     })
@@ -458,23 +479,8 @@ export function SpriteRenderer({
             }}
           />
         )}
-        <video
-          ref={videoRefA}
-          style={videoStyle(activeBuffer === 0)}
-          loop
-          muted
-          playsInline
-          autoPlay
-          preload="auto"
-        />
-        <video
-          ref={videoRefB}
-          style={videoStyle(activeBuffer === 1)}
-          loop
-          muted
-          playsInline
-          preload="auto"
-        />
+        <video ref={videoRefA} style={videoStyle(activeBuffer === 0)} loop muted playsInline autoPlay preload="auto" />
+        <video ref={videoRefB} style={videoStyle(activeBuffer === 1)} loop muted playsInline preload="auto" />
       </div>
     )
   }

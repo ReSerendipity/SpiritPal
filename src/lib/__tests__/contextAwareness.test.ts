@@ -90,7 +90,16 @@ describe('NotificationManager', () => {
 
 describe('SOFT_REMINDERS', () => {
   it('包含所有通知类型的文案', () => {
-    const types = ['rest_reminder', 'drink_reminder', 'hp_low', 'hp_zero', 'pomodoro_done', 'achievement', 'level_up', 'daily_goal']
+    const types = [
+      'rest_reminder',
+      'drink_reminder',
+      'hp_low',
+      'hp_zero',
+      'pomodoro_done',
+      'achievement',
+      'level_up',
+      'daily_goal',
+    ]
     for (const type of types) {
       expect(SOFT_REMINDERS[type as keyof typeof SOFT_REMINDERS]).toBeDefined()
       expect(SOFT_REMINDERS[type as keyof typeof SOFT_REMINDERS].petMessages.length).toBeGreaterThan(0)
@@ -203,7 +212,7 @@ describe('ContextAwarenessManager 活跃窗口检测（跨平台）', () => {
     it('macOS 风格进程名匹配 coding（Code 而非 Visual Studio Code）', async () => {
       const { invoke } = await import('@tauri-apps/api/core')
       vi.mocked(invoke).mockResolvedValue({
-        title: 'App.tsx',  // macOS 标题可能不含完整应用名
+        title: 'App.tsx', // macOS 标题可能不含完整应用名
         process_name: 'Code',
       })
       const state = await mgr.detectWorkState()

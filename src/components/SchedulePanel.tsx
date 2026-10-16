@@ -18,7 +18,11 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { Plus, Trash2, Check, Calendar, Clock, Upload } from 'lucide-react'
-import { getScheduleManager, type EnhancedScheduleEvent, type ImportedCalendarEvent } from '@/lib/nurture/scheduleManager'
+import {
+  getScheduleManager,
+  type EnhancedScheduleEvent,
+  type ImportedCalendarEvent,
+} from '@/lib/nurture/scheduleManager'
 import { formatDateTime } from '@/lib/system/i18n'
 // A-8：外部日历（.ics）导入，替代 calendarIntegration 的空占位
 import { createIcsCalendarSource, parseIcs } from '@/lib/system/icsParser'
@@ -48,8 +52,15 @@ export function SchedulePanel() {
   useEffect(() => {
     // A-8 D-2：拉取已注册外部日历源事件（当前无源时为空白数组）
     let alive = true
-    mgr.getImportedCalendarEvents().then((evs) => { if (alive) setCalendarEvents(evs) }).catch(() => {})
-    return () => { alive = false }
+    mgr
+      .getImportedCalendarEvents()
+      .then((evs) => {
+        if (alive) setCalendarEvents(evs)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
   }, [mgr])
 
   // A-8：导入外部 .ics 日历 —— 解析后注册为 CalendarSourceAdapter，事件汇入下方「外部日历」区
@@ -67,10 +78,11 @@ export function SchedulePanel() {
         alert(`未在 ${file.name} 中解析到日程事件（文件可能不是有效的 .ics）`)
         return
       }
-      mgr.registerCalendarSource(
-        createIcsCalendarSource(`ics-${Date.now()}`, file.name.replace(/\.ics$/i, ''), text),
-      )
-      void mgr.getImportedCalendarEvents().then((evs) => setCalendarEvents(evs)).catch(() => {})
+      mgr.registerCalendarSource(createIcsCalendarSource(`ics-${Date.now()}`, file.name.replace(/\.ics$/i, ''), text))
+      void mgr
+        .getImportedCalendarEvents()
+        .then((evs) => setCalendarEvents(evs))
+        .catch(() => {})
       alert(`已从「${file.name}」导入 ${events.length} 个日程`)
     }
     reader.onerror = () => alert('文件读取失败')
@@ -125,7 +137,9 @@ export function SchedulePanel() {
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-2 text-sm font-semibold">
           📅 日程管理
-          <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] text-ink-muted">🌐 {tz.abbreviation} {tz.timeZoneId}</span>
+          <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] text-ink-muted">
+            🌐 {tz.abbreviation} {tz.timeZoneId}
+          </span>
         </span>
         <div className="flex gap-2">
           {/* A-8：外部日历导入 —— 解析用户从 Google/Outlook/Apple 导出的 .ics 文件 */}
@@ -230,10 +244,7 @@ export function SchedulePanel() {
                   <div className="truncate text-sm text-ink-muted line-through">{e.title}</div>
                   <div className="text-[10px] text-ink-faint">{formatTime(e.triggerTime)}</div>
                 </div>
-                <button
-                  onClick={() => handleDelete(e.id)}
-                  className="flex-shrink-0 text-ink-muted hover:text-error"
-                >
+                <button onClick={() => handleDelete(e.id)} className="flex-shrink-0 text-ink-muted hover:text-error">
                   <Trash2 size={14} />
                 </button>
               </div>

@@ -64,12 +64,14 @@ describe('EnhancedMemoryManager', () => {
       ;(getSetting as ReturnType<typeof vi.fn>).mockResolvedValue(encData)
       ;(invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
         if (cmd === 'decrypt_data') {
-          return Promise.resolve(JSON.stringify({
-            workingMemory: [],
-            episodicMemory: [],
-            semanticMemory: '',
-            autobiographicalMemory: [],
-          }))
+          return Promise.resolve(
+            JSON.stringify({
+              workingMemory: [],
+              episodicMemory: [],
+              semanticMemory: '',
+              autobiographicalMemory: [],
+            }),
+          )
         }
         return Promise.resolve('')
       })
@@ -80,29 +82,33 @@ describe('EnhancedMemoryManager', () => {
 
     it('D1：加载 ENC2: 前缀数据时调用 decrypt 并恢复记忆（新版 Rust 加密格式）', async () => {
       const encData = 'ENC2:someencrypteddata'
-      const restored = [{
-        id: 'mem-enc2',
-        user: '上次说的话',
-        assistant: '回复',
-        created_at: new Date().toISOString(),
-        importance: 60,
-        emotionalIntensity: 0.2,
-        category: '日常',
-        tags: ['上次'],
-        accessCount: 0,
-        lastAccessed: Date.now(),
-        decayFactor: 1,
-        isAutobiographical: false,
-      }]
+      const restored = [
+        {
+          id: 'mem-enc2',
+          user: '上次说的话',
+          assistant: '回复',
+          created_at: new Date().toISOString(),
+          importance: 60,
+          emotionalIntensity: 0.2,
+          category: '日常',
+          tags: ['上次'],
+          accessCount: 0,
+          lastAccessed: Date.now(),
+          decayFactor: 1,
+          isAutobiographical: false,
+        },
+      ]
       ;(getSetting as ReturnType<typeof vi.fn>).mockResolvedValue(encData)
       ;(invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
         if (cmd === 'decrypt_data') {
-          return Promise.resolve(JSON.stringify({
-            workingMemory: restored,
-            episodicMemory: [],
-            semanticMemory: '',
-            autobiographicalMemory: [],
-          }))
+          return Promise.resolve(
+            JSON.stringify({
+              workingMemory: restored,
+              episodicMemory: [],
+              semanticMemory: '',
+              autobiographicalMemory: [],
+            }),
+          )
         }
         return Promise.resolve('')
       })
@@ -123,7 +129,7 @@ describe('EnhancedMemoryManager', () => {
     })
   })
 
-describe('持久化 load/save', () => {
+  describe('持久化 load/save', () => {
     it('加载明文数据（非 ENC1: 前缀）', async () => {
       const plainData = JSON.stringify({
         workingMemory: [
@@ -170,9 +176,12 @@ describe('持久化 load/save', () => {
       ;(setSetting as ReturnType<typeof vi.fn>).mockClear()
       mgr.addExchange('test encrypt fail', 'reply')
       // 等待防抖触发 encrypt_data 调用（证明 save 流程已执行），再验证 setSetting 未被调用
-      await vi.waitFor(() => {
-        expect(invoke).toHaveBeenCalledWith('encrypt_data', expect.any(Object))
-      }, { timeout: 2000, interval: 50 })
+      await vi.waitFor(
+        () => {
+          expect(invoke).toHaveBeenCalledWith('encrypt_data', expect.any(Object))
+        },
+        { timeout: 2000, interval: 50 },
+      )
       expect(setSetting).not.toHaveBeenCalled()
       ;(invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
         if (cmd === 'decrypt_data') return Promise.resolve('{}')
@@ -182,7 +191,7 @@ describe('持久化 load/save', () => {
     })
   })
 
-describe('searchEpisodic 检索', () => {
+  describe('searchEpisodic 检索', () => {
     it('查询无 token 时返回最近记忆', async () => {
       for (let i = 0; i < 7; i++) {
         mgr.addExchange(`test${i}`, `reply${i}`)
@@ -202,7 +211,7 @@ describe('searchEpisodic 检索', () => {
     })
   })
 
-describe('向量检索', () => {
+  describe('向量检索', () => {
     afterEach(() => {
       vi.mocked(isVectorSearchAvailable).mockResolvedValue(false)
       vi.mocked(getAllEmbeddings).mockResolvedValue([])
@@ -223,9 +232,7 @@ describe('向量检索', () => {
 
     it('向量检索成功返回结果', async () => {
       vi.mocked(isVectorSearchAvailable).mockResolvedValue(true)
-      vi.mocked(getAllEmbeddings).mockResolvedValue([
-        { id: 1, embedding: new Float32Array([0.1, 0.2, 0.3]) },
-      ])
+      vi.mocked(getAllEmbeddings).mockResolvedValue([{ id: 1, embedding: new Float32Array([0.1, 0.2, 0.3]) }])
       mgr.addExchange('apple pie recipe', 'here is how')
       for (let i = 0; i < 5; i++) {
         mgr.addExchange(`filler${i}`, `reply${i}`)
@@ -251,9 +258,12 @@ describe('向量检索', () => {
       mgr.addExchange('test embed fail', 'reply')
       expect(mgr.getWorkingMemories().length).toBe(1)
       // 等待 embed 异步调用完成（即使失败），证明异步流程已执行且未影响记忆存储
-      await vi.waitFor(() => {
-        expect(embed).toHaveBeenCalled()
-      }, { timeout: 2000, interval: 50 })
+      await vi.waitFor(
+        () => {
+          expect(embed).toHaveBeenCalled()
+        },
+        { timeout: 2000, interval: 50 },
+      )
     })
 
     it('ensureEmbeddingsLoaded 加载失败时不抛出', async () => {

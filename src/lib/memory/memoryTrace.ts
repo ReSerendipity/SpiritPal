@@ -119,11 +119,7 @@ export class MemoryTraceManager {
    * @param source 查询来源
    * @param candidateCount 候选集大小
    */
-  beginTrace(
-    query: string,
-    source: RetrievalTrace['querySource'] = 'chat',
-    candidateCount = 0,
-  ): void {
+  beginTrace(query: string, source: RetrievalTrace['querySource'] = 'chat', candidateCount = 0): void {
     if (!this.config.enabled) return
 
     this.startTime = performance.now()
@@ -234,9 +230,7 @@ export class MemoryTraceManager {
    * @param memoryId 记忆 ID
    */
   getTracesForMemory(memoryId: string): RetrievalTrace[] {
-    return this.traces.filter((t) =>
-      t.results.some((r) => r.memoryId === memoryId),
-    )
+    return this.traces.filter((t) => t.results.some((r) => r.memoryId === memoryId))
   }
 
   /**
@@ -289,7 +283,7 @@ export class MemoryTraceManager {
     return {
       totalRetrievals: this.traces.length,
       avgDurationMs: Math.round(totalDuration / this.traces.length),
-      avgResultCount: Math.round(totalResults / this.traces.length * 10) / 10,
+      avgResultCount: Math.round((totalResults / this.traces.length) * 10) / 10,
       byStrategy,
       bySource,
       emptyResultRate: Math.round((emptyCount / this.traces.length) * 100) / 100,

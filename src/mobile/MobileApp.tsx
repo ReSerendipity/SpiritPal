@@ -143,25 +143,28 @@ export default function MobileApp() {
    * 触摸结束事件处理：判断滑动方向并切换 Tab
    * @param e React 触摸事件
    */
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    const start = touchStartRef.current
-    if (!start) return
-    touchStartRef.current = null
-    const t = e.changedTouches[0]
-    const dx = t.clientX - start.x
-    const dy = t.clientY - start.y
-    // 仅在水平滑动距离 > 阈值且大于垂直滑动时触发
-    if (Math.abs(dx) > SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      const idx = TABS.findIndex((tab) => tab.id === activeTab)
-      if (dx < 0 && idx < TABS.length - 1) {
-        // 左滑：下一个 Tab
-        setActiveTab(TABS[idx + 1].id)
-      } else if (dx > 0 && idx > 0) {
-        // 右滑：上一个 Tab
-        setActiveTab(TABS[idx - 1].id)
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      const start = touchStartRef.current
+      if (!start) return
+      touchStartRef.current = null
+      const t = e.changedTouches[0]
+      const dx = t.clientX - start.x
+      const dy = t.clientY - start.y
+      // 仅在水平滑动距离 > 阈值且大于垂直滑动时触发
+      if (Math.abs(dx) > SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        const idx = TABS.findIndex((tab) => tab.id === activeTab)
+        if (dx < 0 && idx < TABS.length - 1) {
+          // 左滑：下一个 Tab
+          setActiveTab(TABS[idx + 1].id)
+        } else if (dx > 0 && idx > 0) {
+          // 右滑：上一个 Tab
+          setActiveTab(TABS[idx - 1].id)
+        }
       }
-    }
-  }, [activeTab])
+    },
+    [activeTab],
+  )
 
   // 主题相关的样式类（统一走 SpiritPal 语义 Token：奶油底/暖棕墨/暖橙强调，与桌面端一致）
   const isDark = theme === 'dark'
@@ -205,15 +208,9 @@ export default function MobileApp() {
       <header className="flex items-center justify-between border-b border-ink/10 bg-surface/80 px-4 py-2 backdrop-blur-sm">
         <div className="flex items-center gap-2">
           <span className="text-lg font-semibold">SpiritPal</span>
-          {syncStatus === 'syncing' && (
-            <span className="text-xs text-tangerine-deep">{t('mobile.sync.syncing')}</span>
-          )}
-          {syncStatus === 'success' && (
-            <span className="text-xs text-success-deep">{t('mobile.sync.done')}</span>
-          )}
-          {syncStatus === 'error' && (
-            <span className="text-xs text-error">{t('mobile.sync.failed')}</span>
-          )}
+          {syncStatus === 'syncing' && <span className="text-xs text-tangerine-deep">{t('mobile.sync.syncing')}</span>}
+          {syncStatus === 'success' && <span className="text-xs text-success-deep">{t('mobile.sync.done')}</span>}
+          {syncStatus === 'error' && <span className="text-xs text-error">{t('mobile.sync.failed')}</span>}
         </div>
         {/* P2-1: 主题切换命中区经 after 伪元素扩到 ≥48px（36px 视觉 + 8px 四向） */}
         <button

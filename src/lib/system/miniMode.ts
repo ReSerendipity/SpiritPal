@@ -108,10 +108,7 @@ export class MiniModeManager {
   // 保存普通模式下的位置（用于从迷你模式恢复）
   private normalModePosition: WindowPosition | null = null
 
-  constructor(
-    config: Partial<MiniModeConfig> = {},
-    callbacks: MiniModeCallbacks = {},
-  ) {
+  constructor(config: Partial<MiniModeConfig> = {}, callbacks: MiniModeCallbacks = {}) {
     this.config = {
       edgeSnap: config.edgeSnap ?? true,
       hoverPreview: config.hoverPreview ?? true,
@@ -146,10 +143,7 @@ export class MiniModeManager {
     // 缩小窗口
     try {
       await appWindow.setSize(
-        new (await import('@tauri-apps/api/dpi')).LogicalSize(
-          this.config.miniSize.width,
-          this.config.miniSize.height,
-        ),
+        new (await import('@tauri-apps/api/dpi')).LogicalSize(this.config.miniSize.width, this.config.miniSize.height),
       )
     } catch (e) {
       console.warn('[MiniMode] 缩小窗口失败:', e)
@@ -189,9 +183,7 @@ export class MiniModeManager {
 
     // 恢复窗口大小
     try {
-      await appWindow.setSize(
-        new (await import('@tauri-apps/api/dpi')).LogicalSize(NORMAL_WIDTH, NORMAL_HEIGHT),
-      )
+      await appWindow.setSize(new (await import('@tauri-apps/api/dpi')).LogicalSize(NORMAL_WIDTH, NORMAL_HEIGHT))
     } catch (e) {
       console.warn('[MiniMode] 恢复窗口大小失败:', e)
     }
@@ -265,10 +257,7 @@ export class MiniModeManager {
 
     try {
       await appWindow.setSize(
-        new (await import('@tauri-apps/api/dpi')).LogicalSize(
-          this.config.miniSize.width,
-          this.config.miniSize.height,
-        ),
+        new (await import('@tauri-apps/api/dpi')).LogicalSize(this.config.miniSize.width, this.config.miniSize.height),
       )
     } catch {
       return

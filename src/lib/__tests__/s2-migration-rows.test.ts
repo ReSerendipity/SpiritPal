@@ -135,19 +135,21 @@ function makeLegacyBlobData(memories: { user: string; assistant: string; id: str
 }
 
 /** 构造模拟 MemoryRow */
-function makeMemoryRow(overrides: Partial<{
-  id: number
-  character_id: string
-  memory_id: string
-  content: string
-  assistant: string
-  tier: string
-  importance: number
-  is_autobiographical: number
-  created_at: number
-  access_count: number
-  last_accessed: number
-}> = {}) {
+function makeMemoryRow(
+  overrides: Partial<{
+    id: number
+    character_id: string
+    memory_id: string
+    content: string
+    assistant: string
+    tier: string
+    importance: number
+    is_autobiographical: number
+    created_at: number
+    access_count: number
+    last_accessed: number
+  }> = {},
+) {
   return {
     id: overrides.id ?? 1,
     character_id: overrides.character_id ?? 'test-char',
@@ -290,9 +292,7 @@ describe('S2: memory_id ↔ embedding 对账', () => {
     const { getSetting, isMemoryMigrated, isLegacyMode, insertMemoryRow } = await import('@/lib/data/db')
     const { migrateCharacterMemory } = await import('@/lib/memory/memoryMigrator')
 
-    const legacyData = makeLegacyBlobData([
-      { user: '保留 ID 测试', assistant: '回复', id: 'mem-original-id-001' },
-    ])
+    const legacyData = makeLegacyBlobData([{ user: '保留 ID 测试', assistant: '回复', id: 'mem-original-id-001' }])
     vi.mocked(getSetting).mockResolvedValueOnce(`ENC2:${legacyData}`)
     vi.mocked(isMemoryMigrated).mockResolvedValueOnce(false)
     vi.mocked(isLegacyMode).mockResolvedValueOnce(false)
@@ -314,7 +314,8 @@ describe('S2: 行级 load 路径', () => {
   })
 
   it('行级路径应从 getMemoriesByTier 加载三层记忆', async () => {
-    const { isMemoryMigrated, isLegacyMode, getMemoriesByTier, getMemorySummary, getMemoryState, getSetting } = await import('@/lib/data/db')
+    const { isMemoryMigrated, isLegacyMode, getMemoriesByTier, getMemorySummary, getMemoryState, getSetting } =
+      await import('@/lib/data/db')
     const { EnhancedMemoryManager } = await import('@/lib/memory/enhancedMemory')
 
     // 模拟已迁移 → 走行级路径
@@ -326,7 +327,13 @@ describe('S2: 行级 load 路径', () => {
     const mockRows = [
       makeMemoryRow({ id: 1, memory_id: 'mem-w-1', content: '工作记忆1', tier: 'working' }),
       makeMemoryRow({ id: 2, memory_id: 'mem-e-1', content: '情景记忆1', tier: 'episodic' }),
-      makeMemoryRow({ id: 3, memory_id: 'mem-a-1', content: '自传记忆1', tier: 'autobiographical', is_autobiographical: 1 }),
+      makeMemoryRow({
+        id: 3,
+        memory_id: 'mem-a-1',
+        content: '自传记忆1',
+        tier: 'autobiographical',
+        is_autobiographical: 1,
+      }),
     ]
     vi.mocked(getMemoriesByTier).mockResolvedValue(mockRows)
     vi.mocked(getMemorySummary).mockResolvedValue('行级摘要')
@@ -372,7 +379,15 @@ describe('S2: 行级 save 路径', () => {
   })
 
   it('行级路径 doSave 应仅写 memory_state + memory_summaries', async () => {
-    const { isMemoryMigrated, isLegacyMode, upsertMemoryState, getMemoriesByTier, getMemorySummary, getMemoryState, getSetting } = await import('@/lib/data/db')
+    const {
+      isMemoryMigrated,
+      isLegacyMode,
+      upsertMemoryState,
+      getMemoriesByTier,
+      getMemorySummary,
+      getMemoryState,
+      getSetting,
+    } = await import('@/lib/data/db')
     const { EnhancedMemoryManager } = await import('@/lib/memory/enhancedMemory')
 
     // 模拟已迁移 → 走行级路径
@@ -387,20 +402,22 @@ describe('S2: 行级 save 路径', () => {
     await mgr.ensureLoaded()
     mgr.addExchange('测试保存', '回复')
     // 通过 import 触发 forceSave（import 内部调用 forceSave）
-    mgr.import(JSON.stringify({
-      workingMemory: [],
-      episodicMemory: [],
-      semanticMemory: '',
-      autobiographicalMemory: [],
-      triggerLog: [],
-      ignoreCount: {},
-      lastPeriodicFireDate: {},
-      lastChatDate: null,
-      injectedAt: [],
-      llmReassessedIds: [],
-    }))
+    mgr.import(
+      JSON.stringify({
+        workingMemory: [],
+        episodicMemory: [],
+        semanticMemory: '',
+        autobiographicalMemory: [],
+        triggerLog: [],
+        ignoreCount: {},
+        lastPeriodicFireDate: {},
+        lastChatDate: null,
+        injectedAt: [],
+        llmReassessedIds: [],
+      }),
+    )
     // 等待 forceSave 完成
-    await new Promise(r => setTimeout(r, 100))
+    await new Promise((r) => setTimeout(r, 100))
 
     // 行级路径应调用 upsertMemoryState
     expect(upsertMemoryState).toHaveBeenCalled()

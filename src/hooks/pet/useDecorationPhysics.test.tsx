@@ -61,9 +61,7 @@ describe('useDecorationPhysics', () => {
     const fetchSpy = vi.fn()
     vi.stubGlobal('fetch', fetchSpy)
 
-    const { result } = renderHook(() =>
-      useDecorationPhysics({ physicsPath: undefined, velocityX: 300 }),
-    )
+    const { result } = renderHook(() => useDecorationPhysics({ physicsPath: undefined, velocityX: 300 }))
 
     expect(result.current).toEqual({})
     expect(fetchSpy).not.toHaveBeenCalled()
@@ -85,9 +83,7 @@ describe('useDecorationPhysics', () => {
       vi.fn(async () => ({ ok: true, text: async () => PHYSICS_JSON })),
     )
 
-    const { result } = renderHook(() =>
-      useDecorationPhysics({ physicsPath: '/p/physics3.json', velocityX: 600 }),
-    )
+    const { result } = renderHook(() => useDecorationPhysics({ physicsPath: '/p/physics3.json', velocityX: 600 }))
 
     await waitFor(() => {
       expect(rafCallbacks.length).toBeGreaterThan(0)
@@ -106,9 +102,7 @@ describe('useDecorationPhysics', () => {
       vi.fn(async () => ({ ok: false, status: 404, text: async () => '' })),
     )
 
-    const { result } = renderHook(() =>
-      useDecorationPhysics({ physicsPath: '/p/missing.json', velocityX: 300 }),
-    )
+    const { result } = renderHook(() => useDecorationPhysics({ physicsPath: '/p/missing.json', velocityX: 300 }))
 
     await waitFor(() => {
       expect(console.warn).toHaveBeenCalled()
@@ -124,9 +118,7 @@ describe('useDecorationPhysics', () => {
       vi.fn(async () => ({ ok: true, text: async () => PHYSICS_JSON })),
     )
 
-    const { unmount } = renderHook(() =>
-      useDecorationPhysics({ physicsPath: '/p/physics3.json', velocityX: 300 }),
-    )
+    const { unmount } = renderHook(() => useDecorationPhysics({ physicsPath: '/p/physics3.json', velocityX: 300 }))
 
     await waitFor(() => {
       expect(rafCallbacks.length).toBeGreaterThan(0)

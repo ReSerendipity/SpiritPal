@@ -83,11 +83,14 @@ export function MemoryPanel({ variant = 'full' }: MemoryPanelProps) {
     }
   }, [currentCharacterId])
 
-  const handleDeleteFact = useCallback(async (key: string) => {
-    const mgr = getOwnerFactsManager(currentCharacterId)
-    await mgr.deleteFact(key)
-    setFacts(mgr.getAllFacts())
-  }, [currentCharacterId])
+  const handleDeleteFact = useCallback(
+    async (key: string) => {
+      const mgr = getOwnerFactsManager(currentCharacterId)
+      await mgr.deleteFact(key)
+      setFacts(mgr.getAllFacts())
+    },
+    [currentCharacterId],
+  )
 
   const handleAddFact = useCallback(async () => {
     if (!newFactKey.trim() || !newFactValue.trim()) return
@@ -100,25 +103,28 @@ export function MemoryPanel({ variant = 'full' }: MemoryPanelProps) {
   }, [currentCharacterId, newFactKey, newFactValue])
 
   // A-12：导出三层记忆（JSON / CSV / Markdown），webview 安全下载
-  const handleExport = useCallback(async (format: 'json' | 'csv' | 'markdown') => {
-    setExporting(true)
-    try {
-      const result = await exportMemories({ format, characterId: currentCharacterId })
-      const blob = new Blob([result.content], { type: 'text/plain;charset=utf-8' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = result.filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } catch (e) {
-      console.warn('[MemoryPanel] 导出失败:', e)
-    } finally {
-      setExporting(false)
-    }
-  }, [currentCharacterId])
+  const handleExport = useCallback(
+    async (format: 'json' | 'csv' | 'markdown') => {
+      setExporting(true)
+      try {
+        const result = await exportMemories({ format, characterId: currentCharacterId })
+        const blob = new Blob([result.content], { type: 'text/plain;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = result.filename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      } catch (e) {
+        console.warn('[MemoryPanel] 导出失败:', e)
+      } finally {
+        setExporting(false)
+      }
+    },
+    [currentCharacterId],
+  )
 
   // A-12：批量删除选中事实（通过 batchOperationManager），并保留快照以支持撤销
   const handleBulkDelete = useCallback(async () => {
@@ -167,9 +173,7 @@ export function MemoryPanel({ variant = 'full' }: MemoryPanelProps) {
     <button
       onClick={() => setTab(t)}
       className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-        tab === t
-          ? 'bg-tangerine text-white'
-          : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
+        tab === t ? 'bg-tangerine text-white' : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
       }`}
     >
       {icon}
@@ -226,231 +230,244 @@ export function MemoryPanel({ variant = 'full' }: MemoryPanelProps) {
         </div>
       ) : (
         <>
-      {/* A-12：工具条——导出 + 批量操作（仅事实页） */}
-      <div key={`toolbar-${facts.length}`} className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-ink-faint">导出记忆</span>
-        <button
-          onClick={() => void handleExport('json')}
-          disabled={exporting}
-          className="rounded border border-ink/15 px-2 py-1 text-xs text-ink-muted hover:bg-ink/5 hover:text-ink disabled:opacity-50"
-        >
-          JSON
-        </button>
-        <button
-          onClick={() => void handleExport('csv')}
-          disabled={exporting}
-          className="rounded border border-ink/15 px-2 py-1 text-xs text-ink-muted hover:bg-ink/5 hover:text-ink disabled:opacity-50"
-        >
-          CSV
-        </button>
-        <button
-          onClick={() => void handleExport('markdown')}
-          disabled={exporting}
-          className="rounded border border-ink/15 px-2 py-1 text-xs text-ink-muted hover:bg-ink/5 hover:text-ink disabled:opacity-50"
-        >
-          MD
-        </button>
-        {tab === 'facts' && (
-          <>
-            <span className="mx-1 h-4 w-px bg-ink/10" />
+          {/* A-12：工具条——导出 + 批量操作（仅事实页） */}
+          <div key={`toolbar-${facts.length}`} className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-ink-faint">导出记忆</span>
             <button
-              onClick={() => { batch.toggleSelectAll(); setSelVersion((v) => v + 1) }}
-              className="flex items-center gap-1 rounded border border-ink/15 px-2 py-1 text-xs text-ink-muted hover:bg-ink/5 hover:text-ink"
+              onClick={() => void handleExport('json')}
+              disabled={exporting}
+              className="rounded border border-ink/15 px-2 py-1 text-xs text-ink-muted hover:bg-ink/5 hover:text-ink disabled:opacity-50"
             >
-              <CheckSquare size={14} />
-              {batch.selectAll ? '取消全选' : '全选'}
+              JSON
             </button>
             <button
-              onClick={() => void handleBulkDelete()}
-              disabled={!batch.hasSelection || deleting}
-              className="flex items-center gap-1 rounded border border-ink/15 px-2 py-1 text-xs text-ink-muted hover:bg-error/15 hover:text-error disabled:opacity-50"
+              onClick={() => void handleExport('csv')}
+              disabled={exporting}
+              className="rounded border border-ink/15 px-2 py-1 text-xs text-ink-muted hover:bg-ink/5 hover:text-ink disabled:opacity-50"
             >
-              <Trash2 size={14} />
-              删除({batch.selectedCount})
+              CSV
             </button>
-            {showUndo && (
-              <button
-                onClick={() => void handleUndoDelete()}
-                className="flex items-center gap-1 rounded border border-tangerine/40 px-2 py-1 text-xs text-tangerine hover:bg-tangerine/10"
-              >
-                <XSquare size={14} />
-                撤销
-              </button>
+            <button
+              onClick={() => void handleExport('markdown')}
+              disabled={exporting}
+              className="rounded border border-ink/15 px-2 py-1 text-xs text-ink-muted hover:bg-ink/5 hover:text-ink disabled:opacity-50"
+            >
+              MD
+            </button>
+            {tab === 'facts' && (
+              <>
+                <span className="mx-1 h-4 w-px bg-ink/10" />
+                <button
+                  onClick={() => {
+                    batch.toggleSelectAll()
+                    setSelVersion((v) => v + 1)
+                  }}
+                  className="flex items-center gap-1 rounded border border-ink/15 px-2 py-1 text-xs text-ink-muted hover:bg-ink/5 hover:text-ink"
+                >
+                  <CheckSquare size={14} />
+                  {batch.selectAll ? '取消全选' : '全选'}
+                </button>
+                <button
+                  onClick={() => void handleBulkDelete()}
+                  disabled={!batch.hasSelection || deleting}
+                  className="flex items-center gap-1 rounded border border-ink/15 px-2 py-1 text-xs text-ink-muted hover:bg-error/15 hover:text-error disabled:opacity-50"
+                >
+                  <Trash2 size={14} />
+                  删除({batch.selectedCount})
+                </button>
+                {showUndo && (
+                  <button
+                    onClick={() => void handleUndoDelete()}
+                    className="flex items-center gap-1 rounded border border-tangerine/40 px-2 py-1 text-xs text-tangerine hover:bg-tangerine/10"
+                  >
+                    <XSquare size={14} />
+                    撤销
+                  </button>
+                )}
+              </>
             )}
-          </>
-        )}
-      </div>
+          </div>
 
-      {/* Tab 选择（窄屏横向滚动，防按钮文字竖排挤压） */}
-      <div className="flex gap-2 overflow-x-auto border-b border-ink/10 pb-3">
-        {tabButton('facts', '主人画像', <User size={16} />, facts.length)}
-        {tabButton('experiences', '我们的故事', <Heart size={16} />, experiences.length)}
-        {tabButton('diary', '日记', <BookOpen size={16} />, diaries.length)}
-        {tabButton('all', '全部记忆', <Database size={16} />, allCount)}
-      </div>
+          {/* Tab 选择（窄屏横向滚动，防按钮文字竖排挤压） */}
+          <div className="flex gap-2 overflow-x-auto border-b border-ink/10 pb-3">
+            {tabButton('facts', '主人画像', <User size={16} />, facts.length)}
+            {tabButton('experiences', '我们的故事', <Heart size={16} />, experiences.length)}
+            {tabButton('diary', '日记', <BookOpen size={16} />, diaries.length)}
+            {tabButton('all', '全部记忆', <Database size={16} />, allCount)}
+          </div>
 
-      {/* 内容区域 */}
-      <div className="flex-1 overflow-y-auto">
-        {/* 主人画像 Tab */}
-        {tab === 'facts' && (
-          <div className="space-y-2">
-            {facts.length === 0 ? (
-              <div className="py-8 text-center text-sm text-ink-muted">
-                <User size={32} className="mx-auto mb-2 opacity-30" />
-                <p>还没有关于主人的记忆</p>
-                <p className="mt-1 text-xs text-ink-faint">对话中会自动提取，也可以手动添加</p>
-              </div>
-            ) : (
-              facts.map((fact) => (
-                <div key={fact.id} className="flex items-center gap-2 rounded-lg border border-ink/10 bg-surface px-3 py-2">
-                  <input
-                    type="checkbox"
-                    checked={batch.isSelected(fact.id)}
-                    onChange={() => { batch.toggleItem(fact.id); setSelVersion((v) => v + 1) }}
-                    className="h-4 w-4 shrink-0 accent-tangerine"
-                    aria-label={`选择事实 ${fact.key}`}
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      {/* P2-7：中文标签（未知 key 原样显示），title 保留原始 key 便于编辑定位 */}
-                      <span className="text-xs font-medium text-ink-faint" title={fact.key}>
-                        {factKeyLabel(fact.key)}
-                      </span>
-                      {/* P2-7：来源标识——手动提供 vs 自动抽取（规则/LLM） */}
-                      <span
-                        className={`rounded px-1 text-[10px] ${
-                          fact.userProvided ? 'bg-tangerine/10 text-tangerine' : 'bg-ink/5 text-ink-muted'
-                        }`}
+          {/* 内容区域 */}
+          <div className="flex-1 overflow-y-auto">
+            {/* 主人画像 Tab */}
+            {tab === 'facts' && (
+              <div className="space-y-2">
+                {facts.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-ink-muted">
+                    <User size={32} className="mx-auto mb-2 opacity-30" />
+                    <p>还没有关于主人的记忆</p>
+                    <p className="mt-1 text-xs text-ink-faint">对话中会自动提取，也可以手动添加</p>
+                  </div>
+                ) : (
+                  facts.map((fact) => (
+                    <div
+                      key={fact.id}
+                      className="flex items-center gap-2 rounded-lg border border-ink/10 bg-surface px-3 py-2"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={batch.isSelected(fact.id)}
+                        onChange={() => {
+                          batch.toggleItem(fact.id)
+                          setSelVersion((v) => v + 1)
+                        }}
+                        className="h-4 w-4 shrink-0 accent-tangerine"
+                        aria-label={`选择事实 ${fact.key}`}
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          {/* P2-7：中文标签（未知 key 原样显示），title 保留原始 key 便于编辑定位 */}
+                          <span className="text-xs font-medium text-ink-faint" title={fact.key}>
+                            {factKeyLabel(fact.key)}
+                          </span>
+                          {/* P2-7：来源标识——手动提供 vs 自动抽取（规则/LLM） */}
+                          <span
+                            className={`rounded px-1 text-[10px] ${
+                              fact.userProvided ? 'bg-tangerine/10 text-tangerine' : 'bg-ink/5 text-ink-muted'
+                            }`}
+                          >
+                            {fact.userProvided ? '手动' : '自动抽取'}
+                          </span>
+                          <span className="text-[10px] text-ink-faint">
+                            置信度 {Math.round(fact.confidence * 100)}%
+                          </span>
+                        </div>
+                        <div className="mt-0.5 text-sm text-ink">{fact.value}</div>
+                      </div>
+                      <button
+                        onClick={() => void handleDeleteFact(fact.key)}
+                        className="rounded p-1 text-ink-faint hover:bg-error/15 hover:text-error"
+                        title="删除"
                       >
-                        {fact.userProvided ? '手动' : '自动抽取'}
-                      </span>
-                      <span className="text-[10px] text-ink-faint">置信度 {Math.round(fact.confidence * 100)}%</span>
+                        <Trash2 size={14} />
+                      </button>
                     </div>
-                    <div className="mt-0.5 text-sm text-ink">{fact.value}</div>
+                  ))
+                )}
+
+                {/* 添加事实表单 */}
+                {showAddForm ? (
+                  <div className="space-y-2 rounded-lg border border-ink/10 bg-surface p-3">
+                    <input
+                      type="text"
+                      placeholder="键名（如 name、birthday、preference）"
+                      value={newFactKey}
+                      onChange={(e) => setNewFactKey(e.target.value)}
+                      className="w-full rounded border border-ink/15 px-2 py-1 text-sm outline-none focus:border-tangerine"
+                    />
+                    <input
+                      type="text"
+                      placeholder="值（如 小明、3月15日、喜欢喝咖啡）"
+                      value={newFactValue}
+                      onChange={(e) => setNewFactValue(e.target.value)}
+                      className="w-full rounded border border-ink/15 px-2 py-1 text-sm outline-none focus:border-tangerine"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => void handleAddFact()}
+                        className="rounded bg-tangerine px-3 py-1 text-xs font-medium text-white hover:bg-tangerine-deep"
+                      >
+                        保存
+                      </button>
+                      <button
+                        onClick={() => setShowAddForm(false)}
+                        className="rounded border border-ink/15 px-3 py-1 text-xs text-ink-muted hover:bg-ink/5"
+                      >
+                        取消
+                      </button>
+                    </div>
                   </div>
+                ) : (
                   <button
-                    onClick={() => void handleDeleteFact(fact.key)}
-                    className="rounded p-1 text-ink-faint hover:bg-error/15 hover:text-error"
-                    title="删除"
+                    onClick={() => setShowAddForm(true)}
+                    className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-ink/20 py-2 text-sm text-ink-muted hover:border-tangerine hover:text-tangerine"
                   >
-                    <Trash2 size={14} />
+                    <Plus size={16} />
+                    <span>手动添加</span>
                   </button>
-                </div>
-              ))
+                )}
+              </div>
             )}
 
-            {/* 添加事实表单 */}
-            {showAddForm ? (
-              <div className="space-y-2 rounded-lg border border-ink/10 bg-surface p-3">
-                <input
-                  type="text"
-                  placeholder="键名（如 name、birthday、preference）"
-                  value={newFactKey}
-                  onChange={(e) => setNewFactKey(e.target.value)}
-                  className="w-full rounded border border-ink/15 px-2 py-1 text-sm outline-none focus:border-tangerine"
-                />
-                <input
-                  type="text"
-                  placeholder="值（如 小明、3月15日、喜欢喝咖啡）"
-                  value={newFactValue}
-                  onChange={(e) => setNewFactValue(e.target.value)}
-                  className="w-full rounded border border-ink/15 px-2 py-1 text-sm outline-none focus:border-tangerine"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => void handleAddFact()}
-                    className="rounded bg-tangerine px-3 py-1 text-xs font-medium text-white hover:bg-tangerine-deep"
-                  >
-                    保存
-                  </button>
-                  <button
-                    onClick={() => setShowAddForm(false)}
-                    className="rounded border border-ink/15 px-3 py-1 text-xs text-ink-muted hover:bg-ink/5"
-                  >
-                    取消
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowAddForm(true)}
-                className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-ink/20 py-2 text-sm text-ink-muted hover:border-tangerine hover:text-tangerine"
-              >
-                <Plus size={16} />
-                <span>手动添加</span>
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* 我们的故事 Tab */}
-        {tab === 'experiences' && (
-          <div className="space-y-2">
-            {experiences.length === 0 ? (
-              <div className="py-8 text-center text-sm text-ink-muted">
-                <Heart size={32} className="mx-auto mb-2 opacity-30" />
-                <p>还没有共同经历</p>
-                <p className="mt-1 text-xs text-ink-faint">喂食、玩耍、陪伴时会自动记录</p>
-              </div>
-            ) : (
-              experiences.map((exp) => (
-                <div key={exp.id} className="rounded-lg border border-ink/10 bg-surface px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    {/* P2-4：情感点改语义色 token（原 bg-green-400/bg-red-400 为裸色值） */}
-                    <span className={`h-2 w-2 rounded-full ${
-                      exp.sentiment === 'positive' ? 'bg-stat-good' :
-                      exp.sentiment === 'negative' ? 'bg-error' : 'bg-ink/30'
-                    }`} />
-                    <span className="text-[10px] font-medium uppercase text-ink-faint">{exp.type}</span>
-                    <span className="ml-auto text-[10px] text-ink-faint">
-                      {new Date(exp.timestamp).toLocaleDateString()} {new Date(exp.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+            {/* 我们的故事 Tab */}
+            {tab === 'experiences' && (
+              <div className="space-y-2">
+                {experiences.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-ink-muted">
+                    <Heart size={32} className="mx-auto mb-2 opacity-30" />
+                    <p>还没有共同经历</p>
+                    <p className="mt-1 text-xs text-ink-faint">喂食、玩耍、陪伴时会自动记录</p>
                   </div>
-                  <div className="mt-1 text-sm text-ink">{exp.description}</div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* 日记 Tab */}
-        {tab === 'diary' && (
-          <div className="space-y-2">
-            {diaries.length === 0 ? (
-              <div className="py-8 text-center text-sm text-ink-muted">
-                <BookOpen size={32} className="mx-auto mb-2 opacity-30" />
-                <p>还没有日记</p>
-                <p className="mt-1 text-xs text-ink-faint">每天 23:30 会自动生成</p>
-              </div>
-            ) : (
-              diaries.map((entry) => (
-                <div key={entry.id} className="rounded-lg border border-ink/10 bg-surface px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <Calendar size={14} className="text-ink-faint" />
-                    <span className="text-xs font-medium text-ink-faint">{entry.date}</span>
-                    <span className="ml-auto text-[10px] text-ink-faint">
-                      {entry.exchangeCount} 轮对话
-                    </span>
-                  </div>
-                  <div className="mt-1 text-sm text-ink">{entry.summary}</div>
-                  {entry.keyEvents.length > 0 && (
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {entry.keyEvents.map((evt, i) => (
-                        <span key={i} className="rounded bg-tangerine/10 px-1.5 py-0.5 text-[10px] text-tangerine">
-                          {evt}
+                ) : (
+                  experiences.map((exp) => (
+                    <div key={exp.id} className="rounded-lg border border-ink/10 bg-surface px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        {/* P2-4：情感点改语义色 token（原 bg-green-400/bg-red-400 为裸色值） */}
+                        <span
+                          className={`h-2 w-2 rounded-full ${
+                            exp.sentiment === 'positive'
+                              ? 'bg-stat-good'
+                              : exp.sentiment === 'negative'
+                                ? 'bg-error'
+                                : 'bg-ink/30'
+                          }`}
+                        />
+                        <span className="text-[10px] font-medium uppercase text-ink-faint">{exp.type}</span>
+                        <span className="ml-auto text-[10px] text-ink-faint">
+                          {new Date(exp.timestamp).toLocaleDateString()}{' '}
+                          {new Date(exp.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
-                      ))}
+                      </div>
+                      <div className="mt-1 text-sm text-ink">{exp.description}</div>
                     </div>
-                  )}
-                </div>
-              ))
+                  ))
+                )}
+              </div>
             )}
+
+            {/* 日记 Tab */}
+            {tab === 'diary' && (
+              <div className="space-y-2">
+                {diaries.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-ink-muted">
+                    <BookOpen size={32} className="mx-auto mb-2 opacity-30" />
+                    <p>还没有日记</p>
+                    <p className="mt-1 text-xs text-ink-faint">每天 23:30 会自动生成</p>
+                  </div>
+                ) : (
+                  diaries.map((entry) => (
+                    <div key={entry.id} className="rounded-lg border border-ink/10 bg-surface px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <Calendar size={14} className="text-ink-faint" />
+                        <span className="text-xs font-medium text-ink-faint">{entry.date}</span>
+                        <span className="ml-auto text-[10px] text-ink-faint">{entry.exchangeCount} 轮对话</span>
+                      </div>
+                      <div className="mt-1 text-sm text-ink">{entry.summary}</div>
+                      {entry.keyEvents.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {entry.keyEvents.map((evt, i) => (
+                            <span key={i} className="rounded bg-tangerine/10 px-1.5 py-0.5 text-[10px] text-tangerine">
+                              {evt}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+            {tab === 'all' && <EnhancedMemoryList onCountChange={setAllCount} />}
           </div>
-        )}
-        {tab === 'all' && (
-          <EnhancedMemoryList onCountChange={setAllCount} />
-        )}
-        </div>
         </>
       )}
     </div>

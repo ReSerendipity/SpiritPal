@@ -50,13 +50,7 @@ const ANCHOR_STYLES: Record<AnchorPoint, CSSProperties> = {
  * 根据已穿戴装饰品列表，在对应锚点位置渲染emoji装饰品，
  * 自动适配精灵大小和朝向变化。
  */
-export function DecorationLayer({
-  decorations,
-  spriteW,
-  facing,
-  clickScale,
-  rotations,
-}: DecorationLayerProps) {
+export function DecorationLayer({ decorations, spriteW, facing, clickScale, rotations }: DecorationLayerProps) {
   const inventory = usePetStore((s) => s.inventory)
 
   // 查找装饰品的 emoji 图标：先查背包，再查商店预设

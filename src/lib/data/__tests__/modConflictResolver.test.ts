@@ -77,7 +77,11 @@ describe('detectPairConflicts', () => {
 
   it('同名动画 → animation_name / warning', () => {
     const a = makeMod('mod-a', makePetConf({ id: 'char-a' }), {
-      actConf: { animations: [{ state: 'happy' } as never, { state: 'idle' } as never], hpTiers: {} as never, anchors: {} },
+      actConf: {
+        animations: [{ state: 'happy' } as never, { state: 'idle' } as never],
+        hpTiers: {} as never,
+        anchors: {},
+      },
     })
     const b = makeMod('mod-b', makePetConf({ id: 'char-b' }), {
       actConf: { animations: [{ state: 'happy' } as never], hpTiers: {} as never, anchors: {} },

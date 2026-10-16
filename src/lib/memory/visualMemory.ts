@@ -97,7 +97,7 @@ export interface VisualMemoryCallbacks {
  */
 class RingBuffer<T> {
   private buffer: (T | undefined)[]
-  private head = 0  // 下一个写入位置
+  private head = 0 // 下一个写入位置
   private count = 0
 
   constructor(private capacity: number) {
@@ -320,9 +320,12 @@ export class VisualMemoryManager {
    */
   getAllFrames(level: 0 | 1 | 2): VisualKeyframe[] {
     switch (level) {
-      case 0: return this.l0Buffer.toArray()
-      case 1: return this.l1Buffer.toArray()
-      case 2: return this.l2Buffer.toArray()
+      case 0:
+        return this.l0Buffer.toArray()
+      case 1:
+        return this.l1Buffer.toArray()
+      case 2:
+        return this.l2Buffer.toArray()
     }
   }
 
@@ -377,9 +380,7 @@ let instance: VisualMemoryManager | null = null
  * @param callbacks 可选的回调配置（仅首次创建时生效）
  * @returns 视觉记忆管理器实例
  */
-export function getVisualMemoryManager(
-  callbacks?: VisualMemoryCallbacks,
-): VisualMemoryManager {
+export function getVisualMemoryManager(callbacks?: VisualMemoryCallbacks): VisualMemoryManager {
   if (!instance) {
     instance = new VisualMemoryManager(callbacks)
   }

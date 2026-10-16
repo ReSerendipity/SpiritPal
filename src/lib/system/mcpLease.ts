@@ -249,9 +249,7 @@ export class LeaseManager extends EventEmitter {
    * @param clientId 客户端标识
    */
   getLeasesByClient(clientId: string): Lease[] {
-    return Array.from(this.leases.values()).filter(
-      (l) => l.clientId === clientId && l.state === 'active',
-    )
+    return Array.from(this.leases.values()).filter((l) => l.clientId === clientId && l.state === 'active')
   }
 
   // ============ Chapter 7 新增：窗口自动关闭 ============
@@ -280,7 +278,7 @@ export class LeaseManager extends EventEmitter {
 
   /** 获取所有活跃租约 */
   getActiveLeases(): Lease[] {
-    return Array.from(this.leases.values()).filter(l => l.state === 'active')
+    return Array.from(this.leases.values()).filter((l) => l.state === 'active')
   }
 
   /** 获取指定租约 */

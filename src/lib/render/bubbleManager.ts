@@ -295,7 +295,7 @@ export class BubbleManager {
     this.emitBubble(message.text)
 
     // 等待最小间隔后处理下一条（使用可取消的定时器）
-    await new Promise<void>(resolve => {
+    await new Promise<void>((resolve) => {
       this.delayTimer = setTimeout(() => {
         this.delayTimer = null
         resolve()
@@ -504,12 +504,7 @@ export class BubbleManager {
    * @param template 模板，{COUNTDOWN} 替换为剩余时间
    * @param intervalMs 更新间隔（默认 60000ms = 1分钟）
    */
-  addCountdown(
-    id: string,
-    endTime: number,
-    template: string = '{COUNTDOWN}后……',
-    intervalMs: number = 60000,
-  ): void {
+  addCountdown(id: string, endTime: number, template: string = '{COUNTDOWN}后……', intervalMs: number = 60000): void {
     // 移除同名倒计时
     this.removeCountdown(id)
 
@@ -551,11 +546,12 @@ export class BubbleManager {
     if (remaining <= 0) return
 
     const minutes = Math.floor(remaining / 60000)
-    const countdownStr = minutes > 60
-      ? `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分钟`
-      : minutes > 0
-        ? `${minutes} 分钟`
-        : `${Math.floor(remaining / 1000)} 秒`
+    const countdownStr =
+      minutes > 60
+        ? `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分钟`
+        : minutes > 0
+          ? `${minutes} 分钟`
+          : `${Math.floor(remaining / 1000)} 秒`
 
     const message = entry.template.replace('{COUNTDOWN}', countdownStr)
     this.trigger('custom', message)

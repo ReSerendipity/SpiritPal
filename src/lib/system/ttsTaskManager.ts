@@ -158,11 +158,7 @@ export class TTSTaskManager {
   /** 代际计数器，每次 cancelAll/reset 递增，用于废弃旧的异步操作 */
   private generation = 0
 
-  constructor(
-    generateFn: TTSGenerateFn,
-    playFn: TTSPlayFn,
-    callbacks: TTSTaskManagerCallbacks = {},
-  ) {
+  constructor(generateFn: TTSGenerateFn, playFn: TTSPlayFn, callbacks: TTSTaskManagerCallbacks = {}) {
     this.generateFn = generateFn
     this.playFn = playFn
     this.callbacks = callbacks
@@ -539,11 +535,7 @@ export function getTTSTaskManager(
     // 默认空实现（防止未初始化时调用出错，实际使用必须提供真实函数）
     const defaultGenerate: TTSGenerateFn = async () => ({ url: '', durationMs: 0 })
     const defaultPlay: TTSPlayFn = async () => {}
-    instance = new TTSTaskManager(
-      generateFn ?? defaultGenerate,
-      playFn ?? defaultPlay,
-      callbacks,
-    )
+    instance = new TTSTaskManager(generateFn ?? defaultGenerate, playFn ?? defaultPlay, callbacks)
   }
   return instance
 }

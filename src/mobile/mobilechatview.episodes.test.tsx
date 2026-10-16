@@ -103,7 +103,10 @@ describe('MobileChatView 情境片段（P3-6）', () => {
       const msgs = useChatStore.getState().getMessages()
       expect(msgs.some((m) => m.role === 'assistant' && m.content === '好呀')).toBe(true)
     })
-    const assistant = useChatStore.getState().getMessages().find((m) => m.role === 'assistant')
+    const assistant = useChatStore
+      .getState()
+      .getMessages()
+      .find((m) => m.role === 'assistant')
     expect(assistant?.sendStatus).toBeUndefined()
   })
 })

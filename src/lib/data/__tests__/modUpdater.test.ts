@@ -1,10 +1,6 @@
 // modUpdater 纯逻辑测试 — 版本检查 / 下载 / 升级状态机（内存 fake transport）
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import {
-  ModUpdater,
-  type ModUpdaterTransport,
-  type ModRegistryEntry,
-} from '@/lib/data/modUpdater'
+import { ModUpdater, type ModUpdaterTransport, type ModRegistryEntry } from '@/lib/data/modUpdater'
 
 /** 构建记录调用轨迹的 fake transport */
 function makeFakeTransport(overrides: Partial<ModUpdaterTransport> = {}) {

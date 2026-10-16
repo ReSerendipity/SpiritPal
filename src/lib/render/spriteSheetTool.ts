@@ -35,18 +35,18 @@ import { STANDARD_SPRITE_LAYOUT } from './spriteLayoutConfig'
 import type { SpriteRowConfig } from './spriteLayoutConfig'
 
 export interface SpriteSheetConfig {
-  rows: number          // 精灵图行数
-  cols: number          // 精灵图列数
-  frameWidth: number    // 单帧宽度
-  frameHeight: number   // 单帧高度
-  fps: number           // 提取帧率
+  rows: number // 精灵图行数
+  cols: number // 精灵图列数
+  frameWidth: number // 单帧宽度
+  frameHeight: number // 单帧高度
+  fps: number // 提取帧率
   /** 扩展精灵图布局配置（Phase 2: 支持可变 frameMax/行） */
   spriteLayout?: SpriteRowConfig[]
 }
 
 export interface SpriteSheetResult {
-  dataUrl: string       // 精灵图 PNG dataURL
-  frameCount: number    // 实际帧数
+  dataUrl: string // 精灵图 PNG dataURL
+  frameCount: number // 实际帧数
   config: SpriteSheetConfig
   metadata: SpriteSheetMetadata
 }
@@ -141,10 +141,7 @@ export async function extractFrames(
 
 // ============ 从图片序列提取帧（GIF 的第一帧或静态图）============
 
-export async function extractFramesFromImage(
-  file: File,
-  config: SpriteSheetConfig,
-): Promise<HTMLCanvasElement[]> {
+export async function extractFramesFromImage(file: File, config: SpriteSheetConfig): Promise<HTMLCanvasElement[]> {
   const img = new Image()
   const url = URL.createObjectURL(file)
 
@@ -170,10 +167,14 @@ export async function extractFramesFromImage(
         if (ctx) {
           ctx.drawImage(
             img,
-            c * config.frameWidth, r * config.frameHeight,
-            config.frameWidth, config.frameHeight,
-            0, 0,
-            config.frameWidth, config.frameHeight,
+            c * config.frameWidth,
+            r * config.frameHeight,
+            config.frameWidth,
+            config.frameHeight,
+            0,
+            0,
+            config.frameWidth,
+            config.frameHeight,
           )
         }
         frames.push(canvas)
@@ -202,10 +203,7 @@ export async function extractFramesFromImage(
 
 // ============ 生成精灵图集 ============
 
-export function generateSpriteSheet(
-  frames: HTMLCanvasElement[],
-  config: SpriteSheetConfig,
-): SpriteSheetResult {
+export function generateSpriteSheet(frames: HTMLCanvasElement[], config: SpriteSheetConfig): SpriteSheetResult {
   const canvas = document.createElement('canvas')
   canvas.width = config.cols * config.frameWidth
   canvas.height = config.rows * config.frameHeight
@@ -217,11 +215,7 @@ export function generateSpriteSheet(
       const col = i % config.cols
       const row = Math.floor(i / config.cols)
       if (row < config.rows) {
-        ctx.drawImage(
-          frame,
-          col * config.frameWidth,
-          row * config.frameHeight,
-        )
+        ctx.drawImage(frame, col * config.frameWidth, row * config.frameHeight)
       }
     })
   }

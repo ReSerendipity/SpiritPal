@@ -64,7 +64,7 @@ describe('ContextEpisodeManager', () => {
       mocks.listContextEpisodes.mockResolvedValue([])
 
       // 空闲超过 30 分钟（需要 lastRecordAt > 0 且间隔 > 30s）
-      await new Promise(resolve => setTimeout(resolve, 50)) // 等待一点时间
+      await new Promise((resolve) => setTimeout(resolve, 50)) // 等待一点时间
       await manager.recordStateChange('idle', 'sunny', 35)
       expect(mocks.closeContextEpisode).toHaveBeenCalled() // 关闭旧 episode
       expect(mocks.insertContextEpisode).toHaveBeenCalled() // 开启新 episode
@@ -97,7 +97,17 @@ describe('ContextEpisodeManager', () => {
   describe('片段查询', () => {
     it('getTodayEpisodes 应查询今日片段', async () => {
       const mockEpisodes: ContextEpisode[] = [
-        { id: 1, character_id: 'test-char', started_at: Date.now(), ended_at: null, work_state: 'coding', weather: null, idle_minutes: null, music: null, summary: null },
+        {
+          id: 1,
+          character_id: 'test-char',
+          started_at: Date.now(),
+          ended_at: null,
+          work_state: 'coding',
+          weather: null,
+          idle_minutes: null,
+          music: null,
+          summary: null,
+        },
       ]
       mocks.listContextEpisodes.mockResolvedValueOnce(mockEpisodes)
       const result = await manager.getTodayEpisodes()
@@ -171,7 +181,17 @@ describe('ContextEpisodeManager', () => {
 
     it('有片段时应调用 LLM 浓缩', async () => {
       mocks.listContextEpisodes.mockResolvedValueOnce([
-        { id: 1, character_id: 'test-char', started_at: Date.now(), ended_at: null, work_state: 'coding', weather: null, idle_minutes: null, music: null, summary: null },
+        {
+          id: 1,
+          character_id: 'test-char',
+          started_at: Date.now(),
+          ended_at: null,
+          work_state: 'coding',
+          weather: null,
+          idle_minutes: null,
+          music: null,
+          summary: null,
+        },
       ])
       const condenser = vi.fn().mockResolvedValue('今天主要在写代码')
       const result = await manager.condenseToObservation(condenser)
@@ -181,7 +201,17 @@ describe('ContextEpisodeManager', () => {
 
     it('LLM 浓缩失败时应返回 null', async () => {
       mocks.listContextEpisodes.mockResolvedValueOnce([
-        { id: 1, character_id: 'test-char', started_at: Date.now(), ended_at: null, work_state: 'coding', weather: null, idle_minutes: null, music: null, summary: null },
+        {
+          id: 1,
+          character_id: 'test-char',
+          started_at: Date.now(),
+          ended_at: null,
+          work_state: 'coding',
+          weather: null,
+          idle_minutes: null,
+          music: null,
+          summary: null,
+        },
       ])
       const condenser = vi.fn().mockRejectedValue(new Error('LLM error'))
       const result = await manager.condenseToObservation(condenser)
@@ -190,7 +220,17 @@ describe('ContextEpisodeManager', () => {
 
     it('LLM 返回空字符串时应返回 null', async () => {
       mocks.listContextEpisodes.mockResolvedValueOnce([
-        { id: 1, character_id: 'test-char', started_at: Date.now(), ended_at: null, work_state: 'coding', weather: null, idle_minutes: null, music: null, summary: null },
+        {
+          id: 1,
+          character_id: 'test-char',
+          started_at: Date.now(),
+          ended_at: null,
+          work_state: 'coding',
+          weather: null,
+          idle_minutes: null,
+          music: null,
+          summary: null,
+        },
       ])
       const condenser = vi.fn().mockResolvedValue('   ')
       const result = await manager.condenseToObservation(condenser)

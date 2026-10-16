@@ -26,11 +26,11 @@ import {
 
 /** 视觉记忆类型 */
 export type VisualMemoryType =
-  | 'screenshot'   // 截图
-  | 'weather'      // 天气快照
-  | 'mood'         // 心情快照
-  | 'scene'        // 场景描述
-  | 'custom'       // 自定义
+  | 'screenshot' // 截图
+  | 'weather' // 天气快照
+  | 'mood' // 心情快照
+  | 'scene' // 场景描述
+  | 'custom' // 自定义
 
 /** 视觉记忆条目 */
 export interface VisualMemory {
@@ -301,7 +301,7 @@ export class VisualMemoryManager {
    * P4-4：获取有图片的记忆
    */
   getMemoriesWithImages(): VisualMemory[] {
-    return this.memories.filter(m => m.imagePath)
+    return this.memories.filter((m) => m.imagePath)
   }
 
   // ============ 检索 ============
@@ -317,7 +317,7 @@ export class VisualMemoryManager {
    * 按类型筛选
    */
   getByType(type: VisualMemoryType): VisualMemory[] {
-    return this.memories.filter(m => m.type === type)
+    return this.memories.filter((m) => m.type === type)
   }
 
   /**

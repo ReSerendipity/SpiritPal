@@ -14,11 +14,7 @@
  * @requires ./db - SQLite 持久化
  */
 
-import {
-  insertContextEpisode,
-  closeContextEpisode,
-  listContextEpisodes,
-} from '@/lib/data/db'
+import { insertContextEpisode, closeContextEpisode, listContextEpisodes } from '@/lib/data/db'
 
 // ============ 类型定义 ============
 
@@ -56,19 +52,14 @@ export class ContextEpisodeManager {
    * @param idleMinutes 空闲分钟数
    * @param music 当前音乐
    */
-  async recordStateChange(
-    workState: string,
-    weather?: string,
-    idleMinutes?: number,
-    music?: string,
-  ): Promise<void> {
+  async recordStateChange(workState: string, weather?: string, idleMinutes?: number, music?: string): Promise<void> {
     const now = Date.now()
     // 检测是否有状态变迁
     const stateChanged = workState !== this.lastWorkState
-    const idleThresholdCrossed = idleMinutes !== undefined && (
-      (idleMinutes >= 30 && this.lastRecordAt > 0 && now - this.lastRecordAt > 30000) ||
-      (idleMinutes < 5 && this.lastWorkState === 'idle')
-    )
+    const idleThresholdCrossed =
+      idleMinutes !== undefined &&
+      ((idleMinutes >= 30 && this.lastRecordAt > 0 && now - this.lastRecordAt > 30000) ||
+        (idleMinutes < 5 && this.lastWorkState === 'idle'))
 
     if (!stateChanged && !idleThresholdCrossed) return
 
@@ -128,16 +119,20 @@ export class ContextEpisodeManager {
    */
   buildEpisodesText(episodes: ContextEpisode[]): string {
     if (episodes.length === 0) return ''
-    return episodes.map((ep) => {
-      const time = new Date(ep.started_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-      const endTime = ep.ended_at ? new Date(ep.ended_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '至今'
-      const parts: string[] = [`${time}-${endTime}`]
-      if (ep.work_state) parts.push(`状态:${ep.work_state}`)
-      if (ep.weather) parts.push(`天气:${ep.weather}`)
-      if (ep.idle_minutes !== null) parts.push(`空闲:${ep.idle_minutes}分钟`)
-      if (ep.music) parts.push(`音乐:${ep.music}`)
-      return parts.join(' ')
-    }).join('\n')
+    return episodes
+      .map((ep) => {
+        const time = new Date(ep.started_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+        const endTime = ep.ended_at
+          ? new Date(ep.ended_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+          : '至今'
+        const parts: string[] = [`${time}-${endTime}`]
+        if (ep.work_state) parts.push(`状态:${ep.work_state}`)
+        if (ep.weather) parts.push(`天气:${ep.weather}`)
+        if (ep.idle_minutes !== null) parts.push(`空闲:${ep.idle_minutes}分钟`)
+        if (ep.music) parts.push(`音乐:${ep.music}`)
+        return parts.join(' ')
+      })
+      .join('\n')
   }
 
   /**
@@ -145,9 +140,7 @@ export class ContextEpisodeManager {
    * @param llmCondenser LLM 浓缩函数
    * @returns 浓缩后的观察记忆文本（1-2 条）
    */
-  async condenseToObservation(
-    llmCondenser: (episodesText: string) => Promise<string>,
-  ): Promise<string | null> {
+  async condenseToObservation(llmCondenser: (episodesText: string) => Promise<string>): Promise<string | null> {
     const episodes = await this.getTodayEpisodes()
     if (episodes.length === 0) return null
 

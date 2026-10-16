@@ -20,10 +20,9 @@ const timers = vi.hoisted(() => {
   }
   // 替身 store：只提供本用例需要的字段，因此 selector 的参数用本地 state 的形状，
   // 而非真实 PetStoreState（真实 store 由 vi.mock 在运行时整体替换，类型只在本文件内自洽）。
-  const usePetStore = Object.assign(
-    (selector?: (s: typeof state) => unknown) => (selector ? selector(state) : state),
-    { getState: () => state },
-  )
+  const usePetStore = Object.assign((selector?: (s: typeof state) => unknown) => (selector ? selector(state) : state), {
+    getState: () => state,
+  })
   return { state, usePetStore }
 })
 

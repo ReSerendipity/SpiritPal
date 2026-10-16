@@ -220,9 +220,7 @@ export function removeEmotionTags(text: string): string {
  * A-10（批次二）：实际映射已收敛到 emotionEngine（moodFromEmotionTags），
  * 本函数保留签名以兼容既有记忆回写链路，避免双套情绪评分体系。
  */
-export function emotionTagsToMood(
-  animations: string[],
-): { valence: number; arousal: number } | undefined {
+export function emotionTagsToMood(animations: string[]): { valence: number; arousal: number } | undefined {
   // A-10: 委托给 emotionEngine 单一情绪映射来源
   return moodFromEmotionTags(animations)
 }

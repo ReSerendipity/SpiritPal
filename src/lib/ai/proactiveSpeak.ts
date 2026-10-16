@@ -162,7 +162,11 @@ export class ProactiveSpeakManager {
    */
   private emitToListeners(message: string): void {
     this.listeners.forEach((fn) => {
-      try { fn(message) } catch (e) { console.error('[ProactiveSpeak] listener error:', e) }
+      try {
+        fn(message)
+      } catch (e) {
+        console.error('[ProactiveSpeak] listener error:', e)
+      }
     })
   }
 
@@ -175,9 +179,7 @@ export class ProactiveSpeakManager {
       // 使用当前 LLM 客户端配置
       const client = getLLMClient()
       const store = await this.getStoreState()
-      const contextHints = store
-        ? this.buildContextHints(store.stats, this.pendingIdleMinutes)
-        : '一切正常'
+      const contextHints = store ? this.buildContextHints(store.stats, this.pendingIdleMinutes) : '一切正常'
 
       // P1-2：检索相关回忆拼入 prompt——宠物主动提起上次的事
       let memoryContext = ''
@@ -189,9 +191,7 @@ export class ProactiveSpeakManager {
           // 取最近的自传记忆作为“上次聊过”的素材
           const recentMemories = memMgr.getAutobiographicalMemories().slice(-3)
           if (recentMemories.length > 0) {
-            const memorySnippets = recentMemories
-              .map(m => `- ${m.user.slice(0, 60)}`)
-              .join('\n')
+            const memorySnippets = recentMemories.map((m) => `- ${m.user.slice(0, 60)}`).join('\n')
             memoryContext = `\n\n【记忆参考】你可以自然地提起这些过往，但不要复述原文：\n${memorySnippets}`
           }
         }
@@ -224,12 +224,13 @@ export class ProactiveSpeakManager {
           const memMgr = getEnhancedMemoryManager(characterId)
           await memMgr.ensureLoaded()
           const hour = new Date().getHours()
-          const timeOfDay =
-            hour < 6 ? 'night' : hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening'
-          const recs = await getMemoryRecommendationEngine().generateRecommendations(
-            memMgr.getAllMemories(),
-            { userId: characterId, limit: 2, minScore: 0.3, context: { timeOfDay } },
-          )
+          const timeOfDay = hour < 6 ? 'night' : hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening'
+          const recs = await getMemoryRecommendationEngine().generateRecommendations(memMgr.getAllMemories(), {
+            userId: characterId,
+            limit: 2,
+            minScore: 0.3,
+            context: { timeOfDay },
+          })
           if (recs.length > 0) {
             const top = recs
               .slice(0, 2)

@@ -117,10 +117,7 @@ export class EmotionManager {
   private recentEvents: EmotionEvent[] = []
   private readonly MAX_RECENT_EVENTS = 10
 
-  constructor(
-    callbacks: EmotionCallbacks = {},
-    options: { threshold?: number; frequencySeconds?: number } = {},
-  ) {
+  constructor(callbacks: EmotionCallbacks = {}, options: { threshold?: number; frequencySeconds?: number } = {}) {
     this.callbacks = callbacks
     this.threshold = options.threshold ?? DEFAULT_EMOTION_THRESHOLD
     this.frequencySeconds = options.frequencySeconds ?? DEFAULT_FREQUENCY_SECONDS
@@ -235,10 +232,7 @@ export class EmotionManager {
    * @param ttsAligned 是否需要 TTS 对齐
    * @param audioDurationMs TTS 音频时长（毫秒）
    */
-  async triggerEmotionSelection(
-    ttsAligned = false,
-    audioDurationMs?: number,
-  ): Promise<void> {
+  async triggerEmotionSelection(ttsAligned = false, audioDurationMs?: number): Promise<void> {
     const now = Date.now()
     // 手动表情覆盖期间，自动表情不抢戏
     if (this.manualExpression) return
@@ -253,7 +247,7 @@ export class EmotionManager {
     if (this.callbacks.onLLMSelectExpression) {
       const recentContext = this.recentEvents
         .slice(-3)
-        .map(e => e.expression.name)
+        .map((e) => e.expression.name)
         .join(', ')
 
       // 获取可用表情列表（子类或外部提供）
@@ -354,7 +348,6 @@ export class EmotionManager {
     this.manualExpression = null
     this.callbacks.onExpressionClear?.()
   }
-
 
   /** 获取最近的情绪事件 */
   getRecentEvents(): EmotionEvent[] {

@@ -57,14 +57,7 @@ export const LLM_PROVIDERS: LLMProvider[] = [
     name: '千问 (Qwen)',
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     defaultModel: 'qwen-plus',
-    models: [
-      'qwen-plus',
-      'qwen-max',
-      'qwen-turbo',
-      'qwen-long',
-      'qwen-coder-plus',
-      'qwen-coder-turbo',
-    ],
+    models: ['qwen-plus', 'qwen-max', 'qwen-turbo', 'qwen-long', 'qwen-coder-plus', 'qwen-coder-turbo'],
     apiKeyRequired: true,
   },
   {
@@ -80,11 +73,7 @@ export const LLM_PROVIDERS: LLMProvider[] = [
     name: 'Kimi (Moonshot)',
     baseUrl: 'https://api.moonshot.ai/v1',
     defaultModel: 'moonshot/kimi-k2-0711-preview',
-    models: [
-      'moonshot/kimi-k2-0711-preview',
-      'moonshot/kimi-k2-turbo-preview',
-      'moonshot/kimi-k2.5-preview',
-    ],
+    models: ['moonshot/kimi-k2-0711-preview', 'moonshot/kimi-k2-turbo-preview', 'moonshot/kimi-k2.5-preview'],
     apiKeyRequired: true,
   },
   {
@@ -92,12 +81,7 @@ export const LLM_PROVIDERS: LLMProvider[] = [
     name: '豆包 (Doubao)',
     baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
     defaultModel: 'doubao-1.5-pro-32k',
-    models: [
-      'doubao-1.5-pro-32k',
-      'doubao-1.5-pro-256k',
-      'doubao-1.5-lite-32k',
-      'doubao-pro-32k',
-    ],
+    models: ['doubao-1.5-pro-32k', 'doubao-1.5-pro-256k', 'doubao-1.5-lite-32k', 'doubao-pro-32k'],
     apiKeyRequired: true,
   },
   {
@@ -114,11 +98,7 @@ export const LLM_PROVIDERS: LLMProvider[] = [
     name: 'Anthropic Claude',
     baseUrl: 'https://api.anthropic.com',
     defaultModel: 'claude-sonnet-4-20250514',
-    models: [
-      'claude-sonnet-4-20250514',
-      'claude-3-5-haiku-20241022',
-      'claude-3-opus-20240229',
-    ],
+    models: ['claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
     apiKeyRequired: true,
   },
   {
@@ -182,9 +162,7 @@ export async function listOllamaModels(): Promise<string[]> {
     if (!res.ok) return []
     const data = await res.json()
     if (!Array.isArray(data?.models)) return []
-    return data.models
-      .map((m: { name?: string }) => m.name)
-      .filter((n: string | undefined): n is string => Boolean(n))
+    return data.models.map((m: { name?: string }) => m.name).filter((n: string | undefined): n is string => Boolean(n))
   } catch {
     return []
   }
@@ -210,11 +188,7 @@ export interface UnifiedLLMProvider {
   /** 非流式聊天 */
   chat(messages: ChatMessage[], abortSignal?: AbortSignal): Promise<string>
   /** 流式聊天 */
-  chatStream(
-    messages: ChatMessage[],
-    onChunk: (chunk: StreamChunk) => void,
-    abortSignal?: AbortSignal,
-  ): Promise<string>
+  chatStream(messages: ChatMessage[], onChunk: (chunk: StreamChunk) => void, abortSignal?: AbortSignal): Promise<string>
   /** 嵌入（可选，不是所有 provider 都支持） */
   embed?(texts: string[]): Promise<Float32Array[]>
 }
@@ -389,12 +363,7 @@ export class CostTrackingManager {
   private costs: Map<string, ProviderCost> = new Map()
 
   /** 记录一次请求的成本 */
-  recordRequest(
-    providerId: string,
-    model: string,
-    inputTokens: number,
-    outputTokens: number,
-  ): void {
+  recordRequest(providerId: string, model: string, inputTokens: number, outputTokens: number): void {
     const cost = this.getOrCreate(providerId)
     cost.requestCount++
     cost.totalTokens += inputTokens + outputTokens
@@ -458,12 +427,7 @@ export const costTracker = new CostTrackingManager()
  * @param inputTokens   本次请求输入 token 数（服务商 usage 返回；缺失传 0）
  * @param outputTokens  本次请求输出 token 数
  */
-export function recordUsage(
-  provider: string,
-  model: string,
-  inputTokens: number,
-  outputTokens: number,
-): void {
+export function recordUsage(provider: string, model: string, inputTokens: number, outputTokens: number): void {
   costTracker.recordRequest(provider, model, inputTokens, outputTokens)
 }
 

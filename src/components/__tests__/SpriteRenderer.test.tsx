@@ -17,7 +17,7 @@ vi.mock('@/lib/data/characters', () => {
       atlasLayout: { cellW: 128, cellH: 128, cols: 8, rows: 9 },
       animationRows: { idle: { row: 0, frames: 1 } },
     },
-    'kazuha': {
+    kazuha: {
       id: 'kazuha',
       displayName: 'Kazuha',
       spriteType: 'atlas',

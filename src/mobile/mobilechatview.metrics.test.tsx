@@ -89,7 +89,10 @@ describe('MobileChatView 消息指标（P2-14）', () => {
       const assistant = msgs.find((m) => m.role === 'assistant')
       expect(assistant?.metrics).toBeDefined()
     })
-    const assistant = useChatStore.getState().getMessages().find((m) => m.role === 'assistant')
+    const assistant = useChatStore
+      .getState()
+      .getMessages()
+      .find((m) => m.role === 'assistant')
     expect(assistant?.metrics?.promptTokens).toBe(120)
     expect(assistant?.metrics?.completionTokens).toBe(45)
     expect(assistant?.metrics?.ttftMs).toBeGreaterThanOrEqual(0)

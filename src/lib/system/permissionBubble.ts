@@ -323,10 +323,7 @@ export class PermissionBubbleManager {
 
   private saveAlwaysAllowList(): void {
     try {
-      localStorage.setItem(
-        'spiritpal-always-allow',
-        JSON.stringify(Array.from(this.alwaysAllowList)),
-      )
+      localStorage.setItem('spiritpal-always-allow', JSON.stringify(Array.from(this.alwaysAllowList)))
     } catch {
       // 忽略
     }

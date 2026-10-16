@@ -256,8 +256,22 @@ describe('工具 execute 函数', () => {
 
   it('manage_schedule list 返回日程列表', async () => {
     mocks.schedMgr.getPendingEvents.mockReturnValue([
-      { id: 'e1', title: '开会', triggerTime: Date.now() + 3600000, status: 'pending', reminderMinutes: [], source: 'manual' },
-      { id: 'e2', title: '吃饭', triggerTime: Date.now() + 7200000, status: 'pending', reminderMinutes: [], source: 'manual' },
+      {
+        id: 'e1',
+        title: '开会',
+        triggerTime: Date.now() + 3600000,
+        status: 'pending',
+        reminderMinutes: [],
+        source: 'manual',
+      },
+      {
+        id: 'e2',
+        title: '吃饭',
+        triggerTime: Date.now() + 7200000,
+        status: 'pending',
+        reminderMinutes: [],
+        source: 'manual',
+      },
     ])
     const tool = AGENT_TOOLS.find((t) => t.name === 'manage_schedule')!
     const result = await tool.execute({ action: 'list' })
@@ -268,7 +282,14 @@ describe('工具 execute 函数', () => {
 
   it('manage_schedule cancel 按标题匹配成功', async () => {
     mocks.schedMgr.getPendingEvents.mockReturnValue([
-      { id: 'e1', title: '开会讨论', triggerTime: Date.now() + 3600000, status: 'pending', reminderMinutes: [], source: 'manual' },
+      {
+        id: 'e1',
+        title: '开会讨论',
+        triggerTime: Date.now() + 3600000,
+        status: 'pending',
+        reminderMinutes: [],
+        source: 'manual',
+      },
     ])
     const tool = AGENT_TOOLS.find((t) => t.name === 'manage_schedule')!
     const result = await tool.execute({ action: 'cancel', title: '开会' })
@@ -278,7 +299,14 @@ describe('工具 execute 函数', () => {
 
   it('manage_schedule cancel 标题无匹配返回错误', async () => {
     mocks.schedMgr.getPendingEvents.mockReturnValue([
-      { id: 'e1', title: '开会', triggerTime: Date.now() + 3600000, status: 'pending', reminderMinutes: [], source: 'manual' },
+      {
+        id: 'e1',
+        title: '开会',
+        triggerTime: Date.now() + 3600000,
+        status: 'pending',
+        reminderMinutes: [],
+        source: 'manual',
+      },
     ])
     const tool = AGENT_TOOLS.find((t) => t.name === 'manage_schedule')!
     const result = await tool.execute({ action: 'cancel', title: '不存在' })
@@ -300,7 +328,14 @@ describe('工具 execute 函数', () => {
 
   it('manage_schedule 中文 action 删除', async () => {
     mocks.schedMgr.getPendingEvents.mockReturnValue([
-      { id: 'e1', title: '测试日程', triggerTime: Date.now() + 3600000, status: 'pending', reminderMinutes: [], source: 'manual' },
+      {
+        id: 'e1',
+        title: '测试日程',
+        triggerTime: Date.now() + 3600000,
+        status: 'pending',
+        reminderMinutes: [],
+        source: 'manual',
+      },
     ])
     const tool = AGENT_TOOLS.find((t) => t.name === 'manage_schedule')!
     const result = await tool.execute({ action: '删除', title: '测试' })

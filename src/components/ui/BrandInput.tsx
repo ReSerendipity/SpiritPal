@@ -19,13 +19,7 @@ export interface BrandInputProps extends Omit<InputHTMLAttributes<HTMLInputEleme
   error?: boolean
 }
 
-export function BrandInput({
-  value,
-  onChange,
-  type = 'text',
-  error = false,
-  ...rest
-}: BrandInputProps) {
+export function BrandInput({ value, onChange, type = 'text', error = false, ...rest }: BrandInputProps) {
   const [showPassword, setShowPassword] = useState(false)
   const isPassword = type === 'password'
   const effectiveType = isPassword && showPassword ? 'text' : type

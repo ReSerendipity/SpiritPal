@@ -37,21 +37,21 @@ export type MemoryTier = 'hot' | 'warm' | 'cold' | 'archived'
 
 export interface EnhancedMemory extends MemoryEntry {
   id: string
-  importance: number          // 1-100 重要度
-  emotionalIntensity: number  // 0-1 情感强度
-  category: string            // 分类：偏好/习惯/关系/事件/情感
+  importance: number // 1-100 重要度
+  emotionalIntensity: number // 0-1 情感强度
+  category: string // 分类：偏好/习惯/关系/事件/情感
   tags: string[]
-  accessCount: number         // 被检索次数
-  lastAccessed: number        // 最后检索时间戳
-  decayFactor: number         // 衰减因子 0-1
+  accessCount: number // 被检索次数
+  lastAccessed: number // 最后检索时间戳
+  decayFactor: number // 衰减因子 0-1
   isAutobiographical: boolean // 是否自传记忆
-  timeAnchor?: string         // 时间锚点 "每天X点" / "每周X"
-  dbId?: number               // SQLite memories 表行 ID（用于关联 embedding）
+  timeAnchor?: string // 时间锚点 "每天X点" / "每周X"
+  dbId?: number // SQLite memories 表行 ID（用于关联 embedding）
   // W1：情感三维化
-  emotionalValence?: number   // 愉悦度 -1..1（负=不悦，正=愉悦）
-  emotionalArousal?: number   // 唤醒度 0..1（0=平静，1=激动）
+  emotionalValence?: number // 愉悦度 -1..1（负=不悦，正=愉悦）
+  emotionalArousal?: number // 唤醒度 0..1（0=平静，1=激动）
   // W3/W4：记忆强度与间隔重复
-  strength?: number           // 记忆强度（初始 1.0，每次成功回忆增强）
+  strength?: number // 记忆强度（初始 1.0，每次成功回忆增强）
   // S2：记忆来源类型
   sourceKind?: 'exchange' | 'observation' | 'consolidation' | 'user_teach' | 'fact'
   // P2-2：LLM 提取的结构化事实文本（如"用户喜欢吃火锅"），用于高密度检索
@@ -61,18 +61,18 @@ export interface EnhancedMemory extends MemoryEntry {
 // ============ 触发类型 ============
 
 export type TriggerType =
-  | 'frequency'    // 频率触发
-  | 'time'         // 时间触发
-  | 'relevance'    // 相关性触发
-  | 'emotion'      // 情感触发
-  | 'keyword'      // 关键词触发
-  | 'event'        // 事件触发
-  | 'periodic'     // 周期触发（纪念日/节日/生日）
+  | 'frequency' // 频率触发
+  | 'time' // 时间触发
+  | 'relevance' // 相关性触发
+  | 'emotion' // 情感触发
+  | 'keyword' // 关键词触发
+  | 'event' // 事件触发
+  | 'periodic' // 周期触发（纪念日/节日/生日）
 
 export interface TriggerResult {
   type: TriggerType
   memories: EnhancedMemory[]
-  message?: string  // 触发时宠物可能说的话
+  message?: string // 触发时宠物可能说的话
   /** P0-1: 真实检索分（0-1），由 checkRelevanceTrigger 填入，供 recallEngine 候选打分使用；
    *  缺失时回退到各 cue 的默认 relevance。 */
   score?: number
@@ -81,38 +81,138 @@ export interface TriggerResult {
 // ============ 关键词配置 ============
 
 export const EMOTION_KEYWORDS = [
-  '开心', '难过', '生气', '害怕', '担心', '想念', '喜欢', '讨厌',
-  '孤独', '幸福', '焦虑', '兴奋', '失望', '感动', '温暖', '伤心',
-  'happy', 'sad', 'angry', 'afraid', 'miss', 'love', 'hate', 'lonely',
+  '开心',
+  '难过',
+  '生气',
+  '害怕',
+  '担心',
+  '想念',
+  '喜欢',
+  '讨厌',
+  '孤独',
+  '幸福',
+  '焦虑',
+  '兴奋',
+  '失望',
+  '感动',
+  '温暖',
+  '伤心',
+  'happy',
+  'sad',
+  'angry',
+  'afraid',
+  'miss',
+  'love',
+  'hate',
+  'lonely',
 ]
 
 // W1：情感极性词表——用于计算 valence（愉悦度）
 export const POSITIVE_VALENCE_WORDS = [
-  '开心', '幸福', '喜欢', '兴奋', '感动', '温暖', '快乐', '满意', '期待', '感激',
-  'happy', 'love', 'great', 'good', 'wonderful', 'amazing', 'excited', 'grateful',
+  '开心',
+  '幸福',
+  '喜欢',
+  '兴奋',
+  '感动',
+  '温暖',
+  '快乐',
+  '满意',
+  '期待',
+  '感激',
+  'happy',
+  'love',
+  'great',
+  'good',
+  'wonderful',
+  'amazing',
+  'excited',
+  'grateful',
 ]
 export const NEGATIVE_VALENCE_WORDS = [
-  '难过', '生气', '害怕', '担心', '讨厌', '孤独', '焦虑', '失望', '伤心', '崩溃', '绝望', '愤怒',
-  'sad', 'angry', 'hate', 'afraid', 'lonely', 'anxious', 'disappointed', 'depressed',
+  '难过',
+  '生气',
+  '害怕',
+  '担心',
+  '讨厌',
+  '孤独',
+  '焦虑',
+  '失望',
+  '伤心',
+  '崩溃',
+  '绝望',
+  '愤怒',
+  'sad',
+  'angry',
+  'hate',
+  'afraid',
+  'lonely',
+  'anxious',
+  'disappointed',
+  'depressed',
 ]
 // W1：唤醒度词表——用于计算 arousal（唤醒度）
 export const HIGH_AROUSAL_WORDS = [
-  '兴奋', '激动', '愤怒', '恐惧', '狂喜', '崩溃', '绝望', '着急', '紧张', '震惊',
-  'excited', 'furious', 'terrified', 'panicked', 'shocked', 'thrilled',
+  '兴奋',
+  '激动',
+  '愤怒',
+  '恐惧',
+  '狂喜',
+  '崩溃',
+  '绝望',
+  '着急',
+  '紧张',
+  '震惊',
+  'excited',
+  'furious',
+  'terrified',
+  'panicked',
+  'shocked',
+  'thrilled',
 ]
 export const LOW_AROUSAL_WORDS = [
-  '平静', '放松', '无聊', '困', '累', '淡淡', '还好',
-  'calm', 'relaxed', 'bored', 'tired', 'peaceful',
+  '平静',
+  '放松',
+  '无聊',
+  '困',
+  '累',
+  '淡淡',
+  '还好',
+  'calm',
+  'relaxed',
+  'bored',
+  'tired',
+  'peaceful',
 ]
 
 export const PREFERENCE_KEYWORDS = [
-  '喜欢', '讨厌', '最爱', '偏好', '想要', '希望',
-  'love', 'hate', 'favorite', 'prefer', 'want', 'wish',
+  '喜欢',
+  '讨厌',
+  '最爱',
+  '偏好',
+  '想要',
+  '希望',
+  'love',
+  'hate',
+  'favorite',
+  'prefer',
+  'want',
+  'wish',
 ]
 
 export const EVENT_KEYWORDS = [
-  '今天', '昨天', '上次', '记得', '忘记', '生日', '纪念日',
-  'today', 'yesterday', 'remember', 'forget', 'birthday', 'anniversary',
+  '今天',
+  '昨天',
+  '上次',
+  '记得',
+  '忘记',
+  '生日',
+  '纪念日',
+  'today',
+  'yesterday',
+  'remember',
+  'forget',
+  'birthday',
+  'anniversary',
 ]
 
 // ============ 周期触发配置 ============
@@ -139,11 +239,11 @@ export const ANNIVERSARY_MESSAGES: Record<number, string> = {
 export interface FestivalConfig {
   key: string
   message: string
-  fixedMonth?: number  // 固定节日月份（公历）
-  fixedDay?: number    // 固定节日日期
+  fixedMonth?: number // 固定节日月份（公历）
+  fixedDay?: number // 固定节日日期
   dates?: { year: number; month: number; day: number }[] // 农历节日的公历映射（向后兼容，动态计算时可省略）
-  lunarMonth?: number  // 农历月份（正月=1，腊月=12）
-  lunarDay?: number    // 农历日期
+  lunarMonth?: number // 农历月份（正月=1，腊月=12）
+  lunarDay?: number // 农历日期
 }
 
 // P3-4：简易农历→公历日期查表（覆盖 2024-2035）
@@ -177,7 +277,11 @@ const LUNAR_DATE_TABLE: Record<string, string> = {
 }
 
 /** P3-4：动态计算农历日期对应的公历日期 */
-export function getLunarSolarDate(lunarMonth: number, lunarDay: number, year?: number): { year: number; month: number; day: number } | null {
+export function getLunarSolarDate(
+  lunarMonth: number,
+  lunarDay: number,
+  year?: number,
+): { year: number; month: number; day: number } | null {
   const y = year ?? new Date().getFullYear()
   const key = `${y}-${String(lunarMonth).padStart(2, '0')}-${String(lunarDay).padStart(2, '0')}`
   const solar = LUNAR_DATE_TABLE[key]
@@ -262,7 +366,7 @@ export function checkFestivalToday(): { key: string; message: string } | null {
     }
     // 向后兼容：如果动态计算没命中，检查 dates 数组
     if (f.dates) {
-      const match = f.dates.find(d => d.year === todayYear && d.month === todayMonth && d.day === todayDay)
+      const match = f.dates.find((d) => d.year === todayYear && d.month === todayMonth && d.day === todayDay)
       if (match) {
         return { key: f.key, message: f.message }
       }
@@ -274,9 +378,9 @@ export function checkFestivalToday(): { key: string; message: string } | null {
 // ============ 触发频率控制常量 ============
 // T-12: 值统一来自 memoryConfig
 
-export const MAX_DAILY_TRIGGERS = TRIGGER_CONFIG.maxDailyTriggers       // 每日主动触发上限
+export const MAX_DAILY_TRIGGERS = TRIGGER_CONFIG.maxDailyTriggers // 每日主动触发上限
 export const MIN_TRIGGER_INTERVAL_MS = TRIGGER_CONFIG.minTriggerIntervalMs // 两次触发最小间隔（30 分钟）
-export const IGNORE_THRESHOLD = TRIGGER_CONFIG.ignoreThreshold           // 连续忽略阈值，超过后降频
+export const IGNORE_THRESHOLD = TRIGGER_CONFIG.ignoreThreshold // 连续忽略阈值，超过后降频
 
 // ============ 记忆分类系统 ============
 // 四分类：SHORT_TERM / LONG_TERM / EPISODIC / SEMANTIC
@@ -418,15 +522,14 @@ export function calculateForgettingScore(
   // 时间衰减：e^(-rate * ageHours / strength)，时间越久衰减越大
   // W3：记忆强度使遗忘率变慢——常被提起的往事越来越牢固
   const strength = memory.strength ?? 1.0
-  const timeDecay = Math.exp(-config.forgetDecayRate * ageHours / strength)
+  const timeDecay = Math.exp((-config.forgetDecayRate * ageHours) / strength)
 
   // 访问频率加成：访问次数越多，越不容易遗忘，上限 0.5
   const accessBoost = Math.min(memory.accessCount * 0.05, 0.5)
 
   // 最近访问加成：越近期访问越不容易遗忘
-  const recencyBoost = memory.lastAccessed > 0
-    ? Math.exp(-0.01 * (now - memory.lastAccessed) / (1000 * 60 * 60)) * 0.3
-    : 0
+  const recencyBoost =
+    memory.lastAccessed > 0 ? Math.exp((-0.01 * (now - memory.lastAccessed)) / (1000 * 60 * 60)) * 0.3 : 0
 
   // P1-3 修复：原公式 forgetScore = timeDecay * ... 随时间衰减变小，
   // 导致 shouldForget = score > 0.7 时越新的越该忘、越老的永不遗忘（语义颠倒）。
@@ -463,9 +566,7 @@ export function shouldPromoteToLongTerm(
   config: MemoryCategoryConfig = DEFAULT_CATEGORY_CONFIG,
 ): boolean {
   return (
-    memory.accessCount >= config.promotionThreshold &&
-    memory.importance >= 30 &&
-    !memory.isAutobiographical // 自传记忆不参与晋升
+    memory.accessCount >= config.promotionThreshold && memory.importance >= 30 && !memory.isAutobiographical // 自传记忆不参与晋升
   )
 }
 

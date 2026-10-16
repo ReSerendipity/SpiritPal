@@ -148,7 +148,8 @@ describe('OnDeviceModelPanel 设备分级（P2-12）', () => {
   it('展示 Rust detect_device_tier 的分级结果（tier 徽章 + note）', async () => {
     setupModels([])
     mockInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'detect_device_tier') return Promise.resolve({ tier: 'T1', llm_allowed: true, note: '8GB RAM / 4 cores' })
+      if (cmd === 'detect_device_tier')
+        return Promise.resolve({ tier: 'T1', llm_allowed: true, note: '8GB RAM / 4 cores' })
       if (cmd === 'ondevice_models_dir') return Promise.resolve({ dir: DIR })
       if (cmd === 'ondevice_list_models') return Promise.resolve([])
       return Promise.resolve(undefined)
@@ -161,7 +162,8 @@ describe('OnDeviceModelPanel 设备分级（P2-12）', () => {
 
   it('T0（llm_allowed=false）显示自动回退云端提示，且不显示推荐配置', async () => {
     mockInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'detect_device_tier') return Promise.resolve({ tier: 'T0', llm_allowed: false, note: '4GB RAM / 2 cores' })
+      if (cmd === 'detect_device_tier')
+        return Promise.resolve({ tier: 'T0', llm_allowed: false, note: '4GB RAM / 2 cores' })
       if (cmd === 'ondevice_models_dir') return Promise.resolve({ dir: DIR })
       if (cmd === 'ondevice_list_models') return Promise.resolve([])
       return Promise.resolve(undefined)

@@ -226,11 +226,7 @@ export function findRowByNumber(config: SpriteLayoutConfig, row: number): Sprite
 /**
  * 计算指定行中某帧在精灵图中的 (x, y) 像素偏移
  */
-export function getFramePixelOffset(
-  config: SpriteLayoutConfig,
-  row: number,
-  frame: number,
-): { x: number; y: number } {
+export function getFramePixelOffset(config: SpriteLayoutConfig, row: number, frame: number): { x: number; y: number } {
   return {
     x: frame * config.sheetSize.cellW,
     y: row * config.sheetSize.cellH,
@@ -278,9 +274,7 @@ export function getSpriteLayout(characterAtlasLayout?: {
   cols: number
   rows: number
 }): SpriteLayoutConfig {
-  const key = characterAtlasLayout
-    ? `${characterAtlasLayout.cellW}x${characterAtlasLayout.cellH}`
-    : 'default'
+  const key = characterAtlasLayout ? `${characterAtlasLayout.cellW}x${characterAtlasLayout.cellH}` : 'default'
 
   const cached = layoutCache.get(key)
   if (cached) return cached

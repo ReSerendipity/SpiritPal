@@ -125,11 +125,7 @@ export function DialoguePanel({ graphId, onClose }: DialoguePanelProps) {
       </div>
 
       {/* 关闭 */}
-      <button
-        onClick={onClose}
-        className="absolute right-2 top-2 text-ink-muted hover:text-ink"
-        aria-label="关闭对话"
-      >
+      <button onClick={onClose} className="absolute right-2 top-2 text-ink-muted hover:text-ink" aria-label="关闭对话">
         ✕
       </button>
     </div>

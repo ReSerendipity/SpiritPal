@@ -108,7 +108,9 @@ export function AlbumPanel() {
           await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
           setCopiedId(ss.id)
           setTimeout(() => setCopiedId(null), 1500)
-        } catch { /* 复制失败静默 */ }
+        } catch {
+          /* 复制失败静默 */
+        }
       }
     } else {
       const ok = await mgr.copyToClipboard(ss.id)
@@ -137,9 +139,8 @@ export function AlbumPanel() {
 
   // P3-27: 社交分享（复制到剪贴板 + 提示）
   async function handleShare(ss: Screenshot) {
-    const dataUrl = activeFilter !== 'none'
-      ? (await applyFilterToDataUrl(ss.dataUrl, activeFilter)) ?? ss.dataUrl
-      : ss.dataUrl
+    const dataUrl =
+      activeFilter !== 'none' ? ((await applyFilterToDataUrl(ss.dataUrl, activeFilter)) ?? ss.dataUrl) : ss.dataUrl
     try {
       const response = await fetch(dataUrl)
       const blob = await response.blob()
@@ -162,7 +163,7 @@ export function AlbumPanel() {
     }
     const a = document.createElement('a')
     a.href = dataUrl
-    const filterLabel = FILTERS.find(f => f.id === activeFilter)?.name ?? ''
+    const filterLabel = FILTERS.find((f) => f.id === activeFilter)?.name ?? ''
     a.download = `spiritpal-${ss.characterName}-${filterLabel}-${new Date(ss.timestamp).toISOString().slice(0, 10)}.png`
     a.click()
   }
@@ -170,7 +171,7 @@ export function AlbumPanel() {
   // P3-27: Canvas 滤镜应用
   function applyFilterToDataUrl(dataUrl: string, filterId: FilterId): Promise<string | null> {
     return new Promise((resolve) => {
-      const filterDef = FILTERS.find(f => f.id === filterId)
+      const filterDef = FILTERS.find((f) => f.id === filterId)
       if (!filterDef || filterDef.cssFilter === 'none') {
         resolve(null)
         return
@@ -183,7 +184,10 @@ export function AlbumPanel() {
         canvas.width = img.width
         canvas.height = img.height
         const ctx = canvas.getContext('2d')
-        if (!ctx) { resolve(null); return }
+        if (!ctx) {
+          resolve(null)
+          return
+        }
 
         ctx.filter = filterDef.cssFilter
         ctx.drawImage(img, 0, 0)
@@ -200,9 +204,7 @@ export function AlbumPanel() {
     })
   }
 
-  const filtered = filterChar === 'all'
-    ? screenshots
-    : screenshots.filter((s) => s.characterId === filterChar)
+  const filtered = filterChar === 'all' ? screenshots : screenshots.filter((s) => s.characterId === filterChar)
 
   const charIds = [...new Set(screenshots.map((s) => s.characterId))]
 
@@ -253,12 +255,8 @@ export function AlbumPanel() {
       {filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed border-ink/10 p-8 text-center">
           <ImageIcon size={32} className="mx-auto mb-2 opacity-40 text-ink-muted" />
-          <div className="text-xs text-ink-muted">
-            {screenshots.length === 0 ? '还没有截图' : '该角色暂无截图'}
-          </div>
-          <div className="mt-1 text-[10px] text-ink-faint">
-            右键宠物菜单中选择「截图」来保存美好瞬间
-          </div>
+          <div className="text-xs text-ink-muted">{screenshots.length === 0 ? '还没有截图' : '该角色暂无截图'}</div>
+          <div className="mt-1 text-[10px] text-ink-faint">右键宠物菜单中选择「截图」来保存美好瞬间</div>
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-2">
@@ -266,7 +264,10 @@ export function AlbumPanel() {
             <div
               key={ss.id}
               className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10"
-              onClick={() => { setSelected(ss); setActiveFilter('none') }}
+              onClick={() => {
+                setSelected(ss)
+                setActiveFilter('none')
+              }}
             >
               <img
                 src={ss.dataUrl}
@@ -275,28 +276,40 @@ export function AlbumPanel() {
               />
               <div className="absolute inset-0 flex items-center justify-center gap-1 bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
                 <button
-                  onClick={(e) => { e.stopPropagation(); handleShare(ss) }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleShare(ss)
+                  }}
                   className="rounded bg-white/20 p-1.5 text-white hover:bg-white/30"
                   title="分享"
                 >
                   <Share2 size={12} />
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); handleExport(ss) }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleExport(ss)
+                  }}
                   className="rounded bg-white/20 p-1.5 text-white hover:bg-white/30"
                   title="下载"
                 >
                   <Download size={12} />
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); handleCopy(ss) }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleCopy(ss)
+                  }}
                   className="rounded bg-white/20 p-1.5 text-white hover:bg-white/30"
                   title="复制"
                 >
                   {copiedId === ss.id ? <Check size={12} /> : <Copy size={12} />}
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); handleDelete(ss.id) }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDelete(ss.id)
+                  }}
                   className="rounded bg-error/40 p-1.5 text-white hover:bg-error/60"
                   title="删除"
                 >
@@ -305,9 +318,7 @@ export function AlbumPanel() {
               </div>
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 py-1">
                 <div className="text-[9px] text-white/80">{ss.characterName}</div>
-                <div className="text-[8px] text-white/50">
-                  {new Date(ss.timestamp).toLocaleDateString('zh-CN')}
-                </div>
+                <div className="text-[8px] text-white/50">{new Date(ss.timestamp).toLocaleDateString('zh-CN')}</div>
               </div>
             </div>
           ))}
@@ -325,7 +336,10 @@ export function AlbumPanel() {
       {selected && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-          onClick={() => { setSelected(null); setActiveFilter('none') }}
+          onClick={() => {
+            setSelected(null)
+            setActiveFilter('none')
+          }}
         >
           <div className="relative max-h-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
             {/* 滤镜预览 */}
@@ -335,7 +349,7 @@ export function AlbumPanel() {
                 alt={selected.caption ?? selected.characterName}
                 className="max-h-[70vh] rounded-lg"
                 style={{
-                  filter: FILTERS.find(f => f.id === activeFilter)?.cssFilter ?? 'none',
+                  filter: FILTERS.find((f) => f.id === activeFilter)?.cssFilter ?? 'none',
                 }}
               />
               {/* 隐藏的 Canvas 用于导出 */}
@@ -355,7 +369,8 @@ export function AlbumPanel() {
                       : 'text-ink-muted hover:bg-cream-deep/50'
                   }`}
                 >
-                  <span className="mr-0.5">{f.icon}</span>{f.name}
+                  <span className="mr-0.5">{f.icon}</span>
+                  {f.name}
                 </button>
               ))}
             </div>
@@ -393,7 +408,10 @@ export function AlbumPanel() {
                 <>
                   <Pencil size={12} className="shrink-0 text-ink-muted" />
                   <button
-                    onClick={() => { setEditCaptionId(selected.id); setCaptionText(selected.caption ?? '') }}
+                    onClick={() => {
+                      setEditCaptionId(selected.id)
+                      setCaptionText(selected.caption ?? '')
+                    }}
                     className="text-left text-[11px] text-ink-muted hover:text-ink"
                   >
                     {selected.caption ?? '点击添加说明…'}
@@ -437,7 +455,10 @@ export function AlbumPanel() {
                   <Trash2 size={14} />
                 </button>
                 <button
-                  onClick={() => { setSelected(null); setActiveFilter('none') }}
+                  onClick={() => {
+                    setSelected(null)
+                    setActiveFilter('none')
+                  }}
                   className="rounded bg-white/10 p-1.5 text-white hover:bg-cream-deep/70"
                   title="关闭"
                 >

@@ -215,9 +215,7 @@ async function* layer2ExtractAction(
  *
  * @param actionStream Layer 2 的输出流
  */
-async function* layer3FormatDisplay(
-  actionStream: AsyncIterable<ActionOutput>,
-): AsyncGenerator<DisplayOutput> {
+async function* layer3FormatDisplay(actionStream: AsyncIterable<ActionOutput>): AsyncGenerator<DisplayOutput> {
   for await (const { cleanText, animations, thinkContent, index, isComplete } of actionStream) {
     // 格式化显示文本
     const displayText = cleanText
@@ -261,9 +259,7 @@ async function* layer4ScheduleTTS(
     ttsText = ttsText.trim()
 
     // 判断是否应该送 TTS
-    const shouldTTS = config.enableTTS
-      && ttsText.length > 0
-      && !thinkContent // Think 内容不送 TTS（这里简化判断：如果当前是纯 think 块则不送）
+    const shouldTTS = config.enableTTS && ttsText.length > 0 && !thinkContent // Think 内容不送 TTS（这里简化判断：如果当前是纯 think 块则不送）
 
     yield {
       ttsText,
@@ -402,10 +398,7 @@ let pipelineInstance: GeneratorPipeline | null = null
  * @param config 管道配置（仅首次创建时生效）
  * @returns GeneratorPipeline 实例
  */
-export function getGeneratorPipeline(
-  callbacks?: PipelineCallbacks,
-  config?: PipelineConfig,
-): GeneratorPipeline {
+export function getGeneratorPipeline(callbacks?: PipelineCallbacks, config?: PipelineConfig): GeneratorPipeline {
   if (!pipelineInstance) {
     pipelineInstance = new GeneratorPipeline(callbacks, config)
   }

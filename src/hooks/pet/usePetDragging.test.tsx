@@ -45,7 +45,10 @@ vi.mock('@/lib/system/appWindows', () => ({
 
 describe('usePetDragging', () => {
   beforeEach(() => {
-    vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1))
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn(() => 1),
+    )
     vi.stubGlobal('cancelAnimationFrame', vi.fn())
   })
 
@@ -118,9 +121,7 @@ describe('usePetDragging', () => {
     })
     // 移动超过 3px 阈值 → 进入拖拽
     await act(async () => {
-      await result.current.handleMouseMove(
-        mouseEvent({ clientX: 10, clientY: 0, screenX: 10, screenY: 0 }),
-      )
+      await result.current.handleMouseMove(mouseEvent({ clientX: 10, clientY: 0, screenX: 10, screenY: 0 }))
     })
     expect(result.current.dragging).toBe(true)
     expect(onDragStart).toHaveBeenCalledTimes(1)

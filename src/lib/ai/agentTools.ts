@@ -32,37 +32,38 @@ import { getScheduleManager } from '@/lib/nurture/scheduleManager'
 import type { EnhancedScheduleEvent } from '@/lib/nurture/scheduleManager'
 import { getWeatherAwarenessManager } from '@/lib/system/weatherAwareness'
 import { usePetStore } from '@/stores/petStore'
+import { scanToolParamsForInjection } from './inputInjectionScreen'
 
 // ============ 应用名称映射（中文 → 系统命令）============
 
 export const APP_NAME_MAP: Record<string, string> = {
-  '计算器': 'calc',
-  '记事本': 'notepad',
-  '画图': 'mspaint',
-  '画图工具': 'mspaint',
-  '资源管理器': 'explorer',
-  '文件管理器': 'explorer',
-  '文件资源管理器': 'explorer',
-  '任务管理器': 'taskmgr',
-  '命令提示符': 'cmd',
-  '终端': 'wt',
-  '控制面板': 'control',
-  '注册表编辑器': 'regedit',
-  '截图工具': 'snippingtool',
-  '时钟': 'timedate.cpl',
-  '设置': 'ms-settings:',
-  '写字板': 'write',
-  '放大镜': 'magnify',
-  '屏幕键盘': 'osk',
-  '计算器应用': 'calc',
-  '浏览器': 'https://www.bing.com',
-  'vscode': 'code',
+  计算器: 'calc',
+  记事本: 'notepad',
+  画图: 'mspaint',
+  画图工具: 'mspaint',
+  资源管理器: 'explorer',
+  文件管理器: 'explorer',
+  文件资源管理器: 'explorer',
+  任务管理器: 'taskmgr',
+  命令提示符: 'cmd',
+  终端: 'wt',
+  控制面板: 'control',
+  注册表编辑器: 'regedit',
+  截图工具: 'snippingtool',
+  时钟: 'timedate.cpl',
+  设置: 'ms-settings:',
+  写字板: 'write',
+  放大镜: 'magnify',
+  屏幕键盘: 'osk',
+  计算器应用: 'calc',
+  浏览器: 'https://www.bing.com',
+  vscode: 'code',
   'vs code': 'code',
   'visual studio code': 'code',
-  'word': 'winword',
-  'excel': 'excel',
-  'powerpoint': 'powerpnt',
-  'ppt': 'powerpnt',
+  word: 'winword',
+  excel: 'excel',
+  powerpoint: 'powerpnt',
+  ppt: 'powerpnt',
 }
 
 // ============ 工具实现 ============
@@ -108,7 +109,11 @@ export async function toolSearchWeb(params: Record<string, unknown>): Promise<st
 }
 
 /** 设置提醒 */
-export async function toolSetReminder(params: Record<string, unknown>, userMessage: string, characterId?: string): Promise<string> {
+export async function toolSetReminder(
+  params: Record<string, unknown>,
+  userMessage: string,
+  characterId?: string,
+): Promise<string> {
   const message = String(params.message ?? params.content ?? '').trim() || userMessage
   const schedMgr = getScheduleManager()
   // scheduleManager.addFromChat 会从自然语言中解析时间
@@ -128,7 +133,9 @@ export async function toolSetReminder(params: Record<string, unknown>, userMessa
 
 /** 管理日程 */
 export async function toolManageSchedule(params: Record<string, unknown>): Promise<string> {
-  const action = String(params.action ?? 'list').trim().toLowerCase()
+  const action = String(params.action ?? 'list')
+    .trim()
+    .toLowerCase()
   const schedMgr = getScheduleManager()
 
   if (action === 'list' || action === '查询' || action === '查看') {
@@ -169,7 +176,9 @@ export async function toolManageSchedule(params: Record<string, unknown>): Promi
 
 /** 调整宠物状态 */
 export async function toolAdjustPetState(params: Record<string, unknown>): Promise<string> {
-  const action = String(params.action ?? '').trim().toLowerCase()
+  const action = String(params.action ?? '')
+    .trim()
+    .toLowerCase()
   const store = usePetStore.getState()
 
   switch (action) {
@@ -398,6 +407,32 @@ export function isToolConfirmationRequired(toolName: string): boolean {
   return !CONFIRMATION_EXEMPT_TOOLS.has(toolName)
 }
 
+/** 工具闸门统一决策结果 */
+export interface ToolGateDecision {
+  confirmationRequired: boolean
+  /** 语义注入初筛命中的 pattern id（用于日志与确认提示；空数组 = 未命中） */
+  injectionHits: string[]
+}
+
+/**
+ * 工具闸门统一决策（P0-1 静态确认闸门 + 2026-10-16 语义注入初筛升级）：
+ *
+ * 1. 静态层：不在 [`CONFIRMATION_EXEMPT_TOOLS`] 内的工具必须确认（原有语义不变）；
+ * 2. 语义层：豁免名单内的工具，若参数命中注入特征（[`scanToolParamsForInjection`]），
+ *    同样升级为必须确认 —— fail-closed to human，收口评测集 G01/G02 台账缺口。
+ *
+ * @param toolName 工具名称
+ * @param params 已通过 zod 校验的工具参数（未传时不做语义扫描）
+ * @see {@link ./inputInjectionScreen.ts} 语义初筛的模式表与边界声明
+ */
+export function decideToolGate(toolName: string, params?: Record<string, unknown>): ToolGateDecision {
+  const injectionHits = params ? scanToolParamsForInjection(params) : []
+  return {
+    confirmationRequired: isToolConfirmationRequired(toolName) || injectionHits.length > 0,
+    injectionHits,
+  }
+}
+
 /**
  * 获取工具模式描述（用于 UI 展示）
  *
@@ -444,13 +479,13 @@ export async function toolReadFile(params: Record<string, unknown>): Promise<str
 export async function toolListDirectory(params: Record<string, unknown>): Promise<string> {
   const dirPath = String(params.path ?? '.').trim()
   try {
-    const entries = await invoke<Array<{ name: string; is_dir: boolean; size: number }>>(
-      'list_directory', { path: dirPath },
-    )
+    const entries = await invoke<Array<{ name: string; is_dir: boolean; size: number }>>('list_directory', {
+      path: dirPath,
+    })
     if (!entries || entries.length === 0) {
       return '🔧 目录为空'
     }
-    const lines = entries.map(e => {
+    const lines = entries.map((e) => {
       const type = e.is_dir ? '📁' : '📄'
       const size = e.is_dir ? '' : ` (${formatFileSize(e.size)})`
       return `${type} ${e.name}${size}`
@@ -519,9 +554,7 @@ export async function toolExecuteCommand(params: Record<string, unknown>): Promi
       return `🔧 命令执行成功（无输出）：${command}`
     }
     // 截断过长输出
-    const truncated = output.length > 5000
-      ? output.substring(0, 5000) + '\n... (输出过长，已截断)'
-      : output
+    const truncated = output.length > 5000 ? output.substring(0, 5000) + '\n... (输出过长，已截断)' : output
     return `🔧 命令输出：\n${truncated}`
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)

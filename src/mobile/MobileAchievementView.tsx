@@ -11,7 +11,18 @@
  * @see {@link ../lib/achievementSystem} 成就管理器
  */
 import { useEffect, useState } from 'react'
-import { Trophy, TrendingUp, Award, Lock, Pointer, Heart, Timer, ShoppingBag, Sparkles, type LucideIcon } from 'lucide-react'
+import {
+  Trophy,
+  TrendingUp,
+  Award,
+  Lock,
+  Pointer,
+  Heart,
+  Timer,
+  ShoppingBag,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   getAchievementManager,
@@ -76,22 +87,18 @@ export function MobileAchievementView() {
     return (
       <div
         className={`flex items-center gap-2.5 rounded-xl border p-2.5 ${
-          isUnlocked
-            ? 'border-tangerine/30 bg-tangerine-soft/60'
-            : `${cardBorderClass} ${cardBgClass}`
+          isUnlocked ? 'border-tangerine/30 bg-tangerine-soft/60' : `${cardBorderClass} ${cardBgClass}`
         }`}
       >
-        <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-cream-deep text-lg ${isUnlocked ? '' : 'opacity-40 grayscale'}`}>
+        <div
+          className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-cream-deep text-lg ${isUnlocked ? '' : 'opacity-40 grayscale'}`}
+        >
           {isUnlocked ? ach.icon : <Lock size={16} className="text-ink-faint" />}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1">
-            <span className={`truncate text-sm font-medium ${isUnlocked ? 'text-ink' : subTextClass}`}>
-              {ach.name}
-            </span>
-            {ach.reward ? (
-              <span className="flex-shrink-0 text-[10px] text-tangerine-deep">+{ach.reward}🪙</span>
-            ) : null}
+            <span className={`truncate text-sm font-medium ${isUnlocked ? 'text-ink' : subTextClass}`}>{ach.name}</span>
+            {ach.reward ? <span className="flex-shrink-0 text-[10px] text-tangerine-deep">+{ach.reward}🪙</span> : null}
           </div>
           <div className={`truncate text-[11px] ${subTextClass}`}>{ach.description}</div>
           {!isUnlocked && progress > 0 && (
@@ -116,10 +123,12 @@ export function MobileAchievementView() {
     <div className="space-y-3">
       {/* 子页切换 */}
       <div className="flex gap-1">
-        {([
-          { id: 'achievements', labelKey: 'tab.achievement', icon: Trophy },
-          { id: 'ranking', labelKey: 'achievement.ranking', icon: TrendingUp },
-        ] as const).map((tabDef) => {
+        {(
+          [
+            { id: 'achievements', labelKey: 'tab.achievement', icon: Trophy },
+            { id: 'ranking', labelKey: 'achievement.ranking', icon: TrendingUp },
+          ] as const
+        ).map((tabDef) => {
           const Icon = tabDef.icon
           const isActive = tab === tabDef.id
           return (
@@ -166,10 +175,7 @@ export function MobileAchievementView() {
             <div className="flex justify-around">
               {(['none', 'star', 'moon', 'sun', 'crown'] as const).map((tier) => (
                 <div key={tier} className="text-center">
-                  <div
-                    className="mx-auto mb-1 h-6 w-6 rounded-full"
-                    style={{ background: BADGE_COLORS[tier] }}
-                  />
+                  <div className="mx-auto mb-1 h-6 w-6 rounded-full" style={{ background: BADGE_COLORS[tier] }} />
                   <span className={`text-[10px] ${subTextClass}`}>{t(`badge.${tier}`)}</span>
                 </div>
               ))}

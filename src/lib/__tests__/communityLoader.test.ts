@@ -95,7 +95,10 @@ describe('loadCommunityCharacters（manifest 自动发现）', () => {
   })
 
   it('失败时静默降级为空数组，不抛错', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, json: async () => null })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false, json: async () => null })),
+    )
     const { loadCommunityCharacters } = await freshCommunityLoader()
     const loaded = await loadCommunityCharacters()
     expect(loaded).toEqual([])

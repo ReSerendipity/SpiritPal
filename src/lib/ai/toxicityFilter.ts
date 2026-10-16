@@ -43,24 +43,47 @@ export interface FilterResult {
 /** 阻断级关键词（暴力/自残/严重歧视） */
 const BLOCK_KEYWORDS: string[] = [
   // 自残/自杀
-  '自杀', '自残', 'kill myself', 'suicide', 'self-harm',
-  '结束生命', '不想活了', '想死',
+  '自杀',
+  '自残',
+  'kill myself',
+  'suicide',
+  'self-harm',
+  '结束生命',
+  '不想活了',
+  '想死',
   // 暴力威胁
-  '杀了你', '我要杀', '杀光', '屠杀', 'massacre',
-  '炸弹制作', '爆炸物', 'bomb making', 'explosive device',
+  '杀了你',
+  '我要杀',
+  '杀光',
+  '屠杀',
+  'massacre',
+  '炸弹制作',
+  '爆炸物',
+  'bomb making',
+  'explosive device',
   // 严重歧视
-  '种族灭绝', 'genocide', '种族清洗',
+  '种族灭绝',
+  'genocide',
+  '种族清洗',
 ]
 
 /** 警告级关键词（仇恨言论/不当内容） */
 const WARN_KEYWORDS: string[] = [
   // 仇恨言论
-  '劣等民族', '劣等种族', 'subhuman', 'vermin',
+  '劣等民族',
+  '劣等种族',
+  'subhuman',
+  'vermin',
   // 不当引导
-  '制毒', 'drug manufacturing', 'meth recipe',
-  '非法武器', 'illegal weapon',
+  '制毒',
+  'drug manufacturing',
+  'meth recipe',
+  '非法武器',
+  'illegal weapon',
   // 骚扰
-  '跟踪她', '跟踪他', 'stalk',
+  '跟踪她',
+  '跟踪他',
+  'stalk',
 ]
 
 // ============ 过滤逻辑 ============
@@ -104,11 +127,11 @@ export function filterLLMOutput(text: string): FilterResult {
   }
 
   // 4. 控制字符过滤
-    // eslint-disable-next-line no-control-regex -- 控制字符检测是故意的（安全过滤）
-    const controlCharMatch = text.match(/[\x00-\x08\x0E-\x1F]/g)
-    if (controlCharMatch) {
-      // eslint-disable-next-line no-control-regex -- 控制字符清除是故意的（安全过滤）
-      filteredText = filteredText.replace(/[\x00-\x08\x0E-\x1F]/g, '')
+  // eslint-disable-next-line no-control-regex -- 控制字符检测是故意的（安全过滤）
+  const controlCharMatch = text.match(/[\x00-\x08\x0E-\x1F]/g)
+  if (controlCharMatch) {
+    // eslint-disable-next-line no-control-regex -- 控制字符清除是故意的（安全过滤）
+    filteredText = filteredText.replace(/[\x00-\x08\x0E-\x1F]/g, '')
     issues.push('检测到控制字符，已清除')
     if (severity === 'pass') severity = 'warn'
   }

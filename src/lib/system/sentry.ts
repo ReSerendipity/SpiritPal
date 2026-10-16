@@ -91,11 +91,15 @@ function saveLocalError(entry: LocalErrorEntry): void {
  */
 export function exportLocalErrorLog(): string {
   const errors = loadLocalErrors()
-  return JSON.stringify({
-    exportedAt: new Date().toISOString(),
-    count: errors.length,
-    errors,
-  }, null, 2)
+  return JSON.stringify(
+    {
+      exportedAt: new Date().toISOString(),
+      count: errors.length,
+      errors,
+    },
+    null,
+    2,
+  )
 }
 
 /**
@@ -124,7 +128,7 @@ function maskContextsPII(contexts: Record<string, unknown>): Record<string, unkn
     if (typeof value === 'string') {
       result[key] = maskPII(value)
     } else if (Array.isArray(value)) {
-      result[key] = value.map((v) => typeof v === 'string' ? maskPII(v) : v)
+      result[key] = value.map((v) => (typeof v === 'string' ? maskPII(v) : v))
     } else if (value && typeof value === 'object') {
       result[key] = maskPIIInObject(value as Record<string, unknown>)
     } else {
@@ -140,7 +144,7 @@ function maskPIIInObject(obj: Record<string, unknown>): Record<string, unknown> 
     if (typeof value === 'string') {
       result[key] = maskPII(value)
     } else if (Array.isArray(value)) {
-      result[key] = value.map((v) => typeof v === 'string' ? maskPII(v) : v)
+      result[key] = value.map((v) => (typeof v === 'string' ? maskPII(v) : v))
     } else if (value && typeof value === 'object') {
       result[key] = maskPIIInObject(value as Record<string, unknown>)
     } else {
@@ -183,11 +187,21 @@ class MockSentryHub implements SentryHub {
     console.log(`[Sentry Mock] ${level}:`, message)
   }
 
-  setContext(_key: string, _value: Record<string, unknown>): void { /* no-op */ }
-  setUser(_user: { id?: string; email?: string; name?: string } | null): void { /* no-op */ }
-  addBreadcrumb(_breadcrumb: SentryBreadcrumb): void { /* no-op */ }
-  close(): Promise<boolean> { return Promise.resolve(true) }
-  isRealSentry(): boolean { return false }
+  setContext(_key: string, _value: Record<string, unknown>): void {
+    /* no-op */
+  }
+  setUser(_user: { id?: string; email?: string; name?: string } | null): void {
+    /* no-op */
+  }
+  addBreadcrumb(_breadcrumb: SentryBreadcrumb): void {
+    /* no-op */
+  }
+  close(): Promise<boolean> {
+    return Promise.resolve(true)
+  }
+  isRealSentry(): boolean {
+    return false
+  }
 }
 
 // ============ 真实 SDK 代理（有 DSN 时动态加载）============
@@ -214,7 +228,7 @@ class RealSentryHub implements SentryHub {
       if (initFn) {
         initFn({
           dsn: config.dsn,
-          environment: config.environment ?? (import.meta.env?.MODE ?? 'development'),
+          environment: config.environment ?? import.meta.env?.MODE ?? 'development',
           release: config.release,
           tracesSampleRate: config.tracesSampleRate ?? 0.1,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Sentry event type is complex, using any for SDK compat
@@ -411,11 +425,7 @@ export function setupGlobalErrorListeners(): void {
   }
 }
 
-export function addAppBreadcrumb(
-  category: string,
-  message: string,
-  data?: Record<string, unknown>,
-): void {
+export function addAppBreadcrumb(category: string, message: string, data?: Record<string, unknown>): void {
   currentHub.addBreadcrumb({
     category,
     message,
@@ -432,11 +442,7 @@ export function clearUserContext(): void {
   currentHub.setUser(null)
 }
 
-export function captureFeatureError(
-  feature: string,
-  error: Error,
-  extra?: Record<string, unknown>,
-): void {
+export function captureFeatureError(feature: string, error: Error, extra?: Record<string, unknown>): void {
   currentHub.captureException(error, {
     feature,
     ...extra,

@@ -198,7 +198,9 @@ describe('S2: export/import 兼容', () => {
     const { EnhancedMemoryManager } = await import('@/lib/memory/enhancedMemory')
     const mgr = new EnhancedMemoryManager('import-char')
     const exportData = {
-      workingMemory: [{ id: 'test-1', user: '测试', assistant: '回复', importance: 50, created_at: new Date().toISOString() }],
+      workingMemory: [
+        { id: 'test-1', user: '测试', assistant: '回复', importance: 50, created_at: new Date().toISOString() },
+      ],
       episodicMemory: [],
       semanticMemory: '导入的摘要',
       autobiographicalMemory: [],

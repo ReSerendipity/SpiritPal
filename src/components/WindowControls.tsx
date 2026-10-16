@@ -34,15 +34,21 @@ export function WindowControls({ title, className = '', onClose }: WindowControl
       const win = getCurrentWindow()
       let disposed = false
 
-      win.isMaximized().then((max) => {
-        if (!disposed) setIsMaximized(max)
-      }).catch(swallowedCatch('WindowControls.isMaximized'))
+      win
+        .isMaximized()
+        .then((max) => {
+          if (!disposed) setIsMaximized(max)
+        })
+        .catch(swallowedCatch('WindowControls.isMaximized'))
 
       const unlisten = win.onResized(() => {
         if (disposed) return
-        win.isMaximized().then((max) => {
-          if (!disposed) setIsMaximized(max)
-        }).catch(swallowedCatch('WindowControls.onResized.isMaximized'))
+        win
+          .isMaximized()
+          .then((max) => {
+            if (!disposed) setIsMaximized(max)
+          })
+          .catch(swallowedCatch('WindowControls.onResized.isMaximized'))
       })
 
       return () => {
@@ -67,27 +73,24 @@ export function WindowControls({ title, className = '', onClose }: WindowControl
     void getCurrentWindow().toggleMaximize()
   }, [])
 
-  const handleClose = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (onClose) {
-      onClose()
-    } else {
-      void getCurrentWindow().hide()
-    }
-  }, [onClose])
+  const handleClose = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (onClose) {
+        onClose()
+      } else {
+        void getCurrentWindow().hide()
+      }
+    },
+    [onClose],
+  )
 
   return (
-    <div
-      className={`flex h-8 shrink-0 select-none items-center ${className}`}
-      data-tauri-drag-region
-    >
+    <div className={`flex h-8 shrink-0 select-none items-center ${className}`} data-tauri-drag-region>
       {/* 标题文字 */}
       {title && (
-        <span
-          className="ml-3 flex-1 truncate text-xs font-medium text-ink-muted"
-          data-tauri-drag-region
-        >
+        <span className="ml-3 flex-1 truncate text-xs font-medium text-ink-muted" data-tauri-drag-region>
           {title}
         </span>
       )}

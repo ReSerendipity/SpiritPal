@@ -55,16 +55,56 @@ const profileModules = import.meta.glob('../assets/shimeji-profiles/*.json', {
 // 当不存在打包模块时使用（public/pets/shimeji/profiles/manifest.json 优先）
 /** 已知 shimeji 角色 ID 列表（回退方案） */
 const KNOWN_SHIMEJI_IDS = [
-  '68', 'albedo', 'ayaka', 'blooky-shimeji', 'childe', 'chongyun', 'dearla',
-  'electro-childe', 'ganyu', 'gengar-shimeji', 'growlithe', 'honey-churros',
-  'hu-tao', 'jotaro', 'kamado-nezuko', 'kazuha-xll', 'kazuha', 'kizuna-ai-ver1',
-  'klee', 'kuro', 'lavender-town-ghost', 'lumine-xll', 'marisa', 'nahida',
-  'punishing-bird', 'puro-the-latex-wolf-shimeji', 'pusheen', 'rosaria-xll',
-  'sanji', 'shimeji-caneko', 'shimeji-germouser', 'shimeji-koreacat',
-  'shimeji-nekojapan', 'shimeji-turkat', 'slugcat', 'spider-man', 'spongebob',
-  'starphin-shimeji', 'tamamo', 'the-chosen-one', 'the-king', 'thoma',
-  'venti-ys', 'xiaocat', 'xingqiu-xll', 'yoimiya-ys', 'yuan-ji', 'zhongli-1',
-  'zhongli-ys', 'zuo-ci',
+  '68',
+  'albedo',
+  'ayaka',
+  'blooky-shimeji',
+  'childe',
+  'chongyun',
+  'dearla',
+  'electro-childe',
+  'ganyu',
+  'gengar-shimeji',
+  'growlithe',
+  'honey-churros',
+  'hu-tao',
+  'jotaro',
+  'kamado-nezuko',
+  'kazuha-xll',
+  'kazuha',
+  'kizuna-ai-ver1',
+  'klee',
+  'kuro',
+  'lavender-town-ghost',
+  'lumine-xll',
+  'marisa',
+  'nahida',
+  'punishing-bird',
+  'puro-the-latex-wolf-shimeji',
+  'pusheen',
+  'rosaria-xll',
+  'sanji',
+  'shimeji-caneko',
+  'shimeji-germouser',
+  'shimeji-koreacat',
+  'shimeji-nekojapan',
+  'shimeji-turkat',
+  'slugcat',
+  'spider-man',
+  'spongebob',
+  'starphin-shimeji',
+  'tamamo',
+  'the-chosen-one',
+  'the-king',
+  'thoma',
+  'venti-ys',
+  'xiaocat',
+  'xingqiu-xll',
+  'yoimiya-ys',
+  'yuan-ji',
+  'zhongli-1',
+  'zhongli-ys',
+  'zuo-ci',
 ]
 
 // ============ 缓存 ============
@@ -86,7 +126,7 @@ export async function loadShimejiCharacters(): Promise<CharacterProfile[]> {
     profiles = await Promise.all(
       Object.values(profileModules)
         .filter((p) => p && p.id && !AUDIT_EXCLUDE.has(p.id))
-        .map((p) => normalizeShimejiProfile(p))
+        .map((p) => normalizeShimejiProfile(p)),
     )
   } else {
     profiles = await loadFromPublicDir()

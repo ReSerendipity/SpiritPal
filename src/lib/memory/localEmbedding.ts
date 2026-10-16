@@ -45,11 +45,11 @@ const MAX_BATCH_SIZE = 32
 
 /** 模型加载状态 */
 export type EmbeddingModelStatus =
-  | 'idle'           // 未初始化
-  | 'loading'        // 加载中
-  | 'ready'          // 就绪
-  | 'failed'         // 加载失败
-  | 'cooldown'       // 冷却中（加载失败后等待重试）
+  | 'idle' // 未初始化
+  | 'loading' // 加载中
+  | 'ready' // 就绪
+  | 'failed' // 加载失败
+  | 'cooldown' // 冷却中（加载失败后等待重试）
 
 /** 嵌入进度回调 */
 export interface EmbeddingProgressCallback {
@@ -112,11 +112,7 @@ export class LocalEmbeddingManager {
     totalComputeTime: 0,
   }
 
-  constructor(
-    modelId: string = DEFAULT_MODEL_ID,
-    cacheMaxSize: number = 2000,
-    callbacks?: EmbeddingProgressCallback,
-  ) {
+  constructor(modelId: string = DEFAULT_MODEL_ID, cacheMaxSize: number = 2000, callbacks?: EmbeddingProgressCallback) {
     this.modelId = modelId
     this.cacheMaxSize = cacheMaxSize
     if (callbacks) this.callbacks = callbacks
@@ -223,7 +219,10 @@ export class LocalEmbeddingManager {
    * @param useCache 是否使用缓存（默认 true）
    * @returns 嵌入结果列表
    */
-  async embedTexts(texts: string[], useCache = true): Promise<{
+  async embedTexts(
+    texts: string[],
+    useCache = true,
+  ): Promise<{
     results: EmbeddingResult[]
     stats: BatchEmbeddingStats
   }> {
@@ -315,10 +314,7 @@ export class LocalEmbeddingManager {
    * @returns 余弦相似度（-1 到 1）
    */
   async similarity(textA: string, textB: string): Promise<number> {
-    const [a, b] = await Promise.all([
-      this.embedText(textA),
-      this.embedText(textB),
-    ])
+    const [a, b] = await Promise.all([this.embedText(textA), this.embedText(textB)])
     return this.cosineSimilarity(a.embedding, b.embedding)
   }
 
@@ -421,10 +417,7 @@ let instance: LocalEmbeddingManager | null = null
  * @param modelId 模型 ID（首次调用时生效）
  * @param cacheMaxSize 缓存上限（首次调用时生效）
  */
-export function getLocalEmbeddingManager(
-  modelId?: string,
-  cacheMaxSize?: number,
-): LocalEmbeddingManager {
+export function getLocalEmbeddingManager(modelId?: string, cacheMaxSize?: number): LocalEmbeddingManager {
   if (!instance) {
     instance = new LocalEmbeddingManager(modelId, cacheMaxSize)
   }

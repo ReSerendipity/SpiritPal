@@ -16,7 +16,10 @@ export default defineConfig({
     exclude: ['node_modules', 'dist', 'e2e/**', 'scripts/__tests__/lint-capabilities.test.mjs'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html', 'lcov'],
+      // json-summary（2026-10-16 追加）：给 statements 维度提供可测口径——
+      // lcov 格式不含 statement 记录，此前 statements 阈值（45）一直无可实测依据；
+      // coverage/coverage-summary.json 的 totals.statements 可直接棘轮判定
+      reporter: ['text', 'html', 'lcov', 'json-summary'],
       reportsDirectory: './coverage',
       include: ['src/lib/**/*.{ts,tsx}', 'src/components/**/*.{ts,tsx}'],
       exclude: [
@@ -76,11 +79,21 @@ export default defineConfig({
       // 且 163 个测试文件全部通过、无测试被删除 → 覆盖率下降只可能来自度量口径。
       // 因此按新口径重校准（而非回退依赖），并留 ~0.5pp 余量防抖动；阈值仍是「只升不降」
       // 的棘轮——后续覆盖率再降会被重新拦下。
+      //
+      // 棘轮上调（2026-10-16，对应测试报告 P1「阈值偏低」）：
+      // 全量实测（批次一~四落地后，lcov.info 汇总）：lines 49.76%（11283/22673）、
+      // functions 46.06%（2454/5328）、branches 41.56%（5636/13560）。
+      // 按「实测值 - ~1.5~2pp 余量」上调至 48/44/40；statements 无 lcov 记录可测
+      // （lcov 仅含 LF/LH/BRF/BRH/FNF/FNH），维持 45 不动，待有可测口径再棘轮。
+      //
+      // statements 棘轮（2026-10-16 同日追加）：coverage reporter 增加 json-summary
+      // 后取得可测口径 —— 实测 statements 49.02%（12217/24920，语义注入初筛批次后
+      // 全量实跑），按「实测值 - ~2pp 余量」上调至 47。
       thresholds: {
-        lines: 46,
-        functions: 42,
-        branches: 38,
-        statements: 45,
+        lines: 48,
+        functions: 44,
+        branches: 40,
+        statements: 47,
       },
     },
   },

@@ -2,31 +2,32 @@
 // 注意：实现已从 navigator.geolocation 改为 IP 定位（ipapi.co），
 // fetch 需按 URL 分发返回不同响应（ipapi.co 返回经纬度，open-meteo 返回天气）
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import {
-  WeatherAwarenessManager,
-  getWeatherAwarenessManager,
-} from '@/lib/system/weatherAwareness'
+import { WeatherAwarenessManager, getWeatherAwarenessManager } from '@/lib/system/weatherAwareness'
 
 // 辅助函数：设置 fetch mock，按 URL 分发 IP 定位与天气请求
 function setWeatherFetch(temp: number, weatherCode: number) {
-  vi.stubGlobal('fetch', vi.fn((url: string) =>
-    Promise.resolve({
-      ok: true,
-      json: () =>
-        String(url).includes('ipapi.co')
-          ? Promise.resolve({ latitude: 35.68, longitude: 139.76 })
-          : Promise.resolve({
-              current_weather: { temperature: temp, weathercode: weatherCode },
-            }),
-    }),
-  ))
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: string) =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          String(url).includes('ipapi.co')
+            ? Promise.resolve({ latitude: 35.68, longitude: 139.76 })
+            : Promise.resolve({
+                current_weather: { temperature: temp, weathercode: weatherCode },
+              }),
+      }),
+    ),
+  )
 }
 
 // 辅助函数：设置 fetch mock 模拟 IP 定位失败（不返回经纬度）
 function setGeolocationFetchFail() {
-  vi.stubGlobal('fetch', vi.fn(() =>
-    Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) }),
-  ))
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(() => Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) })),
+  )
 }
 
 describe('weatherAwareness', () => {
@@ -59,24 +60,33 @@ describe('weatherAwareness', () => {
     })
 
     it('IP 定位无经纬度数据时返回 null', async () => {
-      vi.stubGlobal('fetch', vi.fn(() =>
-        Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ city: 'Shanghai' }),
-        }),
-      ))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() =>
+          Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ city: 'Shanghai' }),
+          }),
+        ),
+      )
       const weather = await mgr.getWeather()
       expect(weather).toBeNull()
     })
 
     it('fetch 失败时返回 null', async () => {
-      vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('network error'))))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.reject(new Error('network error'))),
+      )
       const weather = await mgr.getWeather()
       expect(weather).toBeNull()
     })
 
     it('fetch 返回非 ok 时返回 null', async () => {
-      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: false, status: 500 })))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.resolve({ ok: false, status: 500 })),
+      )
       const weather = await mgr.getWeather()
       expect(weather).toBeNull()
     })

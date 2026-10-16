@@ -58,10 +58,7 @@ export class PermissionManager {
    * @param userApproved 用户批准的权限列表（null = 全部批准）
    * @returns 审批结果
    */
-  requestApproval(
-    manifest: PluginManifest,
-    userApproved?: PluginPermission[] | null,
-  ): PermissionApproval {
+  requestApproval(manifest: PluginManifest, userApproved?: PluginPermission[] | null): PermissionApproval {
     const requested = manifest.permissions
 
     if (userApproved === null) {
@@ -90,8 +87,8 @@ export class PermissionManager {
     }
 
     // 部分批准
-    const granted = requested.filter(p => userApproved.includes(p))
-    const denied = requested.filter(p => !userApproved.includes(p))
+    const granted = requested.filter((p) => userApproved.includes(p))
+    const denied = requested.filter((p) => !userApproved.includes(p))
 
     if (granted.length > 0) {
       this.approvedPermissions.set(manifest.id, {
@@ -129,7 +126,7 @@ export class PermissionManager {
    * @returns 是否拥有所有权限
    */
   hasAllPermissions(pluginId: string, permissions: PluginPermission[]): boolean {
-    return permissions.every(p => this.hasPermission(pluginId, p))
+    return permissions.every((p) => this.hasPermission(pluginId, p))
   }
 
   /**
@@ -166,10 +163,7 @@ export class SSRFGuard {
   private allowedDomains: Set<string>
   private blockedPatterns: RegExp[]
 
-  constructor(
-    allowedDomains: string[] = [],
-    blockedPatterns: RegExp[] = [],
-  ) {
+  constructor(allowedDomains: string[] = [], blockedPatterns: RegExp[] = []) {
     this.allowedDomains = new Set(allowedDomains)
     this.blockedPatterns = [
       // 内网地址
@@ -266,7 +260,7 @@ export class ContentFilter {
   private customRules: Array<{ pattern: RegExp; replacement: string }> = []
 
   constructor(sensitiveWords: string[] = []) {
-    this.sensitiveWords = new Set(sensitiveWords.map(w => w.toLowerCase()))
+    this.sensitiveWords = new Set(sensitiveWords.map((w) => w.toLowerCase()))
   }
 
   /**
@@ -297,10 +291,7 @@ export class ContentFilter {
     // 3. 代码注入检测
     if (/(?:import|require|eval|exec|system|cmd|shell)/i.test(filtered)) {
       issues.push('可能包含代码注入')
-      filtered = filtered.replace(
-        /(?:import|require|eval|exec|system|cmd|shell)\s*\([^)]*\)/gi,
-        '[filtered]',
-      )
+      filtered = filtered.replace(/(?:import|require|eval|exec|system|cmd|shell)\s*\([^)]*\)/gi, '[filtered]')
     }
 
     // 4. URL/路径泄露检测
@@ -409,7 +400,7 @@ export class PluginSandboxManager {
   validateFileSystemAccess(pluginId: string, filePath: string): boolean {
     const config = this.configs.get(pluginId)
     if (!config || !config.allowFileSystem) return false
-    return config.allowedPathPrefixes.some(prefix => filePath.startsWith(prefix))
+    return config.allowedPathPrefixes.some((prefix) => filePath.startsWith(prefix))
   }
 
   /**

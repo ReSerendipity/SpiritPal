@@ -8,12 +8,7 @@
  * 曾实现：运行时语言切换、自动检测系统语言、时区与日期格式本地化、RTL 布局预留、复数处理、动态插值。
  */
 
-import {
-  translations_zh_CN,
-  translations_en_US,
-  translations_ja_JP,
-  translations_ko_KR,
-} from './i18nTranslations'
+import { translations_zh_CN, translations_en_US, translations_ja_JP, translations_ko_KR } from './i18nTranslations'
 import type { Locale, TranslationBundle } from './i18nTranslations'
 
 // ============ 类型定义 ============
@@ -93,9 +88,7 @@ export class I18nManager {
    * 检测系统语言
    */
   detectSystemLanguage(): Locale {
-    const navigatorLang = typeof navigator !== 'undefined'
-      ? navigator.language.toLowerCase()
-      : 'zh-cn'
+    const navigatorLang = typeof navigator !== 'undefined' ? navigator.language.toLowerCase() : 'zh-cn'
 
     // 语言代码映射
     const localeMap: Record<string, Locale> = {
@@ -104,11 +97,11 @@ export class I18nManager {
       'zh-hk': 'zh-CN',
       'en-us': 'en-US',
       'en-gb': 'en-US',
-      'en': 'en-US',
+      en: 'en-US',
       'ja-jp': 'ja-JP',
-      'ja': 'ja-JP',
+      ja: 'ja-JP',
       'ko-kr': 'ko-KR',
-      'ko': 'ko-KR',
+      ko: 'ko-KR',
     }
 
     return localeMap[navigatorLang] || this.config.defaultLocale
@@ -321,7 +314,7 @@ export class I18nManager {
   getTextDirection(): 'ltr' | 'rtl' {
     const rtlLocales = ['ar', 'he', 'fa', 'ur']
     const langCode = this.currentLocale.split('-')[0]
-    return rtlLocales.some(code => langCode.startsWith(code)) ? 'rtl' : 'ltr'
+    return rtlLocales.some((code) => langCode.startsWith(code)) ? 'rtl' : 'ltr'
   }
 }
 

@@ -200,11 +200,7 @@ export async function migrateCharacterMemory(characterId: string): Promise<Migra
       ignore_count: JSON.stringify(data.ignoreCount ?? {}),
       last_periodic_fire_date: JSON.stringify(data.lastPeriodicFireDate ?? {}),
       injected_at: JSON.stringify(
-        data.injectedAt
-          ? Array.isArray(data.injectedAt)
-            ? Object.fromEntries(data.injectedAt)
-            : data.injectedAt
-          : {},
+        data.injectedAt ? (Array.isArray(data.injectedAt) ? Object.fromEntries(data.injectedAt) : data.injectedAt) : {},
       ),
       llm_reassessed_ids: JSON.stringify(
         data.llmReassessedIds
@@ -238,10 +234,28 @@ export async function migrateCharacterMemory(characterId: string): Promise<Migra
  */
 export async function migrateAllCharacterMemories(): Promise<MigrationResult[]> {
   if (await isMemoryMigrated()) {
-    return [{ success: true, characterId: '*', memoriesMigrated: 0, summaryMigrated: false, stateMigrated: false, error: 'Already migrated' }]
+    return [
+      {
+        success: true,
+        characterId: '*',
+        memoriesMigrated: 0,
+        summaryMigrated: false,
+        stateMigrated: false,
+        error: 'Already migrated',
+      },
+    ]
   }
   if (await isLegacyMode()) {
-    return [{ success: true, characterId: '*', memoriesMigrated: 0, summaryMigrated: false, stateMigrated: false, error: 'Legacy mode forced' }]
+    return [
+      {
+        success: true,
+        characterId: '*',
+        memoriesMigrated: 0,
+        summaryMigrated: false,
+        stateMigrated: false,
+        error: 'Legacy mode forced',
+      },
+    ]
   }
 
   // 查找所有 spiritpal-enhanced-memory- 开头的 key（排除 .legacy / .corrupt）

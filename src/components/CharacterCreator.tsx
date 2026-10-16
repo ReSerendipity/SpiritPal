@@ -24,8 +24,20 @@
  */
 import { useState, useRef, useCallback, useMemo } from 'react'
 import {
-  X, Save, Download, Upload, Plus, Trash2, Sparkles,
-  Palette, Bot, ThumbsDown, ThumbsUp, Film, FileJson, Check,
+  X,
+  Save,
+  Download,
+  Upload,
+  Plus,
+  Trash2,
+  Sparkles,
+  Palette,
+  Bot,
+  ThumbsDown,
+  ThumbsUp,
+  Film,
+  FileJson,
+  Check,
 } from 'lucide-react'
 import { PERSONALITY_LABELS } from '@/lib/ai/personalityEngine'
 import { PERSONALITY_TEMPLATES } from '@/lib/ai/personalityTemplates'
@@ -124,7 +136,10 @@ function RadarChart({ personality }: { personality: Personality }) {
  * 使用SVG绘制宠物简单外观预览，根据主题色渐变
  */
 function AppearancePreview({
-  emoji, name, primary, secondary,
+  emoji,
+  name,
+  primary,
+  secondary,
 }: {
   /** 推荐emoji */
   emoji: string
@@ -195,7 +210,11 @@ function buildItemPool() {
 
 // ============ 动画配置选项 ============
 const ANIMATION_PRESETS = [
-  { id: 'default', label: '默认动画集（8列×9行）', desc: 'idle/walk/run-left/waving/jumping/failed/waiting/running/review' },
+  {
+    id: 'default',
+    label: '默认动画集（8列×9行）',
+    desc: 'idle/walk/run-left/waving/jumping/failed/waiting/running/review',
+  },
   { id: 'simple', label: '简单动画集', desc: '仅 idle / walk 两行' },
   { id: 'custom', label: '自定义', desc: '手动指定每行动画名' },
 ] as const
@@ -272,7 +291,10 @@ export function CharacterCreator({ onClose }: Props) {
     setNewPhrase('')
   }
   function removeCatchphrase(idx: number) {
-    updateField('classicQuotes', profile.classicQuotes.filter((_, i) => i !== idx))
+    updateField(
+      'classicQuotes',
+      profile.classicQuotes.filter((_, i) => i !== idx),
+    )
   }
 
   // ---- 应用性格模板 ----
@@ -289,9 +311,7 @@ export function CharacterCreator({ onClose }: Props) {
   // ---- 物品选择 ----
   function toggleItem(list: 'favoriteItems' | 'dislikeItems', itemId: string) {
     const current = profile[list] ?? []
-    const next = current.includes(itemId)
-      ? current.filter((id) => id !== itemId)
-      : [...current, itemId]
+    const next = current.includes(itemId) ? current.filter((id) => id !== itemId) : [...current, itemId]
     updateField(list, next)
   }
 
@@ -402,7 +422,13 @@ export function CharacterCreator({ onClose }: Props) {
               <X size={18} />
             </button>
           </div>
-          <input ref={fileInputRef} type="file" accept="application/json,.json" onChange={handleImport} className="hidden" />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            onChange={handleImport}
+            className="hidden"
+          />
         </div>
 
         {/* 主体 */}
@@ -555,7 +581,9 @@ export function CharacterCreator({ onClose }: Props) {
                   <input
                     value={newPhrase}
                     onChange={(e) => setNewPhrase(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') addCatchphrase() }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') addCatchphrase()
+                    }}
                     placeholder="输入口头禅后回车添加"
                     className="flex-1 rounded-lg bg-cream-deep px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-tangerine"
                   />
@@ -604,17 +632,19 @@ export function CharacterCreator({ onClose }: Props) {
                   placeholder="可手动输入或从模板选择后微调…"
                   className="w-full resize-none rounded-lg bg-cream-deep px-3 py-2 text-xs leading-relaxed text-ink-faint focus:outline-none focus:ring-1 focus:ring-tangerine"
                 />
-                <div className="mt-1.5 text-[10px] text-ink-muted">
-                  字数：{profile.systemPrompt.length}
-                </div>
+                <div className="mt-1.5 text-[10px] text-ink-muted">字数：{profile.systemPrompt.length}</div>
               </div>
 
               {/* 喜欢物品 / 讨厌物品 */}
               <div className="rounded-xl bg-cream-deep/50 p-4">
                 <div className="mb-2 text-xs font-semibold text-tangerine-deep">喜欢 / 讨厌物品</div>
                 <div className="mb-2 flex items-center gap-3 text-[10px]">
-                  <span className="flex items-center gap-1 text-success-deep"><ThumbsUp size={11} /> 喜欢物品 ×2.0</span>
-                  <span className="flex items-center gap-1 text-error"><ThumbsDown size={11} /> 讨厌物品 ×0.5</span>
+                  <span className="flex items-center gap-1 text-success-deep">
+                    <ThumbsUp size={11} /> 喜欢物品 ×2.0
+                  </span>
+                  <span className="flex items-center gap-1 text-error">
+                    <ThumbsDown size={11} /> 讨厌物品 ×0.5
+                  </span>
                 </div>
                 <div className="max-h-32 overflow-y-auto rounded-lg bg-surface/50 p-2">
                   <div className="flex flex-wrap gap-1">
@@ -624,7 +654,9 @@ export function CharacterCreator({ onClose }: Props) {
                       return (
                         <button
                           key={item.id}
-                          onClick={() => toggleItem(isFav ? 'favoriteItems' : isDis ? 'dislikeItems' : 'favoriteItems', item.id)}
+                          onClick={() =>
+                            toggleItem(isFav ? 'favoriteItems' : isDis ? 'dislikeItems' : 'favoriteItems', item.id)
+                          }
                           onContextMenu={(e) => {
                             e.preventDefault()
                             toggleItem('dislikeItems', item.id)
@@ -645,7 +677,9 @@ export function CharacterCreator({ onClose }: Props) {
                     })}
                   </div>
                 </div>
-                <div className="mt-1.5 text-[10px] text-ink-muted">左键点击标记为喜欢，右键点击标记为讨厌，再次点击取消</div>
+                <div className="mt-1.5 text-[10px] text-ink-muted">
+                  左键点击标记为喜欢，右键点击标记为讨厌，再次点击取消
+                </div>
               </div>
 
               {/* 动画配置 */}
@@ -659,9 +693,7 @@ export function CharacterCreator({ onClose }: Props) {
                       key={p.id}
                       onClick={() => setAnimPreset(p.id as 'default' | 'simple' | 'custom')}
                       className={`block w-full rounded-lg border px-3 py-2 text-left transition-all ${
-                        animPreset === p.id
-                          ? 'border-tangerine bg-tangerine/10'
-                          : 'border-ink/10 hover:border-ink/30'
+                        animPreset === p.id ? 'border-tangerine bg-tangerine/10' : 'border-ink/10 hover:border-ink/30'
                       }`}
                     >
                       <div className="text-xs font-medium text-ink">{p.label}</div>
@@ -689,9 +721,7 @@ export function CharacterCreator({ onClose }: Props) {
             </div>
           </div>
 
-          {error && (
-            <div className="mt-3 rounded-lg bg-error/20 px-3 py-2 text-xs text-error">{error}</div>
-          )}
+          {error && <div className="mt-3 rounded-lg bg-error/20 px-3 py-2 text-xs text-error">{error}</div>}
           {importOk && (
             <div className="mt-3 flex items-center gap-2 rounded-lg bg-success/20 px-3 py-2 text-xs text-success-deep">
               <Check size={14} /> JSON 导入成功
@@ -706,10 +736,7 @@ export function CharacterCreator({ onClose }: Props) {
             ID: {profile.id}
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="rounded-lg bg-cream px-4 py-2 text-sm text-ink-faint hover:bg-ink/20"
-            >
+            <button onClick={onClose} className="rounded-lg bg-cream px-4 py-2 text-sm text-ink-faint hover:bg-ink/20">
               取消
             </button>
             <button

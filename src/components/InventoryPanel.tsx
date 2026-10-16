@@ -24,7 +24,8 @@ import { usePetStore } from '@/stores/petStore'
 const EMPTY_DECORATIONS: WornDecoration[] = []
 const selectInventory = (s: ReturnType<typeof usePetStore.getState>) => s.inventory
 const selectUseItem = (s: ReturnType<typeof usePetStore.getState>) => s.useItem
-const selectWornDecorations = (s: ReturnType<typeof usePetStore.getState>) => s.wornDecorations[s.currentCharacterId] ?? EMPTY_DECORATIONS
+const selectWornDecorations = (s: ReturnType<typeof usePetStore.getState>) =>
+  s.wornDecorations[s.currentCharacterId] ?? EMPTY_DECORATIONS
 const selectWearDecoration = (s: ReturnType<typeof usePetStore.getState>) => s.wearDecoration
 const selectRemoveDecoration = (s: ReturnType<typeof usePetStore.getState>) => s.removeDecoration
 const selectActiveSubpets = (s: ReturnType<typeof usePetStore.getState>) => s.activeSubpets
@@ -127,26 +128,23 @@ export function InventoryPanel() {
       </div>
 
       {inventory.length === 0 ? (
-        <div className="py-8 text-center text-sm text-ink-muted">
-          背包空空如也，去商店买点东西吧～
-        </div>
+        <div className="py-8 text-center text-sm text-ink-muted">背包空空如也，去商店买点东西吧～</div>
       ) : (
         <div className="grid max-h-64 grid-cols-1 gap-2 overflow-y-auto pr-1">
           {inventory.map((item) => {
             const wornAnchor = getWornAnchor(item.id)
             const isAccessory = item.type === 'accessory'
             return (
-              <div
-                key={item.id}
-                className="flex items-center gap-2 rounded-lg bg-cream-deep/60 p-2"
-              >
+              <div key={item.id} className="flex items-center gap-2 rounded-lg bg-cream-deep/60 p-2">
                 <span className="text-2xl">{item.icon}</span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1">
                     <span className="truncate text-sm">{item.name}</span>
                     {/* 稀有度标签 */}
                     {item.fvLock !== undefined && item.fvLock > 0 && (
-                      <span className={`rounded px-1 py-0.5 text-[10px] leading-none ${getRarityDisplay(item.fvLock).colors.text} ${getRarityDisplay(item.fvLock).colors.bg}`}>
+                      <span
+                        className={`rounded px-1 py-0.5 text-[10px] leading-none ${getRarityDisplay(item.fvLock).colors.text} ${getRarityDisplay(item.fvLock).colors.bg}`}
+                      >
                         {getRarityDisplay(item.fvLock).name}
                       </span>
                     )}
@@ -169,9 +167,13 @@ export function InventoryPanel() {
                         }}
                         className="rounded bg-ink-faint px-1 py-0.5 text-[10px] focus:outline-none"
                       >
-                        <option value="" disabled>穿戴到…</option>
+                        <option value="" disabled>
+                          穿戴到…
+                        </option>
                         {ANCHOR_OPTIONS.map((a) => (
-                          <option key={a.value} value={a.value}>{a.label}</option>
+                          <option key={a.value} value={a.value}>
+                            {a.label}
+                          </option>
                         ))}
                       </select>
                       {wornAnchor && (

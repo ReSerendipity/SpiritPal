@@ -24,11 +24,7 @@
  * PRD §7.6 F4.5 对话式日程创建
  */
 
-import {
-  sendNotification,
-  isPermissionGranted,
-  requestPermission,
-} from '@tauri-apps/plugin-notification'
+import { sendNotification, isPermissionGranted, requestPermission } from '@tauri-apps/plugin-notification'
 import { generateId } from '@/lib/data/commonUtils'
 import { deleteSchedule, getSchedules, saveSchedule } from '@/lib/data/db'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -170,9 +166,9 @@ export function parseScheduleFromText(input: string): ParsedTime | null {
     if (target.getTime() <= now.getTime()) {
       target.setDate(target.getDate() + 1)
     }
-    const title = input
-      .replace(/每天|每日|提醒我|提醒|(上午|下午|晚上|早上)?\s*(\d{1,2})\s*[点:：]\s*(\d{0,2})/g, '')
-      .trim() || '每日提醒'
+    const title =
+      input.replace(/每天|每日|提醒我|提醒|(上午|下午|晚上|早上)?\s*(\d{1,2})\s*[点:：]\s*(\d{0,2})/g, '').trim() ||
+      '每日提醒'
     return {
       triggerTime: target.getTime(),
       title,
@@ -190,9 +186,10 @@ export function parseScheduleFromText(input: string): ParsedTime | null {
     } else {
       tomorrow.setHours(9, 0, 0, 0)
     }
-    const title = input
-      .replace(/明天|tomorrow|提醒我|提醒|(上午|下午|晚上|早上)?\s*(\d{1,2})\s*[点:：]\s*(\d{0,2})/gi, '')
-      .trim() || '明天的事项'
+    const title =
+      input
+        .replace(/明天|tomorrow|提醒我|提醒|(上午|下午|晚上|早上)?\s*(\d{1,2})\s*[点:：]\s*(\d{0,2})/gi, '')
+        .trim() || '明天的事项'
     return { triggerTime: tomorrow.getTime(), title }
   }
 
@@ -206,9 +203,9 @@ export function parseScheduleFromText(input: string): ParsedTime | null {
     } else {
       dayAfter.setHours(9, 0, 0, 0)
     }
-    const title = input
-      .replace(/后天|提醒我|提醒|(上午|下午|晚上|早上)?\s*(\d{1,2})\s*[点:：]\s*(\d{0,2})/g, '')
-      .trim() || '后天的事项'
+    const title =
+      input.replace(/后天|提醒我|提醒|(上午|下午|晚上|早上)?\s*(\d{1,2})\s*[点:：]\s*(\d{0,2})/g, '').trim() ||
+      '后天的事项'
     return { triggerTime: dayAfter.getTime(), title }
   }
 
@@ -220,16 +217,15 @@ export function parseScheduleFromText(input: string): ParsedTime | null {
     if (target.getTime() <= now.getTime()) {
       target.setDate(target.getDate() + 1)
     }
-    const title = input
-      .replace(/(上午|下午|晚上|早上)?\s*(\d{1,2})\s*[点:：]\s*(\d{0,2})|提醒我|提醒/g, '')
-      .trim() || '日程提醒'
+    const title =
+      input.replace(/(上午|下午|晚上|早上)?\s*(\d{1,2})\s*[点:：]\s*(\d{0,2})|提醒我|提醒/g, '').trim() || '日程提醒'
     return { triggerTime: target.getTime(), title }
   }
 
   // 7. 匹配 "下周一" ~ "下周日" → 下周X 00:00
   const weekMatch = input.match(/下周([一二三四五六日天])/)
   if (weekMatch) {
-    const dayMap: Record<string, number> = { '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '日': 0, '天': 0 }
+    const dayMap: Record<string, number> = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 日: 0, 天: 0 }
     const targetDay = dayMap[weekMatch[1]!]!
     const target = new Date(now)
     const currentDay = target.getDay()
@@ -323,7 +319,9 @@ export class ScheduleManager {
   /** 状态变更监听器集合 */
   private listeners: Set<() => void> = new Set()
   /** 提醒触发监听器集合 */
-  private reminderListeners: Set<(event: EnhancedScheduleEvent, isPreReminder?: boolean, minutesLeft?: number) => void> = new Set()
+  private reminderListeners: Set<
+    (event: EnhancedScheduleEvent, isPreReminder?: boolean, minutesLeft?: number) => void
+  > = new Set()
   /** 保存防抖定时器 */
   private saveTimer: number | null = null
   /** 是否有未保存的更改 */
@@ -351,9 +349,7 @@ export class ScheduleManager {
         this.events = Array.isArray(parsed) ? parsed : []
         // 清理过期事件（超过24小时的已完成/取消事件）
         const cutoff = Date.now() - 86400000
-        this.events = this.events.filter(
-          (e) => e.status === 'pending' || e.triggerTime > cutoff,
-        )
+        this.events = this.events.filter((e) => e.status === 'pending' || e.triggerTime > cutoff)
         // 加载后排序确保有序
         this.events.sort((a, b) => a.triggerTime - b.triggerTime)
       }
@@ -488,7 +484,11 @@ export class ScheduleManager {
    */
   private notifyListeners(): void {
     this.listeners.forEach((fn) => {
-      try { fn() } catch { /* 监听器异常不影响主流程 */ }
+      try {
+        fn()
+      } catch {
+        /* 监听器异常不影响主流程 */
+      }
     })
   }
 
@@ -549,7 +549,9 @@ export class ScheduleManager {
    * @param listener 提醒触发时调用的回调函数，接收触发的日程事件、是否为提前提醒、剩余分钟数
    * @returns 取消监听的函数
    */
-  onReminder(listener: (event: EnhancedScheduleEvent, isPreReminder?: boolean, minutesLeft?: number) => void): () => void {
+  onReminder(
+    listener: (event: EnhancedScheduleEvent, isPreReminder?: boolean, minutesLeft?: number) => void,
+  ): () => void {
     this.reminderListeners.add(listener)
     return () => this.reminderListeners.delete(listener)
   }
@@ -838,13 +840,20 @@ export class ScheduleManager {
             fired.push(minutes)
             hasChanges = true
             // 提前提醒通知
-            const minsText = minutes >= 60 ? `${Math.floor(minutes / 60)}小时${minutes % 60 > 0 ? minutes % 60 + '分钟' : ''}` : `${minutes}分钟`
+            const minsText =
+              minutes >= 60
+                ? `${Math.floor(minutes / 60)}小时${minutes % 60 > 0 ? (minutes % 60) + '分钟' : ''}`
+                : `${minutes}分钟`
             void this.sendSystemNotification(
               'SpiritPal 日程提醒',
               `${minsText}后：${event.title}${event.description ? ' — ' + event.description : ''}`,
             )
             this.reminderListeners.forEach((fn) => {
-              try { fn(event, true, minutes) } catch { /* 监听器异常不影响主流程 */ }
+              try {
+                fn(event, true, minutes)
+              } catch {
+                /* 监听器异常不影响主流程 */
+              }
             })
           }
         }
@@ -867,7 +876,11 @@ export class ScheduleManager {
       )
       // 通知前端监听器（触发宠物动画）
       this.reminderListeners.forEach((fn) => {
-        try { fn(event, false, 0) } catch { /* 监听器异常不影响主流程 */ }
+        try {
+          fn(event, false, 0)
+        } catch {
+          /* 监听器异常不影响主流程 */
+        }
       })
       // 重复日程：创建下一次触发
       if (event.repeatRule) {

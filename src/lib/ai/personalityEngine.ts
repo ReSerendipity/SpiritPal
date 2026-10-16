@@ -25,7 +25,14 @@
  * - rationality (理性): -1=感性冲动, 0=平衡, 1=理性冷静
  */
 
-import type { Personality, PersonalityConfig, CharacterProfile, SpeakingStyle, InteractionPreferences, SchedulePeriod } from '@/lib/data/types'
+import type {
+  Personality,
+  PersonalityConfig,
+  CharacterProfile,
+  SpeakingStyle,
+  InteractionPreferences,
+  SchedulePeriod,
+} from '@/lib/data/types'
 
 // ============ 性格参数 → 自然语言描述 ============
 
@@ -201,10 +208,7 @@ export function removePersonalityOverride(characterId: string): void {
   }
 }
 
-export function getEffectivePersonality(
-  characterId: string,
-  defaultPersonality: Personality,
-): Personality {
+export function getEffectivePersonality(characterId: string, defaultPersonality: Personality): Personality {
   const overrides = loadPersonalityOverrides()
   return overrides[characterId] ?? defaultPersonality
 }
@@ -287,10 +291,7 @@ export function removePersonalityConfigOverride(characterId: string): void {
   }
 }
 
-export function getEffectivePersonalityConfig(
-  characterId: string,
-  defaults: PersonalityConfig,
-): PersonalityConfig {
+export function getEffectivePersonalityConfig(characterId: string, defaults: PersonalityConfig): PersonalityConfig {
   const overrides = loadPersonalityConfigOverrides()
   return overrides[characterId] ?? defaults
 }
@@ -441,10 +442,10 @@ export function comparePersonalities(a: Personality, b: Personality): number {
  */
 export function getPersonalityRadarData(p: Personality): Array<{ dimension: string; value: number; label: string }> {
   return [
-    { dimension: 'warmth',     value: (p.warmth + 1) / 2,     label: PERSONALITY_LABELS.warmth.label },
+    { dimension: 'warmth', value: (p.warmth + 1) / 2, label: PERSONALITY_LABELS.warmth.label },
     { dimension: 'liveliness', value: (p.liveliness + 1) / 2, label: PERSONALITY_LABELS.liveliness.label },
     { dimension: 'dependence', value: (p.dependence + 1) / 2, label: PERSONALITY_LABELS.dependence.label },
     { dimension: 'directness', value: (p.directness + 1) / 2, label: PERSONALITY_LABELS.directness.label },
-    { dimension: 'rationality',value: (p.rationality + 1) / 2,label: PERSONALITY_LABELS.rationality.label },
+    { dimension: 'rationality', value: (p.rationality + 1) / 2, label: PERSONALITY_LABELS.rationality.label },
   ]
 }

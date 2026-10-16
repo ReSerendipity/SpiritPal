@@ -60,20 +60,14 @@ describe('RAGRetriever', () => {
   })
 
   it('buildIndex 后 BM25 能检索到关键词命中的记忆', async () => {
-    retriever.buildIndex([
-      makeMemory('m1', '我喜欢吃火锅'),
-      makeMemory('m2', '明天要开会讨论项目'),
-    ])
+    retriever.buildIndex([makeMemory('m1', '我喜欢吃火锅'), makeMemory('m2', '明天要开会讨论项目')])
     const results = await retriever.retrieve('火锅', new Map())
     expect(results.length).toBeGreaterThan(0)
     expect(results[0].memory.id).toBe('m1')
   })
 
   it('检索结果按融合分数降序排列', async () => {
-    retriever.buildIndex([
-      makeMemory('a', '今天下雨了'),
-      makeMemory('b', '今天下雨了 今天下雨了 今天下雨了'),
-    ])
+    retriever.buildIndex([makeMemory('a', '今天下雨了'), makeMemory('b', '今天下雨了 今天下雨了 今天下雨了')])
     const results = await retriever.retrieve('今天下雨了', new Map())
     expect(results.length).toBeGreaterThan(1)
     const scores = results.map((r) => r.score)
@@ -87,10 +81,7 @@ describe('RAGRetriever', () => {
   })
 
   it('removeMemory 从索引移除记忆', async () => {
-    retriever.buildIndex([
-      makeMemory('m1', '我喜欢吃火锅'),
-      makeMemory('m2', '明天要开会讨论项目'),
-    ])
+    retriever.buildIndex([makeMemory('m1', '我喜欢吃火锅'), makeMemory('m2', '明天要开会讨论项目')])
     retriever.removeMemory('m2')
     const results = await retriever.retrieve('开会', new Map())
     expect(results.some((r) => r.memory.id === 'm2')).toBe(false)

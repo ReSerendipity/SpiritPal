@@ -44,7 +44,12 @@ function makeCharacter(overrides: Partial<CharacterProfile> = {}): CharacterProf
     spriteType: 'atlas',
     themeColor: { primary: '#FFF', secondary: '#000' },
     bubbleMessages: {
-      idle: [], hungry: [], sad: [], pet: [], feed: [], pomodoroDone: [],
+      idle: [],
+      hungry: [],
+      sad: [],
+      pet: [],
+      feed: [],
+      pomodoroDone: [],
     },
     ...overrides,
   }
@@ -117,11 +122,7 @@ describe('composeFullSystemPrompt', () => {
   })
 
   it('使用 customPersonality 覆盖默认', () => {
-    const full = composeFullSystemPrompt(
-      'base',
-      makePersonality({ warmth: 0.5 }),
-      makePersonality({ warmth: 0.9 }),
-    )
+    const full = composeFullSystemPrompt('base', makePersonality({ warmth: 0.5 }), makePersonality({ warmth: 0.9 }))
     expect(full).toContain('非常热情温暖')
   })
 })

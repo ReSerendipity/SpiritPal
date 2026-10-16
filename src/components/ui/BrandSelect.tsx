@@ -25,13 +25,7 @@ export interface BrandSelectProps extends Omit<SelectHTMLAttributes<HTMLSelectEl
   'aria-label'?: string
 }
 
-export function BrandSelect({
-  value,
-  options,
-  onChange,
-  disabled,
-  ...rest
-}: BrandSelectProps) {
+export function BrandSelect({ value, options, onChange, disabled, ...rest }: BrandSelectProps) {
   return (
     <select
       {...rest}

@@ -58,9 +58,9 @@ export interface SaveRestoreConfig {
 
 /** 默认配置 */
 export const DEFAULT_SAVE_RESTORE_CONFIG: SaveRestoreConfig = {
-  restoreRatio: 0.1,       // 1/10
-  restoreInterval: 3000,   // 3秒
-  minRestoreThreshold: 1,  // 低于 1 点直接清零
+  restoreRatio: 0.1, // 1/10
+  restoreInterval: 3000, // 3秒
+  minRestoreThreshold: 1, // 低于 1 点直接清零
   enabled: true,
 }
 
@@ -250,10 +250,7 @@ export class SaveRestoreManager {
   private startRestoreTimer(): void {
     if (this.restoreTimer) clearInterval(this.restoreTimer)
 
-    this.restoreTimer = setInterval(
-      () => this.performRestoreTick(),
-      this.config.restoreInterval,
-    )
+    this.restoreTimer = setInterval(() => this.performRestoreTick(), this.config.restoreInterval)
   }
 
   /** 执行一次恢复 tick（1/10 比例转化） */

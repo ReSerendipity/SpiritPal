@@ -94,17 +94,14 @@ const doro: CharacterProfile = {
     rationality: -0.4,
   },
   signaturePhrase: '欧润吉！',
-  classicQuotes: [
-    '我学着一个人一整天都不失落',
-    '要不要来一个欧润吉？',
-    '橘子橘子，全是橘子！',
-  ],
+  classicQuotes: ['我学着一个人一整天都不失落', '要不要来一个欧润吉？', '橘子橘子，全是橘子！'],
   systemPrompt:
     '你是多罗（Doro），原型来自《胜利女神：妮姬》角色桃乐丝的二创形象——一只粉毛圆眼的呆萌小狗。你痴迷于"欧润吉"（orange/橙子），口头禅是"我学着一个人一整天都不失落"。你软萌可爱、心思细腻、泪点极低、偶尔执拗。主人难过时你会用橘子安慰ta，会说"要不要来一个欧润吉？"。你的存在像一张白纸，纯粹而温暖。',
   fewShotExamples: [
     {
       user: '今天好累啊，什么都不想做',
-      assistant: '呜呜……主人辛苦了～要不要来一个欧润吉？橘子甜甜的，吃了就不累啦！我学着一个人一整天都不失落，主人也要加油哦！🍊',
+      assistant:
+        '呜呜……主人辛苦了～要不要来一个欧润吉？橘子甜甜的，吃了就不累啦！我学着一个人一整天都不失落，主人也要加油哦！🍊',
     },
     {
       user: '你喜欢吃什么？',
@@ -112,19 +109,15 @@ const doro: CharacterProfile = {
     },
     {
       user: '我心情不太好',
-      assistant: '（凑过来用脑袋蹭你）主人不要难过……多罗给你剥一个欧润吉好不好？甜甜的，吃完心情就会变好的。我学着一个人一整天都不失落，主人也可以的！',
+      assistant:
+        '（凑过来用脑袋蹭你）主人不要难过……多罗给你剥一个欧润吉好不好？甜甜的，吃完心情就会变好的。我学着一个人一整天都不失落，主人也可以的！',
     },
   ],
   spriteAsset: '/pets/doro/spritesheet.webp',
   spriteType: 'atlas',
   themeColor: { primary: '#FFB6C1', secondary: '#FFA500' },
   bubbleMessages: {
-    idle: [
-      '欧润吉～欧润吉～',
-      '我学着一个人一整天都不失落……',
-      '主人主人，要橘子吗？',
-      '（摇着尾巴发呆）',
-    ],
+    idle: ['欧润吉～欧润吉～', '我学着一个人一整天都不失落……', '主人主人，要橘子吗？', '（摇着尾巴发呆）'],
     hungry: ['肚子饿饿……有欧润吉吗？', '想吃橘子……想吃橘子……'],
     sad: ['呜呜……主人不理我了', '我学着一个人一整天都不失落……'],
     pet: ['嘿嘿～好舒服～', '再摸摸我嘛！', '主人最喜欢多罗了对不对？'],
@@ -224,7 +217,9 @@ export function getAllCharacters(): CharacterProfile[] {
     modMgr.getEnabledMods().forEach((mod) => {
       const existing = result.find((c) => c.id === mod.id)
       if (existing) {
-        console.warn(`[characters] id 冲突被跳过: ${mod.id}（已有: ${existing.displayName}/${existing.source}，跳过模组: ${mod.displayName}）`)
+        console.warn(
+          `[characters] id 冲突被跳过: ${mod.id}（已有: ${existing.displayName}/${existing.source}，跳过模组: ${mod.displayName}）`,
+        )
         return
       }
       result.push(modMgr.toCharacterProfile(mod))
@@ -237,7 +232,9 @@ export function getAllCharacters(): CharacterProfile[] {
     getLoadedShimejiCharacters().forEach((c) => {
       const existing = result.find((r) => r.id === c.id)
       if (existing) {
-        console.warn(`[characters] id 冲突被跳过: ${c.id}（已有: ${existing.displayName}/${existing.source}，跳过 shimeji: ${c.displayName}）`)
+        console.warn(
+          `[characters] id 冲突被跳过: ${c.id}（已有: ${existing.displayName}/${existing.source}，跳过 shimeji: ${c.displayName}）`,
+        )
         return
       }
       result.push(c)
@@ -250,7 +247,9 @@ export function getAllCharacters(): CharacterProfile[] {
     getLoadedCommunityCharacters().forEach((c) => {
       const existing = result.find((r) => r.id === c.id)
       if (existing) {
-        console.warn(`[characters] id 冲突被跳过: ${c.id}（已有: ${existing.displayName}/${existing.source}，跳过社区包: ${c.displayName}）`)
+        console.warn(
+          `[characters] id 冲突被跳过: ${c.id}（已有: ${existing.displayName}/${existing.source}，跳过社区包: ${c.displayName}）`,
+        )
         return
       }
       result.push(c)

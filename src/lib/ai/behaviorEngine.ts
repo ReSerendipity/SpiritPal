@@ -165,14 +165,7 @@ export function calculateProbabilities(
 
   const weighted = animations.map((anim) => ({
     state: anim.state,
-    weight: actWeight(
-      anim.baseProb,
-      anim.tier,
-      currentTier,
-      anim.minAffectionLevel,
-      affectionLevel,
-      anim.inPlaylist,
-    ),
+    weight: actWeight(anim.baseProb, anim.tier, currentTier, anim.minAffectionLevel, affectionLevel, anim.inPlaylist),
   }))
 
   const totalWeight = weighted.reduce((sum, item) => sum + item.weight, 0)
@@ -217,9 +210,7 @@ export function selectAnimationWithFallback(
   const currentTier = getHpTier(stats)
   const affectionLevel = getAffectionLevel(stats.affection)
 
-  const available = animations.filter(
-    (a) => a.inPlaylist && affectionLevel >= a.minAffectionLevel,
-  )
+  const available = animations.filter((a) => a.inPlaylist && affectionLevel >= a.minAffectionLevel)
 
   const sameState = (a: AnimationDef) => a.state === requestedState
 
@@ -252,9 +243,7 @@ export function selectAnimationWithFallback(
   // 5. 非生病动画中档位最接近
   const nonSick = available.filter((a) => a.state !== 'sick')
   if (nonSick.length > 0) {
-    const nearest = [...nonSick].sort(
-      (a, b) => Math.abs(a.tier - currentTier) - Math.abs(b.tier - currentTier),
-    )[0]
+    const nearest = [...nonSick].sort((a, b) => Math.abs(a.tier - currentTier) - Math.abs(b.tier - currentTier))[0]
     return { state: nearest.state, fellBack: true, reason: `请求动画不可用，回退至档位最接近的非生病动画` }
   }
 
@@ -265,10 +254,7 @@ export function selectAnimationWithFallback(
 // ============ 概率随机选择 ============
 
 /** 按归一化概率随机选择一个动画状态 */
-export function pickBehaviorByProbability(
-  animations: AnimationDef[],
-  stats: NurturingStats,
-): PetState {
+export function pickBehaviorByProbability(animations: AnimationDef[], stats: NurturingStats): PetState {
   const probabilities = calculateProbabilities(animations, stats)
   const rand = Math.random()
   let cumulative = 0

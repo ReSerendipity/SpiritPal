@@ -62,11 +62,7 @@ describe('healthCheck', () => {
     expect(result.status).toBe('healthy')
     expect(result.timestamp).toBeTruthy()
     expect(result.checks).toHaveLength(3)
-    expect(result.checks.map((c) => c.name)).toEqual([
-      'database',
-      'encryption',
-      'mcp-bridge',
-    ])
+    expect(result.checks.map((c) => c.name)).toEqual(['database', 'encryption', 'mcp-bridge'])
   })
 
   it('数据库检查失败应返回 unhealthy', async () => {
@@ -104,9 +100,7 @@ describe('healthCheck', () => {
     // 数据库通过
     mockDbIntegrity.mockResolvedValueOnce(['ok'])
     // 加密通过
-    mockInvoke
-      .mockResolvedValueOnce('encrypted-data')
-      .mockResolvedValueOnce('health-check-test')
+    mockInvoke.mockResolvedValueOnce('encrypted-data').mockResolvedValueOnce('health-check-test')
     // MCP 失败
     mockInvoke.mockRejectedValueOnce(new Error('MCP timeout'))
 

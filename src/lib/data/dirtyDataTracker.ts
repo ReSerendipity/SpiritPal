@@ -196,9 +196,7 @@ async function detectDirtyData(config: Partial<CheckConfig> = {}): Promise<Dirty
  * @param config 检测配置
  * @returns 检测报告
  */
-export async function runDirtyDataChecks(
-  config: Partial<CheckConfig> = {}
-): Promise<DirtyDataReport> {
+export async function runDirtyDataChecks(config: Partial<CheckConfig> = {}): Promise<DirtyDataReport> {
   const cfg = { ...DEFAULT_CHECK_CONFIG, ...config }
   const now = Date.now()
   const issues: DirtyDataIssue[] = []
@@ -223,15 +221,13 @@ export async function runDirtyDataChecks(
 
   // 6. 高优先级问题写入审计日志
   if (cfg.auditHighSeverity) {
-    const highSeverityIssues = issues.filter(
-      i => i.severity === 'high' || i.severity === 'critical'
-    )
+    const highSeverityIssues = issues.filter((i) => i.severity === 'high' || i.severity === 'critical')
     if (highSeverityIssues.length > 0) {
       try {
         await auditLog(
           AuditEventType.SECURITY_EVENT,
           `检测到 ${highSeverityIssues.length} 条严重脏数据问题：${highSeverityIssues[0].description}`,
-          'dirty-data-detector'
+          'dirty-data-detector',
         )
       } catch {
         // 审计日志失败不阻断
@@ -245,10 +241,7 @@ export async function runDirtyDataChecks(
 /**
  * 标记已自动修复的问题（之前检测到但现在不再被认为是问题）
  */
-async function markAutoResolvedIssues(
-  currentIssues: DirtyDataIssue[],
-  now: number
-): Promise<number> {
+async function markAutoResolvedIssues(currentIssues: DirtyDataIssue[], now: number): Promise<number> {
   const all = await listDirtyIssues()
   // 仅处理未解决（resolved_at IS NULL）
   const openIssues = all.filter((r) => r.resolved_at == null)
@@ -258,9 +251,10 @@ async function markAutoResolvedIssues(
     const issue = rowToIssue(open)
     // 检查当前问题列表中是否还有这条记录
     const stillExists = currentIssues.some(
-      i => i.table === issue.table &&
-           i.rowId?.toString() === (issue.rowId?.toString() ?? '') &&
-           i.dataType === issue.dataType
+      (i) =>
+        i.table === issue.table &&
+        i.rowId?.toString() === (issue.rowId?.toString() ?? '') &&
+        i.dataType === issue.dataType,
     )
     if (!stillExists) {
       await resolveDirtyIssue(open.id, now)
@@ -319,7 +313,7 @@ export async function getDirtyDataSummary(): Promise<{
   const report = await computeReport()
 
   // 获取 Top 5 问题
-  const topIssues = report.issues.slice(0, 5).map(i => ({
+  const topIssues = report.issues.slice(0, 5).map((i) => ({
     table: i.table,
     severity: i.severity,
     description: i.description,
@@ -346,20 +340,13 @@ export async function getDirtyDataSummary(): Promise<{
  * 手动标记脏数据为已解决
  * 用户在 UI 中确认问题已修复时调用
  */
-export async function markDirtyDataResolved(
-  issueId: number,
-  autoDetected: boolean = false
-): Promise<void> {
+export async function markDirtyDataResolved(issueId: number, autoDetected: boolean = false): Promise<void> {
   await resolveDirtyIssue(issueId, Date.now())
 
   // 手动解决记录审计日志
   if (!autoDetected) {
     try {
-      await auditLog(
-        AuditEventType.SECURITY_EVENT,
-        `手动标记脏数据问题 #${issueId} 为已解决`,
-        'user'
-      )
+      await auditLog(AuditEventType.SECURITY_EVENT, `手动标记脏数据问题 #${issueId} 为已解决`, 'user')
     } catch {
       // 审计日志失败不阻断
     }
@@ -379,9 +366,7 @@ export async function markTableResolved(tableName: string): Promise<number> {
 export async function getIssuesForTable(tableName: string): Promise<DirtyDataIssue[]> {
   const all = await listDirtyIssues()
   const prefix = `${tableName}${TARGET_SEP}`
-  return all
-    .filter((r) => r.resolved_at == null && r.target_id.startsWith(prefix))
-    .map(rowToIssue)
+  return all.filter((r) => r.resolved_at == null && r.target_id.startsWith(prefix)).map(rowToIssue)
 }
 
 /**

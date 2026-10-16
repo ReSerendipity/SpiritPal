@@ -7,7 +7,21 @@ import type { ChatMessage, ChatSession } from '@/lib/data/types'
 // ============ Mock 所有依赖 ============
 
 const mockChatStore = {
-  sessions: { doro: [{ id: 'sess-1', characterId: 'doro', title: '测试会话', createdAt: Date.now(), updatedAt: Date.now(), messageCount: 0, totalPromptTokens: 0, totalCompletionTokens: 0, requestCount: 0 }] } as Record<string, ChatSession[]>,
+  sessions: {
+    doro: [
+      {
+        id: 'sess-1',
+        characterId: 'doro',
+        title: '测试会话',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        messageCount: 0,
+        totalPromptTokens: 0,
+        totalCompletionTokens: 0,
+        requestCount: 0,
+      },
+    ],
+  } as Record<string, ChatSession[]>,
   messagesBySession: { 'sess-1': [] as ChatMessage[] } as Record<string, ChatMessage[]>,
   activeSessionByCharacter: { doro: 'sess-1' } as Record<string, string>,
   isLoading: false,
@@ -147,7 +161,9 @@ const sttMocks = vi.hoisted(() => ({
 
 vi.mock('@/lib/ai/stt', () => ({
   isSpeechRecognitionSupported: vi.fn(() => sttMocks.supported),
-  STTEngine: vi.fn(function (this: unknown) { return sttMocks }),
+  STTEngine: vi.fn(function (this: unknown) {
+    return sttMocks
+  }),
 }))
 
 // VOICEVOX TTS mock：避免组件挂载时真实探测本地引擎 / 产生网络请求
@@ -331,9 +347,7 @@ describe('ChatWindow', () => {
 
   it('无匹配搜索结果时显示提示', () => {
     mockChatStore.messagesBySession = {
-      'sess-1': [
-        { id: 'm1', role: 'user', content: '你好', timestamp: Date.now() },
-      ],
+      'sess-1': [{ id: 'm1', role: 'user', content: '你好', timestamp: Date.now() }],
     }
     render(<ChatWindow />)
     fireEvent.click(screen.getByLabelText('搜索对话'))

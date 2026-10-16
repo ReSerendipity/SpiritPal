@@ -44,7 +44,7 @@ const DEFAULT_ANNOYED_THRESHOLD = 6
  */
 export class InteractionCounter {
   private count = 0
-  private duration = 0  // 累计毫秒
+  private duration = 0 // 累计毫秒
   private resetTimeMs: number
   private curiousThreshold: number
   private annoyedThreshold: number

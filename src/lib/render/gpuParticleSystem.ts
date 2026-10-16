@@ -54,7 +54,7 @@ void main() {
 
     v_uv = gl_PointCoord;
 }
-`;
+`
 
 const FRAGMENT_SHADER_SOURCE = `
 precision mediump float;
@@ -76,7 +76,7 @@ void main() {
 
     gl_FragColor = v_color * texColor;
 }
-`;
+`
 
 // ============ 类型定义 ============
 

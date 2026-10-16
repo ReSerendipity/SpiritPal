@@ -13,11 +13,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import {
-  DiarySystemManager,
-  DEFAULT_DIARY_CONFIG,
-  getDiarySystemManager,
-} from '@/lib/nurture/diarySystem'
+import { DiarySystemManager, DEFAULT_DIARY_CONFIG, getDiarySystemManager } from '@/lib/nurture/diarySystem'
 
 // Mock enhancedMemory
 const mockAddExchange = vi.fn()
@@ -161,7 +157,7 @@ describe('DiarySystemManager', () => {
 
       const entry = await manager.generateDiary()
       expect(entry!.keyEvents.length).toBeGreaterThan(0)
-      expect(entry!.keyEvents.some(e => e.includes('生日'))).toBe(true)
+      expect(entry!.keyEvents.some((e) => e.includes('生日'))).toBe(true)
     })
   })
 

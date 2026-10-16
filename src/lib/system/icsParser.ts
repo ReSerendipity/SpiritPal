@@ -50,9 +50,7 @@ export function unfoldIcsLines(text: string): string[] {
  * 解析单行属性：`NAME;PARAM=VAL:value`
  * 只在第一个冒号处切分（值里允许含冒号，如 URL / 描述文本）
  */
-function parseProperty(
-  line: string,
-): { name: string; params: Record<string, string>; value: string } | null {
+function parseProperty(line: string): { name: string; params: Record<string, string>; value: string } | null {
   const idx = line.indexOf(':')
   if (idx <= 0) return null
 
@@ -75,11 +73,7 @@ function parseProperty(
  * 还原 ICS 文本转义
  */
 function unescapeText(value: string): string {
-  return value
-    .replace(/\\n/gi, '\n')
-    .replace(/\\,/g, ',')
-    .replace(/\\;/g, ';')
-    .replace(/\\\\/g, '\\')
+  return value.replace(/\\n/gi, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\')
 }
 
 /**
@@ -184,19 +178,13 @@ export function parseIcs(text: string): CalendarSourceEvent[] {
  * getScheduleManager().registerCalendarSource(createIcsCalendarSource('ics-1', '工作日历', text))
  * ```
  */
-export function createIcsCalendarSource(
-  id: string,
-  label: string,
-  icsText: string,
-): CalendarSourceAdapter {
+export function createIcsCalendarSource(id: string, label: string, icsText: string): CalendarSourceAdapter {
   const events = parseIcs(icsText)
   return {
     id,
     label,
     async fetchEvents(range: { start: number; end: number }): Promise<CalendarSourceEvent[]> {
-      return events.filter(
-        (e) => e.startTime >= range.start && e.startTime <= range.end,
-      )
+      return events.filter((e) => e.startTime >= range.start && e.startTime <= range.end)
     },
   }
 }

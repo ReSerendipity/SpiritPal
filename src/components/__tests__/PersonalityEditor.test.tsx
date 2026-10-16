@@ -37,7 +37,10 @@ const { mockSettings, mockChar, mockDefaultCfg, mockLabels, mockTemplates } = vi
   }
   const mockTemplates = [
     {
-      id: 'soft', name: '软萌', emoji: '🌸', description: '温柔可爱',
+      id: 'soft',
+      name: '软萌',
+      emoji: '🌸',
+      description: '温柔可爱',
       config: {
         personality: { warmth: 0.8, liveliness: 0.3, dependence: 0.6, directness: -0.5, rationality: -0.3 },
         speakingStyle: { tone: 'gentle', wordPreference: 'colloquial', catchphrases: ['呜呜'] },
@@ -47,7 +50,10 @@ const { mockSettings, mockChar, mockDefaultCfg, mockLabels, mockTemplates } = vi
       },
     },
     {
-      id: 'energetic', name: '元气', emoji: '⚡', description: '活力满满',
+      id: 'energetic',
+      name: '元气',
+      emoji: '⚡',
+      description: '活力满满',
       config: {
         personality: { warmth: 0.3, liveliness: 0.9, dependence: 0.2, directness: 0.5, rationality: 0.0 },
         speakingStyle: { tone: 'lively', wordPreference: 'internet', catchphrases: ['冲冲冲'] },
@@ -216,9 +222,7 @@ describe('PersonalityEditor', () => {
   it('System Prompt 输入框可输入', () => {
     render(<PersonalityEditor />)
     // textarea 是 'System Prompt' 标题 div 的兄弟元素，需向上到父容器再查找
-    const textarea = screen.getByText('System Prompt')
-      .parentElement
-      ?.querySelector('textarea')
+    const textarea = screen.getByText('System Prompt').parentElement?.querySelector('textarea')
     expect(textarea).not.toBeNull()
     if (textarea) {
       fireEvent.change(textarea, { target: { value: '新的 prompt' } })
@@ -242,9 +246,7 @@ describe('PersonalityEditor 雷达联动（P2-8）', () => {
     expect(svg).toBeTruthy()
 
     const hotLines = () =>
-      Array.from(svg!.querySelectorAll('line')).filter(
-        (l) => l.getAttribute('stroke') === 'rgb(234,88,12)',
-      )
+      Array.from(svg!.querySelectorAll('line')).filter((l) => l.getAttribute('stroke') === 'rgb(234,88,12)')
 
     // 聚焦前无高亮轴
     expect(hotLines().length).toBe(0)
@@ -265,7 +267,6 @@ describe('PersonalityEditor 雷达联动（P2-8）', () => {
   })
 })
 
-
 // ============ VR-7：PersonalityEditor 文案接入 i18n ============
 
 describe('PersonalityEditor i18n（VR-7）', () => {
@@ -275,16 +276,31 @@ describe('PersonalityEditor i18n（VR-7）', () => {
     render(<PersonalityEditor />)
     const text = document.body.textContent ?? ''
     // 抽查核心残留面：雷达标题/五维标签/语气/模板标题/保存按钮
-    for (const zh of ['五维性格雷达图', '温度', '活泼', '依赖', '直率', '理性', '说话风格', '语气', '用词偏好', '口头禅', '互动偏好', '一键应用性格模板', '保存配置', '恢复默认']) {
+    for (const zh of [
+      '五维性格雷达图',
+      '温度',
+      '活泼',
+      '依赖',
+      '直率',
+      '理性',
+      '说话风格',
+      '语气',
+      '用词偏好',
+      '口头禅',
+      '互动偏好',
+      '一键应用性格模板',
+      '保存配置',
+      '恢复默认',
+    ]) {
       if (text.includes(zh)) {
-      const i = text.indexOf(zh)
-      console.log('RESIDUAL', JSON.stringify(zh), 'CTX:', JSON.stringify(text.slice(Math.max(0, i - 40), i + 40)))
-    }
-    if (text.includes(zh)) {
-      const i = text.indexOf(zh)
-      console.log('RESIDUAL', JSON.stringify(zh), 'CTX:', JSON.stringify(text.slice(Math.max(0, i - 40), i + 40)))
-    }
-    expect(text.includes(zh), 'residual zh: ' + zh).toBe(false)
+        const i = text.indexOf(zh)
+        console.log('RESIDUAL', JSON.stringify(zh), 'CTX:', JSON.stringify(text.slice(Math.max(0, i - 40), i + 40)))
+      }
+      if (text.includes(zh)) {
+        const i = text.indexOf(zh)
+        console.log('RESIDUAL', JSON.stringify(zh), 'CTX:', JSON.stringify(text.slice(Math.max(0, i - 40), i + 40)))
+      }
+      expect(text.includes(zh), 'residual zh: ' + zh).toBe(false)
     }
     // 英文键在位
     expect(text).toContain('Five-dimension personality radar')
@@ -304,7 +320,6 @@ describe('PersonalityEditor i18n（VR-7）', () => {
   })
 })
 
-
 // ============ VR-7：PersonalityEditor 文案接入 i18n ============
 
 describe('PersonalityEditor i18n（VR-7）', () => {
@@ -314,16 +329,31 @@ describe('PersonalityEditor i18n（VR-7）', () => {
     render(<PersonalityEditor />)
     const text = document.body.textContent ?? ''
     // 抽查核心残留面：雷达标题/五维标签/语气/模板标题/保存按钮
-    for (const zh of ['五维性格雷达图', '温度', '活泼', '依赖', '直率', '理性', '说话风格', '语气', '用词偏好', '口头禅', '互动偏好', '一键应用性格模板', '保存配置', '恢复默认']) {
+    for (const zh of [
+      '五维性格雷达图',
+      '温度',
+      '活泼',
+      '依赖',
+      '直率',
+      '理性',
+      '说话风格',
+      '语气',
+      '用词偏好',
+      '口头禅',
+      '互动偏好',
+      '一键应用性格模板',
+      '保存配置',
+      '恢复默认',
+    ]) {
       if (text.includes(zh)) {
-      const i = text.indexOf(zh)
-      console.log('RESIDUAL', JSON.stringify(zh), 'CTX:', JSON.stringify(text.slice(Math.max(0, i - 40), i + 40)))
-    }
-    if (text.includes(zh)) {
-      const i = text.indexOf(zh)
-      console.log('RESIDUAL', JSON.stringify(zh), 'CTX:', JSON.stringify(text.slice(Math.max(0, i - 40), i + 40)))
-    }
-    expect(text.includes(zh), 'residual zh: ' + zh).toBe(false)
+        const i = text.indexOf(zh)
+        console.log('RESIDUAL', JSON.stringify(zh), 'CTX:', JSON.stringify(text.slice(Math.max(0, i - 40), i + 40)))
+      }
+      if (text.includes(zh)) {
+        const i = text.indexOf(zh)
+        console.log('RESIDUAL', JSON.stringify(zh), 'CTX:', JSON.stringify(text.slice(Math.max(0, i - 40), i + 40)))
+      }
+      expect(text.includes(zh), 'residual zh: ' + zh).toBe(false)
     }
     // 英文键在位
     expect(text).toContain('Five-dimension personality radar')

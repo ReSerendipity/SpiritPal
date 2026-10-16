@@ -14,9 +14,7 @@
 let _tauriAvailable = true
 
 /** 是否为 debug 构建 */
-export const isDebug = typeof import.meta !== 'undefined'
-  ? import.meta.env.DEV
-  : false
+export const isDebug = typeof import.meta !== 'undefined' ? import.meta.env.DEV : false
 
 /** 设置 Tauri 可用性（供桥接层在初始化失败时调用） */
 export function setTauriAvailable(available: boolean) {
@@ -39,9 +37,7 @@ function callerInfo(): string {
 
 /** 格式化消息并附加调用源 */
 function fmt(level: string, message: string, ...args: unknown[]) {
-  const extra = args.length
-    ? ' ' + args.map((a) => (typeof a === 'string' ? a : safeStringify(a))).join(' ')
-    : ''
+  const extra = args.length ? ' ' + args.map((a) => (typeof a === 'string' ? a : safeStringify(a))).join(' ') : ''
   return `[${new Date().toISOString()}] [${level}] [${callerInfo()}] ${message}${extra}`
 }
 
@@ -68,22 +64,38 @@ const Logger = {
   debug(message: string, ...args: unknown[]) {
     if (!isDebug) return // release 构建不输出 debug 日志
     const line = fmt('DEBUG', message, ...args)
-    try { console.debug(line) } catch { /* no-op */ }
+    try {
+      console.debug(line)
+    } catch {
+      /* no-op */
+    }
     void forward('debug', line)
   },
   info(message: string, ...args: unknown[]) {
     const line = fmt('INFO', message, ...args)
-    try { console.info(line) } catch { /* no-op */ }
+    try {
+      console.info(line)
+    } catch {
+      /* no-op */
+    }
     void forward('info', line)
   },
   warn(message: string, ...args: unknown[]) {
     const line = fmt('WARN', message, ...args)
-    try { console.warn(line) } catch { /* no-op */ }
+    try {
+      console.warn(line)
+    } catch {
+      /* no-op */
+    }
     void forward('warn', line)
   },
   error(message: string, ...args: unknown[]) {
     const line = fmt('ERROR', message, ...args)
-    try { console.error(line) } catch { /* no-op */ }
+    try {
+      console.error(line)
+    } catch {
+      /* no-op */
+    }
     void forward('error', line)
   },
 }

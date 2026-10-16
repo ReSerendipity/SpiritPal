@@ -5,7 +5,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mockI18n = {
   language: 'zh-CN',
   t: vi.fn((key: string) => key),
-  changeLanguage: vi.fn((lang: string) => { mockI18n.language = lang }),
+  changeLanguage: vi.fn((lang: string) => {
+    mockI18n.language = lang
+  }),
   exists: vi.fn((_key: string) => true),
   getResource: vi.fn(() => null),
 }
@@ -64,12 +66,7 @@ describe('T-24: 国际化测试', () => {
 
     it('不存在空翻译键', () => {
       // 遍历所有已知键，确保没有空值
-      const knownKeys = [
-        'settings.title',
-        'chat.placeholder',
-        'common.close',
-        'common.save',
-      ]
+      const knownKeys = ['settings.title', 'chat.placeholder', 'common.close', 'common.save']
 
       for (const key of knownKeys) {
         const result = mockI18n.t(key)

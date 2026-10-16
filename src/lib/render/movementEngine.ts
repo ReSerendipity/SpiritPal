@@ -70,8 +70,8 @@ const DRAG_DEADZONE_PX = 3
 const TURN_TRANSITION_MS = 300
 
 /** 速度修正范围 — 基于宠物心情 */
-const SPEED_MODIFIER_MIN = 0.6  // 心情低时速度降至 60%
-const SPEED_MODIFIER_MAX = 1.3  // 心情高时速度升至 130%
+const SPEED_MODIFIER_MIN = 0.6 // 心情低时速度降至 60%
+const SPEED_MODIFIER_MAX = 1.3 // 心情高时速度升至 130%
 
 /** 边界碰撞回弹距离（像素） */
 const BOUNCE_BACK_PX = 5
@@ -199,7 +199,11 @@ export class MovementEngine {
   /** 安全调用回调（异常保护） */
   private safeCallback<T extends (...args: never[]) => void>(fn: T | undefined, ...args: Parameters<T>): void {
     if (!fn) return
-    try { fn(...args) } catch (e) { console.error('[MovementEngine] callback error:', e) }
+    try {
+      fn(...args)
+    } catch (e) {
+      console.error('[MovementEngine] callback error:', e)
+    }
   }
 
   // ============ 状态机 ============
@@ -277,8 +281,7 @@ export class MovementEngine {
     const videoTime = Math.min(elapsed, effectiveDuration)
     const walkNorm = elapsed >= effectiveDuration ? 1.0 : this.movementPosition(videoTime)
 
-    const currentPixel =
-      this.walkStartPixel + (this.walkEndPixel - this.walkStartPixel) * walkNorm
+    const currentPixel = this.walkStartPixel + (this.walkEndPixel - this.walkStartPixel) * walkNorm
 
     this.position.x = currentPixel
     this.safeCallback(this.callbacks.onPositionUpdate, this.position)
@@ -379,8 +382,7 @@ export class MovementEngine {
   start(): void {
     if (this.isRunning) return
     this.isRunning = true
-    this.idleEndTime =
-      Date.now() + MIN_IDLE_MS + Math.random() * (MAX_IDLE_MS - MIN_IDLE_MS)
+    this.idleEndTime = Date.now() + MIN_IDLE_MS + Math.random() * (MAX_IDLE_MS - MIN_IDLE_MS)
 
     const loop = (timestamp: number) => {
       if (!this.isRunning) return
@@ -488,9 +490,7 @@ export class MovementEngine {
     }
 
     // 使用 ease-in-out 缓动
-    const eased = progress < 0.5
-      ? 2 * progress * progress
-      : 1 - Math.pow(-2 * progress + 2, 2) / 2
+    const eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2
 
     const from = this.turnFromDirection === 1 ? 1 : 0
     const to = this.turnToDirection === 1 ? 1 : 0
@@ -548,8 +548,16 @@ export class MovementEngine {
 
   // ============ 查询 ============
 
-  getState(): MovementState { return this.state }
-  getPosition(): Position { return { ...this.position } }
-  getDirection(): number { return this.direction }
-  isGoingRight(): boolean { return this.goingRight }
+  getState(): MovementState {
+    return this.state
+  }
+  getPosition(): Position {
+    return { ...this.position }
+  }
+  getDirection(): number {
+    return this.direction
+  }
+  isGoingRight(): boolean {
+    return this.goingRight
+  }
 }

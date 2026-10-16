@@ -105,9 +105,9 @@ describe('CommitmentTracker', () => {
     })
 
     it('LLM 成功时应使用 LLM 结果', async () => {
-      const llmExtractor = vi.fn().mockResolvedValue([
-        { content: 'LLM 提取的约定', actor: 'owner' as const, due: null, repeat: null },
-      ])
+      const llmExtractor = vi
+        .fn()
+        .mockResolvedValue([{ content: 'LLM 提取的约定', actor: 'owner' as const, due: null, repeat: null }])
       const results = await tracker.extractWithLLM('test text', 'test reply', llmExtractor)
       expect(llmExtractor).toHaveBeenCalledOnce()
       expect(results[0].content).toBe('LLM 提取的约定')
@@ -138,7 +138,18 @@ describe('CommitmentTracker', () => {
 
     it('getOpenCommitments 应查询 status=open 的约定', async () => {
       const mockData = [
-        { id: 1, character_id: 'test-char', content: '任务1', actor: 'owner', due_at: 1000, status: 'open', source_memory_id: null, created_at: 0, follow_up_count: 0, repeat: null },
+        {
+          id: 1,
+          character_id: 'test-char',
+          content: '任务1',
+          actor: 'owner',
+          due_at: 1000,
+          status: 'open',
+          source_memory_id: null,
+          created_at: 0,
+          follow_up_count: 0,
+          repeat: null,
+        },
       ]
       mocks.getOpenCommitments.mockResolvedValueOnce(mockData)
 
@@ -190,9 +201,15 @@ describe('CommitmentTracker', () => {
   describe('候选消息生成', () => {
     it('应从今天到期的约定生成候选消息', async () => {
       const dueCommitment = {
-        id: 1, character_id: 'test-char', content: '考试', actor: 'owner' as const,
-        due_at: Date.now(), status: 'open' as const, source_memory_id: null,
-        created_at: 0, follow_up_count: 0,
+        id: 1,
+        character_id: 'test-char',
+        content: '考试',
+        actor: 'owner' as const,
+        due_at: Date.now(),
+        status: 'open' as const,
+        source_memory_id: null,
+        created_at: 0,
+        follow_up_count: 0,
       }
       mocks.getDueCommitments.mockResolvedValueOnce([dueCommitment])
       mocks.getOverdueCommitments.mockResolvedValueOnce([])
@@ -205,9 +222,15 @@ describe('CommitmentTracker', () => {
 
     it('逾期约定应生成跟进候选（仅在工作时间）', async () => {
       const overdueCommitment = {
-        id: 2, character_id: 'test-char', content: '面试', actor: 'owner' as const,
-        due_at: Date.now() - 86400000, status: 'open' as const, source_memory_id: null,
-        created_at: 0, follow_up_count: 0,
+        id: 2,
+        character_id: 'test-char',
+        content: '面试',
+        actor: 'owner' as const,
+        due_at: Date.now() - 86400000,
+        status: 'open' as const,
+        source_memory_id: null,
+        created_at: 0,
+        follow_up_count: 0,
       }
       mocks.getDueCommitments.mockResolvedValueOnce([])
       mocks.getOverdueCommitments.mockResolvedValueOnce([overdueCommitment])
@@ -225,14 +248,26 @@ describe('CommitmentTracker', () => {
 
     it('候选应按 urgency 降序排序', async () => {
       const dueToday = {
-        id: 1, character_id: 'test-char', content: 'urgent', actor: 'owner' as const,
-        due_at: Date.now(), status: 'open' as const, source_memory_id: null,
-        created_at: 0, follow_up_count: 0,
+        id: 1,
+        character_id: 'test-char',
+        content: 'urgent',
+        actor: 'owner' as const,
+        due_at: Date.now(),
+        status: 'open' as const,
+        source_memory_id: null,
+        created_at: 0,
+        follow_up_count: 0,
       }
       const overdue = {
-        id: 2, character_id: 'test-char', content: 'less urgent', actor: 'owner' as const,
-        due_at: Date.now() - 86400000, status: 'open' as const, source_memory_id: null,
-        created_at: 0, follow_up_count: 0,
+        id: 2,
+        character_id: 'test-char',
+        content: 'less urgent',
+        actor: 'owner' as const,
+        due_at: Date.now() - 86400000,
+        status: 'open' as const,
+        source_memory_id: null,
+        created_at: 0,
+        follow_up_count: 0,
       }
       mocks.getDueCommitments.mockResolvedValueOnce([dueToday])
       mocks.getOverdueCommitments.mockResolvedValueOnce([overdue])
@@ -258,7 +293,18 @@ describe('CommitmentTracker', () => {
 
     it('有约定时应返回格式化的上下文', async () => {
       mocks.getOpenCommitments.mockResolvedValueOnce([
-        { id: 1, character_id: 'test-char', content: '完成任务A', actor: 'owner', due_at: Date.now() + 86400000, status: 'open', source_memory_id: null, created_at: 0, follow_up_count: 0, repeat: null },
+        {
+          id: 1,
+          character_id: 'test-char',
+          content: '完成任务A',
+          actor: 'owner',
+          due_at: Date.now() + 86400000,
+          status: 'open',
+          source_memory_id: null,
+          created_at: 0,
+          follow_up_count: 0,
+          repeat: null,
+        },
       ])
       const ctx = await tracker.buildContext()
       expect(ctx).toContain('【主人的计划与约定】')

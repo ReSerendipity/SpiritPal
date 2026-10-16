@@ -31,9 +31,7 @@ describe('cogneeClient 移动端门控 (ADR-0005 #3)', () => {
 
   it('桌面端 cogneeAdd 仍会请求 sidecar（行为不变）', async () => {
     setUA('Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
-    const spy = vi
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(new Response('{}', { status: 200 }) as Response)
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 200 }) as Response)
     await cogneeAdd('char1', 'hello')
     expect(spy).toHaveBeenCalled()
   })

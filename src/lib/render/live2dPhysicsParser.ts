@@ -336,10 +336,7 @@ export class Live2DPysicsParser {
   /**
    * 更新物理参数
    */
-  updateParameters(
-    inputValues: Record<string, number>,
-    deltaTime: number,
-  ): Record<string, number> {
+  updateParameters(inputValues: Record<string, number>, deltaTime: number): Record<string, number> {
     if (!this.config) return {}
 
     const outputValues: Record<string, number> = {}
@@ -422,7 +419,7 @@ export class Live2DPysicsParser {
    * 重置所有模拟器
    */
   reset(): void {
-    this.simulators.forEach(simulator => simulator.reset())
+    this.simulators.forEach((simulator) => simulator.reset())
     this.parameterCache.clear()
   }
 

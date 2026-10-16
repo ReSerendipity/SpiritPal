@@ -161,16 +161,12 @@ describe('McpClientManager 连接与工具发现', () => {
   })
 
   it('SSE 缺 url 时连接失败，状态为 error', async () => {
-    await mgr.registerServer(
-      sseConfig({ id: 'no-url', transport: 'sse', url: undefined }),
-    )
+    await mgr.registerServer(sseConfig({ id: 'no-url', transport: 'sse', url: undefined }))
     expect(mgr.getAllStatus().get('no-url')).toBe('error')
   })
 
   it('stdio 缺 command 时连接失败，状态为 error', async () => {
-    await mgr.registerServer(
-      stdioConfig({ id: 'no-cmd', transport: 'stdio', command: undefined }),
-    )
+    await mgr.registerServer(stdioConfig({ id: 'no-cmd', transport: 'stdio', command: undefined }))
     expect(mgr.getAllStatus().get('no-cmd')).toBe('error')
   })
 
@@ -235,9 +231,7 @@ describe('McpClientManager 注销', () => {
     mgr.setPermissions([{ serverId: '*', toolPattern: 'allow-all', permission: 'allow' }])
     mgr.confirmTool('server-1', 'echo')
     await mgr.destroy()
-    expect(mgr.getPermissions()).toEqual([
-      { serverId: '*', toolPattern: '*', permission: 'confirm' },
-    ])
+    expect(mgr.getPermissions()).toEqual([{ serverId: '*', toolPattern: '*', permission: 'confirm' }])
   })
 })
 
@@ -310,11 +304,7 @@ describe('McpClientManager.executeTool 权限与确认', () => {
     const spy = vi.fn()
     mgr.on('tool-executed', spy)
     await mgr.executeTool('server-1', 'echo', {})
-    expect(spy).toHaveBeenCalledWith(
-      'server-1',
-      'echo',
-      expect.objectContaining({ success: true }),
-    )
+    expect(spy).toHaveBeenCalledWith('server-1', 'echo', expect.objectContaining({ success: true }))
   })
 })
 
@@ -347,9 +337,7 @@ describe('McpClientManager 权限规则匹配', () => {
   })
 
   it('通配符模式匹配前缀（echo*）', async () => {
-    mgr.setPermissions([
-      { serverId: 'server-1', toolPattern: 'echo*', permission: 'allow' },
-    ])
+    mgr.setPermissions([{ serverId: 'server-1', toolPattern: 'echo*', permission: 'allow' }])
     const r = await mgr.executeTool('server-1', 'echo2', {})
     expect(r.success).toBe(true)
   })
@@ -365,9 +353,7 @@ describe('McpClientManager 权限规则匹配', () => {
   })
 
   it('setPermissions 返回副本而非引用', async () => {
-    const rules: PermissionRule[] = [
-      { serverId: 'x', toolPattern: 'y', permission: 'allow' },
-    ]
+    const rules: PermissionRule[] = [{ serverId: 'x', toolPattern: 'y', permission: 'allow' }]
     mgr.setPermissions(rules)
     rules.push({ serverId: 'z', toolPattern: 'z', permission: 'deny' })
     expect(mgr.getPermissions()).toHaveLength(1)
@@ -396,12 +382,7 @@ describe('ServerConnection.executeTool 输入校验与错误处理', () => {
       error: '包含代码关键字',
       failedLayer: 3,
     })
-    const r = await mgr.executeTool(
-      'server-1',
-      'echo',
-      { text: 'function foo() {}' },
-      { detectCode: true },
-    )
+    const r = await mgr.executeTool('server-1', 'echo', { text: 'function foo() {}' }, { detectCode: true })
     expect(r.success).toBe(false)
     expect(r.error).toContain('参数校验失败')
     expect(mockClientInstance.callTool).not.toHaveBeenCalled()
@@ -412,12 +393,7 @@ describe('ServerConnection.executeTool 输入校验与错误处理', () => {
       content: [{ type: 'text', text: 'ok' }],
       isError: false,
     })
-    const r = await mgr.executeTool(
-      'server-1',
-      'echo',
-      { count: 3, label: 'hi' },
-      { detectCode: true },
-    )
+    const r = await mgr.executeTool('server-1', 'echo', { count: 3, label: 'hi' }, { detectCode: true })
     expect(r.success).toBe(true)
     // 字符串参数触发校验，数字参数不触发
     expect(validateMcpInput).toHaveBeenCalledWith('hi', expect.objectContaining({ fieldName: 'label' }))

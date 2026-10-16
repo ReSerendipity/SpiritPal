@@ -122,10 +122,7 @@ export class KeyframeMemory {
   private config: Required<KeyframeMemoryConfig>
   private callbacks: KeyframeMemoryCallbacks
 
-  constructor(
-    config: KeyframeMemoryConfig = {},
-    callbacks: KeyframeMemoryCallbacks = {},
-  ) {
+  constructor(config: KeyframeMemoryConfig = {}, callbacks: KeyframeMemoryCallbacks = {}) {
     this.config = {
       l0MaxFrames: config.l0MaxFrames ?? L0_MAX_FRAMES,
       l1MaxFrames: config.l1MaxFrames ?? L1_MAX_FRAMES,
@@ -264,7 +261,7 @@ export class KeyframeMemory {
    */
   getFramesByTimeRange(startTime: number, endTime: number): Keyframe[] {
     const allFrames = this.getAllFrames()
-    return allFrames.filter(f => f.timestamp >= startTime && f.timestamp <= endTime)
+    return allFrames.filter((f) => f.timestamp >= startTime && f.timestamp <= endTime)
   }
 
   /**
@@ -323,7 +320,11 @@ export class KeyframeMemory {
       return frames.length * pixels * 4 * 1.33
     }
 
-    return estimateLevel(this.l0, 1) + estimateLevel(this.l1, L0_TO_L1_SCALE) + estimateLevel(this.l2, L0_TO_L1_SCALE * L1_TO_L2_SCALE)
+    return (
+      estimateLevel(this.l0, 1) +
+      estimateLevel(this.l1, L0_TO_L1_SCALE) +
+      estimateLevel(this.l2, L0_TO_L1_SCALE * L1_TO_L2_SCALE)
+    )
   }
 
   /** 获取各级帧数统计 */
@@ -353,10 +354,7 @@ export class KeyframeMemory {
 
 let instance: KeyframeMemory | null = null
 
-export function getKeyframeMemory(
-  config?: KeyframeMemoryConfig,
-  callbacks?: KeyframeMemoryCallbacks,
-): KeyframeMemory {
+export function getKeyframeMemory(config?: KeyframeMemoryConfig, callbacks?: KeyframeMemoryCallbacks): KeyframeMemory {
   if (!instance) {
     instance = new KeyframeMemory(config, callbacks)
   }

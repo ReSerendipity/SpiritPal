@@ -77,15 +77,11 @@ describe('getAffectionLevel', () => {
 
 describe('actWeight', () => {
   it('亲密度不足时返回 0', () => {
-    expect(
-      actWeight(10, 3, 3, 5, 1, true),
-    ).toBe(0)
+    expect(actWeight(10, 3, 3, 5, 1, true)).toBe(0)
   })
 
   it('不在播放列表返回 0', () => {
-    expect(
-      actWeight(10, 3, 3, 0, 5, false),
-    ).toBe(0)
+    expect(actWeight(10, 3, 3, 0, 5, false)).toBe(0)
   })
 
   it('濒死时只播放濒死动画（currentTier=0, actTier≠0 返回 0）', () => {

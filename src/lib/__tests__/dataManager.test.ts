@@ -5,9 +5,7 @@ import { setApiKey } from '@/lib/data/secureStorage'
 
 vi.mock('@/lib/data/modManager', () => ({
   getModManager: vi.fn(() => ({
-    getMods: vi.fn(() => [
-      { id: 'mod1', displayName: '模组1', enabled: true },
-    ]),
+    getMods: vi.fn(() => [{ id: 'mod1', displayName: '模组1', enabled: true }]),
   })),
 }))
 
@@ -72,19 +70,25 @@ describe('DataManager', () => {
     })
 
     it('导出包含设置数据', async () => {
-      localStorage.setItem('spiritpal-settings-store', JSON.stringify({
-        state: { theme: 'dark', language: 'zh' },
-      }))
+      localStorage.setItem(
+        'spiritpal-settings-store',
+        JSON.stringify({
+          state: { theme: 'dark', language: 'zh' },
+        }),
+      )
       const json = await mgr.exportAll()
       const data = JSON.parse(json)
       expect(data.settings).toEqual({ theme: 'dark', language: 'zh' })
     })
 
     it('导出包含 AI 配置（不含 apiKey 明文）', async () => {
-      localStorage.setItem('spiritpal-ai-config', JSON.stringify({
-        provider: 'deepseek',
-        model: 'deepseek-chat',
-      }))
+      localStorage.setItem(
+        'spiritpal-ai-config',
+        JSON.stringify({
+          provider: 'deepseek',
+          model: 'deepseek-chat',
+        }),
+      )
       const json = await mgr.exportAll()
       const data = JSON.parse(json)
       expect(data.aiConfig).toBeTruthy()
@@ -92,12 +96,15 @@ describe('DataManager', () => {
     })
 
     it('导出包含宠物养成数据', async () => {
-      localStorage.setItem('spiritpal-pet-store', JSON.stringify({
-        state: {
-          stats: { doro: { level: 5 } },
-          inventory: [{ id: 'item1' }],
-        },
-      }))
+      localStorage.setItem(
+        'spiritpal-pet-store',
+        JSON.stringify({
+          state: {
+            stats: { doro: { level: 5 } },
+            inventory: [{ id: 'item1' }],
+          },
+        }),
+      )
       const json = await mgr.exportAll()
       const data = JSON.parse(json)
       expect(data.petStats).toBeTruthy()

@@ -37,22 +37,22 @@ import {
 
 /** 经历类型 */
 export type ExperienceType =
-  | 'feed'          // 被喂食
-  | 'play'          // 被逗玩
-  | 'bathe'         // 洗澡
-  | 'dress_up'      // 被打扮
-  | 'pet'           // 被摸头
+  | 'feed' // 被喂食
+  | 'play' // 被逗玩
+  | 'bathe' // 洗澡
+  | 'dress_up' // 被打扮
+  | 'pet' // 被摸头
   | 'accompany_work' // 陪伴工作
   | 'accompany_meeting' // 陪伴开会
-  | 'ignored'       // 被遗忘
-  | 'first_chat'    // 第一次聊天
-  | 'level_up'      // 升级
-  | 'achievement'   // 解锁成就
-  | 'pomodoro'      // 一起完成番茄钟
-  | 'weather'       // 天气事件
-  | 'festival'      // 节日互动
-  | 'anniversary'   // 纪念日
-  | 'custom'        // 自定义
+  | 'ignored' // 被遗忘
+  | 'first_chat' // 第一次聊天
+  | 'level_up' // 升级
+  | 'achievement' // 解锁成就
+  | 'pomodoro' // 一起完成番茄钟
+  | 'weather' // 天气事件
+  | 'festival' // 节日互动
+  | 'anniversary' // 纪念日
+  | 'custom' // 自定义
 
 /** 经历条目 */
 export interface PetExperience {
@@ -301,8 +301,8 @@ export class PetExperienceManager {
     // 限制容量：保留最近 200 条 + 所有纪念日/第一次类经历
     if (this.experiences.length > 200) {
       // 永远保留 first_chat 和 anniversary
-      const precious = this.experiences.filter(e => e.type === 'first_chat' || e.type === 'anniversary')
-      const others = this.experiences.filter(e => e.type !== 'first_chat' && e.type !== 'anniversary')
+      const precious = this.experiences.filter((e) => e.type === 'first_chat' || e.type === 'anniversary')
+      const others = this.experiences.filter((e) => e.type !== 'first_chat' && e.type !== 'anniversary')
       this.experiences = [...precious, ...others.slice(-150)]
 
       // T-1: 行级路径下裁剪后重建行（保持与内存一致）
@@ -340,7 +340,7 @@ export class PetExperienceManager {
    * 按类型筛选
    */
   getByType(type: ExperienceType): PetExperience[] {
-    return this.experiences.filter(e => e.type === type)
+    return this.experiences.filter((e) => e.type === type)
   }
 
   /**
@@ -354,7 +354,7 @@ export class PetExperienceManager {
    * 获取正面经历
    */
   getPositive(): PetExperience[] {
-    return this.experiences.filter(e => e.sentiment === 'positive')
+    return this.experiences.filter((e) => e.sentiment === 'positive')
   }
 
   /**
@@ -377,8 +377,8 @@ export class PetExperienceManager {
 
     // 策略：取最近的 3 条正面经历 + 1 条最近的负面经历（如有）
     const recent = this.getRecent(10)
-    const positive = recent.filter(e => e.sentiment === 'positive').slice(0, 3)
-    const negative = recent.filter(e => e.sentiment === 'negative').slice(0, 1)
+    const positive = recent.filter((e) => e.sentiment === 'positive').slice(0, 3)
+    const negative = recent.filter((e) => e.sentiment === 'negative').slice(0, 1)
     const selected = [...positive, ...negative]
 
     if (selected.length === 0) return ''

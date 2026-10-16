@@ -68,7 +68,9 @@ describe('useCollections hook', () => {
   })
 
   it('Bag 中已有 col-star 时，star 套件收集计数为 1', () => {
-    usePetStore.setState({ inventory: [{ id: 'col-star', type: 'collection', name: '星星', icon: '⭐', price: 0, count: 1, maxQuantity: 1 }] })
+    usePetStore.setState({
+      inventory: [{ id: 'col-star', type: 'collection', name: '星星', icon: '⭐', price: 0, count: 1, maxQuantity: 1 }],
+    })
     const { result } = renderHook(() => useCollections())
     const star = result.current.sets.find((s) => s.setId === 'set-stars')
     expect(star).toBeTruthy()

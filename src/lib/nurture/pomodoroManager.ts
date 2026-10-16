@@ -93,8 +93,7 @@ class PomodoroManager {
   getSnapshot(): PomodoroSnapshot {
     const elapsedSec = Math.min(
       this.durationSec,
-      this.accumulatedSec +
-        (this.phase === 'running' ? (Date.now() - this.segmentStartedAt) / 1000 : 0),
+      this.accumulatedSec + (this.phase === 'running' ? (Date.now() - this.segmentStartedAt) / 1000 : 0),
     )
     return {
       phase: this.phase,
@@ -182,8 +181,7 @@ class PomodoroManager {
 
   private tick(): void {
     if (this.phase !== 'running') return
-    const elapsed =
-      this.accumulatedSec + (Date.now() - this.segmentStartedAt) / 1000
+    const elapsed = this.accumulatedSec + (Date.now() - this.segmentStartedAt) / 1000
     if (elapsed >= this.durationSec) {
       this.finish()
       return

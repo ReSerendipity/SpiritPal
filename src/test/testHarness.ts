@@ -132,7 +132,7 @@ export function createTestHarness(deps: {
    */
   const expectEventCount = (event: string, times: number) => {
     if (mockCtx) {
-      const count = mockCtx.events.filter(e => e.event === event).length
+      const count = mockCtx.events.filter((e) => e.event === event).length
       expect(count).toBe(times)
     }
   }
@@ -140,7 +140,7 @@ export function createTestHarness(deps: {
   /** 断言没有错误事件被触发 */
   const expectNoErrors = () => {
     if (mockCtx) {
-      const errors = mockCtx.events.filter(e => e.event === 'error')
+      const errors = mockCtx.events.filter((e) => e.event === 'error')
       expect(errors).toHaveLength(0)
     }
   }
@@ -163,10 +163,8 @@ export function createTestHarness(deps: {
    */
   const expectBubbleContains = (text: string) => {
     if (mockCtx) {
-      const sayEvents = mockCtx.events.filter(e => e.event === 'spiritpal-mcp-say')
-      const found = sayEvents.some(e =>
-        typeof e.payload === 'string' && e.payload.includes(text),
-      )
+      const sayEvents = mockCtx.events.filter((e) => e.event === 'spiritpal-mcp-say')
+      const found = sayEvents.some((e) => typeof e.payload === 'string' && e.payload.includes(text))
       expect(found).toBe(true)
     }
   }
@@ -179,8 +177,8 @@ export function createTestHarness(deps: {
    */
   const expectAnimationTriggered = (animId: string) => {
     if (mockCtx) {
-      const reactionEvents = mockCtx.events.filter(e => e.event === 'spiritpal-mcp-react')
-      const found = reactionEvents.some(e => e.payload === animId)
+      const reactionEvents = mockCtx.events.filter((e) => e.event === 'spiritpal-mcp-react')
+      const found = reactionEvents.some((e) => e.payload === animId)
       expect(found).toBe(true)
     }
   }

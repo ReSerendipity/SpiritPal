@@ -37,7 +37,10 @@ export const DEFAULT_SPEAKER_ID = 1
 
 /** VOICEVOX 相关错误，附带 HTTP 状态码便于上层区分「引擎没启动」与「文本非法」 */
 export class VoicevoxEngineError extends Error {
-  constructor(message: string, public readonly status?: number) {
+  constructor(
+    message: string,
+    public readonly status?: number,
+  ) {
     super(message)
     this.name = 'VoicevoxEngineError'
   }
@@ -95,10 +98,7 @@ export class TTSEngine {
     const url = `${this.engineUrl}/audio_query?text=${encodeURIComponent(text)}&speaker=${speaker}`
     const r = await safeFetch(url, { method: 'POST' })
     if (!r.ok) {
-      throw new VoicevoxEngineError(
-        `audio_query 失败（HTTP ${r.status}）：VOICEVOX 引擎未启动或文本非法`,
-        r.status,
-      )
+      throw new VoicevoxEngineError(`audio_query 失败（HTTP ${r.status}）：VOICEVOX 引擎未启动或文本非法`, r.status)
     }
     return (await r.json()) as AudioQuery
   }

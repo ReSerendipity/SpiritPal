@@ -11,11 +11,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import {
-  EmotionManager,
-  DEFAULT_EXPRESSIONS,
-  type ExpressionOption,
-} from '@/lib/ai/emotionManager'
+import { EmotionManager, DEFAULT_EXPRESSIONS, type ExpressionOption } from '@/lib/ai/emotionManager'
 
 function makeCallbacks() {
   return {

@@ -102,11 +102,7 @@ export class ContextManager {
    * @param importance 重要度（0-100，默认根据角色自动分配）
    * @returns 添加的消息
    */
-  addMessage(
-    role: ChatMessage['role'],
-    content: string,
-    importance?: number,
-  ): ChatMessage {
+  addMessage(role: ChatMessage['role'], content: string, importance?: number): ChatMessage {
     const message: ChatMessage = {
       id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       role,
@@ -214,9 +210,7 @@ export class ContextManager {
    * @param llmCompressor LLM 压缩函数（可选，不传则使用简单截断）
    * @returns 压缩前的 token 总数
    */
-  async compressContext(
-    llmCompressor?: (messages: ChatMessage[]) => Promise<string>,
-  ): Promise<number> {
+  async compressContext(llmCompressor?: (messages: ChatMessage[]) => Promise<string>): Promise<number> {
     const totalTokens = this.getTotalTokens()
     const budget = this.config.defaultMaxTokens
 
@@ -224,10 +218,7 @@ export class ContextManager {
     if (totalTokens <= budget) return totalTokens
 
     // 找出可被压缩的旧消息（非 system、非 important、非最近 N 轮）
-    const recentStart = Math.max(
-      0,
-      this.messages.length - this.config.preserveRecentRounds * 2,
-    )
+    const recentStart = Math.max(0, this.messages.length - this.config.preserveRecentRounds * 2)
 
     const compressible = this.messages
       .slice(0, recentStart)
