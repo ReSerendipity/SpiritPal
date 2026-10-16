@@ -62,6 +62,18 @@
 //! - [`hide_pet_window`] — 隐藏宠物窗口
 //! - [`set_pet_always_on_top`] — 设置宠物窗口置顶
 
+// 跨 target 构建：桌面专用的符号与导入在移动端天然未使用 —— `win32`（窗口/空闲检测）、
+// `commands::window`（窗口管理）、`mcp_bridge`（MCP 桥）、`keychain::SystemKeychainStore`、
+// `setup`/`lib.rs` 顶层导入等，合计 27 处（21 个 dead_code + 6 个 unused_imports）。
+//
+// 2026-10-16 之前靠 CI 的 `-A dead_code -A unused_imports` 压住，代价是**本地 clippy 与
+// CI 行为不一致**（本地不带头 flags 时会红，容易误判）。改为在 crate 根声明：意图自解释、
+// 对任何构建方式生效（本地 / CI / IDE 一致）。
+//
+// 放行范围仅限 `mobile` target 的这两个 lint；host target 上 Rust 仍全量强制
+// （ci.yml 的 `Rust Clippy (Lint)` 是必需检查，桌面侧的 dead_code / unused_imports 照样拦）。
+#![cfg_attr(mobile, allow(dead_code, unused_imports))]
+
 // R-12: 反调试检测
 mod antidebug;
 // R-14: 数据库文件级加密

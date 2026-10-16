@@ -4,6 +4,7 @@
 import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { usePetBehavior } from '@/hooks/pet/usePetBehavior'
+import { getAnimationStateMachine } from '@/lib/render/animationConfig'
 import type { WorkState } from '@/lib/ai/contextAwareness'
 
 const mocks = vi.hoisted(() => ({
@@ -23,10 +24,20 @@ vi.mock('../../stores/petStore', () => ({
 describe('usePetBehavior', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    // 两个「隐藏输入」必须固定，否则本用例的断言会随 CI 的测试执行顺序与墙钟时刻漂移：
+    // ① getAnimationStateMachine() 是**模块级单例**，lastPlayedAt 冷却表跨用例持久化；
+    //    若 happy/laugh/giggle 被同一批次的其它用例打上 30s 冷却，pickEmotion 会被过滤空
+    //    → 落进 pickBasic → 取到 'sit'（CI 实测复现：expected 'sit' to be 'happy'）。
+    //    → 每个用例前重置冷却，恢复「mood=70 必命中情绪候选」的前提。
+    getAnimationStateMachine().resetCooldowns()
+    // ② select / scheduleNextBehavior 内部多处用 Math.random（延迟区间、5% 躲藏、
+    //    候选内随机），固定成常量让行为选择完全确定。
+    vi.spyOn(Math, 'random').mockReturnValue(0.5)
   })
 
   afterEach(() => {
     vi.useRealTimers()
+    vi.restoreAllMocks()
   })
 
   function setup() {
