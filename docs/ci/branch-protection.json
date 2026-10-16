@@ -21,8 +21,8 @@
     "restrictions": null,
     "bypass_note": "admin（ReSerendipity，仓库 owner）可绕过 PR 要求直推 main；其他协作者必须走 PR + 1 审批。个人账号仓库不支持用户级 bypass，以 enforce_admins=false 实现。"
   },
-  "contexts": ["Lint and Test (Frontend, Node 22)", "Rust Tests", "layout", "Dependency Vuln Scan"],
+  "contexts": ["Lint and Test (Frontend, Node 22)", "Rust Tests", "layout", "Dependency Vuln Scan", "DCO Check"],
   "required_conversation_resolution": true,
-  "_measured_at": "2026-09-28T10:25Z（gh api repos/ReSerendipity/SpiritPal/branches/main/protection，启用 PR 要求 + enforce_admins=false）",
+  "_measured_at": "2026-10-16T23:18Z（gh api repos/ReSerendipity/SpiritPal/branches/main/protection 逐字段只读回读；contexts 补入 DCO Check，由 .github/workflows/dco.yml 的 dco 作业提供；其余 14 个字段与 live 实测一致）",
   "_meets_reality": "live 已改为：require PR(1 approval) + enforce_admins=false；owner/admin 直推 main 免 PR，其余账号强制 PR。"
 }
