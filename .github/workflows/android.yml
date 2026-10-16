@@ -168,6 +168,33 @@ jobs:
         shell: bash
         run: cargo install cargo-ndk --locked
 
+      # 本 job 只做「构建能否通过」的验证，**不产出可分发产物**，因此用一次性自签密钥：
+      # 真实签名材料（keystore.properties / *.jks）被 .gitignore 忽略、也不该进 CI。
+      # 缺它会在最后一步直接失败（实测踩过）：
+      #   > Task :app:packageArm64Release FAILED
+      #   > SigningConfig "release" is missing required property "storeFile".
+      # 注：app/build.gradle 对「keystore.properties 不存在」只 warn，但 storeFile 未设置时
+      # AGP 的打包任务仍会硬失败 —— 所以必须给一个可用的密钥，而不是指望降级。
+      - name: Generate throwaway signing key (build verification only)
+        shell: bash
+        working-directory: src-tauri/gen/android
+        run: |
+          set -euo pipefail
+          KS="$RUNNER_TEMP/ci-throwaway.jks"
+          rm -f "$KS"
+          keytool -genkeypair -v \
+            -keystore "$KS" \
+            -storepass ci-throwaway -keypass ci-throwaway \
+            -alias ci-throwaway -keyalg RSA -keysize 2048 -validity 1 \
+            -dname "CN=CI Throwaway, OU=Build Verification, O=SpiritPal, L=NA, ST=NA, C=NA"
+          cat > app/keystore.properties <<EOF
+          storeFile=$KS
+          storePassword=ci-throwaway
+          keyAlias=ci-throwaway
+          keyPassword=ci-throwaway
+          EOF
+          echo "已生成一次性密钥（$KS）并写入 app/keystore.properties（CI 专用，不入库）"
+
       # settings.gradle 第 3 行 `apply from: 'tauri.settings.gradle'`，而该文件被
       # src-tauri/gen/android/.gitignore 忽略；本地那份还是「手工重建 + 写死本机 cargo
       # 注册表路径」的（含 C:/Users/Doro/.cargo/...），CI 上根本不存在 → 构建直接崩：
