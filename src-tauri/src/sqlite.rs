@@ -2887,4 +2887,142 @@ mod tests {
         .unwrap();
         assert_eq!(cid.as_deref(), Some("c"));
     }
+
+    // ===== 第三轮补强：数据访问辅助函数（json_rows / exec / scalar / column_exists / ensure_column） =====
+
+    #[test]
+    fn test_json_rows_maps_columns_and_all_types() {
+        let conn = mem_conn();
+        // 覆盖 vref_to_json 的四个分支：Null / Integer / Real / Text
+        let rows = json_rows(&conn, "SELECT NULL AS n, 7 AS i, 1.5 AS f, 'x' AS t", &[]).unwrap();
+        assert_eq!(rows.len(), 1);
+        let r = &rows[0];
+        assert_eq!(r["n"], JsonValue::Null);
+        assert_eq!(r["i"], json!(7));
+        assert_eq!(r["f"], json!(1.5));
+        assert_eq!(r["t"], json!("x"));
+    }
+
+    #[test]
+    fn test_json_rows_blob_becomes_base64() {
+        let conn = mem_conn();
+        // 历史 embedding 列可能写 BLOB → vref_to_json 应转 base64 字符串而非报错
+        let rows = json_rows(
+            &conn,
+            "SELECT ?1 AS b",
+            &[rusqlite::types::Value::Blob(vec![0xDE, 0xAD, 0xBE, 0xEF])],
+        )
+        .unwrap();
+        assert_eq!(rows[0]["b"], json!("3q2+7w=="));
+    }
+
+    #[test]
+    fn test_json_rows_multiple_rows_and_params() {
+        let conn = mem_conn();
+        exec(&conn, "CREATE TABLE t (id INTEGER, name TEXT)", &[]).unwrap();
+        for i in 0..3 {
+            exec(
+                &conn,
+                "INSERT INTO t (id, name) VALUES (?1, ?2)",
+                &[sqi(i), sq(&format!("n{i}"))],
+            )
+            .unwrap();
+        }
+        let rows = json_rows(
+            &conn,
+            "SELECT id, name FROM t WHERE id >= ?1 ORDER BY id",
+            &[sqi(1)],
+        )
+        .unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0]["id"], json!(1));
+        assert_eq!(rows[0]["name"], json!("n1"));
+        assert_eq!(rows[1]["name"], json!("n2"));
+    }
+
+    #[test]
+    fn test_json_rows_sql_error_is_reported() {
+        let conn = mem_conn();
+        // 预编译失败路径（表不存在）
+        let e = json_rows(&conn, "SELECT * FROM __no_such_table__", &[]).unwrap_err();
+        assert!(e.contains("SQL 预编译失败"), "实际报错: {e}");
+    }
+
+    #[test]
+    fn test_exec_returns_affected_rows() {
+        let conn = mem_conn();
+        exec(&conn, "CREATE TABLE t (id INTEGER)", &[]).unwrap();
+        let n = exec(
+            &conn,
+            "INSERT INTO t (id) VALUES (?1), (?2)",
+            &[sqi(1), sqi(2)],
+        )
+        .unwrap();
+        assert_eq!(n, 2);
+        let n = exec(&conn, "UPDATE t SET id = id + 10 WHERE id = 1", &[]).unwrap();
+        assert_eq!(n, 1);
+    }
+
+    #[test]
+    fn test_exec_sql_error_is_reported() {
+        let conn = mem_conn();
+        let e = exec(&conn, "INSERT INTO __no_such_table__ (id) VALUES (1)", &[]).unwrap_err();
+        assert!(e.contains("SQL 执行失败"), "实际报错: {e}");
+    }
+
+    #[test]
+    fn test_scalar_some_none_and_error() {
+        let conn = mem_conn();
+        // None（无行）
+        let v: Option<i64> = scalar(&conn, "SELECT 1 WHERE 0", &[]).unwrap();
+        assert_eq!(v, None);
+        // Some
+        let v: Option<i64> = scalar(&conn, "SELECT 41 + 1", &[]).unwrap();
+        assert_eq!(v, Some(42));
+        // 参数化
+        let v: Option<String> = scalar(&conn, "SELECT ?1", &[sq("hi")]).unwrap();
+        assert_eq!(v.as_deref(), Some("hi"));
+        // 错误路径
+        let e = scalar::<i64>(&conn, "SELECT * FROM __no_such_table__", &[]).unwrap_err();
+        assert!(e.contains("标量查询失败"), "实际报错: {e}");
+    }
+
+    #[test]
+    fn test_column_exists_false_for_unknown() {
+        let conn = mem_conn();
+        assert!(!column_exists(&conn, "memories", "__no_such_column__").unwrap());
+        // 表名也不存在时同样为 false（而非报错）
+        assert!(!column_exists(&conn, "__no_such_table__", "x").unwrap());
+    }
+
+    #[test]
+    fn test_ensure_column_adds_then_is_idempotent() {
+        let conn = mem_conn();
+        assert!(!column_exists(&conn, "memories", "probe_col").unwrap());
+        ensure_column(
+            &conn,
+            "memories",
+            "probe_col",
+            "ALTER TABLE memories ADD COLUMN probe_col TEXT NOT NULL DEFAULT ''",
+        )
+        .unwrap();
+        assert!(column_exists(&conn, "memories", "probe_col").unwrap());
+        // 二次调用直接跳过（幂等，不因重复加列报错）
+        ensure_column(
+            &conn,
+            "memories",
+            "probe_col",
+            "ALTER TABLE memories ADD COLUMN probe_col TEXT NOT NULL DEFAULT ''",
+        )
+        .unwrap();
+        assert!(column_exists(&conn, "memories", "probe_col").unwrap());
+    }
+
+    #[test]
+    fn test_scalar_type_mismatch_is_error() {
+        let conn = mem_conn();
+        // 取 Text 列但声明 i64 → FromSql 失败，应走错误路径而非 panic
+        let e = scalar::<i64>(&conn, "SELECT 'not-a-number'", &[]).unwrap_err();
+        assert!(e.contains("标量查询失败"), "实际报错: {e}");
+    }
 }

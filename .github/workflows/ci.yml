@@ -323,16 +323,16 @@ jobs:
         run: cargo install cargo-tarpaulin --locked
 
       - name: Run cargo test with coverage
-        # 阈值：**2026-10-15 基线重置到 9**（详见下方说明）。
-        # 历史：实测基线 21.49%（2026-09-08 首次真实 tarpaulin 运行），ratchet 只升不降。
+        # 阈值：**2026-10-16 棘轮收紧到 9.9**（详见下方说明）。
+        # 历史基线 21.49%（2026-09-08 首次真实 tarpaulin 运行），ratchet 只升不降。
         # 但该阈值从未真正生效过 —— main 此前走直推绕过了 required checks，没人跑过它；
-        # 2026-10-15 首次真跑时实测仅 **9.87%**，即覆盖率已回退 ~11.6 个百分点
-        # （新增的端侧/移动端 Rust 代码基本无测试：ondevice/engine.rs 515 行、
-        #  ondevice/image.rs 423 行等）。永久变红 = 没人看，门禁等于没有。
-        # 故按棘轮约定**重置基线到实测值**，恢复「不许回退」的语义；9 留了少量波动余量。
-        # ⚠️ 这是**承认回退**、不是修好：要回到 21% 必须补 Rust 测试（本仓 ~15900 行 Rust）。
+        # 2026-10-15 首次真跑时实测仅 **9.87%**（覆盖率已回退 ~11.6 个百分点：新增的
+        # 端侧/移动端 Rust 基本无测试），故按棘轮约定**重置基线到 9**，恢复「不许回退」语义。
+        # 2026-10-16 #125 补了 sqlite 数据访问辅助函数的 10 个用例后实测 **9.95%**（856/8604 行），
+        # 按棘轮约定把阈值上调到 **9.9**（留 0.05 点余量防抖）。
+        # ⚠️ 9.9 仍是**承认回退后的低点**，不是目标：回到 21% 需补大量 Rust 测试（本仓 ~15900 行）。
         # tarpaulin 无 branch 阈值参数（--fail-under-branches 直接报错），branches 维度以报告人工跟踪。
-        run: cargo tarpaulin --workspace --out lcov --output-dir coverage/ --fail-under 9 -- --test-threads=2
+        run: cargo tarpaulin --workspace --out lcov --output-dir coverage/ --fail-under 9.9 -- --test-threads=2
 
       - name: Run cargo fmt check
         run: cargo fmt --check
