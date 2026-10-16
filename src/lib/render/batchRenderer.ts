@@ -200,21 +200,20 @@ export class BatchRenderer {
     const groups = new Map<string, Renderable[]>()
 
     // 筛选可见对象并应用剔除
-    const visibleObjects = Array.from(this.renderables.values())
-      .filter(obj => {
-        if (!obj.visible) return false
+    const visibleObjects = Array.from(this.renderables.values()).filter((obj) => {
+      if (!obj.visible) return false
 
-        // 视锥体剔除
-        if (this.config.enableCulling) {
-          const cullResult = this.checkCulling(obj)
-          if (cullResult.culled) {
-            this.stats.objectsCulled++
-            return false
-          }
+      // 视锥体剔除
+      if (this.config.enableCulling) {
+        const cullResult = this.checkCulling(obj)
+        if (cullResult.culled) {
+          this.stats.objectsCulled++
+          return false
         }
+      }
 
-        return true
-      })
+      return true
+    })
 
     // 按纹理 ID 分组
     for (const obj of visibleObjects) {
@@ -249,8 +248,7 @@ export class BatchRenderer {
     const vp = this.config.viewport
 
     // AABB 包围盒相交检测
-    if (x + width < vp.x || x > vp.x + vp.width ||
-        y + height < vp.y || y > vp.y + vp.height) {
+    if (x + width < vp.x || x > vp.x + vp.width || y + height < vp.y || y > vp.y + vp.height) {
       return { culled: true, reason: 'outside_viewport' }
     }
 
@@ -305,10 +303,10 @@ export class BatchRenderer {
     const sin = Math.sin(obj.rotation)
 
     const corners = [
-      { tx: -w / 2 * sx, ty: -h / 2 * sy },  // top-left
-      { tx: w / 2 * sx, ty: -h / 2 * sy },   // top-right
-      { tx: w / 2 * sx, ty: h / 2 * sy },    // bottom-right
-      { tx: -w / 2 * sx, ty: h / 2 * sy },   // bottom-left
+      { tx: (-w / 2) * sx, ty: (-h / 2) * sy }, // top-left
+      { tx: (w / 2) * sx, ty: (-h / 2) * sy }, // top-right
+      { tx: (w / 2) * sx, ty: (h / 2) * sy }, // bottom-right
+      { tx: (-w / 2) * sx, ty: (h / 2) * sy }, // bottom-left
     ]
 
     // UV 坐标（假设完整纹理）

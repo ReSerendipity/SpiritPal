@@ -164,7 +164,12 @@ export function computeWalkBounds(
     return { minX: 8, maxX: Math.max(8, winW - sw - 8) }
   }
   const minX = statusMode === 'left' ? PANEL_GAP + STATUS_PANEL_W + PANEL_GAP : PANEL_GAP
-  const rightColW = statusMode === 'left' ? ACTIONS_PANEL_W : statusMode === 'right' ? Math.max(STATUS_PANEL_W, ACTIONS_PANEL_W) : ACTIONS_PANEL_W
+  const rightColW =
+    statusMode === 'left'
+      ? ACTIONS_PANEL_W
+      : statusMode === 'right'
+        ? Math.max(STATUS_PANEL_W, ACTIONS_PANEL_W)
+        : ACTIONS_PANEL_W
   return { minX, maxX: winW - PANEL_GAP - rightColW - PANEL_GAP - sw }
 }
 

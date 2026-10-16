@@ -149,10 +149,7 @@ describe('listOllamaModels', () => {
 
   it('返回模型名称列表', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(
-      new Response(
-        JSON.stringify({ models: [{ name: 'llama3:latest' }, { name: 'qwen2:latest' }] }),
-        { status: 200 },
-      ),
+      new Response(JSON.stringify({ models: [{ name: 'llama3:latest' }, { name: 'qwen2:latest' }] }), { status: 200 }),
     )
     const models = await listOllamaModels()
     expect(models).toEqual(['llama3:latest', 'qwen2:latest'])
@@ -170,51 +167,48 @@ describe('listOllamaModels', () => {
 
   it('过滤掉无 name 字段的模型', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(
-      new Response(
-        JSON.stringify({ models: [{ name: 'llama3' }, { version: '1.0' }, { name: '' }] }),
-        { status: 200 },
-      ),
+      new Response(JSON.stringify({ models: [{ name: 'llama3' }, { version: '1.0' }, { name: '' }] }), { status: 200 }),
     )
     const models = await listOllamaModels()
     // 空 name 会被 Boolean(n) 过滤掉
     expect(models).toEqual(['llama3'])
-})
-
-describe('P1-1 用量计量（CostTrackingManager / costTracker / recordUsage）', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks()
   })
 
-  it('recordRequest 累计 token 并折算已知模型成本', () => {
-    const tracker = new CostTrackingManager()
-    tracker.recordRequest('deepseek', 'deepseek-chat', 1_000_000, 1_000_000)
-    const cost = tracker.getCost('deepseek')
-    expect(cost).toBeDefined()
-    expect(cost!.requestCount).toBe(1)
-    expect(cost!.totalTokens).toBe(2_000_000)
-    // deepseek-chat 定价：输入 0.14$/M + 输出 0.28$/M → 1M+1M = 0.42
-    expect(cost!.totalCostUsd).toBeCloseTo(0.42, 5)
-  })
+  describe('P1-1 用量计量（CostTrackingManager / costTracker / recordUsage）', () => {
+    beforeEach(() => {
+      vi.restoreAllMocks()
+    })
 
-  it('未知模型仅累计 token 不计成本', () => {
-    const tracker = new CostTrackingManager()
-    tracker.recordRequest('ollama', 'qwen2.5-local', 1000, 500)
-    const cost = tracker.getCost('ollama')
-    expect(cost!.totalTokens).toBe(1500)
-    expect(cost!.totalCostUsd).toBe(0)
-  })
+    it('recordRequest 累计 token 并折算已知模型成本', () => {
+      const tracker = new CostTrackingManager()
+      tracker.recordRequest('deepseek', 'deepseek-chat', 1_000_000, 1_000_000)
+      const cost = tracker.getCost('deepseek')
+      expect(cost).toBeDefined()
+      expect(cost!.requestCount).toBe(1)
+      expect(cost!.totalTokens).toBe(2_000_000)
+      // deepseek-chat 定价：输入 0.14$/M + 输出 0.28$/M → 1M+1M = 0.42
+      expect(cost!.totalCostUsd).toBeCloseTo(0.42, 5)
+    })
 
-  it('getTotalCost 汇总所有 provider', () => {
-    const tracker = new CostTrackingManager()
-    tracker.recordRequest('openai', 'gpt-4o-mini', 1_000_000, 1_000_000)
-    tracker.recordRequest('deepseek', 'deepseek-chat', 1_000_000, 0)
-    expect(tracker.getTotalCost()).toBeCloseTo(0.15 + 0.6 + 0.14, 5)
-  })
+    it('未知模型仅累计 token 不计成本', () => {
+      const tracker = new CostTrackingManager()
+      tracker.recordRequest('ollama', 'qwen2.5-local', 1000, 500)
+      const cost = tracker.getCost('ollama')
+      expect(cost!.totalTokens).toBe(1500)
+      expect(cost!.totalCostUsd).toBe(0)
+    })
 
-  it('recordUsage 接通全局单例 costTracker', () => {
-    const before = costTracker.getTotalCost()
-    recordUsage('deepseek', 'deepseek-chat', 100, 50)
-    expect(costTracker.getTotalCost()).toBeGreaterThan(before)
+    it('getTotalCost 汇总所有 provider', () => {
+      const tracker = new CostTrackingManager()
+      tracker.recordRequest('openai', 'gpt-4o-mini', 1_000_000, 1_000_000)
+      tracker.recordRequest('deepseek', 'deepseek-chat', 1_000_000, 0)
+      expect(tracker.getTotalCost()).toBeCloseTo(0.15 + 0.6 + 0.14, 5)
+    })
+
+    it('recordUsage 接通全局单例 costTracker', () => {
+      const before = costTracker.getTotalCost()
+      recordUsage('deepseek', 'deepseek-chat', 100, 50)
+      expect(costTracker.getTotalCost()).toBeGreaterThan(before)
+    })
   })
-})
 })

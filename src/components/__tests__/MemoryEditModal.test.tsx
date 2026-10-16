@@ -60,14 +60,10 @@ describe('MemoryEditModal', () => {
 
   it('保存：修改文本后点击保存，onSave 收到表单值', () => {
     let submitted: MemoryFormValues | null = null
-    const onSave = vi.fn((v: MemoryFormValues) => { submitted = v })
-    render(
-      <MemoryEditModal
-        memory={baseMemory}
-        onCancel={vi.fn()}
-        onSave={onSave}
-      />,
-    )
+    const onSave = vi.fn((v: MemoryFormValues) => {
+      submitted = v
+    })
+    render(<MemoryEditModal memory={baseMemory} onCancel={vi.fn()} onSave={onSave} />)
     const textarea = screen.getByPlaceholderText('记录了什么……')
     fireEvent.change(textarea, { target: { value: '妈妈喜欢喝绿茶' } })
     fireEvent.click(screen.getByText('保存'))

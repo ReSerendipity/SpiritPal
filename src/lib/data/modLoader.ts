@@ -253,10 +253,7 @@ export class ModLoader {
     }
 
     return {
-      valid:
-        manifestResult.valid &&
-        dependencyErrors.length === 0 &&
-        integrityErrors.length === 0,
+      valid: manifestResult.valid && dependencyErrors.length === 0 && integrityErrors.length === 0,
       manifest: manifestResult,
       dependencyErrors,
       integrityErrors,
@@ -322,35 +319,32 @@ export class ModLoader {
     if (this.watchers.has(modId)) return
 
     try {
-      const unwatch = await watch(
-        modDir,
-        (event: WatchEvent) => {
-          // 防抖处理
-          const existingTimer = this.debounceTimers.get(modId)
-          if (existingTimer) clearTimeout(existingTimer)
+      const unwatch = await watch(modDir, (event: WatchEvent) => {
+        // 防抖处理
+        const existingTimer = this.debounceTimers.get(modId)
+        if (existingTimer) clearTimeout(existingTimer)
 
-          this.debounceTimers.set(
-            modId,
-            setTimeout(() => {
-              this.debounceTimers.delete(modId)
-              // WatchEventKind is 'any' | { modify } | { create } | { remove } | { access }
-              let eventType: 'modify' | 'create' | 'remove' = 'modify'
-              if (typeof event.type !== 'string') {
-                if ('modify' in event.type) eventType = 'modify'
-                else if ('create' in event.type) eventType = 'create'
-                else if ('remove' in event.type) eventType = 'remove'
-              }
-              const reloadEvent: HotReloadEvent = {
-                modId,
-                type: eventType,
-                path: event.paths[0] ?? '',
-                timestamp: Date.now(),
-              }
-              this.hotReloadListeners.forEach((fn) => fn(reloadEvent))
-            }, this.config.hotReloadDebounceMs),
-          )
-        },
-      )
+        this.debounceTimers.set(
+          modId,
+          setTimeout(() => {
+            this.debounceTimers.delete(modId)
+            // WatchEventKind is 'any' | { modify } | { create } | { remove } | { access }
+            let eventType: 'modify' | 'create' | 'remove' = 'modify'
+            if (typeof event.type !== 'string') {
+              if ('modify' in event.type) eventType = 'modify'
+              else if ('create' in event.type) eventType = 'create'
+              else if ('remove' in event.type) eventType = 'remove'
+            }
+            const reloadEvent: HotReloadEvent = {
+              modId,
+              type: eventType,
+              path: event.paths[0] ?? '',
+              timestamp: Date.now(),
+            }
+            this.hotReloadListeners.forEach((fn) => fn(reloadEvent))
+          }, this.config.hotReloadDebounceMs),
+        )
+      })
       this.watchers.set(modId, unwatch)
     } catch (e) {
       console.warn(`[modLoader] startWatch failed for ${modId}:`, e)
@@ -366,7 +360,9 @@ export class ModLoader {
     if (watcher) {
       try {
         // Tauri FS watcher 返回的是一个 unwatch 函数
-        if (typeof watcher === 'function') { watcher() }
+        if (typeof watcher === 'function') {
+          watcher()
+        }
       } catch {
         // 忽略
       }

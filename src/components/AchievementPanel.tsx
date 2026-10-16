@@ -18,12 +18,7 @@
  */
 import { useEffect, useState } from 'react'
 import { Trophy, TrendingUp, Award } from 'lucide-react'
-import {
-  getAchievementManager,
-  ACHIEVEMENTS,
-  BADGE_NAMES,
-  BADGE_COLORS,
-} from '@/lib/nurture/achievementSystem'
+import { getAchievementManager, ACHIEVEMENTS, BADGE_NAMES, BADGE_COLORS } from '@/lib/nurture/achievementSystem'
 import { usePetStore } from '@/stores/petStore'
 
 const selectStats = (s: ReturnType<typeof usePetStore.getState>) => s.stats[s.currentCharacterId]
@@ -119,10 +114,7 @@ export function AchievementPanel() {
             <div className="flex justify-around">
               {(['none', 'star', 'moon', 'sun', 'crown'] as const).map((tier) => (
                 <div key={tier} className="text-center">
-                  <div
-                    className="mx-auto mb-1 h-6 w-6 rounded-full"
-                    style={{ background: BADGE_COLORS[tier] }}
-                  />
+                  <div className="mx-auto mb-1 h-6 w-6 rounded-full" style={{ background: BADGE_COLORS[tier] }} />
                   <span className="text-[10px] text-ink-muted">{BADGE_NAMES[tier]}</span>
                 </div>
               ))}
@@ -154,12 +146,12 @@ export function AchievementPanel() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1">
-                            <span className={`text-sm font-medium ${isUnlocked ? 'text-tangerine-deep' : 'text-ink-muted'}`}>
+                            <span
+                              className={`text-sm font-medium ${isUnlocked ? 'text-tangerine-deep' : 'text-ink-muted'}`}
+                            >
                               {ach.name}
                             </span>
-                            {ach.reward && (
-                              <span className="text-[10px] text-tangerine-deep">+{ach.reward}🪙</span>
-                            )}
+                            {ach.reward && <span className="text-[10px] text-tangerine-deep">+{ach.reward}🪙</span>}
                           </div>
                           <div className="text-[11px] text-ink-muted">{ach.description}</div>
                           {!isUnlocked && progress > 0 && (

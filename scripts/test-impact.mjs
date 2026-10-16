@@ -49,7 +49,8 @@ function parseArgs(argv) {
   const vitestExtra = []
   for (const a of argv) {
     if (a === '--exec') execMode = true
-    else if (a === '--') continue // 分隔符（pnpm run x -- --flag 场景）
+    else if (a === '--')
+      continue // 分隔符（pnpm run x -- --flag 场景）
     else if (a.startsWith('-')) vitestExtra.push(a)
     else if (!baseRef) baseRef = a
   }
@@ -74,13 +75,19 @@ function runGit(args) {
 
 function gitDiffNames(baseRef) {
   // 无 base-ref：工作区变更（含未跟踪新文件）；有 base-ref：已提交范围
-  let out = baseRef
-    ? runGit(['diff', '--name-only', `${baseRef}...HEAD`])
-    : runGit(['diff', '--name-only', 'HEAD'])
-  const files = out.split('\n').map((l) => l.trim()).filter(Boolean)
+  let out = baseRef ? runGit(['diff', '--name-only', `${baseRef}...HEAD`]) : runGit(['diff', '--name-only', 'HEAD'])
+  const files = out
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
   if (!baseRef) {
     const untracked = runGit(['ls-files', '--others', '--exclude-standard'])
-    files.push(...untracked.split('\n').map((l) => l.trim()).filter(Boolean))
+    files.push(
+      ...untracked
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean),
+    )
   }
   return [...new Set(files)]
 }
@@ -129,14 +136,23 @@ function mapToTestFile(changed) {
   //    避免 README.md / *.toml 等文档变更被子串误命中（实测：modDocGenerator 测试内容里的
   //    "README.md" 字样会让 README.md 的变更误圈 1 个测试）
   const moduleName = rel.replace(/^src\//, '').replace(/\.(ts|tsx|mjs)$/, '')
-  const greppable =
-    /\.(ts|tsx|mjs)$/.test(rel) && (parts[0] === 'src' || parts[0] === 'scripts')
+  const greppable = /\.(ts|tsx|mjs)$/.test(rel) && (parts[0] === 'src' || parts[0] === 'scripts')
   if (moduleName && greppable) {
     const grep = runGit([
-      'grep', '-l', '-E', escapeEre(moduleName),
-      '--', 'src/**/__tests__/**', 'src/**/*.test.*', 'scripts/__tests__/*.test.mjs',
+      'grep',
+      '-l',
+      '-E',
+      escapeEre(moduleName),
+      '--',
+      'src/**/__tests__/**',
+      'src/**/*.test.*',
+      'scripts/__tests__/*.test.mjs',
     ])
-    grep.split('\n').map((l) => l.trim()).filter(Boolean).forEach((f) => candidates.push(f))
+    grep
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .forEach((f) => candidates.push(f))
   }
 
   return candidates
@@ -195,6 +211,5 @@ function main() {
   console.error(`[test-impact] 变更文件 ${changed.length} 个，命中测试 ${list.length} 个`)
 }
 
-const invokedDirectly =
-  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (invokedDirectly) main()

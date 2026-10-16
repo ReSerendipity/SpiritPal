@@ -27,14 +27,16 @@ vi.mock('@/lib/data/db', () => ({
 const mockGetEntityNodes = vi.mocked(getEntityNodes)
 const mockGetMemories = vi.mocked(getMemories)
 
-function entityRow(overrides: Partial<{
-  id: string
-  name: string
-  type: string
-  linked_memory_ids: string
-  mention_count: number
-  first_seen: number
-}> = {}) {
+function entityRow(
+  overrides: Partial<{
+    id: string
+    name: string
+    type: string
+    linked_memory_ids: string
+    mention_count: number
+    first_seen: number
+  }> = {},
+) {
   return {
     id: 'ent-1',
     character_id: 'doro',
@@ -64,7 +66,14 @@ describe('getAllEntities', () => {
     expect(mockGetEntityNodes).toHaveBeenCalledWith('doro')
     expect(result).toHaveLength(3)
 
-    expect(result[0]).toMatchObject({ id: 'e1', name: '主人', type: 'person', memoryCount: 2, mentionCount: 5, createdAt: 1000 })
+    expect(result[0]).toMatchObject({
+      id: 'e1',
+      name: '主人',
+      type: 'person',
+      memoryCount: 2,
+      mentionCount: 5,
+      createdAt: 1000,
+    })
     expect(result[0]!.memoryIds).toEqual(['mem-a', 'mem-b'])
     // 未知类型归一化为 concept
     expect(result[2]!.type).toBe('concept')
@@ -126,9 +135,7 @@ describe('getAllEdges', () => {
 
 describe('getEntityMemories', () => {
   it('按实体 linked_memory_ids 过滤记忆行', async () => {
-    mockGetEntityNodes.mockResolvedValue([
-      entityRow({ id: 'e1', linked_memory_ids: '["mem-a","mem-b"]' }),
-    ])
+    mockGetEntityNodes.mockResolvedValue([entityRow({ id: 'e1', linked_memory_ids: '["mem-a","mem-b"]' })])
     mockGetMemories.mockResolvedValue([
       { memory_id: 'mem-a', content: '今天开会' },
       { memory_id: 'mem-b', content: '明天聚餐' },

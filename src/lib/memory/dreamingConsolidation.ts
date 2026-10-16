@@ -34,10 +34,10 @@ import { type EnhancedMemory } from './memoryTypes'
 
 /** 做梦任务类型 */
 export type DreamingTaskType =
-  | 'semantic_consolidation'  // 语义巩固（episodic → semantic）
-  | 'entity_graph_update'      // 实体图更新（新增实体/边）
-  | 'memory_ranking'           // 记忆重排序（遗忘曲线应用）
-  | 'autobiographical_merge'   // 自传记忆合并
+  | 'semantic_consolidation' // 语义巩固（episodic → semantic）
+  | 'entity_graph_update' // 实体图更新（新增实体/边）
+  | 'memory_ranking' // 记忆重排序（遗忘曲线应用）
+  | 'autobiographical_merge' // 自传记忆合并
 
 /** 做梦任务定义 */
 export interface DreamingTask {
@@ -81,11 +81,11 @@ export interface DreamingConfig {
 
 /** 默认配置 */
 export const DEFAULT_DREAMING_CONFIG: DreamingConfig = {
-  idleThresholdMs: 5 * 60 * 1000,  // 5 分钟空闲
-  nightStartHour: 2,                // 凌晨 2 点
-  nightEndHour: 4,                  // 凌晨 4 点
-  maxBatchSize: 10,                 // 每批最多 10 条
-  maxExecutionMs: 5000,             // 单次最多 5 秒
+  idleThresholdMs: 5 * 60 * 1000, // 5 分钟空闲
+  nightStartHour: 2, // 凌晨 2 点
+  nightEndHour: 4, // 凌晨 4 点
+  maxBatchSize: 10, // 每批最多 10 条
+  maxExecutionMs: 5000, // 单次最多 5 秒
   enabled: true,
 }
 
@@ -111,11 +111,9 @@ class IdleMonitor {
   /** 启动监控 */
   private startMonitoring(): void {
     // 监听各种用户交互事件
-    const events = [
-      'mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart',
-    ]
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart']
 
-    events.forEach(event => {
+    events.forEach((event) => {
       document.addEventListener(event, () => this.recordActivity(), { passive: true })
     })
 
@@ -132,7 +130,7 @@ class IdleMonitor {
 
     // 从空闲状态恢复，触发回调
     if (wasIdle) {
-      this.onActivityCallbacks.forEach(cb => cb())
+      this.onActivityCallbacks.forEach((cb) => cb())
     }
   }
 
@@ -142,7 +140,7 @@ class IdleMonitor {
 
     // 刚进入空闲状态，触发回调
     if (idleDuration >= this.idleThresholdMs && idleDuration < this.idleThresholdMs + 1000) {
-      this.idleCallbacks.forEach(cb => cb(idleDuration))
+      this.idleCallbacks.forEach((cb) => cb(idleDuration))
     }
   }
 
@@ -192,10 +190,7 @@ export class DreamingScheduler {
   private isRunning: boolean = false
   private abortController: AbortController | null = null
 
-  private constructor(
-    memoryManager: EnhancedMemoryManager,
-    config: Partial<DreamingConfig> = {},
-  ) {
+  private constructor(memoryManager: EnhancedMemoryManager, config: Partial<DreamingConfig> = {}) {
     this.config = { ...DEFAULT_DREAMING_CONFIG, ...config }
     this.memoryManager = memoryManager
     this.idleMonitor = new IdleMonitor(this.config.idleThresholdMs)
@@ -205,10 +200,7 @@ export class DreamingScheduler {
   }
 
   /** 获取单例实例 */
-  static getInstance(
-    memoryManager: EnhancedMemoryManager,
-    config?: Partial<DreamingConfig>,
-  ): DreamingScheduler {
+  static getInstance(memoryManager: EnhancedMemoryManager, config?: Partial<DreamingConfig>): DreamingScheduler {
     if (!DreamingScheduler.instance) {
       DreamingScheduler.instance = new DreamingScheduler(memoryManager, config)
     }
@@ -373,9 +365,7 @@ export class DreamingScheduler {
 
     // 简单摘要器（无需 LLM，避免网络开销）
     const simpleSummarizer = (memories: EnhancedMemory[]): Promise<string> => {
-      const summary = memories
-        .map(m => `[${m.category}] ${m.user.slice(0, 100)}`)
-        .join('；')
+      const summary = memories.map((m) => `[${m.category}] ${m.user.slice(0, 100)}`).join('；')
       return Promise.resolve(summary)
     }
 
@@ -393,7 +383,7 @@ export class DreamingScheduler {
       task.processedCount = (task.processedCount ?? 0) + result.sourceIds.length
 
       // 避免连续 consolidation
-      await new Promise(resolve => setTimeout(resolve, 100))
+      await new Promise((resolve) => setTimeout(resolve, 100))
     }
 
     task.totalCount = task.processedCount

@@ -27,24 +27,24 @@ import type { EnhancedMemory } from './memoryTypes'
 // ============ 类型定义 ============
 
 export type RecallCue =
-  | 'semantic'      // 语义相关（用户当前输入触发）
-  | 'temporal'      // 时间触发（晨间/新的一天）
-  | 'emotional'     // 情感触发
-  | 'entity'        // 关键词/实体触发
-  | 'commitment'    // 约定追踪
-  | 'anniversary'   // 事件周年
-  | 'absence'       // 久别重逢
-  | 'periodic'      // 周期触发（节日/生日）
-  | 'meta'          // F11：元认知/自我指涉——打破第四面墙
+  | 'semantic' // 语义相关（用户当前输入触发）
+  | 'temporal' // 时间触发（晨间/新的一天）
+  | 'emotional' // 情感触发
+  | 'entity' // 关键词/实体触发
+  | 'commitment' // 约定追踪
+  | 'anniversary' // 事件周年
+  | 'absence' // 久别重逢
+  | 'periodic' // 周期触发（节日/生日）
+  | 'meta' // F11：元认知/自我指涉——打破第四面墙
 
 export interface RecallCandidate {
-  memories: EnhancedMemory[]      // 素材（1-3 条）
-  cue: RecallCue                   // 候选线索类型
-  relevance: number                // 0-1，检索分归一化
-  novelty: number                  // 0-1，新颖度（1 = 最近未提及）
-  contextFit: number               // 0-1，与当前情境的匹配度
-  moodCongruence: number           // 0-1，情绪一致性
-  urgency: number                  // 0-1，紧急度（约定到期/纪念日为高）
+  memories: EnhancedMemory[] // 素材（1-3 条）
+  cue: RecallCue // 候选线索类型
+  relevance: number // 0-1，检索分归一化
+  novelty: number // 0-1，新颖度（1 = 最近未提及）
+  contextFit: number // 0-1，与当前情境的匹配度
+  moodCongruence: number // 0-1，情绪一致性
+  urgency: number // 0-1，紧急度（约定到期/纪念日为高）
   /** 候选的简述，用于 LLM 渲染提示 */
   summary: string
 }
@@ -462,9 +462,10 @@ export class RecallEngine {
       if (hoursSince < 24) return null
 
       const recentMemories = memMgr.getAutobiographicalMemories().slice(-2)
-      const summary = hoursSince > 168
-        ? `好久不见……我一直在。${recentMemories.length > 0 ? '上次我们聊到' + recentMemories[0].user.slice(0, 40) : ''}`
-        : `你${Math.floor(hoursSince / 24)}天没来了……${recentMemories.length > 0 ? '上次说的' + recentMemories[0].user.slice(0, 40) + '怎么样了？' : ''}`
+      const summary =
+        hoursSince > 168
+          ? `好久不见……我一直在。${recentMemories.length > 0 ? '上次我们聊到' + recentMemories[0].user.slice(0, 40) : ''}`
+          : `你${Math.floor(hoursSince / 24)}天没来了……${recentMemories.length > 0 ? '上次说的' + recentMemories[0].user.slice(0, 40) + '怎么样了？' : ''}`
 
       return {
         memories: recentMemories,
@@ -548,16 +549,18 @@ export class RecallEngine {
     const hour = new Date().getHours()
     let fit = 0.5
     // 深夜/早上有不同加权
-    if (hour >= 6 && hour < 9) fit += 0.2  // 晨间适合回忆
-    if (hour >= 22 || hour < 6) fit -= 0.2  // 深夜不太适合
+    if (hour >= 6 && hour < 9) fit += 0.2 // 晨间适合回忆
+    if (hour >= 22 || hour < 6) fit -= 0.2 // 深夜不太适合
 
     // T-9: 工作状态信号
     try {
       const ctxMgr = getContextAwarenessManager()
       const workState = ctxMgr.getCurrentWindowState()
-      if (workState === 'coding') fit -= 0.1   // 写代码时打扰权重降低
-      else if (workState === 'meeting') fit -= 0.15  // 开会时更不适合
-      else if (workState === 'idle') fit += 0.1  // 空闲时更适合回忆
+      if (workState === 'coding')
+        fit -= 0.1 // 写代码时打扰权重降低
+      else if (workState === 'meeting')
+        fit -= 0.15 // 开会时更不适合
+      else if (workState === 'idle') fit += 0.1 // 空闲时更适合回忆
     } catch {
       // contextAwareness 不可用时忽略
     }
@@ -611,24 +614,37 @@ export class RecallEngine {
 
   private triggerTypeToCue(type: string): RecallCue {
     switch (type) {
-      case 'relevance': return 'semantic'
-      case 'time': return 'temporal'
-      case 'emotion': return 'emotional'
-      case 'keyword': return 'entity'
-      case 'periodic': return 'periodic'
-      case 'frequency': return 'semantic'
-      case 'event': return 'entity'
-      default: return 'semantic'
+      case 'relevance':
+        return 'semantic'
+      case 'time':
+        return 'temporal'
+      case 'emotion':
+        return 'emotional'
+      case 'keyword':
+        return 'entity'
+      case 'periodic':
+        return 'periodic'
+      case 'frequency':
+        return 'semantic'
+      case 'event':
+        return 'entity'
+      default:
+        return 'semantic'
     }
   }
 
   private cueToPriority(cue: RecallCue): MessagePriority {
     switch (cue) {
-      case 'commitment': return MessagePriority.Emergency
-      case 'anniversary': return MessagePriority.Emergency
-      case 'absence': return MessagePriority.Proactive
-      case 'periodic': return MessagePriority.Proactive
-      default: return MessagePriority.Idle
+      case 'commitment':
+        return MessagePriority.Emergency
+      case 'anniversary':
+        return MessagePriority.Emergency
+      case 'absence':
+        return MessagePriority.Proactive
+      case 'periodic':
+        return MessagePriority.Proactive
+      default:
+        return MessagePriority.Idle
     }
   }
 

@@ -18,14 +18,7 @@
 
 // ============ 类型定义 ============
 
-export type BatchOperationType =
-  | 'delete'
-  | 'move'
-  | 'tag'
-  | 'modify'
-  | 'export'
-  | 'toggle'
-  | 'custom'
+export type BatchOperationType = 'delete' | 'move' | 'tag' | 'modify' | 'export' | 'toggle' | 'custom'
 
 export interface BatchOperation<T> {
   /** 操作 ID */
@@ -89,10 +82,7 @@ export class BatchOperationManager<T extends { id: string }> {
   }> = []
   private maxHistorySize: number
 
-  constructor(
-    initialItems: T[] = [],
-    config?: { maxHistorySize?: number },
-  ) {
+  constructor(initialItems: T[] = [], config?: { maxHistorySize?: number }) {
     this.selection = {
       allItems: initialItems,
       selectedIds: new Set(),
@@ -167,7 +157,7 @@ export class BatchOperationManager<T extends { id: string }> {
       this.selection.selectAllState = false
     } else {
       // 否则全选
-      this.selection.allItems.forEach(item => {
+      this.selection.allItems.forEach((item) => {
         this.selection.selectedIds.add(item.id)
       })
       this.selection.selectAllState = true
@@ -187,8 +177,8 @@ export class BatchOperationManager<T extends { id: string }> {
    * 反向选择
    */
   invertSelection(): void {
-    const allIds = new Set(this.selection.allItems.map(i => i.id))
-    const notSelected = new Set([...allIds].filter(id => !this.selection.selectedIds.has(id)))
+    const allIds = new Set(this.selection.allItems.map((i) => i.id))
+    const notSelected = new Set([...allIds].filter((id) => !this.selection.selectedIds.has(id)))
 
     this.selection.selectedIds = notSelected
     this.updateSelectAllState()
@@ -198,9 +188,7 @@ export class BatchOperationManager<T extends { id: string }> {
    * 获取选中项
    */
   getSelectedItems(): T[] {
-    return this.selection.allItems.filter(item =>
-      this.selection.selectedIds.has(item.id)
-    )
+    return this.selection.allItems.filter((item) => this.selection.selectedIds.has(item.id))
   }
 
   /**
@@ -253,7 +241,7 @@ export class BatchOperationManager<T extends { id: string }> {
    * 查找项目索引
    */
   private findItemIndex(id: string): number | null {
-    const index = this.selection.allItems.findIndex(item => item.id === id)
+    const index = this.selection.allItems.findIndex((item) => item.id === id)
     return index >= 0 ? index : null
   }
 
@@ -262,10 +250,7 @@ export class BatchOperationManager<T extends { id: string }> {
   /**
    * 执行批量删除
    */
-  async bulkDelete(
-    getId: (item: T) => string,
-    deleteFn: (id: string) => Promise<void>,
-  ): Promise<BatchOperationResult> {
+  async bulkDelete(getId: (item: T) => string, deleteFn: (id: string) => Promise<void>): Promise<BatchOperationResult> {
     return this.executeBatchOperation({
       type: 'delete',
       itemIds: Array.from(this.selection.selectedIds),
@@ -280,10 +265,7 @@ export class BatchOperationManager<T extends { id: string }> {
   /**
    * 执行批量标记标签
    */
-  async bulkTag(
-    tagFn: (id: string, tags: string[]) => Promise<void>,
-    tags: string[],
-  ): Promise<BatchOperationResult> {
+  async bulkTag(tagFn: (id: string, tags: string[]) => Promise<void>, tags: string[]): Promise<BatchOperationResult> {
     return this.executeBatchOperation({
       type: 'tag',
       itemIds: Array.from(this.selection.selectedIds),
@@ -298,10 +280,7 @@ export class BatchOperationManager<T extends { id: string }> {
   /**
    * 执行批量修改
    */
-  async bulkModify<U>(
-    modifyFn: (id: string, changes: U) => Promise<void>,
-    changes: U,
-  ): Promise<BatchOperationResult> {
+  async bulkModify<U>(modifyFn: (id: string, changes: U) => Promise<void>, changes: U): Promise<BatchOperationResult> {
     return this.executeBatchOperation({
       type: 'modify',
       itemIds: Array.from(this.selection.selectedIds),
@@ -360,15 +339,13 @@ export class BatchOperationManager<T extends { id: string }> {
   /**
    * 执行批量操作的统一逻辑
    */
-  private async executeBatchOperation<U>(
-    operationConfig: {
-      type: BatchOperationType
-      itemIds: string[]
-      params: U
-      execute: (itemId: string) => Promise<void>
-      createUndo: (_itemIds: string[]) => (() => void) | undefined
-    },
-  ): Promise<BatchOperationResult> {
+  private async executeBatchOperation<U>(operationConfig: {
+    type: BatchOperationType
+    itemIds: string[]
+    params: U
+    execute: (itemId: string) => Promise<void>
+    createUndo: (_itemIds: string[]) => (() => void) | undefined
+  }): Promise<BatchOperationResult> {
     const { itemIds, params, execute, createUndo } = operationConfig
 
     if (itemIds.length === 0) {
@@ -448,10 +425,12 @@ export class BatchOperationManager<T extends { id: string }> {
         successCount: 0,
         failureCount: itemIds.length,
         totalCount: itemIds.length,
-        errors: [{
-          itemId: 'global',
-          error: globalError instanceof Error ? globalError.message : String(globalError),
-        }],
+        errors: [
+          {
+            itemId: 'global',
+            error: globalError instanceof Error ? globalError.message : String(globalError),
+          },
+        ],
       }
     }
   }
@@ -507,12 +486,13 @@ export class BatchOperationManager<T extends { id: string }> {
     total: number
     percent: number
   } | null {
-    const runningOp = this.operations.find(op => op.status === 'running')
+    const runningOp = this.operations.find((op) => op.status === 'running')
     if (!runningOp) return null
 
-    const percent = runningOp.itemIds.length > 0
-      ? ((runningOp.successCount + runningOp.failureCount) / runningOp.itemIds.length) * 100
-      : 0
+    const percent =
+      runningOp.itemIds.length > 0
+        ? ((runningOp.successCount + runningOp.failureCount) / runningOp.itemIds.length) * 100
+        : 0
 
     return {
       current: runningOp.successCount + runningOp.failureCount,
@@ -527,8 +507,6 @@ export class BatchOperationManager<T extends { id: string }> {
 /**
  * 创建批量操作管理器
  */
-export function createBatchManager<T extends { id: string }>(
-  items: T[] = [],
-): BatchOperationManager<T> {
+export function createBatchManager<T extends { id: string }>(items: T[] = []): BatchOperationManager<T> {
   return new BatchOperationManager(items)
 }

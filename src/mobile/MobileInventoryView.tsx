@@ -40,9 +40,7 @@ export function MobileInventoryView() {
   const { t } = useTranslation()
   const inventory = usePetStore((s) => s.inventory)
   const consumeItem = usePetStore((s) => s.useItem)
-  const wornDecorations = usePetStore(
-    (s) => s.wornDecorations[s.currentCharacterId] ?? EMPTY_DECORATIONS,
-  )
+  const wornDecorations = usePetStore((s) => s.wornDecorations[s.currentCharacterId] ?? EMPTY_DECORATIONS)
   const wearDecoration = usePetStore((s) => s.wearDecoration)
   const removeDecoration = usePetStore((s) => s.removeDecoration)
 
@@ -89,10 +87,12 @@ export function MobileInventoryView() {
     <div className="space-y-2">
       {/* 子页切换 */}
       <div className="flex gap-1">
-        {([
-          { id: 'inventory', labelKey: 'tab.inventory', icon: Backpack },
-          { id: 'collection', labelKey: 'shop.collection', icon: Trophy },
-        ] as const).map((tabDef) => {
+        {(
+          [
+            { id: 'inventory', labelKey: 'tab.inventory', icon: Backpack },
+            { id: 'collection', labelKey: 'shop.collection', icon: Trophy },
+          ] as const
+        ).map((tabDef) => {
           const Icon = tabDef.icon
           const isActive = subTab === tabDef.id
           return (
@@ -139,7 +139,9 @@ export function MobileInventoryView() {
                     <div className="flex items-center gap-1.5">
                       <span className="truncate text-sm font-medium text-ink">{item.name}</span>
                       {rarity && (
-                        <span className={`rounded px-1 py-0.5 text-[10px] leading-none ${rarity.colors.text} ${rarity.colors.bg}`}>
+                        <span
+                          className={`rounded px-1 py-0.5 text-[10px] leading-none ${rarity.colors.text} ${rarity.colors.bg}`}
+                        >
                           {rarity.name}
                         </span>
                       )}
@@ -151,7 +153,10 @@ export function MobileInventoryView() {
                       {item.healthRestore ? `${t('stat.health')}+${item.healthRestore}` : ''}
                       {wornAnchor && (
                         <span className="text-tangerine">
-                          {' '}{t('inventory.wornAt', { anchor: t(ANCHOR_OPTIONS.find((a) => a.value === wornAnchor)?.labelKey ?? '') })}
+                          {' '}
+                          {t('inventory.wornAt', {
+                            anchor: t(ANCHOR_OPTIONS.find((a) => a.value === wornAnchor)?.labelKey ?? ''),
+                          })}
                         </span>
                       )}
                     </div>

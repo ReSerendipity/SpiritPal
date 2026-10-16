@@ -114,7 +114,7 @@ describe('MemoryEditor', () => {
         return mem
       }),
       deleteMemory: vi.fn((id: string) => {
-        const idx = mockMemories.findIndex(m => m.id === id)
+        const idx = mockMemories.findIndex((m) => m.id === id)
         if (idx !== -1) mockMemories.splice(idx, 1)
       }),
     } as unknown as EnhancedMemoryManager
@@ -154,7 +154,15 @@ describe('MemoryEditor', () => {
       expect(memory.emotionalValence).toBe(0.8)
 
       // 内部算法字段必须剔除（此前会随 MCP 的 JSON.stringify 一起返回给外部 Agent）
-      for (const internal of ['dbId', 'decayFactor', 'accessCount', 'lastAccessed', 'strength', 'emotionalIntensity', 'factText']) {
+      for (const internal of [
+        'dbId',
+        'decayFactor',
+        'accessCount',
+        'lastAccessed',
+        'strength',
+        'emotionalIntensity',
+        'factText',
+      ]) {
         expect(memory[internal]).toBeUndefined()
       }
     })
@@ -305,7 +313,7 @@ describe('MemoryEditor', () => {
 
       const batchResults = result.details?.batchResults as Array<{ memoryId: string; success: boolean }>
       if (batchResults) {
-        expect(batchResults.every(r => r.success)).toBe(true)
+        expect(batchResults.every((r) => r.success)).toBe(true)
       }
     })
 

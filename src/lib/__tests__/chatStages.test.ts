@@ -1,11 +1,6 @@
 // chatStages 单元测试 — 4 阶段状态机转换
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import {
-  ChatStageManager,
-  STAGE_ANIMATION,
-  STAGE_BUBBLE,
-  getChatStageManager,
-} from '@/lib/ai/chatStages'
+import { ChatStageManager, STAGE_ANIMATION, STAGE_BUBBLE, getChatStageManager } from '@/lib/ai/chatStages'
 
 describe('STAGE_ANIMATION / STAGE_BUBBLE 常量', () => {
   it('每个阶段都有动画映射', () => {

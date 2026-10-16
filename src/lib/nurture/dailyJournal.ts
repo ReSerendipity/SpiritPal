@@ -185,10 +185,7 @@ export class DailyJournalManager {
   /**
    * 获取日期范围的日记列表
    */
-  async getEntriesInRange(
-    startDate: string,
-    endDate: string,
-  ): Promise<JournalEntry[]> {
+  async getEntriesInRange(startDate: string, endDate: string): Promise<JournalEntry[]> {
     const entries: JournalEntry[] = []
 
     const currentDate = new Date(startDate)
@@ -211,22 +208,26 @@ export class DailyJournalManager {
   /**
    * 搜索日记
    */
-  async search(keywords: string[], options?: {
-    startDate?: string
-    endDate?: string
-    tags?: string[]
-    limit?: number
-  }): Promise<JournalEntry[]> {
+  async search(
+    keywords: string[],
+    options?: {
+      startDate?: string
+      endDate?: string
+      tags?: string[]
+      limit?: number
+    },
+  ): Promise<JournalEntry[]> {
     const results: JournalEntry[] = []
 
     // TODO: 遍历所有日记文件进行搜索
     // 简化实现：仅基于内存缓存
 
     for (const entry of this.entries.values()) {
-      const match = keywords.some(keyword =>
-        entry.content.toLowerCase().includes(keyword.toLowerCase()) ||
-        entry.title.toLowerCase().includes(keyword.toLowerCase()) ||
-        entry.summary?.toLowerCase().includes(keyword.toLowerCase())
+      const match = keywords.some(
+        (keyword) =>
+          entry.content.toLowerCase().includes(keyword.toLowerCase()) ||
+          entry.title.toLowerCase().includes(keyword.toLowerCase()) ||
+          entry.summary?.toLowerCase().includes(keyword.toLowerCase()),
       )
 
       if (match) {
@@ -240,20 +241,10 @@ export class DailyJournalManager {
   /**
    * 导出为 Markdown
    */
-  async exportToMarkdown(
-    entries: JournalEntry[],
-    outputPath: string,
-  ): Promise<void> {
-    const lines: string[] = [
-      '# 📝 SpiritPal 日记合集',
-      '',
-      `**共${entries.length}篇日记**`,
-      '',
-      '---',
-      '',
-    ]
+  async exportToMarkdown(entries: JournalEntry[], outputPath: string): Promise<void> {
+    const lines: string[] = ['# 📝 SpiritPal 日记合集', '', `**共${entries.length}篇日记**`, '', '---', '']
 
-    entries.forEach(entry => {
+    entries.forEach((entry) => {
       lines.push(`## ${entry.title}`)
       lines.push(`**日期**: ${entry.date}`)
       lines.push('')
@@ -270,14 +261,14 @@ export class DailyJournalManager {
 
       if (entry.highlights && entry.highlights.length > 0) {
         lines.push('### ✨ 今日亮点')
-        entry.highlights.forEach(h => {
+        entry.highlights.forEach((h) => {
           lines.push(`- **${h.time}** ${h.title}: ${h.description}`)
         })
         lines.push('')
       }
 
       if (entry.tags.length > 0) {
-        lines.push(`**标签**: ${entry.tags.map(t => `#${t}`).join(' ')}`)
+        lines.push(`**标签**: ${entry.tags.map((t) => `#${t}`).join(' ')}`)
         lines.push('')
       }
 
@@ -291,10 +282,7 @@ export class DailyJournalManager {
   /**
    * 生成周/月总结
    */
-  async generatePeriodSummary(
-    startDate: string,
-    endDate: string,
-  ): Promise<JournalSummary> {
+  async generatePeriodSummary(startDate: string, endDate: string): Promise<JournalSummary> {
     const entries = await this.getEntriesInRange(startDate, endDate)
 
     if (entries.length === 0) {
@@ -309,17 +297,13 @@ export class DailyJournalManager {
     }
 
     // 统计情绪
-    const moodScores = entries
-      .filter(e => e.moodScore !== undefined)
-      .map(e => e.moodScore!)
-    const avgMoodScore = moodScores.length > 0
-      ? moodScores.reduce((a, b) => a + b, 0) / moodScores.length
-      : 0
+    const moodScores = entries.filter((e) => e.moodScore !== undefined).map((e) => e.moodScore!)
+    const avgMoodScore = moodScores.length > 0 ? moodScores.reduce((a, b) => a + b, 0) / moodScores.length : 0
 
     // 统计标签
     const tagCounts = new Map<string, number>()
-    entries.forEach(entry => {
-      entry.tags.forEach(tag => {
+    entries.forEach((entry) => {
+      entry.tags.forEach((tag) => {
         tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)
       })
     })
@@ -330,8 +314,8 @@ export class DailyJournalManager {
 
     // 统计分类
     const categoryCounts = new Map<string, number>()
-    entries.forEach(entry => {
-      entry.categories.forEach(cat => {
+    entries.forEach((entry) => {
+      entry.categories.forEach((cat) => {
         categoryCounts.set(cat, (categoryCounts.get(cat) || 0) + 1)
       })
     })
@@ -342,8 +326,8 @@ export class DailyJournalManager {
 
     // 提取亮点
     const allHighlights: string[] = []
-    entries.forEach(entry => {
-      entry.highlights?.forEach(h => {
+    entries.forEach((entry) => {
+      entry.highlights?.forEach((h) => {
         allHighlights.push(`${entry.date}: ${h.title}`)
       })
     })
@@ -374,7 +358,7 @@ export class DailyJournalManager {
     // TODO: 调用 LLM 生成智能摘要
     // 这里使用简化实现
 
-    const texts = memories.map(m => m.content).join(' ')
+    const texts = memories.map((m) => m.content).join(' ')
     const tags = this.extractTags(texts)
     const categories = this.detectCategories(texts)
     const moodScore = this.analyzeMood(texts)
@@ -423,7 +407,7 @@ export class DailyJournalManager {
 
     if (activities.length > 0) {
       sections.push('## 📝 活动记录\n')
-      activities.forEach(a => {
+      activities.forEach((a) => {
         sections.push(`- ${a.app}: ${a.duration}`)
       })
       sections.push('')
@@ -448,7 +432,7 @@ export class DailyJournalManager {
     const textLower = text.toLowerCase()
 
     Object.entries(predefinedTags).forEach(([tag, keywords]) => {
-      if (keywords.some(k => textLower.includes(k))) {
+      if (keywords.some((k) => textLower.includes(k))) {
         foundTags.push(tag)
       }
     })
@@ -472,8 +456,12 @@ export class DailyJournalManager {
     const negativeWords = ['难过', '累', '烦', '讨厌', '糟']
 
     let score = 0
-    positiveWords.forEach(w => { if (text.includes(w)) score += 1 })
-    negativeWords.forEach(w => { if (text.includes(w)) score -= 1 })
+    positiveWords.forEach((w) => {
+      if (text.includes(w)) score += 1
+    })
+    negativeWords.forEach((w) => {
+      if (text.includes(w)) score -= 1
+    })
 
     return Math.max(-1, Math.min(1, score / 5))
   }
@@ -497,10 +485,7 @@ export class DailyJournalManager {
 
 let instance: DailyJournalManager | null = null
 
-export function getDailyJournalManager(
-  journalDir?: string,
-  config?: Partial<AutoSummaryConfig>,
-): DailyJournalManager {
+export function getDailyJournalManager(journalDir?: string, config?: Partial<AutoSummaryConfig>): DailyJournalManager {
   if (!instance) {
     const defaultDir = journalDir || join(process.env.HOME || '/tmp', '.spiritpal', 'journal')
     instance = new DailyJournalManager(defaultDir, config)

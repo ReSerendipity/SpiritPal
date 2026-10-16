@@ -169,7 +169,9 @@ function computeMetrics(events) {
   // 样本不足（启动 <5 或 总事件 <50）时置为「样本不足」，避免误导性指标。
   const sufficientSample = totalLaunches >= 5 && events.length >= 50
   const crashRateValue = sufficientSample
-    ? totalLaunches > 0 ? ((totalErrors / totalLaunches) * 100).toFixed(2) + '%' : 'N/A'
+    ? totalLaunches > 0
+      ? ((totalErrors / totalLaunches) * 100).toFixed(2) + '%'
+      : 'N/A'
     : '样本不足'
 
   return {
@@ -185,15 +187,15 @@ function computeMetrics(events) {
     },
     coreMetrics: {
       'DAU (今日)': dau,
-      '总启动次数': totalLaunches,
-      '交互总次数': interactionCount,
-      '对话总轮次': chatSendCount,
-      '记忆触发次数': memoryTriggerCount,
-      '番茄钟完成数': tomatoCount,
-      '模组安装数': modInstallCount,
-      '形象切换次数': imageSwitchCount,
-      '物品使用次数': itemUseCount,
-      '崩溃率': crashRateValue,
+      总启动次数: totalLaunches,
+      交互总次数: interactionCount,
+      对话总轮次: chatSendCount,
+      记忆触发次数: memoryTriggerCount,
+      番茄钟完成数: tomatoCount,
+      模组安装数: modInstallCount,
+      形象切换次数: imageSwitchCount,
+      物品使用次数: itemUseCount,
+      崩溃率: crashRateValue,
     },
     aiMetrics: {
       'AI 响应延迟 (avg ms)': chatReceiveStats.avg,
@@ -203,26 +205,28 @@ function computeMetrics(events) {
       'AI 响应样本数': chatReceiveStats.count,
     },
     uxMetrics: {
-      '首次引导完成': firstrunComplete,
-      '首次引导跳过': firstrunSkip,
-      '面板展开次数': panelOpen,
-      '面板收起次数': panelClose,
-      '漫游开关切换': roamToggle,
-      '边缘吸附切换': edgeSnapToggle,
-      '灰度实验分组记录': experimentVariants,
+      首次引导完成: firstrunComplete,
+      首次引导跳过: firstrunSkip,
+      面板展开次数: panelOpen,
+      面板收起次数: panelClose,
+      漫游开关切换: roamToggle,
+      边缘吸附切换: edgeSnapToggle,
+      灰度实验分组记录: experimentVariants,
     },
     breakdowns: {
-      '交互类型分布': countBySubType(events, 'pet_interaction', 'type'),
-      '记忆触发类型': countBySubType(events, 'memory_trigger', 'trigger_type'),
-      '物品使用类型': countBySubType(events, 'item_use', 'item_type'),
+      交互类型分布: countBySubType(events, 'pet_interaction', 'type'),
+      记忆触发类型: countBySubType(events, 'memory_trigger', 'trigger_type'),
+      物品使用类型: countBySubType(events, 'item_use', 'item_type'),
     },
-    dailyTrend: Array.from(byDay.entries()).map(([day, dayEvents]) => ({
-      date: day,
-      launches: countEvents(dayEvents, 'app_launch'),
-      interactions: countEvents(dayEvents, 'pet_interaction'),
-      chats: countEvents(dayEvents, 'chat_send'),
-      errors: countEvents(dayEvents, 'error_occurred'),
-    })).sort((a, b) => a.date.localeCompare(b.date)),
+    dailyTrend: Array.from(byDay.entries())
+      .map(([day, dayEvents]) => ({
+        date: day,
+        launches: countEvents(dayEvents, 'app_launch'),
+        interactions: countEvents(dayEvents, 'pet_interaction'),
+        chats: countEvents(dayEvents, 'chat_send'),
+        errors: countEvents(dayEvents, 'error_occurred'),
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date)),
   }
 }
 
@@ -257,9 +261,10 @@ function generateHTML(metrics) {
     <div class="section">
       <h2>${title}</h2>
       <div class="bar-chart">
-        ${entries.map(([k, v]) => {
-          const pct = total > 0 ? ((v / total) * 100).toFixed(1) : 0
-          return `
+        ${entries
+          .map(([k, v]) => {
+            const pct = total > 0 ? ((v / total) * 100).toFixed(1) : 0
+            return `
           <div class="bar-row">
             <span class="bar-label">${k}</span>
             <div class="bar-track">
@@ -267,21 +272,25 @@ function generateHTML(metrics) {
             </div>
             <span class="bar-value">${v} (${pct}%)</span>
           </div>`
-        }).join('')}
+          })
+          .join('')}
       </div>
     </div>`
   }
 
-  const trendMax = Math.max(...dailyTrend.map(d => Math.max(d.launches, d.interactions, d.chats)), 1)
-  const trendHTML = dailyTrend.length > 0 ? `
+  const trendMax = Math.max(...dailyTrend.map((d) => Math.max(d.launches, d.interactions, d.chats)), 1)
+  const trendHTML =
+    dailyTrend.length > 0
+      ? `
     <div class="section">
       <h2>每日趋势（最近 ${dailyTrend.length} 天）</h2>
       <div class="trend-chart">
-        ${dailyTrend.map(d => {
-          const launchH = (d.launches / trendMax) * 100
-          const interactH = (d.interactions / trendMax) * 100
-          const chatH = (d.chats / trendMax) * 100
-          return `
+        ${dailyTrend
+          .map((d) => {
+            const launchH = (d.launches / trendMax) * 100
+            const interactH = (d.interactions / trendMax) * 100
+            const chatH = (d.chats / trendMax) * 100
+            return `
           <div class="trend-day">
             <div class="trend-bars">
               <div class="trend-bar trend-launch" style="height: ${launchH}%" title="启动: ${d.launches}"></div>
@@ -290,14 +299,16 @@ function generateHTML(metrics) {
             </div>
             <span class="trend-date">${d.date.slice(5)}</span>
           </div>`
-        }).join('')}
+          })
+          .join('')}
       </div>
       <div class="legend">
         <span class="legend-item"><span class="legend-color trend-launch"></span>启动</span>
         <span class="legend-item"><span class="legend-color trend-interact"></span>交互</span>
         <span class="legend-item"><span class="legend-color trend-chat"></span>对话</span>
       </div>
-    </div>` : ''
+    </div>`
+      : ''
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">

@@ -98,10 +98,7 @@ const DEFAULT_BUBBLE_MESSAGES: CharacterProfile['bubbleMessages'] = {
  */
 export function detectFormat(raw: RawPackConfig): PackParseResult['detectedFormat'] {
   // CharacterResourcePackage 格式
-  if (
-    (typeof raw.meta === 'object' && raw.meta !== null) ||
-    Array.isArray(raw.sprites)
-  ) {
+  if ((typeof raw.meta === 'object' && raw.meta !== null) || Array.isArray(raw.sprites)) {
     return 'resource-package'
   }
 
@@ -223,7 +220,12 @@ function parsePackConfig(raw: RawPackConfig, messages: PackParseMessage[]): Char
     spriteType: normalizeSpriteType(raw.spriteType, 'atlas', messages),
     themeColor: asThemeColor(raw.themeColor),
     bubbleMessages: { ...DEFAULT_BUBBLE_MESSAGES },
-    atlasLayout: asAtlasLayout(raw.atlasLayout) ?? { cellW: ATLAS.cellW, cellH: ATLAS.cellH, cols: ATLAS.cols, rows: ATLAS.rows },
+    atlasLayout: asAtlasLayout(raw.atlasLayout) ?? {
+      cellW: ATLAS.cellW,
+      cellH: ATLAS.cellH,
+      cols: ATLAS.cols,
+      rows: ATLAS.rows,
+    },
     type: 'community',
   }
 }
@@ -234,7 +236,7 @@ function parsePackConfig(raw: RawPackConfig, messages: PackParseMessage[]): Char
  */
 function parseResourcePackage(raw: RawPackConfig, messages: PackParseMessage[]): CharacterProfile {
   const meta = (raw.meta as Record<string, unknown>) ?? {}
-  const sprites = Array.isArray(raw.sprites) ? raw.sprites as Record<string, unknown>[] : []
+  const sprites = Array.isArray(raw.sprites) ? (raw.sprites as Record<string, unknown>[]) : []
   const firstSprite = sprites[0] ?? {}
 
   const id = asString(meta.id)
@@ -275,7 +277,12 @@ function parseResourcePackage(raw: RawPackConfig, messages: PackParseMessage[]):
     bubbleMessages: asBubbleMessages(raw.bubbleMessages),
     favoriteItems: asStringArray(raw.favoriteItems),
     dislikeItems: asStringArray(raw.dislikeItems),
-    atlasLayout: asAtlasLayout(layout) ?? { cellW: ATLAS.cellW, cellH: ATLAS.cellH, cols: ATLAS.cols, rows: ATLAS.rows },
+    atlasLayout: asAtlasLayout(layout) ?? {
+      cellW: ATLAS.cellW,
+      cellH: ATLAS.cellH,
+      cols: ATLAS.cols,
+      rows: ATLAS.rows,
+    },
     // Shimeji 格式标记 → 使用 target atlas
     ...(firstSprite.isShimeji ? { atlasLayout: { cellW: 192, cellH: 208, cols: 8, rows: 9 } } : {}),
     type: 'community',
@@ -312,7 +319,12 @@ function parsePetMetadata(raw: RawPackConfig, messages: PackParseMessage[]): Cha
     spriteType: normalizeSpriteType(raw.spriteType, 'atlas', messages),
     themeColor: asThemeColor(raw.themeColor),
     bubbleMessages: { ...DEFAULT_BUBBLE_MESSAGES },
-    atlasLayout: asAtlasLayout(raw.atlas) ?? { cellW: ATLAS.cellW, cellH: ATLAS.cellH, cols: ATLAS.cols, rows: ATLAS.rows },
+    atlasLayout: asAtlasLayout(raw.atlas) ?? {
+      cellW: ATLAS.cellW,
+      cellH: ATLAS.cellH,
+      cols: ATLAS.cols,
+      rows: ATLAS.rows,
+    },
     type: 'community',
   }
 }
@@ -374,7 +386,10 @@ export function parseCharacterPack(raw: unknown): PackParseResult {
   const format = detectFormat(config)
 
   if (format === 'unknown') {
-    messages.push({ level: 'error', message: '无法识别的角色包格式（缺少 spritePath / meta+sprites / formatVersion+sprite）' })
+    messages.push({
+      level: 'error',
+      message: '无法识别的角色包格式（缺少 spritePath / meta+sprites / formatVersion+sprite）',
+    })
     return { ok: false, profile: null, messages, detectedFormat: format }
   }
 
@@ -405,7 +420,11 @@ export function parseCharacterPack(raw: unknown): PackParseResult {
     profile.name = profile.id
   }
   if (!profile.displayName) {
-    messages.push({ level: 'warning', message: '解析后 displayName 为空，使用 name 作为 displayName', field: 'displayName' })
+    messages.push({
+      level: 'warning',
+      message: '解析后 displayName 为空，使用 name 作为 displayName',
+      field: 'displayName',
+    })
     profile.displayName = profile.name
   }
   if (!profile.spriteAsset) {

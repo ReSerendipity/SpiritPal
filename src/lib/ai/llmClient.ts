@@ -68,29 +68,29 @@ const MAX_ERROR_TEXT_LENGTH = 500
  */
 export function redactErrorText(text: string): string {
   if (!text) return ''
-  const truncated = text.length > MAX_ERROR_TEXT_LENGTH
-    ? text.slice(0, MAX_ERROR_TEXT_LENGTH) + '...'
-    : text
-  return truncated
-    // SECURITY R-13: 脱敏 OpenAI 风格 sk- 密钥（覆盖 OpenAI / DeepSeek / Qwen / GLM / Kimi / Doubao）
-    .replace(/(sk-[A-Za-z0-9]{8})[A-Za-z0-9]*/g, '$1***')
-    // SECURITY R-13: 脱敏 Anthropic 密钥 sk-ant-
-    .replace(/(sk-ant-[A-Za-z0-9]{8})[A-Za-z0-9-]*/g, '$1***')
-    // SECURITY R-13: 脱敏 Google AI / Gemini 密钥 AIza
-    .replace(/(AIza[A-Za-z0-9_-]{8})[A-Za-z0-9_-]*/g, '$1***')
-    // SECURITY R-13 v2.0: 统一 Bearer token 脱敏（使用 replacer 函数避免双重匹配）
-    // 覆盖千帆 ERNIE / 混元 Hunyuan / OIDC token / JWT 等通用 token 格式
-    // token >= 12 字符：保留前 12 字符便于调试；token < 12 字符：全部抹除
-    .replace(/(Bearer\s+)([A-Za-z0-9\-_.]+)/gi, (_match, prefix: string, token: string) =>
-      token.length >= 12 ? `${prefix}${token.slice(0, 12)}***` : `${prefix}***`
-    )
-    // SECURITY R-13: 脱敏 x-api-key / x-goog-api-key / api-key 头回显
-    .replace(/((?:x-api-key|x-goog-api-key|api-key)\s*[:=]\s*)[A-Za-z0-9._-]+/gi, '$1***')
-    // SECURITY R-13: 脱敏通用的 api_key / apikey / api_key= / authorization 字段回显
-    // 注意：使用 (?!Bearer\s) 负向前瞻，避免吃掉 Bearer 前缀（Bearer 由上方正则处理）
-    .replace(/((?:api_key|apikey|api_key=|authorization)\s*[:=]\s*['"]?)(?!Bearer\s)[A-Za-z0-9._-]+/gi, '$1***')
-    // SECURITY R-13 v2.0: 兜底 — 任何长度 >40 的连续十六进制 / base64 串，保留前 8 位
-    .replace(/([A-Za-z0-9+/]{8})[A-Za-z0-9+/]{33,}/g, '$1***')
+  const truncated = text.length > MAX_ERROR_TEXT_LENGTH ? text.slice(0, MAX_ERROR_TEXT_LENGTH) + '...' : text
+  return (
+    truncated
+      // SECURITY R-13: 脱敏 OpenAI 风格 sk- 密钥（覆盖 OpenAI / DeepSeek / Qwen / GLM / Kimi / Doubao）
+      .replace(/(sk-[A-Za-z0-9]{8})[A-Za-z0-9]*/g, '$1***')
+      // SECURITY R-13: 脱敏 Anthropic 密钥 sk-ant-
+      .replace(/(sk-ant-[A-Za-z0-9]{8})[A-Za-z0-9-]*/g, '$1***')
+      // SECURITY R-13: 脱敏 Google AI / Gemini 密钥 AIza
+      .replace(/(AIza[A-Za-z0-9_-]{8})[A-Za-z0-9_-]*/g, '$1***')
+      // SECURITY R-13 v2.0: 统一 Bearer token 脱敏（使用 replacer 函数避免双重匹配）
+      // 覆盖千帆 ERNIE / 混元 Hunyuan / OIDC token / JWT 等通用 token 格式
+      // token >= 12 字符：保留前 12 字符便于调试；token < 12 字符：全部抹除
+      .replace(/(Bearer\s+)([A-Za-z0-9\-_.]+)/gi, (_match, prefix: string, token: string) =>
+        token.length >= 12 ? `${prefix}${token.slice(0, 12)}***` : `${prefix}***`,
+      )
+      // SECURITY R-13: 脱敏 x-api-key / x-goog-api-key / api-key 头回显
+      .replace(/((?:x-api-key|x-goog-api-key|api-key)\s*[:=]\s*)[A-Za-z0-9._-]+/gi, '$1***')
+      // SECURITY R-13: 脱敏通用的 api_key / apikey / api_key= / authorization 字段回显
+      // 注意：使用 (?!Bearer\s) 负向前瞻，避免吃掉 Bearer 前缀（Bearer 由上方正则处理）
+      .replace(/((?:api_key|apikey|api_key=|authorization)\s*[:=]\s*['"]?)(?!Bearer\s)[A-Za-z0-9._-]+/gi, '$1***')
+      // SECURITY R-13 v2.0: 兜底 — 任何长度 >40 的连续十六进制 / base64 串，保留前 8 位
+      .replace(/([A-Za-z0-9+/]{8})[A-Za-z0-9+/]{33,}/g, '$1***')
+  )
 }
 
 /**
@@ -167,11 +167,7 @@ export function computeRetryDelay(attempt: number): number {
  * 带重试机制的 fetch（仅对 5xx 错误重试，4xx 不重试）
  * 使用指数退避 + 全抖动：第1次重试等 0.5-1s，第2次重试等 1-2s
  */
-async function fetchWithRetry(
-  url: string,
-  options: RequestInit,
-  timeoutMs?: number,
-): Promise<Response> {
+async function fetchWithRetry(url: string, options: RequestInit, timeoutMs?: number): Promise<Response> {
   let lastError: Error | null = null
   for (let attempt = 0; attempt <= LLM_RETRY_MAX; attempt++) {
     try {
@@ -223,11 +219,7 @@ export class LLMClient {
   // onChunk 每收到一个文本片段时被调用
   // abortSignal 用于中断生成
   // 根据 provider id 分发到不同的协议实现
-  async chat(
-    messages: ChatMessage[],
-    onChunk?: (chunk: string) => void,
-    abortSignal?: AbortSignal,
-  ): Promise<string> {
+  async chat(messages: ChatMessage[], onChunk?: (chunk: string) => void, abortSignal?: AbortSignal): Promise<string> {
     this._lastUsage = null
     const provider = this.config.provider
     const llmHandle = runtimeMonitor.startLLMCall(provider)
@@ -265,21 +257,16 @@ export class LLMClient {
     onChunk?: (text: string) => void,
     abortSignal?: AbortSignal,
   ): Promise<string> {
-    const prompt = messages
-      .map((m) => `${m.role}: ${typeof m.content === 'string' ? m.content : ''}`)
-      .join('\n')
+    const prompt = messages.map((m) => `${m.role}: ${typeof m.content === 'string' ? m.content : ''}`).join('\n')
     const sessionId = crypto.randomUUID()
     const modelId = this.config.model || 'qwen3.5-2b'
     let full = ''
 
-    const tokenUnlisten = await listen<{ sessionId: string; text: string }>(
-      'ondevice://token',
-      (e) => {
-        if (e.payload.sessionId !== sessionId) return
-        full += e.payload.text
-        onChunk?.(e.payload.text)
-      },
-    )
+    const tokenUnlisten = await listen<{ sessionId: string; text: string }>('ondevice://token', (e) => {
+      if (e.payload.sessionId !== sessionId) return
+      full += e.payload.text
+      onChunk?.(e.payload.text)
+    })
     const doneUnlisten = await listen<{ sessionId: string }>('ondevice://done', (e) => {
       if (e.payload.sessionId !== sessionId) return
       tokenUnlisten()
@@ -477,15 +464,11 @@ export class LLMClient {
     const endpoint = `${base}/v1/messages`
 
     // Claude 的 system 消息需放在顶层 system 字段，不能出现在 messages 中
-    const systemParts = messages
-      .filter((m) => m.role === 'system')
-      .map((m) => m.content)
+    const systemParts = messages.filter((m) => m.role === 'system').map((m) => m.content)
     const system = systemParts.length > 0 ? systemParts.join('\n\n') : undefined
 
     // 其余消息只保留 user/assistant
-    const apiMessages = messages
-      .filter((m) => m.role !== 'system')
-      .map((m) => ({ role: m.role, content: m.content }))
+    const apiMessages = messages.filter((m) => m.role !== 'system').map((m) => ({ role: m.role, content: m.content }))
 
     const bodyObj: Record<string, unknown> = {
       model: this.config.model,
@@ -561,16 +544,11 @@ export class LLMClient {
   ): Promise<string> {
     const base = this.config.baseUrl.replace(/\/+$/, '')
     const model = encodeURIComponent(this.config.model)
-    const endpoint =
-      `${base}/v1beta/models/${model}:streamGenerateContent` +
-      `?alt=sse`
+    const endpoint = `${base}/v1beta/models/${model}:streamGenerateContent` + `?alt=sse`
 
     // Gemini 的 system 消息需放在 systemInstruction 字段
-    const systemParts = messages
-      .filter((m) => m.role === 'system')
-      .map((m) => m.content)
-    const systemInstruction =
-      systemParts.length > 0 ? { parts: [{ text: systemParts.join('\n\n') }] } : undefined
+    const systemParts = messages.filter((m) => m.role === 'system').map((m) => m.content)
+    const systemInstruction = systemParts.length > 0 ? { parts: [{ text: systemParts.join('\n\n') }] } : undefined
 
     // 其余消息映射为 contents，assistant -> model
     const contents = messages
@@ -619,7 +597,10 @@ export class LLMClient {
           const j = json as { candidates?: { content?: { parts?: { text?: string }[] } }[] }
           const parts = j?.candidates?.[0]?.content?.parts
           if (!Array.isArray(parts)) return null
-          const text = parts.map((p) => p?.text).filter((t): t is string => typeof t === 'string' && t.length > 0).join('')
+          const text = parts
+            .map((p) => p?.text)
+            .filter((t): t is string => typeof t === 'string' && t.length > 0)
+            .join('')
           return text.length > 0 ? text : null
         },
         onMeta: (json: unknown) => {
@@ -645,10 +626,7 @@ export class LLMClient {
   }
 
   // 非流式聊天（一次性返回完整文本）
-  async chatOnce(
-    messages: ChatMessage[],
-    abortSignal?: AbortSignal,
-  ): Promise<string> {
+  async chatOnce(messages: ChatMessage[], abortSignal?: AbortSignal): Promise<string> {
     return this.chat(messages, undefined, abortSignal)
   }
 
@@ -709,9 +687,17 @@ export class LLMClient {
       }
 
       // 在后台执行 chat
-      const chatPromise = this.chat(messages, (chunk) => {
-        try { onChunk(chunk) } catch (e) { console.error('[LLMClient] onChunk error:', e) }
-      }, controller.signal)
+      const chatPromise = this.chat(
+        messages,
+        (chunk) => {
+          try {
+            onChunk(chunk)
+          } catch (e) {
+            console.error('[LLMClient] onChunk error:', e)
+          }
+        },
+        controller.signal,
+      )
         .then(() => {
           done = true
           // 发送最后一个 done chunk
@@ -814,13 +800,13 @@ export class LLMClient {
    * @param availableExpressions 可用表情 ID 列表
    * @returns 选中的表情 ID（若失败返回 null）
    */
-  async selectEmotion(
-    context: string,
-    availableExpressions: string[],
-  ): Promise<string | null> {
+  async selectEmotion(context: string, availableExpressions: string[]): Promise<string | null> {
     if (availableExpressions.length === 0) return null
 
-    const systemPrompt = getPrompt('llm.emotion_select').replace('{available_expressions}', availableExpressions.join(', '))
+    const systemPrompt = getPrompt('llm.emotion_select').replace(
+      '{available_expressions}',
+      availableExpressions.join(', '),
+    )
 
     try {
       const messages: ChatMessage[] = [
@@ -830,9 +816,7 @@ export class LLMClient {
       const response = await this.chat(messages)
       const selected = response.trim().toLowerCase()
       // 验证返回的表情 ID 是否在可用列表中
-      const match = availableExpressions.find(
-        e => e.toLowerCase() === selected,
-      )
+      const match = availableExpressions.find((e) => e.toLowerCase() === selected)
       return match ?? null
     } catch {
       return null

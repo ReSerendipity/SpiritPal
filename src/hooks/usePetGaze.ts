@@ -88,11 +88,14 @@ export function usePetGaze(options: UsePetGazeOptions = {}): UsePetGazeReturn {
     walkOffsetRef.current = offsetX
   }, [])
 
-  const focusLive2D = useCallback((clientX: number, clientY: number, rect: DOMRect) => {
-    const localX = clientX - rect.left
-    const localY = clientY - rect.top
-    onLive2DFocus?.(localX, localY)
-  }, [onLive2DFocus])
+  const focusLive2D = useCallback(
+    (clientX: number, clientY: number, rect: DOMRect) => {
+      const localX = clientX - rect.left
+      const localY = clientY - rect.top
+      onLive2DFocus?.(localX, localY)
+    },
+    [onLive2DFocus],
+  )
 
   const reset = useCallback(() => {
     gazeTargetRef.current = { x: 0, y: 0 }

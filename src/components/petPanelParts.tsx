@@ -47,11 +47,15 @@ export function ActionButton({
         aria-label={label}
         className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-[3px] text-[11px] text-ink transition-colors hover:bg-ink/8"
       >
-        <span className="text-ink-muted" style={{ display: 'inline-flex' }}>{icon}</span>
+        <span className="text-ink-muted" style={{ display: 'inline-flex' }}>
+          {icon}
+        </span>
         <span>{label}</span>
-        {expanded
-          ? <ChevronDown size={11} className="ml-auto text-ink-faint" />
-          : <ChevronRight size={11} className="ml-auto text-ink-faint" />}
+        {expanded ? (
+          <ChevronDown size={11} className="ml-auto text-ink-faint" />
+        ) : (
+          <ChevronRight size={11} className="ml-auto text-ink-faint" />
+        )}
       </button>
       {expanded && <div className="ml-2.5 border-l border-ink/10 pl-1">{children}</div>}
     </div>

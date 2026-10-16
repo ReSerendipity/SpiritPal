@@ -109,10 +109,7 @@ export class MemoryRecommendationEngine {
   /**
    * 生成个性化推荐
    */
-  async generateRecommendations(
-    memories: MemoryEntry[],
-    query: RecommendationQuery,
-  ): Promise<Recommendation[]> {
+  async generateRecommendations(memories: MemoryEntry[], query: RecommendationQuery): Promise<Recommendation[]> {
     const userId = query.userId ?? 'default'
 
     // 更新用户兴趣画像
@@ -122,7 +119,7 @@ export class MemoryRecommendationEngine {
     const candidates = this.generateCandidatePool(memories, profile, query)
 
     // 评分排序
-    const scored = candidates.map(candidate => ({
+    const scored = candidates.map((candidate) => ({
       ...candidate,
       score: this.scoreRecommendation(candidate, profile, query),
     }))
@@ -153,38 +150,37 @@ export class MemoryRecommendationEngine {
   /**
    * 更新用户兴趣画像
    */
-  private updateUserProfile(
-    memories: MemoryEntry[],
-    userId: string,
-  ): UserInterestProfile {
+  private updateUserProfile(memories: MemoryEntry[], userId: string): UserInterestProfile {
     const existing = this.userProfiles.get(userId)
     const now = Date.now()
 
-    const profile: UserInterestProfile = existing ? {
-      ...existing,
-      lastUpdated: now,
-    } : {
-      userId,
-      topicPreferences: {},
-      activityPreferences: {},
-      timePreferences: {},
-      recentTopics: [],
-      lastUpdated: now,
-    }
+    const profile: UserInterestProfile = existing
+      ? {
+          ...existing,
+          lastUpdated: now,
+        }
+      : {
+          userId,
+          topicPreferences: {},
+          activityPreferences: {},
+          timePreferences: {},
+          recentTopics: [],
+          lastUpdated: now,
+        }
 
     // 从记忆中提取兴趣
-    memories.forEach(m => {
+    memories.forEach((m) => {
       const text = (m.user + m.assistant).toLowerCase()
 
       // 主题提取
       const topics = this.extractTopicsFromText(text)
-      topics.forEach(topic => {
+      topics.forEach((topic) => {
         profile.topicPreferences[topic] = (profile.topicPreferences[topic] ?? 0) + 0.1
       })
 
       // 活动提取
       const activities = this.extractActivitiesFromText(text)
-      activities.forEach(activity => {
+      activities.forEach((activity) => {
         profile.activityPreferences[activity] = (profile.activityPreferences[activity] ?? 0) + 0.1
       })
 
@@ -306,7 +302,7 @@ export class MemoryRecommendationEngine {
     if (memories.length < this.config.minSamplesForColdStart) {
       const trendingTopics = ['编程', '游戏', '学习', '音乐', '电影']
       trendingTopics.forEach((topic, idx) => {
-        if (!candidates.some(c => c.tags.includes(topic))) {
+        if (!candidates.some((c) => c.tags.includes(topic))) {
           candidates.push({
             id: `trending_${topic}`,
             type: 'topic',
@@ -354,7 +350,7 @@ export class MemoryRecommendationEngine {
     }
 
     // 多样性调整
-    score *= (1 + this.config.diversityFactor * Math.random())
+    score *= 1 + this.config.diversityFactor * Math.random()
 
     return Math.min(1.0, score)
   }
@@ -362,10 +358,7 @@ export class MemoryRecommendationEngine {
   /**
    * 计算协同过滤评分
    */
-  private calculateCollaborativeScore(
-    candidate: { id: string; type: RecommendationType },
-    userId?: string,
-  ): number {
+  private calculateCollaborativeScore(candidate: { id: string; type: RecommendationType }, userId?: string): number {
     if (!userId) return 0
 
     const interactions = this.itemInteractions.get(candidate.id)
@@ -377,14 +370,11 @@ export class MemoryRecommendationEngine {
   /**
    * 计算内容匹配评分
    */
-  private calculateContentScore(
-    candidate: { title: string; tags: string[] },
-    profile: UserInterestProfile,
-  ): number {
+  private calculateContentScore(candidate: { title: string; tags: string[] }, profile: UserInterestProfile): number {
     let score = 0
 
     // 检查标签匹配
-    candidate.tags.forEach(tag => {
+    candidate.tags.forEach((tag) => {
       const topicPref = profile.topicPreferences[tag] ?? 0
       score = Math.max(score, topicPref)
     })
@@ -424,8 +414,8 @@ export class MemoryRecommendationEngine {
         excited: ['讨论', '分享', '创意'],
       }
       const recommendedActivities = moodMapping[context.mood] || []
-      candidate.tags.forEach(tag => {
-        if (recommendedActivities.some(ra => tag.includes(ra))) {
+      candidate.tags.forEach((tag) => {
+        if (recommendedActivities.some((ra) => tag.includes(ra))) {
           score = Math.max(score, 0.8)
         }
       })
@@ -438,7 +428,15 @@ export class MemoryRecommendationEngine {
    * 应用多样性过滤
    */
   private applyDiversityFilter(
-    recommendations: Array<{ score: number; id: string; type: RecommendationType; title: string; description: string; baseScore: number; tags: string[] }>,
+    recommendations: Array<{
+      score: number
+      id: string
+      type: RecommendationType
+      title: string
+      description: string
+      baseScore: number
+      tags: string[]
+    }>,
     diversityFactor: number,
   ): void {
     if (diversityFactor <= 0) return
@@ -449,14 +447,15 @@ export class MemoryRecommendationEngine {
     const sorted = [...recommendations].sort((a, b) => b.score - a.score)
 
     for (const rec of sorted) {
-      const overlapRatio = rec.tags.filter(tag => usedTags.has(tag)).length / rec.tags.length
+      const overlapRatio = rec.tags.filter((tag) => usedTags.has(tag)).length / rec.tags.length
 
       // 如果重叠率太高，降低分数
       const diversityPenalty = overlapRatio * diversityFactor
-      rec.score *= (1 - diversityPenalty)
+      rec.score *= 1 - diversityPenalty
 
-      if (rec.score > 0.3) { // 保留得分依然较高的
-        rec.tags.forEach(tag => usedTags.add(tag))
+      if (rec.score > 0.3) {
+        // 保留得分依然较高的
+        rec.tags.forEach((tag) => usedTags.add(tag))
       } else {
         rec.score = 0 // 标记为低分
       }
@@ -467,37 +466,45 @@ export class MemoryRecommendationEngine {
    * 应用上下文过滤
    */
   private applyContextFilter(
-    recommendations: Array<{ score: number; id: string; type: RecommendationType; title: string; description: string; baseScore: number; tags: string[] }>,
+    recommendations: Array<{
+      score: number
+      id: string
+      type: RecommendationType
+      title: string
+      description: string
+      baseScore: number
+      tags: string[]
+    }>,
     context?: RecommendationQuery['context'],
   ): void {
     if (!context) return
 
-    recommendations.forEach(rec => {
+    recommendations.forEach((rec) => {
       // 如果有时间段偏好，过滤不合适的
       if (context.timeOfDay && rec.tags.includes('time_inappropriate')) {
         rec.score = 0 // 标记为不相关
       }
     })
   }
-/**
+  /**
    * 从文本中提取主题
    */
   private extractTopicsFromText(text: string): string[] {
     const topicKeywords: Record<string, string[]> = {
-      '编程': ['代码', 'bug', '程序', '开发', '写代码', 'commit', 'git', 'IDE', '运行'],
-      '学习': ['学习', '看书', '上课', '考试', '作业', '论文', '复习'],
-      '游戏': ['游戏', '玩', '通关', '升级', 'boss', '副本', '装备'],
-      '工作': ['工作', '开会', '项目', '任务', '报告', '客户'],
-      '生活': ['吃饭', '睡觉', '出门', '购物', '逛街', '做饭'],
-      '音乐': ['听歌', '音乐', '歌手', '专辑', '演唱会'],
-      '电影': ['电影', '电视剧', '动漫', '追剧', '导演', '演员'],
+      编程: ['代码', 'bug', '程序', '开发', '写代码', 'commit', 'git', 'IDE', '运行'],
+      学习: ['学习', '看书', '上课', '考试', '作业', '论文', '复习'],
+      游戏: ['游戏', '玩', '通关', '升级', 'boss', '副本', '装备'],
+      工作: ['工作', '开会', '项目', '任务', '报告', '客户'],
+      生活: ['吃饭', '睡觉', '出门', '购物', '逛街', '做饭'],
+      音乐: ['听歌', '音乐', '歌手', '专辑', '演唱会'],
+      电影: ['电影', '电视剧', '动漫', '追剧', '导演', '演员'],
     }
 
     const foundTopics: string[] = []
     const textLower = text.toLowerCase()
 
     Object.entries(topicKeywords).forEach(([topic, keywords]) => {
-      if (keywords.some(k => textLower.includes(k))) {
+      if (keywords.some((k) => textLower.includes(k))) {
         foundTopics.push(topic)
       }
     })
@@ -581,9 +588,7 @@ export class MemoryRecommendationEngine {
 
 let instance: MemoryRecommendationEngine | null = null
 
-export function getMemoryRecommendationEngine(
-  config?: Partial<typeof DEFAULT_CONFIG>,
-): MemoryRecommendationEngine {
+export function getMemoryRecommendationEngine(config?: Partial<typeof DEFAULT_CONFIG>): MemoryRecommendationEngine {
   if (!instance) {
     instance = new MemoryRecommendationEngine(config)
   }

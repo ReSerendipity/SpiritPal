@@ -33,21 +33,21 @@
 
 /** 路径遍历检测正则 */
 const PATH_TRAVERSAL_PATTERNS = [
-  /\.\./,              // .. 父目录引用
-  /\.\.[\\/]/,         // ../ 或 ..\
-  /[\\/]\.\.[\\/]/,   // /../ 或 \..\
-  /[\\/]\.\.$/,        // /.. 或 \.. 结尾
-  /\0/,                // 空字节注入
-  /[<>:"|?*]/,         // Windows 非法字符（非路径组件）
+  /\.\./, // .. 父目录引用
+  /\.\.[\\/]/, // ../ 或 ..\
+  /[\\/]\.\.[\\/]/, // /../ 或 \..\
+  /[\\/]\.\.$/, // /.. 或 \.. 结尾
+  /\0/, // 空字节注入
+  /[<>:"|?*]/, // Windows 非法字符（非路径组件）
 ]
 
 /** URL 编码的路径遍历模式 */
 const ENCODED_TRAVERSAL_PATTERNS = [
-  /%2e%2e/i,           // URL 编码的 ..
-  /%252e/i,            // 双重 URL 编码
-  /\.\.%2f/i,          // 混合编码 ../
-  /%2e%2e%2f/i,        // URL 编码 ../
-  /%2e%2e\//i,          // 混合编码
+  /%2e%2e/i, // URL 编码的 ..
+  /%252e/i, // 双重 URL 编码
+  /\.\.%2f/i, // 混合编码 ../
+  /%2e%2e%2f/i, // URL 编码 ../
+  /%2e%2e\//i, // 混合编码
 ]
 
 // ============ Result 类型 ============
@@ -58,9 +58,7 @@ const ENCODED_TRAVERSAL_PATTERNS = [
  * 成功时 { ok: true, value: T }
  * 失败时 { ok: false, error: string }
  */
-export type Result<T> =
-  | { ok: true; value: T }
-  | { ok: false; error: string }
+export type Result<T> = { ok: true; value: T } | { ok: false; error: string }
 
 /** 创建成功 Result */
 function ok<T>(value: T): Result<T> {
@@ -107,7 +105,7 @@ export function normalizePath(inputPath: string): string {
   const hasTrailingSlash = path.endsWith('/') && path.length > 1
 
   // 分割路径组件
-  const parts = path.split('/').filter(p => p !== '')
+  const parts = path.split('/').filter((p) => p !== '')
 
   // 解析 . 和 ..
   const resolved: string[] = []
@@ -251,16 +249,18 @@ export function validatePath(inputPath: string, allowedBase: string): Result<str
 export function sanitizePath(inputPath: string): string {
   if (!inputPath) return ''
 
-  return inputPath
-    // 移除空字节
-    .replace(/\0/g, '')
-    // 移除 Windows 非法字符（保留路径分隔符和常见字符）
-    .replace(/[<>:"|?*]/g, '')
-    // 合并连续斜杠
-    .replace(/\/+/g, '/')
-    .replace(/\\+/g, '\\')
-    // 去除首尾空白
-    .trim()
+  return (
+    inputPath
+      // 移除空字节
+      .replace(/\0/g, '')
+      // 移除 Windows 非法字符（保留路径分隔符和常见字符）
+      .replace(/[<>:"|?*]/g, '')
+      // 合并连续斜杠
+      .replace(/\/+/g, '/')
+      .replace(/\\+/g, '\\')
+      // 去除首尾空白
+      .trim()
+  )
 }
 
 // ============ 组合校验 ============

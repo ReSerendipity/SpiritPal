@@ -44,10 +44,7 @@ export function swallowedCatch(context: string): (e: unknown) => void {
  * safeRun(() => invoke('set_tray_icon', { state }), 'set_tray_icon')
  * ```
  */
-export async function safeRun<T>(
-  fn: () => Promise<T>,
-  context: string,
-): Promise<T | undefined> {
+export async function safeRun<T>(fn: () => Promise<T>, context: string): Promise<T | undefined> {
   try {
     return await fn()
   } catch (e) {

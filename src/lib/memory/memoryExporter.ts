@@ -76,7 +76,13 @@ export interface BatchExportResult {
 // ============ Memory Exporter ============
 
 export class MemoryExporter {
-  private options: Required<Pick<ExportOptions, 'format' | 'delimiter' | 'includeHeader' | 'encoding' | 'includeKeyframes' | 'includeMultimodal'>> & Pick<ExportOptions, 'characterId' | 'timeRange' | 'tags'>
+  private options: Required<
+    Pick<
+      ExportOptions,
+      'format' | 'delimiter' | 'includeHeader' | 'encoding' | 'includeKeyframes' | 'includeMultimodal'
+    >
+  > &
+    Pick<ExportOptions, 'characterId' | 'timeRange' | 'tags'>
   static readonly VERSION = '1.0.0'
 
   constructor(options: ExportOptions) {
@@ -152,7 +158,7 @@ export class MemoryExporter {
     // 应用时间范围过滤
     if (this.options.timeRange) {
       const { start, end } = this.options.timeRange
-      return memories.filter(m => {
+      return memories.filter((m) => {
         const timestamp = new Date(m.created_at).getTime()
         return timestamp >= start && timestamp <= end
       })
@@ -197,7 +203,7 @@ export class MemoryExporter {
     if (this.options.includeKeyframes) {
       const keyframeMem = getKeyframeMemory()
       const frames = keyframeMem.getAllFrames()
-      data.keyframes = frames.map(f => ({
+      data.keyframes = frames.map((f) => ({
         id: f.label || `frame_${f.timestamp}`,
         level: f.level,
         timestamp: f.timestamp,
@@ -223,7 +229,7 @@ export class MemoryExporter {
     }
 
     // 数据行
-    memories.forEach(m => {
+    memories.forEach((m) => {
       const date = new Date(m.created_at).toLocaleString('zh-CN')
       const userText = this.escapeCsvValue(m.user, delimiter)
       const assistantText = this.escapeCsvValue(m.assistant, delimiter)
@@ -386,7 +392,7 @@ export class BatchMemoryExporter {
     const dateStr = now.toISOString().split('T')[0]
 
     // 合并 JSON
-    if (results.every(r => r.filename.endsWith('.json'))) {
+    if (results.every((r) => r.filename.endsWith('.json'))) {
       const combined: {
         version: string
         summary: string
@@ -397,7 +403,7 @@ export class BatchMemoryExporter {
         characters: {},
       }
 
-      results.forEach(r => {
+      results.forEach((r) => {
         try {
           const data = JSON.parse(r.content)
           const charName = (r.metadata?.characterName as string | undefined) || 'unknown'

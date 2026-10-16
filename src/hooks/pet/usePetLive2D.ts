@@ -87,38 +87,39 @@ export function usePetLive2D(options: UsePetLive2DOptions): UsePetLive2DReturn {
       `/pets/live2d/${currentCharacterId}/${currentCharacterId}.model3.json`,
     ]
 
-    const runProbe = () => void (async () => {
-      for (const path of candidates) {
-        try {
-          // 注意：probe 用 GET 而非 HEAD —— release 下走 tauri://localhost asset 协议，
-          // asset 通道对 HEAD 的支持无保障（dev 的 http devServer 才稳定返回 HEAD 200）。
-          // 同时必须校验 model3 JSON 内容（下方 FileReferences 判断），
-          // 杜绝 asset/SPA fallback 把 index.html 当模型返回 200 造成假命中。
-          const resp = await fetchWithTimeout(path, { method: 'GET', timeout: 5000 })
-          if (resp.ok) {
-            const modelJson = JSON.parse(await resp.text())
-            if (!modelJson || !modelJson.FileReferences) throw new Error('not a model3 json')
-            if (cancelled) return
-            if (cache.size >= LIVE2D_PATH_CACHE_MAX) {
-              const oldestKey = cache.keys().next().value
-              if (oldestKey !== undefined) cache.delete(oldestKey)
+    const runProbe = () =>
+      void (async () => {
+        for (const path of candidates) {
+          try {
+            // 注意：probe 用 GET 而非 HEAD —— release 下走 tauri://localhost asset 协议，
+            // asset 通道对 HEAD 的支持无保障（dev 的 http devServer 才稳定返回 HEAD 200）。
+            // 同时必须校验 model3 JSON 内容（下方 FileReferences 判断），
+            // 杜绝 asset/SPA fallback 把 index.html 当模型返回 200 造成假命中。
+            const resp = await fetchWithTimeout(path, { method: 'GET', timeout: 5000 })
+            if (resp.ok) {
+              const modelJson = JSON.parse(await resp.text())
+              if (!modelJson || !modelJson.FileReferences) throw new Error('not a model3 json')
+              if (cancelled) return
+              if (cache.size >= LIVE2D_PATH_CACHE_MAX) {
+                const oldestKey = cache.keys().next().value
+                if (oldestKey !== undefined) cache.delete(oldestKey)
+              }
+              cache.delete(currentCharacterId)
+              cache.set(currentCharacterId, path)
+              setLive2dModelPath(path)
+              setLive2dFailed(false)
+              return
             }
-            cache.delete(currentCharacterId)
-            cache.set(currentCharacterId, path)
-            setLive2dModelPath(path)
-            setLive2dFailed(false)
-            return
+          } catch {
+            // 尝试下一个候选路径
           }
-        } catch {
-          // 尝试下一个候选路径
         }
-      }
-      if (cancelled) return
-      // [FIX] 失败不缓存 null：启动竞态（asset/IPC 忙碌）下 HEAD 失败会被 LRU 永久缓存，
-      // 导致 Live2D 整个会话锁死在精灵回退。不缓存 null，重试与下次挂载可重新探测。
-      cache.delete(currentCharacterId)
-      setLive2dModelPath(null)
-    })()
+        if (cancelled) return
+        // [FIX] 失败不缓存 null：启动竞态（asset/IPC 忙碌）下 HEAD 失败会被 LRU 永久缓存，
+        // 导致 Live2D 整个会话锁死在精灵回退。不缓存 null，重试与下次挂载可重新探测。
+        cache.delete(currentCharacterId)
+        setLive2dModelPath(null)
+      })()
 
     runProbe()
     // [FIX] 启动竞态单次重试：3s 后重探一次（资源繁忙时首次 HEAD 易超时）
@@ -133,9 +134,8 @@ export function usePetLive2D(options: UsePetLive2DOptions): UsePetLive2DReturn {
   // 动画变化时触发 Live2D 对应动作
   useEffect(() => {
     if (!useLive2D) return
-    const group = live2dMotionMap?.[currentAnimId]
-      ?? live2dMotionMap?.[petState]
-      ?? animationIdToMotionGroup(currentAnimId)
+    const group =
+      live2dMotionMap?.[currentAnimId] ?? live2dMotionMap?.[petState] ?? animationIdToMotionGroup(currentAnimId)
     if (lastMotionGroupRef.current === group) return
     lastMotionGroupRef.current = group
     live2dRef.current?.playMotion(group, 0)

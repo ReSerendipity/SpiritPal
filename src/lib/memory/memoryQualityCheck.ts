@@ -66,10 +66,7 @@ const MIN_SUMMARY_RATIO = 0.05
  * @param summary 摘要（LLM 生成的总结）
  * @returns 质量评估结果
  */
-export function evaluateMemoryQuality(
-  originalText: string,
-  summary: string,
-): MemoryQualityResult {
+export function evaluateMemoryQuality(originalText: string, summary: string): MemoryQualityResult {
   const issues: string[] = []
 
   // 1. 关键词覆盖率
@@ -97,12 +94,10 @@ export function evaluateMemoryQuality(
   }
 
   // 综合分数
-  const overallScore = Math.round(
-    (keywordCoverage * 0.35 +
-    semanticSimilarity * 0.25 +
-    densityScore * 0.20 +
-    hallucinationScore * 0.20) * 100,
-  ) / 100
+  const overallScore =
+    Math.round(
+      (keywordCoverage * 0.35 + semanticSimilarity * 0.25 + densityScore * 0.2 + hallucinationScore * 0.2) * 100,
+    ) / 100
 
   const passed = overallScore >= QUALITY_PASS_THRESHOLD && issues.length === 0
 
@@ -168,7 +163,7 @@ function computeDensityScore(originalText: string, summary: string): number {
 
   if (ratio < MIN_SUMMARY_RATIO) {
     // 摘要过短 = 信息丢失
-    return Math.max(0, ratio / MIN_SUMMARY_RATIO * 0.5)
+    return Math.max(0, (ratio / MIN_SUMMARY_RATIO) * 0.5)
   }
 
   // 合理区间

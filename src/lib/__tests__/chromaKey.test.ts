@@ -16,7 +16,11 @@ import {
 } from '@/lib/render/chromaKey'
 
 /** 构造测试用 ImageData（duck-typed） */
-function makeImageData(width: number, height: number, fill: (x: number, y: number) => [number, number, number, number]): ImageData {
+function makeImageData(
+  width: number,
+  height: number,
+  fill: (x: number, y: number) => [number, number, number, number],
+): ImageData {
   const data = new Uint8ClampedArray(width * height * 4)
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -34,14 +38,14 @@ function makeImageData(width: number, height: number, fill: (x: number, y: numbe
 describe('applyChromaKey', () => {
   it('将 RGB 均 <= 阈值的近黑像素 alpha 置 0', () => {
     const img = makeImageData(2, 1, (x) => {
-      if (x === 0) return [0, 0, 0, 255]   // 纯黑 → 抠掉
-      return [255, 100, 50, 255]            // 彩色 → 保留
+      if (x === 0) return [0, 0, 0, 255] // 纯黑 → 抠掉
+      return [255, 100, 50, 255] // 彩色 → 保留
     })
     const { keyedPixels } = applyChromaKey(img)
     expect(keyedPixels).toBe(1)
     const d = img.data
-    expect(d[3]).toBe(0)                    // 黑像素透明
-    expect(d[7]).toBe(255)                  // 彩色像素保留
+    expect(d[3]).toBe(0) // 黑像素透明
+    expect(d[7]).toBe(255) // 彩色像素保留
   })
 
   it('默认阈值 12：暗色非黑像素（如 8,8,8）也被视为背景', () => {
@@ -53,9 +57,9 @@ describe('applyChromaKey', () => {
   it('阈值生效：自定义 threshold 仅抠更黑的像素', () => {
     const img = makeImageData(1, 1, () => [10, 10, 10, 255])
     applyChromaKey(img, 5)
-    expect(img.data[3]).toBe(255)           // 10 > 5，保留
+    expect(img.data[3]).toBe(255) // 10 > 5，保留
     applyChromaKey(img, 12)
-    expect(img.data[3]).toBe(0)             // 10 <= 12，抠掉
+    expect(img.data[3]).toBe(0) // 10 <= 12，抠掉
   })
 
   it('不影响 alpha 已为 0 的像素', () => {

@@ -26,7 +26,18 @@
  * 4. API兼容性检查：验证模组使用的API版本是否兼容
  */
 
-import type { SpiritPalPluginContext, PluginUI, PluginPets, PluginAudio, PluginEvents, PluginSchedule, PluginStorage, PluginNet, PluginAI, PluginVoice } from '@/lib/system/pluginSdk'
+import type {
+  SpiritPalPluginContext,
+  PluginUI,
+  PluginPets,
+  PluginAudio,
+  PluginEvents,
+  PluginSchedule,
+  PluginStorage,
+  PluginNet,
+  PluginAI,
+  PluginVoice,
+} from '@/lib/system/pluginSdk'
 
 // ============ FakeClock ============
 
@@ -59,9 +70,7 @@ export class FakeClock {
     const target = this.currentTime + ms
     while (this.currentTime < target) {
       // 找到下一个最近的 timer
-      const nextTimer = this.timers
-        .filter((t) => t.triggerAt <= target)
-        .sort((a, b) => a.triggerAt - b.triggerAt)[0]
+      const nextTimer = this.timers.filter((t) => t.triggerAt <= target).sort((a, b) => a.triggerAt - b.triggerAt)[0]
 
       if (!nextTimer) {
         this.currentTime = target
@@ -419,9 +428,7 @@ export class TestHarness {
     const found = this.context.pets.speeches.some((s) => s.includes(text))
     const result: AssertionResult = {
       passed: found,
-      message: found
-        ? `宠物说了包含 "${text}" 的话`
-        : `宠物没有说包含 "${text}" 的话`,
+      message: found ? `宠物说了包含 "${text}" 的话` : `宠物没有说包含 "${text}" 的话`,
       details: `宠物说的话: [${this.context.pets.speeches.join(', ')}]`,
     }
     this.assertions.push(result)
@@ -445,9 +452,7 @@ export class TestHarness {
 
   /** 断言触发了宠物反应 */
   petReacted(reaction?: string): AssertionResult {
-    const found = reaction
-      ? this.context.pets.reactions.includes(reaction)
-      : this.context.pets.reactions.length > 0
+    const found = reaction ? this.context.pets.reactions.includes(reaction) : this.context.pets.reactions.length > 0
     const result: AssertionResult = {
       passed: found,
       message: found
@@ -474,9 +479,7 @@ export class TestHarness {
   /** 断言网络请求发送到指定 URL */
   networkRequestSent(urlPattern: string | RegExp): AssertionResult {
     const found = this.context.net.requests.some((r) =>
-      typeof urlPattern === 'string'
-        ? r.url.includes(urlPattern)
-        : urlPattern.test(r.url),
+      typeof urlPattern === 'string' ? r.url.includes(urlPattern) : urlPattern.test(r.url),
     )
     const result: AssertionResult = {
       passed: found,
@@ -536,21 +539,40 @@ export interface CompatibilityResult {
  * @param usedApis 模组使用的 API 列表
  * @param _sdkVersion 当前 SDK 版本（预留）
  */
-export function checkApiCompatibility(
-  usedApis: string[],
-  _sdkVersion: string,
-): CompatibilityResult {
+export function checkApiCompatibility(usedApis: string[], _sdkVersion: string): CompatibilityResult {
   // 已知 API 列表（随 SDK 版本增长）
   const knownApis = new Set([
-    'ctx.ui.bubble', 'ctx.ui.notification', 'ctx.ui.openPanel', 'ctx.ui.closePanel',
-    'ctx.pets.getStatus', 'ctx.pets.react', 'ctx.pets.say', 'ctx.pets.modifyState',
-    'ctx.audio.play', 'ctx.audio.speak', 'ctx.audio.stop', 'ctx.audio.isPlaying',
-    'ctx.events.on', 'ctx.events.emit', 'ctx.events.off',
-    'ctx.schedule.every', 'ctx.schedule.at', 'ctx.schedule.after', 'ctx.schedule.cancelAll',
-    'ctx.storage.get', 'ctx.storage.set', 'ctx.storage.delete', 'ctx.storage.keys',
-    'ctx.net.fetch', 'ctx.net.connect',
-    'ctx.ai.chat', 'ctx.ai.analyze', 'ctx.ai.extractMemories',
-    'ctx.voice.startListening', 'ctx.voice.stopListening', 'ctx.voice.recognize',
+    'ctx.ui.bubble',
+    'ctx.ui.notification',
+    'ctx.ui.openPanel',
+    'ctx.ui.closePanel',
+    'ctx.pets.getStatus',
+    'ctx.pets.react',
+    'ctx.pets.say',
+    'ctx.pets.modifyState',
+    'ctx.audio.play',
+    'ctx.audio.speak',
+    'ctx.audio.stop',
+    'ctx.audio.isPlaying',
+    'ctx.events.on',
+    'ctx.events.emit',
+    'ctx.events.off',
+    'ctx.schedule.every',
+    'ctx.schedule.at',
+    'ctx.schedule.after',
+    'ctx.schedule.cancelAll',
+    'ctx.storage.get',
+    'ctx.storage.set',
+    'ctx.storage.delete',
+    'ctx.storage.keys',
+    'ctx.net.fetch',
+    'ctx.net.connect',
+    'ctx.ai.chat',
+    'ctx.ai.analyze',
+    'ctx.ai.extractMemories',
+    'ctx.voice.startListening',
+    'ctx.voice.stopListening',
+    'ctx.voice.recognize',
   ])
 
   // 已废弃 API

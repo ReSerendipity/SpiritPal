@@ -15,12 +15,7 @@ export interface BrandSwitchProps extends Omit<ButtonHTMLAttributes<HTMLButtonEl
   'aria-label': string
 }
 
-export function BrandSwitch({
-  checked,
-  onChange,
-  disabled,
-  ...rest
-}: BrandSwitchProps) {
+export function BrandSwitch({ checked, onChange, disabled, ...rest }: BrandSwitchProps) {
   return (
     <button
       {...rest}
@@ -33,9 +28,7 @@ export function BrandSwitch({
       }`}
     >
       <span
-        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${
-          checked ? 'left-5' : 'left-0.5'
-        }`}
+        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${checked ? 'left-5' : 'left-0.5'}`}
         aria-hidden="true"
       />
     </button>

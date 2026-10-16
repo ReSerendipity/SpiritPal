@@ -110,7 +110,10 @@ describe('loadShimejiCharacters — Tauri dev 环境（asset 路径无 pets）',
           return { ok: true, json: async () => ({ ids: ['ganyu'] }) }
         }
         if (u.includes('/pets/shimeji/profiles/')) {
-          const id = u.split('/').pop()!.replace(/\.json$/, '')
+          const id = u
+            .split('/')
+            .pop()!
+            .replace(/\.json$/, '')
           return { ok: true, json: async () => sampleProfile(id) }
         }
         return { ok: false, json: async () => null }
@@ -146,7 +149,10 @@ describe('loadShimejiCharacters — 非 Tauri 环境（纯浏览器/vitest）', 
 
   it('全部路径失败时降级为空数组，不抛错', async () => {
     mocks.resourceDir.mockRejectedValue(new Error('not in tauri'))
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, json: async () => null })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false, json: async () => null })),
+    )
     const { loadShimejiCharacters } = await freshShimejiLoader()
     const loaded = await loadShimejiCharacters()
     expect(loaded).toEqual([])

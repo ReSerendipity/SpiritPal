@@ -130,7 +130,9 @@ describe('MobileDataPanel（P1-4 数据管理）', () => {
 
   it('P2-13: 诊断导出成功显示文件数与路径', async () => {
     exportDiagnosticsMock.mockResolvedValue({ path: '/data/0/files/diag-1001', files: ['spiritpal.log', 'audit.log'] })
-    render(<MobileDataPanel onBack={() => {}} bgClass="" textClass="" cardBgClass="" cardBorderClass="" subtitleClass="" />)
+    render(
+      <MobileDataPanel onBack={() => {}} bgClass="" textClass="" cardBgClass="" cardBorderClass="" subtitleClass="" />,
+    )
     fireEvent.click(await screen.findByTestId('export-diagnostics'))
     await waitFor(() => {
       expect(screen.getByTestId('diagnostics-result').textContent).toContain('已导出 2 个文件')
@@ -141,7 +143,9 @@ describe('MobileDataPanel（P1-4 数据管理）', () => {
 
   it('P2-13: 诊断导出失败显示错误横幅', async () => {
     exportDiagnosticsMock.mockRejectedValue(new Error('io error'))
-    render(<MobileDataPanel onBack={() => {}} bgClass="" textClass="" cardBgClass="" cardBorderClass="" subtitleClass="" />)
+    render(
+      <MobileDataPanel onBack={() => {}} bgClass="" textClass="" cardBgClass="" cardBorderClass="" subtitleClass="" />,
+    )
     fireEvent.click(await screen.findByTestId('export-diagnostics'))
     await waitFor(() => {
       expect(screen.getByText(/诊断导出失败/)).toBeInTheDocument()
@@ -150,7 +154,9 @@ describe('MobileDataPanel（P1-4 数据管理）', () => {
 
   it('P2-13: 非 Tauri 环境提示不支持', async () => {
     exportDiagnosticsMock.mockResolvedValue(null)
-    render(<MobileDataPanel onBack={() => {}} bgClass="" textClass="" cardBgClass="" cardBorderClass="" subtitleClass="" />)
+    render(
+      <MobileDataPanel onBack={() => {}} bgClass="" textClass="" cardBgClass="" cardBorderClass="" subtitleClass="" />,
+    )
     fireEvent.click(await screen.findByTestId('export-diagnostics'))
     await waitFor(() => {
       expect(screen.getByText(/当前环境不支持诊断导出/)).toBeInTheDocument()

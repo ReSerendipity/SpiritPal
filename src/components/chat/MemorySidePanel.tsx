@@ -58,7 +58,9 @@ export function MemorySidePanel({ onClose }: MemorySidePanelProps) {
         if (!cancelled) setLoading(false)
       }
     })()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [currentCharacterId])
 
   return (
@@ -82,9 +84,7 @@ export function MemorySidePanel({ onClose }: MemorySidePanelProps) {
             key={id}
             onClick={() => setActiveTab(id)}
             className={`flex flex-1 flex-col items-center gap-0.5 rounded-t-md px-2 py-1.5 text-[11px] transition-colors ${
-              activeTab === id
-                ? 'bg-surface text-tangerine-deep font-medium'
-                : 'text-ink-faint hover:text-ink'
+              activeTab === id ? 'bg-surface text-tangerine-deep font-medium' : 'text-ink-faint hover:text-ink'
             }`}
           >
             <Icon size={13} />
@@ -95,30 +95,27 @@ export function MemorySidePanel({ onClose }: MemorySidePanelProps) {
 
       {/* 内容区 */}
       <div className="flex-1 overflow-y-auto p-2">
-        {loading && (
-          <div className="flex h-32 items-center justify-center text-xs text-ink-faint">
-            加载记忆中…
-          </div>
-        )}
+        {loading && <div className="flex h-32 items-center justify-center text-xs text-ink-faint">加载记忆中…</div>}
 
         {!loading && activeTab === 'short' && (
           <div>
-            <div className="mb-2 text-[11px] text-ink-faint">
-              工作记忆（最近 {workingMemories.length} 条对话）
-            </div>
+            <div className="mb-2 text-[11px] text-ink-faint">工作记忆（最近 {workingMemories.length} 条对话）</div>
             {workingMemories.length === 0 ? (
               <div className="py-4 text-center text-xs text-ink-faint">暂无短期记忆</div>
             ) : (
               <div className="space-y-1.5">
-                {workingMemories.slice(-10).reverse().map((mem, i) => (
-                  <div key={i} className="rounded-lg border border-ink/8 bg-surface px-2.5 py-2 text-xs">
-                    <div className="truncate text-ink">{mem.user}</div>
-                    <div className="mt-0.5 truncate text-ink-faint">{mem.assistant}</div>
-                    <div className="mt-1 text-[10px] text-ink-faint/60">
-                      {new Date(mem.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+                {workingMemories
+                  .slice(-10)
+                  .reverse()
+                  .map((mem, i) => (
+                    <div key={i} className="rounded-lg border border-ink/8 bg-surface px-2.5 py-2 text-xs">
+                      <div className="truncate text-ink">{mem.user}</div>
+                      <div className="mt-0.5 truncate text-ink-faint">{mem.assistant}</div>
+                      <div className="mt-1 text-[10px] text-ink-faint/60">
+                        {new Date(mem.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             )}
           </div>
@@ -131,19 +128,13 @@ export function MemorySidePanel({ onClose }: MemorySidePanelProps) {
           </div>
         )}
 
-        {!loading && activeTab === 'graph' && (
-          <EntityGraphView />
-        )}
+        {!loading && activeTab === 'graph' && <EntityGraphView />}
 
         {!loading && activeTab === 'profile' && (
           <div>
-            <div className="mb-2 text-[11px] text-ink-faint">
-              关于你（{facts.length} 条已知信息）
-            </div>
+            <div className="mb-2 text-[11px] text-ink-faint">关于你（{facts.length} 条已知信息）</div>
             {facts.length === 0 ? (
-              <div className="py-4 text-center text-xs text-ink-faint">
-                还没有关于你的画像信息
-              </div>
+              <div className="py-4 text-center text-xs text-ink-faint">还没有关于你的画像信息</div>
             ) : (
               <div className="space-y-1.5">
                 {facts.map((fact) => (

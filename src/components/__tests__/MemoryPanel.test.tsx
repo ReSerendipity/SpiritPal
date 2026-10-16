@@ -13,8 +13,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryPanel } from '@/components/MemoryPanel'
 
 vi.mock('@/stores/petStore', () => ({
-  usePetStore: (selector: (s: unknown) => unknown) =>
-    selector({ currentCharacterId: 'doro' }),
+  usePetStore: (selector: (s: unknown) => unknown) => selector({ currentCharacterId: 'doro' }),
 }))
 
 vi.mock('@/lib/memory/ownerFacts', () => ({

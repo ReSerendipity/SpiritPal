@@ -29,7 +29,8 @@ const EMPTY_DECORATIONS: WornDecoration[] = []
 const selectCurrentCharacterId = (s: ReturnType<typeof usePetStore.getState>) => s.currentCharacterId
 const selectSharedCoins = (s: ReturnType<typeof usePetStore.getState>) => s.sharedCoins
 const selectInventory = (s: ReturnType<typeof usePetStore.getState>) => s.inventory
-const selectWornDecorations = (s: ReturnType<typeof usePetStore.getState>) => s.wornDecorations[s.currentCharacterId] ?? EMPTY_DECORATIONS
+const selectWornDecorations = (s: ReturnType<typeof usePetStore.getState>) =>
+  s.wornDecorations[s.currentCharacterId] ?? EMPTY_DECORATIONS
 const selectWearDecoration = (s: ReturnType<typeof usePetStore.getState>) => s.wearDecoration
 const selectRemoveDecoration = (s: ReturnType<typeof usePetStore.getState>) => s.removeDecoration
 
@@ -109,7 +110,9 @@ export function ShopPanel() {
       buyLockRef.current = 0
     }, 300)
     const ok = shop.buyItem(item.id)
-    showToast(ok ? `已购买 ${item.name}` : (shop.getLockState(item.id) !== ShopLockState.NONE ? '该物品尚未解锁' : '金币不足'))
+    showToast(
+      ok ? `已购买 ${item.name}` : shop.getLockState(item.id) !== ShopLockState.NONE ? '该物品尚未解锁' : '金币不足',
+    )
   }
 
   function handleSell(item: InventoryItem) {
@@ -174,9 +177,7 @@ export function ShopPanel() {
       {/* 商品列表 */}
       <div className="grid max-h-64 grid-cols-1 gap-2 overflow-y-auto pr-1">
         {visibleItems.length === 0 && (
-          <div className="py-8 text-center text-sm text-ink-muted">
-            {searchQuery ? '未找到匹配的物品' : '暂无物品'}
-          </div>
+          <div className="py-8 text-center text-sm text-ink-muted">{searchQuery ? '未找到匹配的物品' : '暂无物品'}</div>
         )}
         {visibleItems.map((entry) => {
           const item = entry.item
@@ -204,7 +205,9 @@ export function ShopPanel() {
                   <span className="truncate text-sm">{item.name}</span>
                   {/* 稀有度标签 */}
                   {item.fvLock !== undefined && item.fvLock > 0 && (
-                    <span className={`rounded px-1 py-0.5 text-[10px] leading-none ${getRarityDisplay(item.fvLock).colors.text} ${getRarityDisplay(item.fvLock).colors.bg}`}>
+                    <span
+                      className={`rounded px-1 py-0.5 text-[10px] leading-none ${getRarityDisplay(item.fvLock).colors.text} ${getRarityDisplay(item.fvLock).colors.bg}`}
+                    >
                       {getRarityDisplay(item.fvLock).name}
                     </span>
                   )}
@@ -222,11 +225,7 @@ export function ShopPanel() {
                   {item.dialogueTrigger ? ' 触发对话' : ''}
                   {item.subpetConfig ? ` 召唤${item.subpetConfig.name}` : ''}
                   {isAccessory && ownedCount > 0 ? ` 已拥有×${ownedCount}` : ''}
-                  {isLocked ? (
-                    <span className={lockConfig.color}> {lockConfig.label}</span>
-                  ) : (
-                    ` ${sellPriceDisplay}`
-                  )}
+                  {isLocked ? <span className={lockConfig.color}> {lockConfig.label}</span> : ` ${sellPriceDisplay}`}
                 </div>
               </div>
               <div className="flex flex-col items-end gap-1">
@@ -258,9 +257,13 @@ export function ShopPanel() {
                       }}
                       className="rounded bg-ink-faint px-1 py-0.5 text-[10px] focus:outline-none"
                     >
-                      <option value="" disabled>穿戴到…</option>
+                      <option value="" disabled>
+                        穿戴到…
+                      </option>
                       {ANCHOR_OPTIONS.map((a) => (
-                        <option key={a.value} value={a.value}>{a.label}</option>
+                        <option key={a.value} value={a.value}>
+                          {a.label}
+                        </option>
                       ))}
                     </select>
                     {wornAnchor && (

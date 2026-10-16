@@ -24,7 +24,11 @@ vi.mock('@/lib/data/modManager', () => ({ getModManager: () => ({ getMod: () => 
 vi.mock('@/lib/ai/behaviorEngine', () => ({ pickPetReaction: () => 'happy' }))
 vi.mock('@/lib/nurture/achievementSystem', () => ({
   getAchievementManager: () => ({
-    recordPet: vi.fn(), recordFeed: vi.fn(), recordPlay: vi.fn(), recordBathe: vi.fn(), recordClick: vi.fn(),
+    recordPet: vi.fn(),
+    recordFeed: vi.fn(),
+    recordPlay: vi.fn(),
+    recordBathe: vi.fn(),
+    recordClick: vi.fn(),
   }),
 }))
 vi.mock('@/lib/nurture/petExperience', () => ({

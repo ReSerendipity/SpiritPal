@@ -393,8 +393,12 @@ export class EventSystemManager {
     // 立即回放一次当前状态
     try {
       listener(this.getActiveEvents())
-    } catch { /* 忽略 */ }
-    return () => { this.listeners.delete(listener) }
+    } catch {
+      /* 忽略 */
+    }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   /** 获取指定活动 */
@@ -484,7 +488,9 @@ export class EventSystemManager {
     for (const listener of this.listeners) {
       try {
         listener(events)
-      } catch { /* 忽略 */ }
+      } catch {
+        /* 忽略 */
+      }
     }
   }
 }

@@ -77,10 +77,7 @@ export function useDecorationPhysics({
       // 宠物水平速度 → Live2D 风格的角度输入（归一化到 ±30 度）
       const input = Math.max(-30, Math.min(30, (velocityRef.current / 600) * 30))
 
-      const outputs = parser.updateParameters(
-        { ParamAngleX: input, ParamAngleZ: input * 0.3, ParamAngleY: 0 },
-        deltaMs,
-      )
+      const outputs = parser.updateParameters({ ParamAngleX: input, ParamAngleZ: input * 0.3, ParamAngleY: 0 }, deltaMs)
 
       const next: DecorationRotations = {}
       for (const [outputId, value] of Object.entries(outputs)) {

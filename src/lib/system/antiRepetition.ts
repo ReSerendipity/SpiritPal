@@ -143,9 +143,7 @@ export class AntiRepetitionManager {
     const now = Date.now()
 
     // 清理过期记录
-    this.recentPool = this.recentPool.filter(
-      r => now - r.timestamp < RECENT_WINDOW_MS,
-    )
+    this.recentPool = this.recentPool.filter((r) => now - r.timestamp < RECENT_WINDOW_MS)
 
     // 与最近响应比较
     for (const record of this.recentPool) {
@@ -174,11 +172,7 @@ export class AntiRepetitionManager {
 
     // 计数并可能触发语义分析
     this.replyCount++
-    if (
-      this.replyCount % SEMANTIC_ANALYSIS_INTERVAL === 0 &&
-      this.onSemanticAnalysis &&
-      this.recentPool.length >= 3
-    ) {
+    if (this.replyCount % SEMANTIC_ANALYSIS_INTERVAL === 0 && this.onSemanticAnalysis && this.recentPool.length >= 3) {
       this.runSemanticAnalysis()
     }
   }
@@ -189,9 +183,7 @@ export class AntiRepetitionManager {
   private async runSemanticAnalysis(): Promise<void> {
     if (!this.onSemanticAnalysis) return
 
-    const recentTexts = this.recentPool
-      .slice(-SEMANTIC_ANALYSIS_INTERVAL)
-      .map(r => r.text)
+    const recentTexts = this.recentPool.slice(-SEMANTIC_ANALYSIS_INTERVAL).map((r) => r.text)
 
     try {
       const analysis = await this.onSemanticAnalysis(recentTexts)
@@ -218,9 +210,9 @@ export class AntiRepetitionManager {
 
     // 最近响应的开头词（避免重复开头）
     const recentFirstWords = this.recentPool
-      .filter(r => now - r.timestamp < RECENT_WINDOW_MS)
-      .map(r => detectStructuralPatterns(r.text).firstWord)
-      .filter(w => w.length > 0)
+      .filter((r) => now - r.timestamp < RECENT_WINDOW_MS)
+      .map((r) => detectStructuralPatterns(r.text).firstWord)
+      .filter((w) => w.length > 0)
 
     if (recentFirstWords.length > 0) {
       const uniqueWords = [...new Set(recentFirstWords)]
@@ -228,9 +220,7 @@ export class AntiRepetitionManager {
     }
 
     // 语义分析的习惯模式
-    const recentAnalyses = this.semanticCache.filter(
-      a => now - a.timestamp < RECENT_WINDOW_MS * 2,
-    )
+    const recentAnalyses = this.semanticCache.filter((a) => now - a.timestamp < RECENT_WINDOW_MS * 2)
     for (const analysis of recentAnalyses) {
       if (analysis.habits.length > 0) {
         parts.push(`避免重复模式: ${analysis.habits.join('; ')}`)
@@ -254,12 +244,9 @@ export class AntiRepetitionManager {
     const context = this.getAntiRepetitionContext()
     if (!context) return ''
 
-    return [
-      '[Anti-Repetition Rules]',
-      '避免以下重复模式:',
-      context,
-      '换一种方式表达，使用不同的句式和开头。',
-    ].join('\n')
+    return ['[Anti-Repetition Rules]', '避免以下重复模式:', context, '换一种方式表达，使用不同的句式和开头。'].join(
+      '\n',
+    )
   }
 
   // ============ 查询 ============

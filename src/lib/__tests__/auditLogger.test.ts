@@ -79,10 +79,7 @@ describe('auditLog', () => {
     await expect(auditLog('security_event', '检测到异常')).resolves.toBeUndefined()
 
     expect(warnSpy).toHaveBeenCalledTimes(1)
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Failed to write audit log'),
-      expect.any(Error),
-    )
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to write audit log'), expect.any(Error))
     warnSpy.mockRestore()
   })
 })

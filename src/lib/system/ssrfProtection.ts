@@ -178,7 +178,7 @@ export class SSRFProtector {
     }
 
     // 3. 端口检查
-    const port = parsedUrl.port ? parseInt(parsedUrl.port) : (parsedUrl.protocol === 'https:' ? 443 : 80)
+    const port = parsedUrl.port ? parseInt(parsedUrl.port) : parsedUrl.protocol === 'https:' ? 443 : 80
     if (this.config.blockedPorts.includes(port)) {
       return {
         allowed: false,

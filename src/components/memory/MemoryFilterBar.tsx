@@ -31,15 +31,7 @@ export interface MemoryFilterBarProps {
   onClear: () => void
 }
 
-function CheckPill({
-  active,
-  label,
-  onToggle,
-}: {
-  active: boolean
-  label: string
-  onToggle: () => void
-}) {
+function CheckPill({ active, label, onToggle }: { active: boolean; label: string; onToggle: () => void }) {
   return (
     <button
       type="button"

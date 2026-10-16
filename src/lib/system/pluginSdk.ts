@@ -37,43 +37,43 @@
 /** 所有可用的权限类型（30+） */
 export type PluginPermission =
   // 宠物权限
-  | 'pet:speak'           // 让宠物说话
-  | 'pet:react'           // 触发宠物反应
-  | 'pet:read_status'     // 读取宠物状态
-  | 'pet:modify_state'    // 修改宠物状态
+  | 'pet:speak' // 让宠物说话
+  | 'pet:react' // 触发宠物反应
+  | 'pet:read_status' // 读取宠物状态
+  | 'pet:modify_state' // 修改宠物状态
   // UI 权限
-  | 'ui:bubble'           // 显示气泡消息
-  | 'ui:notification'     // 发送系统通知
-  | 'ui:panel'            // 打开自定义面板
-  | 'ui:overlay'          // 显示覆盖层
+  | 'ui:bubble' // 显示气泡消息
+  | 'ui:notification' // 发送系统通知
+  | 'ui:panel' // 打开自定义面板
+  | 'ui:overlay' // 显示覆盖层
   // 音频权限
-  | 'audio:play'          // 播放音频
-  | 'audio:tts'           // 语音合成
-  | 'audio:stop'          // 停止音频
+  | 'audio:play' // 播放音频
+  | 'audio:tts' // 语音合成
+  | 'audio:stop' // 停止音频
   // 事件权限
-  | 'events:listen'       // 监听事件
-  | 'events:emit'         // 触发事件
+  | 'events:listen' // 监听事件
+  | 'events:emit' // 触发事件
   // 调度权限
-  | 'schedule'            // 创建定时任务
+  | 'schedule' // 创建定时任务
   // 存储权限
-  | 'storage:read'        // 读取数据
-  | 'storage:write'       // 写入数据
-  | 'storage:delete'      // 删除数据
+  | 'storage:read' // 读取数据
+  | 'storage:write' // 写入数据
+  | 'storage:delete' // 删除数据
   // 网络权限
-  | 'net:http'            // HTTP 请求
-  | 'net:websocket'       // WebSocket 连接
+  | 'net:http' // HTTP 请求
+  | 'net:websocket' // WebSocket 连接
   // AI 权限
-  | 'ai:chat'             // 与 AI 对话
-  | 'ai:analyze'          // AI 分析
-  | 'ai:extract_memory'   // 提取记忆
+  | 'ai:chat' // 与 AI 对话
+  | 'ai:analyze' // AI 分析
+  | 'ai:extract_memory' // 提取记忆
   // 语音权限
-  | 'voice:listen'        // 语音监听
-  | 'voice:recognize'     // 语音识别
+  | 'voice:listen' // 语音监听
+  | 'voice:recognize' // 语音识别
   // 系统权限
-  | 'system:clipboard'    // 剪贴板访问
-  | 'system:file_read'    // 文件读取
-  | 'system:file_write'   // 文件写入
-  | 'system:open_app'     // 打开应用
+  | 'system:clipboard' // 剪贴板访问
+  | 'system:file_read' // 文件读取
+  | 'system:file_write' // 文件写入
+  | 'system:open_app' // 打开应用
 
 // ============ 能力命名空间 ============
 
@@ -105,12 +105,7 @@ export interface PluginPets {
   /** 让宠物说话 */
   say(message: string): void
   /** 修改宠物状态 */
-  modifyState(changes: {
-    hunger?: number
-    mood?: number
-    health?: number
-    affection?: number
-  }): void
+  modifyState(changes: { hunger?: number; mood?: number; health?: number; affection?: number }): void
 }
 
 /** 音频操作接口 */

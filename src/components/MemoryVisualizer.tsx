@@ -53,7 +53,7 @@ const TABS = [
   { id: 'graph', label: '图谱' },
 ] as const
 
-type TabId = typeof TABS[number]['id']
+type TabId = (typeof TABS)[number]['id']
 
 const styles = {
   container: {
@@ -180,7 +180,9 @@ const TimelineView: React.FC = () => {
   // 注意：在 useMemo 内部调用 getKeyframeMemory()（模块级单例，引用稳定）。
   // 若提到外面再作为依赖，会因每次渲染都取一次而触发无谓重算。
   const frames = useMemo(() => {
-    return getKeyframeMemory().getAllFrames().sort((a, b) => b.timestamp - a.timestamp)
+    return getKeyframeMemory()
+      .getAllFrames()
+      .sort((a, b) => b.timestamp - a.timestamp)
   }, [])
 
   // eslint-disable-next-line react-hooks/purity -- Date.now() 用于时间范围查询，仅在渲染期调用一次
@@ -210,9 +212,7 @@ const TimelineView: React.FC = () => {
             </div>
           </div>
         ))}
-        {frames.length === 0 && (
-          <p style={{ color: 'var(--color-ink-faint)', textAlign: 'center' }}>暂无关键帧记录</p>
-        )}
+        {frames.length === 0 && <p style={{ color: 'var(--color-ink-faint)', textAlign: 'center' }}>暂无关键帧记录</p>}
       </div>
 
       {/* 对话记忆时间线 */}
@@ -222,8 +222,14 @@ const TimelineView: React.FC = () => {
           <div key={idx} style={styles.timelineItem}>
             <div style={styles.timestamp}>{formatTime(new Date(entry.created_at).getTime())}</div>
             <div style={{ flex: 1 }}>
-              <p style={{ ...styles.contentText, marginBottom: '4px' }}><strong>主人：</strong>{entry.user}</p>
-              <p style={{ ...styles.contentText, color: 'var(--color-ink-muted)' }}><strong>宠物：</strong>{entry.assistant}</p>
+              <p style={{ ...styles.contentText, marginBottom: '4px' }}>
+                <strong>主人：</strong>
+                {entry.user}
+              </p>
+              <p style={{ ...styles.contentText, color: 'var(--color-ink-muted)' }}>
+                <strong>宠物：</strong>
+                {entry.assistant}
+              </p>
             </div>
           </div>
         ))}
@@ -245,7 +251,6 @@ const SearchView: React.FC = () => {
 
   useEffect(() => {
     if (!query.trim()) {
-
       setResults([])
       return
     }
@@ -281,9 +286,13 @@ const SearchView: React.FC = () => {
     if (!highlight.trim()) return text
     const parts = text.split(new RegExp(`(${highlight})`, 'gi'))
     return parts.map((part, i) =>
-      part.toLowerCase() === highlight.toLowerCase()
-        ? <mark key={i} style={{ backgroundColor: 'var(--color-tangerine-soft)', color: 'var(--color-ink)' }}>{part}</mark>
-        : part
+      part.toLowerCase() === highlight.toLowerCase() ? (
+        <mark key={i} style={{ backgroundColor: 'var(--color-tangerine-soft)', color: 'var(--color-ink)' }}>
+          {part}
+        </mark>
+      ) : (
+        part
+      ),
     )
   }
 
@@ -299,25 +308,23 @@ const SearchView: React.FC = () => {
         style={styles.searchInput}
       />
 
-      {results.length > 0 ? (
-        results.map((entry, idx) => (
-          <div key={idx} style={styles.resultItem}>
-            <p style={{ marginBottom: '4px' }}>
-              <strong>主人：</strong>
-              {highlightText(entry.user, query)}
-            </p>
-            <p style={{ color: 'var(--color-ink-muted)', marginBottom: '8px' }}>
-              <strong>宠物：</strong>
-              {highlightText(entry.assistant, query)}
-            </p>
-            <small style={{ color: 'var(--color-ink-faint)' }}>
-              {new Date(entry.created_at).toLocaleString('zh-CN')}
-            </small>
-          </div>
-        ))
-      ) : (
-        query && <p style={{ color: 'var(--color-ink-faint)', textAlign: 'center' }}>未找到相关记忆</p>
-      )}
+      {results.length > 0
+        ? results.map((entry, idx) => (
+            <div key={idx} style={styles.resultItem}>
+              <p style={{ marginBottom: '4px' }}>
+                <strong>主人：</strong>
+                {highlightText(entry.user, query)}
+              </p>
+              <p style={{ color: 'var(--color-ink-muted)', marginBottom: '8px' }}>
+                <strong>宠物：</strong>
+                {highlightText(entry.assistant, query)}
+              </p>
+              <small style={{ color: 'var(--color-ink-faint)' }}>
+                {new Date(entry.created_at).toLocaleString('zh-CN')}
+              </small>
+            </div>
+          ))
+        : query && <p style={{ color: 'var(--color-ink-faint)', textAlign: 'center' }}>未找到相关记忆</p>}
     </div>
   )
 }
@@ -327,8 +334,8 @@ const SearchView: React.FC = () => {
 const EmotionView: React.FC = () => {
   // A-10：真实数据源 —— emotionEngine 的今日情绪计数（由 ChatWindow 每次对话回写更新）。
   // 此前这里用 Math.random() 生成"模拟情绪统计"，属静默假实现（界面看起来有数据，实际与用户无关）。
-  const [emotionStats, setEmotionStats] = useState<Record<string, number>>(() =>
-    getEmotionStateManager().getState().todayStats,
+  const [emotionStats, setEmotionStats] = useState<Record<string, number>>(
+    () => getEmotionStateManager().getState().todayStats,
   )
 
   useEffect(() => {
@@ -350,8 +357,7 @@ const EmotionView: React.FC = () => {
   const total = Object.values(emotionStats).reduce((sum, n) => sum + n, 0)
   const pctOf = (n: number) => (total > 0 ? (n / total) * 100 : 0)
   const happyRatio = pctOf(emotionStats.happy ?? 0)
-  const negativeRatio =
-    pctOf(emotionStats.sad ?? 0) + pctOf(emotionStats.tired ?? 0) + pctOf(emotionStats.angry ?? 0)
+  const negativeRatio = pctOf(emotionStats.sad ?? 0) + pctOf(emotionStats.tired ?? 0) + pctOf(emotionStats.angry ?? 0)
 
   return (
     <div style={styles.content}>
@@ -360,9 +366,7 @@ const EmotionView: React.FC = () => {
       {total === 0 ? (
         <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--color-ink-faint)', fontSize: '14px' }}>
           今天还没有情绪记录
-          <div style={{ marginTop: '8px', fontSize: '12px' }}>
-            和宠物聊聊天，这里就会统计出真实的情绪分布
-          </div>
+          <div style={{ marginTop: '8px', fontSize: '12px' }}>和宠物聊聊天，这里就会统计出真实的情绪分布</div>
         </div>
       ) : (
         <>
@@ -374,16 +378,9 @@ const EmotionView: React.FC = () => {
                 <div key={label} style={styles.emotionBar}>
                   <div style={styles.emotionLabel}>{EMOTION_LABELS[label] ?? label}</div>
                   <div style={{ flex: 1, marginLeft: '8px' }}>
-                    <div
-                      style={styles.emotionBarFill(
-                        pctOf(count),
-                        EMOTION_COLORS[label] ?? '#9e9e9e',
-                      )}
-                    />
+                    <div style={styles.emotionBarFill(pctOf(count), EMOTION_COLORS[label] ?? '#9e9e9e')} />
                   </div>
-                  <div
-                    style={{ width: '40px', textAlign: 'right', fontSize: '12px', color: 'var(--color-ink-faint)' }}
-                  >
+                  <div style={{ width: '40px', textAlign: 'right', fontSize: '12px', color: 'var(--color-ink-faint)' }}>
                     {Math.round(pctOf(count))}%
                   </div>
                 </div>
@@ -405,8 +402,8 @@ const EmotionView: React.FC = () => {
               {happyRatio > 50
                 ? '主人今天心情很好！可以继续互动增强亲密度～'
                 : negativeRatio > 40
-                ? '主人似乎有些疲惫或难过，要不要休息一下？'
-                : '主人状态平稳，适合专注工作或适度放松～'}
+                  ? '主人似乎有些疲惫或难过，要不要休息一下？'
+                  : '主人状态平稳，适合专注工作或适度放松～'}
             </p>
           </div>
         </>
@@ -460,15 +457,15 @@ const GraphView: React.FC = () => {
         <svg width="100%" height="100%" viewBox="0 0 768 400">
           {/* 连接线 */}
           {links.map((link, idx) => {
-            const source = nodes.find(n => n.id === link.source)
-            const target = nodes.find(n => n.id === link.target)
+            const source = nodes.find((n) => n.id === link.source)
+            const target = nodes.find((n) => n.id === link.target)
             if (!source || !target) return null
 
             // 简化布局：水平排列节点
             const sourceX = 100
             const targetX = 600
-            const sourceY = 80 + (nodes.indexOf(source) * 40)
-            const targetY = 80 + (nodes.indexOf(target) * 40)
+            const sourceY = 80 + nodes.indexOf(source) * 40
+            const targetY = 80 + nodes.indexOf(target) * 40
 
             return (
               <line
@@ -490,30 +487,11 @@ const GraphView: React.FC = () => {
 
             return (
               <g key={node.id}>
-                <circle
-                  cx={x}
-                  cy={y}
-                  r="20"
-                  fill={categoryColors[node.category]}
-                  opacity="0.8"
-                />
-                <text
-                  x={x}
-                  y={y + 4}
-                  textAnchor="middle"
-                  fill="#fff"
-                  fontSize="10"
-                  fontWeight="bold"
-                >
+                <circle cx={x} cy={y} r="20" fill={categoryColors[node.category]} opacity="0.8" />
+                <text x={x} y={y + 4} textAnchor="middle" fill="#fff" fontSize="10" fontWeight="bold">
                   {node.label.substring(0, 2)}
                 </text>
-                <text
-                  x={x}
-                  y={y + 28}
-                  textAnchor="middle"
-                  style={{ fill: 'var(--color-ink-muted)' }}
-                  fontSize="11"
-                >
+                <text x={x} y={y + 28} textAnchor="middle" style={{ fill: 'var(--color-ink-muted)' }} fontSize="11">
                   {node.label}
                 </text>
               </g>
@@ -553,12 +531,8 @@ export const MemoryVisualizer: React.FC = () => {
     <div style={styles.container}>
       {/* Tab 栏 */}
       <div style={styles.tabBar}>
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={styles.tab(activeTab === tab.id)}
-          >
+        {TABS.map((tab) => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={styles.tab(activeTab === tab.id)}>
             {tab.label}
           </button>
         ))}

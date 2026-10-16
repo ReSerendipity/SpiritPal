@@ -59,9 +59,7 @@ export function ExpressionSelector({ onSelect }: ExpressionSelectorProps) {
               aria-pressed={active}
               title={opt.name}
               className={`flex items-center gap-1 rounded-md px-1.5 py-[3px] text-[10px] transition-colors ${
-                active
-                  ? 'bg-tangerine/20 text-tangerine font-medium'
-                  : 'text-ink-muted hover:bg-ink/8'
+                active ? 'bg-tangerine/20 text-tangerine font-medium' : 'text-ink-muted hover:bg-ink/8'
               }`}
             >
               <Smile size={11} className={active ? 'text-tangerine' : 'text-ink-faint'} />
@@ -74,9 +72,7 @@ export function ExpressionSelector({ onSelect }: ExpressionSelectorProps) {
         onClick={handleRestoreAuto}
         disabled={manualId === null}
         className={`flex items-center gap-1 rounded-md px-1.5 py-[3px] text-[10px] transition-colors ${
-          manualId === null
-            ? 'cursor-not-allowed text-ink-faint opacity-60'
-            : 'text-ink-muted hover:bg-ink/8'
+          manualId === null ? 'cursor-not-allowed text-ink-faint opacity-60' : 'text-ink-muted hover:bg-ink/8'
         }`}
       >
         <RotateCcw size={11} />

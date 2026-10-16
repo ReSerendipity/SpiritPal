@@ -70,11 +70,7 @@ export async function runHealthCheck(): Promise<HealthCheckResult> {
   // 计算整体状态
   const hasFail = checks.some((c) => c.status === 'fail')
   const hasWarn = checks.some((c) => c.status === 'warn')
-  const status: HealthCheckResult['status'] = hasFail
-    ? 'unhealthy'
-    : hasWarn
-      ? 'degraded'
-      : 'healthy'
+  const status: HealthCheckResult['status'] = hasFail ? 'unhealthy' : hasWarn ? 'degraded' : 'healthy'
 
   return { status, timestamp, checks }
 }
@@ -121,16 +117,8 @@ async function checkEncryption(): Promise<HealthCheckItem> {
 
   try {
     const testData = 'health-check-test'
-    const encrypted = await tauriInvokeNoRetry<string>(
-      'encrypt_data',
-      { data: testData },
-      IPC_DEFAULT_TIMEOUT_MS,
-    )
-    const decrypted = await tauriInvokeNoRetry<string>(
-      'decrypt_data',
-      { encrypted },
-      IPC_DEFAULT_TIMEOUT_MS,
-    )
+    const encrypted = await tauriInvokeNoRetry<string>('encrypt_data', { data: testData }, IPC_DEFAULT_TIMEOUT_MS)
+    const decrypted = await tauriInvokeNoRetry<string>('decrypt_data', { encrypted }, IPC_DEFAULT_TIMEOUT_MS)
 
     if (decrypted === testData) {
       return {

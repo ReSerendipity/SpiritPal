@@ -31,28 +31,41 @@
 
 /** 路径穿越攻击正则模式 */
 const TRAVERSAL_PATTERNS = [
-  /\.\./,           // .. 组件
-  /\.\.\\/,         // ..\ Windows 风格
-  /\.\.\//,         // ../ Unix 风格
-  /%2e%2e/i,        // URL 编码的 ..
-  /%252e/i,         // 双重 URL 编码
-  /\.\.%2f/i,       // 混合编码 ../
-  /\.\.%5c/i,       // 混合编码 ..\
-  /%2e%2e%2f/i,     // URL 编码 ../
-  /%2e%2e%5c/i,     // URL 编码 ..\
+  /\.\./, // .. 组件
+  /\.\.\\/, // ..\ Windows 风格
+  /\.\.\//, // ../ Unix 风格
+  /%2e%2e/i, // URL 编码的 ..
+  /%252e/i, // 双重 URL 编码
+  /\.\.%2f/i, // 混合编码 ../
+  /\.\.%5c/i, // 混合编码 ..\
+  /%2e%2e%2f/i, // URL 编码 ../
+  /%2e%2e%5c/i, // URL 编码 ..\
 ]
 
 /** 危险文件扩展名（AI Agent 不应写入的文件类型） */
 const DANGEROUS_EXTENSIONS = new Set([
-  '.exe', '.bat', '.cmd', '.ps1', '.vbs', '.js', '.wsf',
-  '.msi', '.scr', '.com', '.dll', '.sys',
+  '.exe',
+  '.bat',
+  '.cmd',
+  '.ps1',
+  '.vbs',
+  '.js',
+  '.wsf',
+  '.msi',
+  '.scr',
+  '.com',
+  '.dll',
+  '.sys',
 ])
 
 /** 危险路径前缀（Windows） */
 const DANGEROUS_PREFIXES = [
-  '\\\\?',    // 扩展长度路径前缀
-  '\\\\.\\',  // 设备路径前缀
-  'CON', 'PRN', 'AUX', 'NUL',  // Windows 保留设备名
+  '\\\\?', // 扩展长度路径前缀
+  '\\\\.\\', // 设备路径前缀
+  'CON',
+  'PRN',
+  'AUX',
+  'NUL', // Windows 保留设备名
 ]
 
 // ============ 类型定义 ============
@@ -141,8 +154,11 @@ export function detectPathTraversal(path: string): boolean {
   const normalized = normpath(path)
   if (normalized.length < path.length - 5) {
     // 长度差异过大，可能存在穿越
-    const originalParts = path.replace(/\\/g, '/').split('/').filter(p => p && p !== '.')
-    const normalizedParts = normalized.split('/').filter(p => p && p !== '.')
+    const originalParts = path
+      .replace(/\\/g, '/')
+      .split('/')
+      .filter((p) => p && p !== '.')
+    const normalizedParts = normalized.split('/').filter((p) => p && p !== '.')
     if (normalizedParts.length < originalParts.length - 2) {
       return true
     }
@@ -206,7 +222,7 @@ export class PathValidator {
    * @param allowedRoots 允许的根目录列表（绝对路径）
    */
   constructor(allowedRoots: string[] = []) {
-    this.allowedRoots = allowedRoots.map(r => normpath(r))
+    this.allowedRoots = allowedRoots.map((r) => normpath(r))
   }
 
   /**
@@ -228,11 +244,7 @@ export class PathValidator {
       allowAbsolute?: boolean
     } = {},
   ): PathValidationResult {
-    const {
-      checkExtension = true,
-      checkAllowedRoot = true,
-      allowAbsolute = false,
-    } = options
+    const { checkExtension = true, checkAllowedRoot = true, allowAbsolute = false } = options
 
     // 1. 空路径检查
     if (!path || path.trim().length === 0) {
@@ -321,7 +333,7 @@ export class PathValidator {
    */
   removeAllowedRoot(root: string): void {
     const normalized = normpath(root)
-    this.allowedRoots = this.allowedRoots.filter(r => r !== normalized)
+    this.allowedRoots = this.allowedRoots.filter((r) => r !== normalized)
   }
 
   /**
@@ -342,10 +354,7 @@ export class PathValidator {
  * @param allowedRoots 允许的根目录列表
  * @returns 校验结果
  */
-export function validatePath(
-  path: string,
-  allowedRoots: string[] = [],
-): PathValidationResult {
+export function validatePath(path: string, allowedRoots: string[] = []): PathValidationResult {
   const validator = new PathValidator(allowedRoots)
   return validator.validate(path)
 }
@@ -359,11 +368,7 @@ export function validatePath(
  * @param allowedRoots 允许的根目录列表
  * @returns 校验结果
  */
-export function safeJoinPath(
-  base: string,
-  segments: string[],
-  allowedRoots: string[] = [],
-): PathValidationResult {
+export function safeJoinPath(base: string, segments: string[], allowedRoots: string[] = []): PathValidationResult {
   const combined = [base, ...segments].join('/')
   return validatePath(combined, allowedRoots)
 }

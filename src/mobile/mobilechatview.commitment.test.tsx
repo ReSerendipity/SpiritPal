@@ -104,9 +104,7 @@ describe('MobileChatView 承诺接线（P1-7-be）', () => {
   })
 
   it('回复后抽取约定并落库 + 自动过期', async () => {
-    extractFromTextMock.mockReturnValue([
-      { content: '去爬山', actor: 'owner', due: '2026-10-06', repeat: null },
-    ])
+    extractFromTextMock.mockReturnValue([{ content: '去爬山', actor: 'owner', due: '2026-10-06', repeat: null }])
     render(<MobileChatView />)
     await sendMessage('我明天要去爬山')
 
@@ -138,7 +136,10 @@ describe('MobileChatView 承诺接线（P1-7-be）', () => {
       const msgs = useChatStore.getState().getMessages()
       expect(msgs.some((m) => m.role === 'assistant' && m.content === '好的，我记住了')).toBe(true)
     })
-    const assistant = useChatStore.getState().getMessages().find((m) => m.role === 'assistant')
+    const assistant = useChatStore
+      .getState()
+      .getMessages()
+      .find((m) => m.role === 'assistant')
     expect(assistant?.sendStatus).toBeUndefined()
   })
 })

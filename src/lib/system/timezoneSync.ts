@@ -93,7 +93,7 @@ export class TimezoneManager {
     })
 
     const parts = formatter.formatToParts(now)
-    const abbreviation = parts.find(p => p.type === 'timeZoneName')?.value || 'UTC'
+    const abbreviation = parts.find((p) => p.type === 'timeZoneName')?.value || 'UTC'
 
     // 计算 UTC 偏移量
     const offset = this.getUTCOffset(now)
@@ -273,8 +273,8 @@ export class TimezoneManager {
       })
 
       const parts = formatter.formatToParts(date)
-      const hourPart = parts.find(p => p.type === 'hour')?.value
-      const minutePart = parts.find(p => p.type === 'minute')?.value
+      const hourPart = parts.find((p) => p.type === 'hour')?.value
+      const minutePart = parts.find((p) => p.type === 'minute')?.value
 
       if (hourPart && minutePart) {
         const hours = parseInt(hourPart, 10)

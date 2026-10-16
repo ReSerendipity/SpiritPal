@@ -12,7 +12,7 @@ describe('extractKeyInfo 的代码实体提取', () => {
   // processName 命中 /code|-code|idea|webstorm|pycharm/i 才会走 extractCodeEntities
   const entitiesOf = (title: string) => ex.extractKeyInfo(title, 'Code').codeEntities ?? []
 
-  it("单引号 import 取出模块名", () => {
+  it('单引号 import 取出模块名', () => {
     expect(entitiesOf("app.ts — import x from 'react'")).toContain('react')
   })
 

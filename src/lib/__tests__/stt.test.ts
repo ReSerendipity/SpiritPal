@@ -158,9 +158,7 @@ describe('STTEngine（浏览器实时识别）', () => {
 
 describe('transcribeWithWhisper（可选后端）', () => {
   it('缺少 API Key 时直接拒绝', async () => {
-    await expect(
-      transcribeWithWhisper(new Blob(['a']), { apiKey: '' }),
-    ).rejects.toThrow(/API Key/)
+    await expect(transcribeWithWhisper(new Blob(['a']), { apiKey: '' })).rejects.toThrow(/API Key/)
   })
 
   it('成功时返回清洗后的文本', async () => {
@@ -178,8 +176,6 @@ describe('transcribeWithWhisper（可选后端）', () => {
 
   it('HTTP 非 2xx 时抛出可读错误', async () => {
     mockSafeFetch.mockResolvedValueOnce({ ok: false, status: 401 } as Response)
-    await expect(
-      transcribeWithWhisper(new Blob(['a']), { apiKey: 'sk-test' }),
-    ).rejects.toThrow(/HTTP 401/)
+    await expect(transcribeWithWhisper(new Blob(['a']), { apiKey: 'sk-test' })).rejects.toThrow(/HTTP 401/)
   })
 })

@@ -376,10 +376,7 @@ export function loadAllUserOverrides(): Record<string, UserOverrides> {
  * @param currentCardVersion 当前卡片版本
  * @returns 是否需要更新
  */
-export function checkUserOverrideNeedsUpdate(
-  characterId: string,
-  currentCardVersion: number,
-): boolean {
+export function checkUserOverrideNeedsUpdate(characterId: string, currentCardVersion: number): boolean {
   const overrides = loadUserOverrides(characterId)
   if (!overrides) return false
   return overrides.basedOnVersion < currentCardVersion
@@ -478,10 +475,7 @@ export class CharacterCardManager {
   }
 
   /** 获取本地化的气泡消息 */
-  getLocalizedBubbleMessages(
-    characterId: string,
-    category: keyof CharacterCard['bubbleMessages'],
-  ): string[] {
+  getLocalizedBubbleMessages(characterId: string, category: keyof CharacterCard['bubbleMessages']): string[] {
     const card = this.cards.get(characterId)
     if (!card) return []
 

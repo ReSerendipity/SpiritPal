@@ -176,9 +176,8 @@ export function OnDeviceModelPanel() {
           <h3 className="text-sm font-medium text-ink">端侧模型（MNN 内嵌）</h3>
         </div>
         <p className="text-xs leading-relaxed text-ink-muted">
-          端侧 MNN 引擎内嵌<strong>仅在 Android 构建中可用</strong>（桌面端不编译该模块）。桌面端本地推理由
-          Ollama 承担；若仍想用端侧，可把服务商切到「端侧」走本机 loopback（companion 模式）。
-          设计依据见 ADR-0005。
+          端侧 MNN 引擎内嵌<strong>仅在 Android 构建中可用</strong>（桌面端不编译该模块）。桌面端本地推理由 Ollama
+          承担；若仍想用端侧，可把服务商切到「端侧」走本机 loopback（companion 模式）。 设计依据见 ADR-0005。
         </p>
       </section>
     )
@@ -227,10 +226,7 @@ export function OnDeviceModelPanel() {
           </div>
           <p className="mt-1 break-all text-[11px] leading-4 text-ink-muted">{tier.note}</p>
           {!tier.llmAllowed && (
-            <p
-              className="mt-1 flex items-start gap-1 text-[11px] leading-4 text-error"
-              data-testid="ondevice-fallback"
-            >
+            <p className="mt-1 flex items-start gap-1 text-[11px] leading-4 text-error" data-testid="ondevice-fallback">
               <CloudOff size={12} className="mt-0.5 shrink-0" />
               该设备不满足端侧推理要求，聊天将自动使用云端服务商；此处仅作说明，不影响其他功能。
             </p>
@@ -248,11 +244,7 @@ export function OnDeviceModelPanel() {
             关闭可把首字延迟从 &gt;2 分钟降到约 4 秒，聊天更跟手；开启用于复杂推理。改动需重新加载模型生效。
           </div>
         </div>
-        <BrandSwitch
-          checked={thinking}
-          onChange={setThinkingPersist}
-          aria-label="思维链（Thinking）"
-        />
+        <BrandSwitch checked={thinking} onChange={setThinkingPersist} aria-label="思维链（Thinking）" />
       </div>
 
       {dir && (
@@ -283,10 +275,7 @@ export function OnDeviceModelPanel() {
       ) : (
         <ul className="space-y-2">
           {models.map((m) => (
-            <li
-              key={m.id}
-              className="flex items-center justify-between gap-3 rounded-lg bg-cream-deep/60 p-3"
-            >
+            <li key={m.id} className="flex items-center justify-between gap-3 rounded-lg bg-cream-deep/60 p-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="truncate text-xs font-medium text-ink">{m.id}</span>
@@ -314,9 +303,7 @@ export function OnDeviceModelPanel() {
       )}
 
       {resident > 0 && (
-        <div className="mt-3 text-[10px] text-ink-faint">
-          已加载模型常驻内存合计：{fmtBytes(resident)}
-        </div>
+        <div className="mt-3 text-[10px] text-ink-faint">已加载模型常驻内存合计：{fmtBytes(resident)}</div>
       )}
     </section>
   )

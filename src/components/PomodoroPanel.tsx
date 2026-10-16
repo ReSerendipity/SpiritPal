@@ -47,9 +47,7 @@ export function PomodoroPanel({ active, onStart, onClose }: PomodoroPanelProps) 
             key={d}
             onClick={() => setSelected(d)}
             className={`rounded-md py-1.5 text-xs transition-colors ${
-              selected === d
-                ? 'bg-tangerine text-white'
-                : 'bg-cream-deep text-ink hover:bg-blush-soft'
+              selected === d ? 'bg-tangerine text-white' : 'bg-cream-deep text-ink hover:bg-blush-soft'
             }`}
           >
             {d}

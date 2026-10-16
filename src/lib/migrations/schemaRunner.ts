@@ -70,11 +70,7 @@ export async function isVersionApplied(version: number): Promise<boolean> {
 /**
  * 记录迁移失败
  */
-async function logMigrationFailure(
-  version: number,
-  error: string,
-  sql: string,
-): Promise<void> {
+async function logMigrationFailure(version: number, error: string, sql: string): Promise<void> {
   try {
     await logSchemaMigrationFailure(version, error, sql)
   } catch {
@@ -95,7 +91,7 @@ export async function resolveMigrationFailure(logId: number): Promise<void> {
  */
 export async function getUnresolvedFailures(): Promise<MigrationFailureLog[]> {
   try {
-    return await getUnresolvedSchemaFailures() as unknown as MigrationFailureLog[]
+    return (await getUnresolvedSchemaFailures()) as unknown as MigrationFailureLog[]
   } catch {
     return []
   }

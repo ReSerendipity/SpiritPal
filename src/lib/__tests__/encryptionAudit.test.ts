@@ -24,12 +24,20 @@ const mockInvoke = vi.mocked(invoke)
 function makeMemoryStorage(init: Record<string, string>): Storage {
   const map = new Map<string, string>(Object.entries(init))
   return {
-    get length() { return map.size },
+    get length() {
+      return map.size
+    },
     key: (i: number) => Array.from(map.keys())[i] ?? null,
     getItem: (k: string) => (map.has(k) ? map.get(k)! : null),
-    setItem: (k: string, v: string) => { map.set(k, String(v)) },
-    removeItem: (k: string) => { map.delete(k) },
-    clear: () => { map.clear() },
+    setItem: (k: string, v: string) => {
+      map.set(k, String(v))
+    },
+    removeItem: (k: string) => {
+      map.delete(k)
+    },
+    clear: () => {
+      map.clear()
+    },
   } as Storage
 }
 
@@ -85,9 +93,7 @@ describe('runEncryptionAudit', () => {
   })
 
   it('空 storage 返回空报告不抛错', () => {
-    expect(runEncryptionAudit(makeMemoryStorage({}))).toEqual(
-      expect.objectContaining({ totalKeys: 0, findings: [] }),
-    )
+    expect(runEncryptionAudit(makeMemoryStorage({}))).toEqual(expect.objectContaining({ totalKeys: 0, findings: [] }))
   })
 
   it('注册表覆盖全部声明的域', () => {

@@ -84,11 +84,7 @@ function animationIds(mod: CharacterMod): string[] {
 /** 提取 Mod 涉及的物品 id 集合（foods + toys + medicines） */
 function itemIds(mod: CharacterMod): string[] {
   const items = mod.itemsConf
-    ? [
-        ...(mod.itemsConf.foods ?? []),
-        ...(mod.itemsConf.toys ?? []),
-        ...(mod.itemsConf.medicines ?? []),
-      ]
+    ? [...(mod.itemsConf.foods ?? []), ...(mod.itemsConf.toys ?? []), ...(mod.itemsConf.medicines ?? [])]
     : []
   return items.map((i) => String(i.id))
 }
@@ -214,10 +210,7 @@ export function detectModConflicts(mods: ModConflictInput[]): ModConflict[] {
  * - merge：可合并类冲突（动画/物品/对话）尝试合并；身份级冲突不可合并
  * - manual：交由用户手动决定
  */
-export function resolveConflict(
-  conflict: ModConflict,
-  strategy: ConflictStrategy,
-): ConflictResolution {
+export function resolveConflict(conflict: ModConflict, strategy: ConflictStrategy): ConflictResolution {
   const mergeable = conflict.type !== 'pet_conf_field'
 
   if (strategy === 'keep_a') {
@@ -240,16 +233,13 @@ export function resolveConflict(
         strategy: 'manual',
         winnerModId: null,
         message:
-          `身份级冲突（${conflict.field}）不可合并：两个 Mod 定义了同一角色，` +
-          `必须二选一（建议 keep_a 或 keep_b）`,
+          `身份级冲突（${conflict.field}）不可合并：两个 Mod 定义了同一角色，` + `必须二选一（建议 keep_a 或 keep_b）`,
       }
     }
     return {
       strategy,
       winnerModId: null,
-      message:
-        `可合并：将 "${conflict.field}" 按并集合并（A 方优先，B 方补缺），` +
-        `双方均保持启用`,
+      message: `可合并：将 "${conflict.field}" 按并集合并（A 方优先，B 方补缺），` + `双方均保持启用`,
     }
   }
   // manual

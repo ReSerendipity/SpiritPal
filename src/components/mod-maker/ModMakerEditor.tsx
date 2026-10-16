@@ -73,15 +73,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-function NumberField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string
-  value: number
-  onChange: (value: number) => void
-}) {
+function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
   return (
     <Field label={label}>
       <BrandInput
@@ -134,22 +126,10 @@ function RowActions({
 }) {
   return (
     <div className="flex shrink-0 items-center gap-1">
-      <BrandButton
-        variant="ghost"
-        size="sm"
-        aria-label="上移"
-        disabled={index === 0}
-        onClick={() => onMove(-1)}
-      >
+      <BrandButton variant="ghost" size="sm" aria-label="上移" disabled={index === 0} onClick={() => onMove(-1)}>
         <ArrowUp size={14} />
       </BrandButton>
-      <BrandButton
-        variant="ghost"
-        size="sm"
-        aria-label="下移"
-        disabled={index === total - 1}
-        onClick={() => onMove(1)}
-      >
+      <BrandButton variant="ghost" size="sm" aria-label="下移" disabled={index === total - 1} onClick={() => onMove(1)}>
         <ArrowDown size={14} />
       </BrandButton>
       <BrandButton variant="ghost" size="sm" aria-label="删除" onClick={onRemove}>
@@ -197,11 +177,7 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
 
   // ---- 物品行操作 ----
 
-  function updateItemRows(
-    key: 'foods' | 'toys' | 'medicines',
-    index: number,
-    patchValue: Partial<ItemRowState>,
-  ): void {
+  function updateItemRows(key: 'foods' | 'toys' | 'medicines', index: number, patchValue: Partial<ItemRowState>): void {
     setState((prev) => ({
       ...prev,
       [key]: prev[key].map((row, i) => (i === index ? { ...row, ...patchValue } : row)),
@@ -277,7 +253,9 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
       {/* 标题栏 */}
       <header className="flex items-center justify-between">
         <h2 className="text-base font-semibold text-ink">ModMaker · Mod 可视化编辑器</h2>
-        <span className="text-xs text-ink-faint">{state.id || '未命名'} v{state.version}</span>
+        <span className="text-xs text-ink-faint">
+          {state.id || '未命名'} v{state.version}
+        </span>
       </header>
 
       <div className="flex min-h-0 flex-1 gap-4">
@@ -291,9 +269,7 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
                 type="button"
                 onClick={() => setTab(t.key)}
                 className={`flex-1 rounded-md px-2 py-1.5 text-xs transition-colors ${
-                  tab === t.key
-                    ? 'bg-tangerine text-white'
-                    : 'text-ink-muted hover:bg-ink/5'
+                  tab === t.key ? 'bg-tangerine text-white' : 'text-ink-muted hover:bg-ink/5'
                 }`}
               >
                 {t.label}
@@ -319,11 +295,7 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
                   <BrandInput value={state.name} onChange={(v) => patch({ name: v })} aria-label="内部名称" />
                 </Field>
                 <Field label="版本（SemVer）">
-                  <BrandInput
-                    value={state.version}
-                    onChange={(v) => patch({ version: v })}
-                    aria-label="版本号"
-                  />
+                  <BrandInput value={state.version} onChange={(v) => patch({ version: v })} aria-label="版本号" />
                 </Field>
                 <Field label="作者">
                   <BrandInput value={state.author} onChange={(v) => patch({ author: v })} aria-label="作者" />
@@ -351,10 +323,7 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
                 rows={2}
               />
               <Field label="签名台词（signaturePhrase）">
-                <BrandInput
-                  value={state.signaturePhrase}
-                  onChange={(v) => patch({ signaturePhrase: v })}
-                />
+                <BrandInput value={state.signaturePhrase} onChange={(v) => patch({ signaturePhrase: v })} />
               </Field>
               <TextAreaField
                 label="经典台词（每行一条）"
@@ -364,22 +333,13 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
               />
               <div className="grid grid-cols-2 gap-3">
                 <Field label="主题色（primary）">
-                  <BrandInput
-                    value={state.themeColorPrimary}
-                    onChange={(v) => patch({ themeColorPrimary: v })}
-                  />
+                  <BrandInput value={state.themeColorPrimary} onChange={(v) => patch({ themeColorPrimary: v })} />
                 </Field>
                 <Field label="主题色（secondary）">
-                  <BrandInput
-                    value={state.themeColorSecondary}
-                    onChange={(v) => patch({ themeColorSecondary: v })}
-                  />
+                  <BrandInput value={state.themeColorSecondary} onChange={(v) => patch({ themeColorSecondary: v })} />
                 </Field>
                 <Field label="精灵图资源（spriteAsset）">
-                  <BrandInput
-                    value={state.spriteAsset}
-                    onChange={(v) => patch({ spriteAsset: v })}
-                  />
+                  <BrandInput value={state.spriteAsset} onChange={(v) => patch({ spriteAsset: v })} />
                 </Field>
                 <Field label="精灵图类型（spriteType）">
                   <BrandSelect
@@ -448,10 +408,7 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
                 每行一条动画配置（对应 act_conf.json 的 animations），共 {state.animations.length} 条
               </p>
               {state.animations.map((row, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-2 rounded-lg border border-ink/10 bg-surface p-2"
-                >
+                <div key={i} className="flex items-center gap-2 rounded-lg border border-ink/10 bg-surface p-2">
                   <BrandSelect
                     aria-label={`动画 ${i + 1} 状态`}
                     value={row.state}
@@ -484,9 +441,7 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
                   <RowActions
                     index={i}
                     total={state.animations.length}
-                    onMove={(dir) =>
-                      setState((prev) => ({ ...prev, animations: moveRow(prev.animations, i, dir) }))
-                    }
+                    onMove={(dir) => setState((prev) => ({ ...prev, animations: moveRow(prev.animations, i, dir) }))}
                     onRemove={() =>
                       setState((prev) => ({
                         ...prev,
@@ -503,10 +458,7 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
                 onClick={() =>
                   setState((prev) => ({
                     ...prev,
-                    animations: [
-                      ...prev.animations,
-                      { state: 'idle', ...EMPTY_ANIMATION_ROW },
-                    ],
+                    animations: [...prev.animations, { state: 'idle', ...EMPTY_ANIMATION_ROW }],
                   }))
                 }
               >
@@ -520,10 +472,7 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
             <div className="flex flex-col gap-3">
               <p className="text-xs text-ink-faint">表情 → 动画动作映射（motionMap）</p>
               {state.motionMap.map((row, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-2 rounded-lg border border-ink/10 bg-surface p-2"
-                >
+                <div key={i} className="flex items-center gap-2 rounded-lg border border-ink/10 bg-surface p-2">
                   <BrandInput
                     aria-label={`表情 ${i + 1} 名称`}
                     value={row.key}
@@ -540,9 +489,7 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
                   <RowActions
                     index={i}
                     total={state.motionMap.length}
-                    onMove={(dir) =>
-                      setState((prev) => ({ ...prev, motionMap: moveRow(prev.motionMap, i, dir) }))
-                    }
+                    onMove={(dir) => setState((prev) => ({ ...prev, motionMap: moveRow(prev.motionMap, i, dir) }))}
                     onRemove={() =>
                       setState((prev) => ({
                         ...prev,
@@ -575,8 +522,7 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
                 <div key={section} className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-medium text-ink">
-                      {section === 'foods' ? '食物' : section === 'toys' ? '玩具' : '药品'}
-                      （{state[section].length}）
+                      {section === 'foods' ? '食物' : section === 'toys' ? '玩具' : '药品'}（{state[section].length}）
                     </span>
                     <BrandButton
                       variant="ghost"
@@ -585,7 +531,13 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
                       onClick={() =>
                         setState((prev) => ({
                           ...prev,
-                          [section]: [...prev[section], { ...EMPTY_ITEM_ROW, type: section === 'foods' ? 'food' : section === 'toys' ? 'toy' : 'medicine' }],
+                          [section]: [
+                            ...prev[section],
+                            {
+                              ...EMPTY_ITEM_ROW,
+                              type: section === 'foods' ? 'food' : section === 'toys' ? 'toy' : 'medicine',
+                            },
+                          ],
                         }))
                       }
                     >
@@ -593,10 +545,7 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
                     </BrandButton>
                   </div>
                   {state[section].map((row, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-2 rounded-lg border border-ink/10 bg-surface p-2"
-                    >
+                    <div key={i} className="flex items-center gap-2 rounded-lg border border-ink/10 bg-surface p-2">
                       <BrandInput
                         aria-label={`物品 ${i + 1} ID`}
                         value={row.id}
@@ -624,9 +573,7 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
                       <RowActions
                         index={i}
                         total={state[section].length}
-                        onMove={(dir) =>
-                          setState((prev) => ({ ...prev, [section]: moveRow(prev[section], i, dir) }))
-                        }
+                        onMove={(dir) => setState((prev) => ({ ...prev, [section]: moveRow(prev[section], i, dir) }))}
                         onRemove={() =>
                           setState((prev) => ({
                             ...prev,
@@ -652,10 +599,7 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
               />
               <p className="text-xs text-ink-faint">Few-shot 示例（{state.fewShotExamples.length} 条）</p>
               {state.fewShotExamples.map((turn, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-2 rounded-lg border border-ink/10 bg-surface p-2"
-                >
+                <div key={i} className="flex items-center gap-2 rounded-lg border border-ink/10 bg-surface p-2">
                   <BrandInput
                     aria-label={`示例 ${i + 1} 用户`}
                     value={turn.user}
@@ -663,9 +607,7 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
                     onChange={(v) =>
                       setState((prev) => ({
                         ...prev,
-                        fewShotExamples: prev.fewShotExamples.map((t, j) =>
-                          j === i ? { ...t, user: v } : t,
-                        ),
+                        fewShotExamples: prev.fewShotExamples.map((t, j) => (j === i ? { ...t, user: v } : t)),
                       }))
                     }
                   />
@@ -676,9 +618,7 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
                     onChange={(v) =>
                       setState((prev) => ({
                         ...prev,
-                        fewShotExamples: prev.fewShotExamples.map((t, j) =>
-                          j === i ? { ...t, assistant: v } : t,
-                        ),
+                        fewShotExamples: prev.fewShotExamples.map((t, j) => (j === i ? { ...t, assistant: v } : t)),
                       }))
                     }
                   />
@@ -722,7 +662,10 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
                       ...prev,
                       bubbleMessages: {
                         ...prev.bubbleMessages,
-                        [key]: v.split('\n').map((s) => s.trim()).filter((s) => s.length > 0),
+                        [key]: v
+                          .split('\n')
+                          .map((s) => s.trim())
+                          .filter((s) => s.length > 0),
                       },
                     }))
                   }
@@ -751,9 +694,7 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
                 </div>
               </div>
             </div>
-            {state.description && (
-              <p className="mt-2 text-xs text-ink-muted">{state.description}</p>
-            )}
+            {state.description && <p className="mt-2 text-xs text-ink-muted">{state.description}</p>}
             <p className="mt-2 text-xs text-ink-faint">
               精灵图：{state.spriteAsset}（{state.spriteType}）· 活跃 {state.activeStart}:00-{state.activeEnd}:00
             </p>
@@ -781,9 +722,7 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
 
           {/* 动画列表预览 */}
           <div className="rounded-xl border border-ink/10 bg-surface p-4">
-            <h3 className="mb-2 text-xs font-semibold text-ink">
-              动画列表（{state.animations.length}）
-            </h3>
+            <h3 className="mb-2 text-xs font-semibold text-ink">动画列表（{state.animations.length}）</h3>
             <ul className="flex flex-col gap-1">
               {state.animations.map((row, i) => (
                 <li key={i} className="flex justify-between text-xs text-ink-muted">
@@ -794,9 +733,7 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
                   </span>
                 </li>
               ))}
-              {state.animations.length === 0 && (
-                <li className="text-xs text-ink-faint">暂无动画</li>
-              )}
+              {state.animations.length === 0 && <li className="text-xs text-ink-faint">暂无动画</li>}
             </ul>
           </div>
 
@@ -806,8 +743,7 @@ export function ModMakerEditor({ onExported }: ModMakerEditorProps) {
             <ul className="flex flex-col gap-1 text-xs text-ink-muted">
               <li>表情映射：{state.motionMap.filter((m) => m.key).length} 条</li>
               <li>
-                物品：食物 {state.foods.length} · 玩具 {state.toys.length} · 药品{' '}
-                {state.medicines.length}
+                物品：食物 {state.foods.length} · 玩具 {state.toys.length} · 药品 {state.medicines.length}
               </li>
               <li>
                 气泡消息：

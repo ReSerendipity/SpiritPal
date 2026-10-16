@@ -61,9 +61,16 @@ describe('NurturingPanel', () => {
     vi.clearAllMocks()
     // 重置为默认值
     Object.assign(mockState._stats, {
-      hunger: 80, mood: 60, health: 90, affection: 100,
-      level: 1, exp: 20, coins: 0,
-      lastTickAt: Date.now(), lastInteractionAt: Date.now(), lastAffectionDecayAt: Date.now(),
+      hunger: 80,
+      mood: 60,
+      health: 90,
+      affection: 100,
+      level: 1,
+      exp: 20,
+      coins: 0,
+      lastTickAt: Date.now(),
+      lastInteractionAt: Date.now(),
+      lastAffectionDecayAt: Date.now(),
     })
     mockState.sharedCoins = 100
     mockState.currentCharacterId = 'doro'

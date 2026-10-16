@@ -37,9 +37,9 @@ export interface TagDimensionMeta {
   label: string
 }
 
-export const TAG_DIMENSIONS: TagDimensionMeta[] = (
-  Object.keys(TAG_DIMENSION_LABEL_MAP) as TagDimension[]
-).map((value) => ({ value, label: TAG_DIMENSION_LABEL_MAP[value] }))
+export const TAG_DIMENSIONS: TagDimensionMeta[] = (Object.keys(TAG_DIMENSION_LABEL_MAP) as TagDimension[]).map(
+  (value) => ({ value, label: TAG_DIMENSION_LABEL_MAP[value] }),
+)
 
 /** 记忆五分类（与 EnhancedMemory.category 语义对应） */
 export const MEMORY_CATEGORIES = [
@@ -71,9 +71,7 @@ export function getTagDimension(tag: string): TagDimension | null {
   const idx = tag.indexOf(TAG_DIMENSION_SEPARATOR)
   if (idx <= 0) return null
   const maybe = tag.slice(0, idx)
-  return Object.prototype.hasOwnProperty.call(TAG_DIMENSION_LABEL_MAP, maybe)
-    ? (maybe as TagDimension)
-    : null
+  return Object.prototype.hasOwnProperty.call(TAG_DIMENSION_LABEL_MAP, maybe) ? (maybe as TagDimension) : null
 }
 
 /**

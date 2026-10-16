@@ -25,26 +25,14 @@ import { encryptBlob, decryptBlob } from './blobCrypto'
 // ============ 类型定义 ============
 
 /** 数据域 */
-export type DataPathDomain =
-  | 'settings'
-  | 'memory'
-  | 'mod'
-  | 'auth'
-  | 'analytics'
-  | 'nurture'
-  | 'system'
+export type DataPathDomain = 'settings' | 'memory' | 'mod' | 'auth' | 'analytics' | 'nurture' | 'system'
 
 /** 敏感度 */
 export type Sensitivity = 'high' | 'medium' | 'low'
 
 /** 加密机制 */
 export type EncryptionMechanism =
-  | 'aes-gcm-tauri'
-  | 'aes-gcm-webcrypto'
-  | 'keychain'
-  | 'sqlite-encrypted'
-  | 'plaintext'
-  | 'unknown'
+  'aes-gcm-tauri' | 'aes-gcm-webcrypto' | 'keychain' | 'sqlite-encrypted' | 'plaintext' | 'unknown'
 
 /** 单条持久化路径的静态描述 */
 export interface DataPathRecord {
@@ -232,7 +220,9 @@ export function runEncryptionAudit(storage?: Storage): EncryptionAuditReport {
         sensitivity,
         mechanism,
         risky,
-        recommendation: risky ? record?.recommendation ?? '应改用 encryptedStorage / blobCrypto 加密持久化' : undefined,
+        recommendation: risky
+          ? (record?.recommendation ?? '应改用 encryptedStorage / blobCrypto 加密持久化')
+          : undefined,
       }
       entries.push(entry)
       if (risky) findings.push(entry)

@@ -20,13 +20,25 @@
  */
 import { useState, useRef, useCallback } from 'react'
 import {
-  Upload, Film, Image as ImageIcon, Download,
-  Loader2, Grid3x3, Settings2, AlertCircle, Check, Layers,
+  Upload,
+  Film,
+  Image as ImageIcon,
+  Download,
+  Loader2,
+  Grid3x3,
+  Settings2,
+  AlertCircle,
+  Check,
+  Layers,
 } from 'lucide-react'
 import {
-  extractFrames, extractFramesFromImage, generateSpriteSheet,
-  downloadSpriteSheet, DEFAULT_CONFIG,
-  type SpriteSheetConfig, type SpriteSheetResult,
+  extractFrames,
+  extractFramesFromImage,
+  generateSpriteSheet,
+  downloadSpriteSheet,
+  DEFAULT_CONFIG,
+  type SpriteSheetConfig,
+  type SpriteSheetResult,
 } from '@/lib/render/spriteSheetTool'
 import { validateUploadMagic } from '@/lib/system/uploadMagic'
 
@@ -184,9 +196,7 @@ export function SpriteSheetPanel() {
         >
           <Upload size={40} className="mb-3 text-ink-muted" />
           <div className="text-sm text-ink">点击选择文件</div>
-          <div className="mt-1 text-xs text-ink-muted">
-            支持 GIF / MP4 / WebM / PNG / JPG
-          </div>
+          <div className="mt-1 text-xs text-ink-muted">支持 GIF / MP4 / WebM / PNG / JPG</div>
           <input
             ref={fileInputRef}
             type="file"
@@ -203,16 +213,15 @@ export function SpriteSheetPanel() {
           {/* 文件信息条 */}
           <div className="flex items-center justify-between rounded-lg bg-surface/50 px-3 py-2">
             <div className="flex items-center gap-2">
-              {fileType === 'video' ? <Film size={16} className="text-info" /> : <ImageIcon size={16} className="text-success" />}
+              {fileType === 'video' ? (
+                <Film size={16} className="text-info" />
+              ) : (
+                <ImageIcon size={16} className="text-success" />
+              )}
               <span className="text-xs text-ink">{file.name}</span>
-              <span className="text-[10px] text-ink-muted">
-                {(file.size / 1024 / 1024).toFixed(2)} MB
-              </span>
+              <span className="text-[10px] text-ink-muted">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
             </div>
-            <button
-              onClick={handleReset}
-              className="text-xs text-ink-muted hover:text-tangerine-deep"
-            >
+            <button onClick={handleReset} className="text-xs text-ink-muted hover:text-tangerine-deep">
               重新选择
             </button>
           </div>
@@ -283,9 +292,7 @@ export function SpriteSheetPanel() {
                   style={{ width: `${progress * 100}%` }}
                 />
               </div>
-              <div className="mt-1 text-xs text-ink-muted">
-                {Math.round(progress * 100)}%
-              </div>
+              <div className="mt-1 text-xs text-ink-muted">{Math.round(progress * 100)}%</div>
             </div>
           )}
 
@@ -302,10 +309,7 @@ export function SpriteSheetPanel() {
                     </span>
                   )}
                 </div>
-                <button
-                  onClick={handleExtract}
-                  className="text-xs text-ink-muted hover:text-tangerine-deep"
-                >
+                <button onClick={handleExtract} className="text-xs text-ink-muted hover:text-tangerine-deep">
                   重新提取
                 </button>
               </div>
@@ -319,14 +323,8 @@ export function SpriteSheetPanel() {
                       className="relative overflow-hidden rounded border border-ink/5"
                       style={{ width: 48, height: 48 }}
                     >
-                      <img
-                        src={frame.toDataURL()}
-                        alt={`frame-${i}`}
-                        className="h-full w-full object-cover"
-                      />
-                      <span className="absolute bottom-0 right-0 bg-black/60 px-0.5 text-[8px] text-ink">
-                        {i}
-                      </span>
+                      <img src={frame.toDataURL()} alt={`frame-${i}`} className="h-full w-full object-cover" />
+                      <span className="absolute bottom-0 right-0 bg-black/60 px-0.5 text-[8px] text-ink">{i}</span>
                     </div>
                   ))}
                 </div>

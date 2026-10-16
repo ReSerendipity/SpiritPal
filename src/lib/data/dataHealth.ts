@@ -13,11 +13,7 @@
  * - `subscribeDataHealth(cb)`：UI 订阅结果更新（CustomEvent，跨窗口广播）
  */
 
-import {
-  runDirtyDataChecks,
-  markDirtyDataResolved,
-  cleanupResolvedDirtyData,
-} from '@/lib/data/dirtyDataTracker'
+import { runDirtyDataChecks, markDirtyDataResolved, cleanupResolvedDirtyData } from '@/lib/data/dirtyDataTracker'
 import { runMigrations, getUnresolvedFailures } from '@/lib/migrations/schemaRunner'
 
 /** 数据健康快照（UI 展示与诊断用） */

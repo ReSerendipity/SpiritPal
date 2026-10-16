@@ -17,13 +17,9 @@ import { parseIcs, createIcsCalendarSource, unfoldIcsLines, parseIcsDateTime } f
 
 /** 构造一个最小 ICS */
 function ics(body: string): string {
-  return [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//SpiritPal//Test//EN',
-    ...body.split('\n'),
-    'END:VCALENDAR',
-  ].join('\r\n')
+  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//SpiritPal//Test//EN', ...body.split('\n'), 'END:VCALENDAR'].join(
+    '\r\n',
+  )
 }
 
 const TWO_EVENTS = ics(`BEGIN:VEVENT

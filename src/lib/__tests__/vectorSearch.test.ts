@@ -54,7 +54,7 @@ describe('searchSimilar', () => {
     const query = new Float32Array([1, 0])
     const candidates = [
       { id: 1, embedding: new Float32Array([0.1, 0.9]) }, // 与 query 相似度低
-      { id: 2, embedding: new Float32Array([1, 0.1]) },   // 与 query 相似度高
+      { id: 2, embedding: new Float32Array([1, 0.1]) }, // 与 query 相似度高
       { id: 3, embedding: new Float32Array([0.5, 0.5]) }, // 中等
     ]
     const result = searchSimilar(query, candidates, 3)
@@ -125,7 +125,9 @@ describe('embed (Worker 集成)', () => {
       terminate: vi.fn(),
     }
     vi.doMock('../system/vectorWorker?worker', () => ({
-      default: vi.fn(function () { return mockWorker }),
+      default: vi.fn(function () {
+        return mockWorker
+      }),
     }))
   })
 
@@ -216,7 +218,9 @@ describe('embedBatch (Worker 集成)', () => {
       terminate: vi.fn(),
     }
     vi.doMock('../system/vectorWorker?worker', () => ({
-      default: vi.fn(function () { return mockWorker }),
+      default: vi.fn(function () {
+        return mockWorker
+      }),
     }))
   })
 
@@ -313,7 +317,9 @@ describe('isVectorSearchAvailable', () => {
       terminate: vi.fn(),
     }
     vi.doMock('../system/vectorWorker?worker', () => ({
-      default: vi.fn(function () { return mockWorker }),
+      default: vi.fn(function () {
+        return mockWorker
+      }),
     }))
   })
 
@@ -372,7 +378,9 @@ describe('preloadModel', () => {
       terminate: vi.fn(),
     }
     vi.doMock('../system/vectorWorker?worker', () => ({
-      default: vi.fn(function () { return mockWorker }),
+      default: vi.fn(function () {
+        return mockWorker
+      }),
     }))
   })
 

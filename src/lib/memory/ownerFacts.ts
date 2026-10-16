@@ -23,7 +23,16 @@
 
 import { encryptBlob, decryptBlob } from '@/lib/data/blobCrypto'
 import { generateId } from '@/lib/data/commonUtils'
-import { getSetting, setSetting, getOwnerFacts, upsertOwnerFact, deleteOwnerFact, clearOwnerFacts, isOwnerFactsMigrated, setOwnerFactsMigrated } from '@/lib/data/db'
+import {
+  getSetting,
+  setSetting,
+  getOwnerFacts,
+  upsertOwnerFact,
+  deleteOwnerFact,
+  clearOwnerFacts,
+  isOwnerFactsMigrated,
+  setOwnerFactsMigrated,
+} from '@/lib/data/db'
 import { estimateTokens } from '@/lib/system/stringSimilarity'
 
 // ============ 类型定义 ============
@@ -68,19 +77,55 @@ interface ExtractionRule {
 
 const EXTRACTION_RULES: ExtractionRule[] = [
   // 姓名（显式自述，置信度最高）
-  { key: 'name', pattern: /(?:我叫|我的名字是|我是|I am|I'm|my name is)\s*([^\s,，。.!！?？]{1,10})/i, group: 1, confidence: 0.9 },
+  {
+    key: 'name',
+    pattern: /(?:我叫|我的名字是|我是|I am|I'm|my name is)\s*([^\s,，。.!！?？]{1,10})/i,
+    group: 1,
+    confidence: 0.9,
+  },
   // 宠物
-  { key: 'pet', pattern: /(?:我养了|我有|我的宠物是|my pet is|I have a)\s*(?:一只|个|条)?\s*([^\s,，。.!！?？]{1,15})/i, group: 1, confidence: 0.85 },
+  {
+    key: 'pet',
+    pattern: /(?:我养了|我有|我的宠物是|my pet is|I have a)\s*(?:一只|个|条)?\s*([^\s,，。.!！?？]{1,15})/i,
+    group: 1,
+    confidence: 0.85,
+  },
   // 职业
-  { key: 'job', pattern: /(?:我是做|我的工作|我在|I work as|my job is)\s*([^\s,，。.!！?？]{1,20})/i, group: 1, confidence: 0.8 },
+  {
+    key: 'job',
+    pattern: /(?:我是做|我的工作|我在|I work as|my job is)\s*([^\s,，。.!！?？]{1,20})/i,
+    group: 1,
+    confidence: 0.8,
+  },
   // 生日（显式自述）
-  { key: 'birthday', pattern: /(?:我的生日|我生日是|my birthday is)\s*([^\s,，。.!！?？]{1,15})/i, group: 1, confidence: 0.9 },
+  {
+    key: 'birthday',
+    pattern: /(?:我的生日|我生日是|my birthday is)\s*([^\s,，。.!！?？]{1,15})/i,
+    group: 1,
+    confidence: 0.9,
+  },
   // 位置
-  { key: 'location', pattern: /(?:我在|我住在|我位于|I live in|I'm in)\s*([^\s,，。.!！?？]{1,15})/i, group: 1, confidence: 0.85 },
+  {
+    key: 'location',
+    pattern: /(?:我在|我住在|我位于|I live in|I'm in)\s*([^\s,，。.!！?？]{1,15})/i,
+    group: 1,
+    confidence: 0.85,
+  },
   // 偏好（喜好易变，置信度最低）
-  { key: 'preference', pattern: /(?:我喜欢|我爱|我偏好|I like|I love|I prefer)\s*([^\s,，。.!！?？]{1,20})/i, group: 1, confidence: 0.7 },
+  {
+    key: 'preference',
+    pattern: /(?:我喜欢|我爱|我偏好|I like|I love|I prefer)\s*([^\s,，。.!！?？]{1,20})/i,
+    group: 1,
+    confidence: 0.7,
+  },
   // 家人（匹配句式复杂，误报风险略高）
-  { key: 'family', pattern: /(?:我的(?:爸爸|妈妈|老公|老婆|儿子|女儿|哥哥|姐姐|弟弟|妹妹)|my (?:father|mother|husband|wife|son|daughter))\s*(?:是|叫)?\s*([^\s,，。.!！?？]{1,10})/i, group: 1, confidence: 0.75 },
+  {
+    key: 'family',
+    pattern:
+      /(?:我的(?:爸爸|妈妈|老公|老婆|儿子|女儿|哥哥|姐姐|弟弟|妹妹)|my (?:father|mother|husband|wife|son|daughter))\s*(?:是|叫)?\s*([^\s,，。.!！?？]{1,10})/i,
+    group: 1,
+    confidence: 0.75,
+  },
 ]
 
 // ============ 事实显示标签 ============
@@ -265,7 +310,13 @@ export class OwnerFactsManager {
   // ============ 事实 CRUD ============
 
   /** 添加或更新事实 */
-  async upsertFact(key: string, value: string, confidence: number, userProvided: boolean = false, sourceMemoryId?: string): Promise<void> {
+  async upsertFact(
+    key: string,
+    value: string,
+    confidence: number,
+    userProvided: boolean = false,
+    sourceMemoryId?: string,
+  ): Promise<void> {
     const existing = this.facts.get(key)
     // 用户已提供的事实不可被自动提取覆盖
     if (existing?.userProvided && !userProvided) return
@@ -506,9 +557,13 @@ export class OwnerFactsManager {
   // ============ 导出/导入 ============
 
   export(): string {
-    return JSON.stringify({
-      facts: Array.from(this.facts.values()),
-    }, null, 2)
+    return JSON.stringify(
+      {
+        facts: Array.from(this.facts.values()),
+      },
+      null,
+      2,
+    )
   }
 
   async import(jsonStr: string): Promise<boolean> {

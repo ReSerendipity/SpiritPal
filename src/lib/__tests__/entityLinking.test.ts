@@ -12,7 +12,14 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getSetting, setSetting, upsertEntityNode, isEntityNodesMigrated, getEntityNodes, setEntityNodesMigrated } from '@/lib/data/db'
+import {
+  getSetting,
+  setSetting,
+  upsertEntityNode,
+  isEntityNodesMigrated,
+  getEntityNodes,
+  setEntityNodesMigrated,
+} from '@/lib/data/db'
 import { EntityManager, getEntityManager, removeEntityManager } from '@/lib/memory/entityLinking'
 
 // Mock db
@@ -55,27 +62,27 @@ describe('EntityManager', () => {
   describe('实体提取', () => {
     it('应从文本中提取人名', () => {
       const entities = manager.extractAndLink('我的朋友叫小明，他是个好人', 'mem-1')
-      const persons = entities.filter(e => e.type === 'person')
+      const persons = entities.filter((e) => e.type === 'person')
       expect(persons.length).toBeGreaterThan(0)
       expect(persons[0].name).toBe('小明')
     })
 
     it('应从文本中提取地名', () => {
       const entities = manager.extractAndLink('我住在北京，那里很好', 'mem-2')
-      const places = entities.filter(e => e.type === 'place')
+      const places = entities.filter((e) => e.type === 'place')
       expect(places.length).toBeGreaterThan(0)
       expect(places[0].name).toBe('北京')
     })
 
     it('应从文本中提取时间', () => {
       const entities = manager.extractAndLink('明天我要去出差', 'mem-3')
-      const times = entities.filter(e => e.type === 'time')
+      const times = entities.filter((e) => e.type === 'time')
       expect(times.length).toBeGreaterThan(0)
     })
 
     it('应从文本中提取事件', () => {
       const entities = manager.extractAndLink('明天要开会和考试', 'mem-4')
-      const events = entities.filter(e => e.type === 'event')
+      const events = entities.filter((e) => e.type === 'event')
       expect(events.length).toBeGreaterThan(0)
     })
 
@@ -90,7 +97,7 @@ describe('EntityManager', () => {
       manager.extractAndLink('叫小明', 'mem-2')
       manager.extractAndLink('叫小明', 'mem-3')
       const entities = manager.getAllEntities()
-      const xiaoming = entities.find(e => e.name === '小明')
+      const xiaoming = entities.find((e) => e.name === '小明')
       expect(xiaoming).toBeDefined()
       expect(xiaoming!.mentionCount).toBe(3)
     })
@@ -99,7 +106,7 @@ describe('EntityManager', () => {
       manager.extractAndLink('叫小明', 'mem-1')
       manager.extractAndLink('叫小明', 'mem-1')
       const linked = manager.getLinkedMemoryIds('小明')
-      expect(linked.filter(id => id === 'mem-1').length).toBe(1)
+      expect(linked.filter((id) => id === 'mem-1').length).toBe(1)
     })
 
     it('应过滤停用词', () => {
@@ -132,15 +139,15 @@ describe('EntityManager', () => {
       manager.extractAndLink('叫张三', 'mem-3')
       manager.extractAndLink('叫李四', 'mem-1')
       const all = manager.getAllEntities()
-      const zhangsan = all.find(e => e.name === '张三')
-      const lisi = all.find(e => e.name === '李四')
+      const zhangsan = all.find((e) => e.name === '张三')
+      const lisi = all.find((e) => e.name === '李四')
       expect(all.indexOf(zhangsan!)).toBeLessThan(all.indexOf(lisi!))
     })
 
     it('getTemporalEntities 应只返回时间类型实体', () => {
       manager.extractAndLink('明天去北京', 'mem-1')
       const temporal = manager.getTemporalEntities()
-      expect(temporal.every(e => e.type === 'time')).toBe(true)
+      expect(temporal.every((e) => e.type === 'time')).toBe(true)
     })
 
     it('size 应返回实体数量', () => {
@@ -157,7 +164,15 @@ describe('EntityManager', () => {
         if (cmd === 'decrypt_data') {
           return JSON.stringify({
             entities: [
-              { id: 'e1', name: '测试人', type: 'person', linkedMemoryIds: ['m1'], mentionCount: 1, firstSeen: 0, lastSeen: 0 },
+              {
+                id: 'e1',
+                name: '测试人',
+                type: 'person',
+                linkedMemoryIds: ['m1'],
+                mentionCount: 1,
+                firstSeen: 0,
+                lastSeen: 0,
+              },
             ],
           })
         }
@@ -167,7 +182,10 @@ describe('EntityManager', () => {
       removeEntityManager('persist-test')
       const mgr = getEntityManager('persist-test')
       await mgr.ensureLoaded()
-      expect(invoke).toHaveBeenCalledWith('decrypt_data', expect.objectContaining({ encrypted: 'ENC2:encrypted_data', password: '' }))
+      expect(invoke).toHaveBeenCalledWith(
+        'decrypt_data',
+        expect.objectContaining({ encrypted: 'ENC2:encrypted_data', password: '' }),
+      )
       expect(mgr.getLinkedMemoryIds('测试人')).toContain('m1')
     })
 
@@ -183,7 +201,10 @@ describe('EntityManager', () => {
       removeEntityManager('enc1-test')
       const mgr = getEntityManager('enc1-test')
       await mgr.ensureLoaded()
-      expect(invoke).toHaveBeenCalledWith('decrypt_data', expect.objectContaining({ encrypted: 'ENC1:encrypted_data', password: '' }))
+      expect(invoke).toHaveBeenCalledWith(
+        'decrypt_data',
+        expect.objectContaining({ encrypted: 'ENC1:encrypted_data', password: '' }),
+      )
     })
 
     it('加载明文数据不应调用 decrypt_data', async () => {
@@ -242,8 +263,14 @@ describe('EntityManager', () => {
       vi.mocked(isEntityNodesMigrated as ReturnType<typeof vi.fn>).mockResolvedValue(true)
       vi.mocked(getEntityNodes as ReturnType<typeof vi.fn>).mockResolvedValue([
         {
-          id: 'e1', character_id: 'test-char', name: '小明', type: 'person',
-          linked_memory_ids: '["mem-1"]', mention_count: 2, first_seen: 100, last_seen: 200,
+          id: 'e1',
+          character_id: 'test-char',
+          name: '小明',
+          type: 'person',
+          linked_memory_ids: '["mem-1"]',
+          mention_count: 2,
+          first_seen: 100,
+          last_seen: 200,
         },
       ])
       removeEntityManager('row-test')
@@ -256,9 +283,21 @@ describe('EntityManager', () => {
 
     it('旧 blob 加载后自动迁移到行级并备份 .legacy', async () => {
       vi.mocked(isEntityNodesMigrated as ReturnType<typeof vi.fn>).mockResolvedValue(false)
-      vi.mocked(getSetting).mockResolvedValue(JSON.stringify({
-        entities: [{ id: 'e1', name: '北京', type: 'place', linkedMemoryIds: ['mem-2'], mentionCount: 1, firstSeen: 100, lastSeen: 100 }],
-      }))
+      vi.mocked(getSetting).mockResolvedValue(
+        JSON.stringify({
+          entities: [
+            {
+              id: 'e1',
+              name: '北京',
+              type: 'place',
+              linkedMemoryIds: ['mem-2'],
+              mentionCount: 1,
+              firstSeen: 100,
+              lastSeen: 100,
+            },
+          ],
+        }),
+      )
       vi.mocked(invoke).mockImplementation(async (cmd: string) => {
         if (cmd === 'encrypt_data') return 'ENC2:x'
         if (cmd === 'decrypt_data') return null

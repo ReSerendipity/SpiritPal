@@ -39,7 +39,7 @@ export interface PushNotificationPayload {
   type: 'feeding_reminder' | 'interaction_reminder' | 'schedule_reminder' | 'achievement_unlock' | 'system_update'
   title: string
   body: string
-  petMessage?: string  // 宠物气泡消息
+  petMessage?: string // 宠物气泡消息
   data?: Record<string, unknown>
   timestamp: number
 }

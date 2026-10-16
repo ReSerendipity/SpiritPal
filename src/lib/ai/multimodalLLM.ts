@@ -97,7 +97,7 @@ export class ImageProcessor {
     format: ImageFormat
     dimensions?: { width: number; height: number }
   }> {
-    const stats = await import('fs/promises').then(m => m.stat(filePath))
+    const stats = await import('fs/promises').then((m) => m.stat(filePath))
     const ext = extname(filePath).toLowerCase().replace('.', '') as ImageFormat
 
     return {
@@ -161,10 +161,7 @@ export class VisionLLMClient {
   /**
    * 分析图片内容
    */
-  async analyzeImage(
-    imagePath: string,
-    prompt?: Partial<VisionPrompt>,
-  ): Promise<ImageAnalysisResult> {
+  async analyzeImage(imagePath: string, prompt?: Partial<VisionPrompt>): Promise<ImageAnalysisResult> {
     try {
       // 读取图片
       const base64 = await this.imageProcessor.readImageAsBase64(imagePath)
@@ -197,11 +194,7 @@ export class VisionLLMClient {
   /**
    * 图片对话
    */
-  async chatWithImage(
-    imagePath: string,
-    question: string,
-    context?: string,
-  ): Promise<string> {
+  async chatWithImage(imagePath: string, question: string, context?: string): Promise<string> {
     try {
       const base64 = await this.imageProcessor.readImageAsBase64(imagePath)
       const mimeType = this.imageProcessor.guessMimeType('jpeg')
@@ -229,10 +222,7 @@ export class VisionLLMClient {
   /**
    * 批量分析图片
    */
-  async batchAnalyzeImages(
-    imagePaths: string[],
-    prompt?: Partial<VisionPrompt>,
-  ): Promise<ImageAnalysisResult[]> {
+  async batchAnalyzeImages(imagePaths: string[], prompt?: Partial<VisionPrompt>): Promise<ImageAnalysisResult[]> {
     const results: ImageAnalysisResult[] = []
 
     for (const path of imagePaths) {
@@ -258,12 +248,9 @@ export class VisionLLMClient {
     const defaults: VisionPrompt = {
       systemPrompt: '你是一个专业的图像分析助手。请仔细分析图片内容并提供准确、详细的描述。',
       userQuestion: prompt?.userQuestion || '请描述这张图片的内容。',
-      analysisGoals: prompt?.analysisGoals || [
-        '识别主要对象和元素',
-        '描述场景类型和环境',
-        '如果有文字，提取关键信息',
-        '判断整体情感倾向',
-      ] as string[],
+      analysisGoals:
+        prompt?.analysisGoals ||
+        (['识别主要对象和元素', '描述场景类型和环境', '如果有文字，提取关键信息', '判断整体情感倾向'] as string[]),
       includeOCR: prompt?.includeOCR ?? true,
       responseFormat: prompt?.responseFormat || 'concise',
     }
@@ -294,7 +281,7 @@ export class VisionLLMClient {
     // 这里使用简化实现
 
     // 模拟 API 延迟
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    await new Promise((resolve) => setTimeout(resolve, 1000))
 
     // 简单的启发式回复（实际应调用真实 Vision LLM）
     return this.simpleHeuristicResponse(messages)
@@ -304,7 +291,7 @@ export class VisionLLMClient {
    * 简单启发式回复（降级方案）
    */
   private simpleHeuristicResponse(messages: MultimodalMessage[]): string {
-    const imageMsg = messages.find(m => m.type === 'image')
+    const imageMsg = messages.find((m) => m.type === 'image')
     if (!imageMsg) {
       return '未检测到图片'
     }
@@ -418,7 +405,7 @@ export class VisualPerceptionManager {
     }
 
     if (result.objects && result.objects.length > 0) {
-      const objNames = result.objects.slice(0, 3).map(o => o.name)
+      const objNames = result.objects.slice(0, 3).map((o) => o.name)
       if (objNames.length > 0) {
         responses.push(`我看到有 ${objNames.join(', ')}`)
       }

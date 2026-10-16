@@ -29,10 +29,7 @@ const EXEC_DOCS_REQUIRED = [
 ]
 // docs/project 白名单文档（.gitignore 显式 ! 例外 = 入库意图；曾被 self-purify
 // e2a9699 一并移出跟踪，2026-09-11 恢复后纳入本门禁）
-const PROJECT_DOCS_REQUIRED = [
-  'docs/project/KNOWN_GOTCHAS.md',
-  'docs/project/AI_DEV_SOPS.md',
-]
+const PROJECT_DOCS_REQUIRED = ['docs/project/KNOWN_GOTCHAS.md', 'docs/project/AI_DEV_SOPS.md']
 
 function git(args) {
   try {

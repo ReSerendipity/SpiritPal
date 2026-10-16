@@ -79,12 +79,15 @@ export class WebGLWorkerManager {
   private config: WebGLWorkerConfig
   // pendingRequests 混合了不同 send<T> 的 resolve：(value: unknown) => void 因参数逆变
   // 无法接受 new Promise<T> 的 resolve（TS2322），故此处保留 any 作为类型擦除的容器
-  private pendingRequests: Map<string, {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 异构 pending 表，resolve 需抹平 T
-    resolve: (value: any) => void
-    reject: (error: Error) => void
-    timer: NodeJS.Timeout
-  }> = new Map()
+  private pendingRequests: Map<
+    string,
+    {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 异构 pending 表，resolve 需抹平 T
+      resolve: (value: any) => void
+      reject: (error: Error) => void
+      timer: NodeJS.Timeout
+    }
+  > = new Map()
 
   private requestCounter: number = 0
 
@@ -124,10 +127,7 @@ export class WebGLWorkerManager {
   /**
    * 发送消息到 Worker
    */
-  async send<T = unknown>(
-    type: WorkerMessage['type'],
-    payload?: unknown,
-  ): Promise<T> {
+  async send<T = unknown>(type: WorkerMessage['type'], payload?: unknown): Promise<T> {
     return new Promise((resolve, reject) => {
       const messageId = `msg_${++this.requestCounter}_${Date.now()}`
 
@@ -180,7 +180,7 @@ export class WebGLWorkerManager {
       // 使用 Transferable Objects 零拷贝传输
       this.worker?.postMessage(
         message,
-        [offscreen] // 第二个参数指定可转移对象
+        [offscreen], // 第二个参数指定可转移对象
       )
 
       console.log('[WebGLWorker] Canvas transferred with OffscreenCanvas')

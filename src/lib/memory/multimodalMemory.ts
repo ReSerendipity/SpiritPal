@@ -107,21 +107,25 @@ export interface TextMemoryContent {
 /** 统一的记忆条目 */
 export interface MultimodalMemoryEntry extends MemoryMetadata {
   /** 内容类型相关的详细数据 */
-  content: {
-    type: 'text'
-    data: TextMemoryContent
-  } | {
-    type: 'voice'
-    data: VoiceMemoryContent
-  } | {
-    type: 'image'
-    data: ImageMemoryContent
-  } | {
-    type: 'mixed'
-    text?: TextMemoryContent
-    voice?: VoiceMemoryContent
-    image?: ImageMemoryContent
-  }
+  content:
+    | {
+        type: 'text'
+        data: TextMemoryContent
+      }
+    | {
+        type: 'voice'
+        data: VoiceMemoryContent
+      }
+    | {
+        type: 'image'
+        data: ImageMemoryContent
+      }
+    | {
+        type: 'mixed'
+        text?: TextMemoryContent
+        voice?: VoiceMemoryContent
+        image?: ImageMemoryContent
+      }
 
   /** 用于向量检索的嵌入表示 */
   embedding?: Float32Array
@@ -183,7 +187,7 @@ export class MultimodalMemoryManager {
    * 批量添加记忆
    */
   addMemories(memories: MultimodalMemoryEntry[]): void {
-    memories.forEach(m => this.memories.set(m.id, m))
+    memories.forEach((m) => this.memories.set(m.id, m))
     this.indexBuilt = false
   }
 
@@ -216,34 +220,29 @@ export class MultimodalMemoryManager {
 
     // 应用过滤器
     if (query.type) {
-      results = results.filter(m => m.type === query.type || m.type === 'mixed')
+      results = results.filter((m) => m.type === query.type || m.type === 'mixed')
     }
 
     if (query.timeRange) {
-      results = results.filter(m =>
-        m.createdAt >= query.timeRange!.start &&
-        m.createdAt <= query.timeRange!.end
-      )
+      results = results.filter((m) => m.createdAt >= query.timeRange!.start && m.createdAt <= query.timeRange!.end)
     }
 
     if (query.tags && query.tags.length > 0) {
-      results = results.filter(m =>
-        query.tags!.some(tag => m.tags.includes(tag))
-      )
+      results = results.filter((m) => query.tags!.some((tag) => m.tags.includes(tag)))
     }
 
     if (query.characterId) {
-      results = results.filter(m => m.characterId === query.characterId)
+      results = results.filter((m) => m.characterId === query.characterId)
     }
 
     if (query.minImportance !== undefined) {
-      results = results.filter(m => m.importance >= query.minImportance!)
+      results = results.filter((m) => m.importance >= query.minImportance!)
     }
 
     // 关键词搜索
     if (query.query) {
       const queryLower = query.query.toLowerCase()
-      results = results.filter(m => this.matchesQuery(m, queryLower))
+      results = results.filter((m) => this.matchesQuery(m, queryLower))
     }
 
     // 按时间倒序排序
@@ -286,11 +285,14 @@ export class MultimodalMemoryManager {
     }
 
     // 在标签和关键词中搜索
-    if (memory.tags.some(tag => tag.toLowerCase().includes(query))) {
+    if (memory.tags.some((tag) => tag.toLowerCase().includes(query))) {
       return true
     }
 
-    if (memory.content.type === 'text' && memory.content.data.keywords?.some(kw => kw.toLowerCase().includes(query))) {
+    if (
+      memory.content.type === 'text' &&
+      memory.content.data.keywords?.some((kw) => kw.toLowerCase().includes(query))
+    ) {
       return true
     }
 
@@ -308,19 +310,15 @@ export class MultimodalMemoryManager {
   /**
    * 获取所有记忆（可选过滤）
    */
-  getAllMemories(filters?: {
-    type?: MemoryType
-    characterId?: string
-    limit?: number
-  }): MultimodalMemoryEntry[] {
+  getAllMemories(filters?: { type?: MemoryType; characterId?: string; limit?: number }): MultimodalMemoryEntry[] {
     let result = Array.from(this.memories.values())
 
     if (filters?.type) {
-      result = result.filter(m => m.type === filters.type || m.type === 'mixed')
+      result = result.filter((m) => m.type === filters.type || m.type === 'mixed')
     }
 
     if (filters?.characterId) {
-      result = result.filter(m => m.characterId === filters.characterId)
+      result = result.filter((m) => m.characterId === filters.characterId)
     }
 
     if (filters?.limit) {
@@ -348,16 +346,15 @@ export class MultimodalMemoryManager {
       mixed: 0,
     }
 
-    allMemories.forEach(m => {
+    allMemories.forEach((m) => {
       byType[m.type]++
     })
 
     const recentCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000 // 最近 7 天
-    const recentCount = allMemories.filter(m => m.createdAt > recentCutoff).length
+    const recentCount = allMemories.filter((m) => m.createdAt > recentCutoff).length
 
-    const avgImportance = allMemories.length > 0
-      ? allMemories.reduce((sum, m) => sum + m.importance, 0) / allMemories.length
-      : 0
+    const avgImportance =
+      allMemories.length > 0 ? allMemories.reduce((sum, m) => sum + m.importance, 0) / allMemories.length : 0
 
     return {
       total: allMemories.length,
@@ -381,7 +378,7 @@ export class MultimodalMemoryManager {
   exportToJson(): string {
     const allMemories = Array.from(this.memories.values())
     // 注意：移除 embedding 字段（Float32Array 不可 JSON 序列化）
-    const exportable = allMemories.map(m => ({
+    const exportable = allMemories.map((m) => ({
       ...m,
       embedding: m.embedding ? `[Float32Array(${m.embedding.length})]` : undefined,
     }))

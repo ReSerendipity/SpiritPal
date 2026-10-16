@@ -60,14 +60,10 @@ function ghJson(...cmd) {
 
 /** 读取 release（draft 兼容）：gh release view --json tagName,name,assets */
 function ghReleaseView(tag) {
-  const stdout = execFileSync(
-    'gh',
-    ['release', 'view', tag, '--repo', repo, '--json', 'tagName,name,assets'],
-    {
-      encoding: 'utf-8',
-      env: { ...process.env, GH_TOKEN: process.env.GH_TOKEN || process.env.GITHUB_TOKEN || '' },
-    },
-  )
+  const stdout = execFileSync('gh', ['release', 'view', tag, '--repo', repo, '--json', 'tagName,name,assets'], {
+    encoding: 'utf-8',
+    env: { ...process.env, GH_TOKEN: process.env.GH_TOKEN || process.env.GITHUB_TOKEN || '' },
+  })
   return JSON.parse(stdout)
 }
 

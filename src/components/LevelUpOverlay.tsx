@@ -38,9 +38,7 @@ interface LevelUpOverlayProps {
 export function LevelUpOverlay({ level, characterName, onComplete }: LevelUpOverlayProps) {
   const [phase, setPhase] = useState<'burst' | 'text' | 'fade'>('burst')
   // 粒子飞散距离在挂载时一次性生成（惰性初始化），避免每次渲染重新执行 Math.random
-  const [particleDists] = useState(() =>
-    Array.from({ length: 12 }, () => 60 + Math.random() * 40),
-  )
+  const [particleDists] = useState(() => Array.from({ length: 12 }, () => 60 + Math.random() * 40))
 
   useEffect(() => {
     const t1 = setTimeout(() => setPhase('text'), 300)
@@ -74,19 +72,21 @@ export function LevelUpOverlay({ level, characterName, onComplete }: LevelUpOver
 
       {/* 粒子 */}
       {Array.from({ length: 12 }).map((_, i) => {
-        const angle = (i * 30) * (Math.PI / 180)
+        const angle = i * 30 * (Math.PI / 180)
         const dist = particleDists[i]!
         return (
           <div
             key={i}
             className="absolute h-2 w-2 rounded-full"
-            style={{
-              background: ['#FFD700', '#FFA500', '#FF6347', '#FF69B4'][i % 4],
-              animation: `spiritpal-levelup-particle 1s ease-out forwards`,
-              animationDelay: `${i * 0.03}s`,
-              '--tx': `${Math.cos(angle) * dist}px`,
-              '--ty': `${Math.sin(angle) * dist}px`,
-            } as React.CSSProperties}
+            style={
+              {
+                background: ['#FFD700', '#FFA500', '#FF6347', '#FF69B4'][i % 4],
+                animation: `spiritpal-levelup-particle 1s ease-out forwards`,
+                animationDelay: `${i * 0.03}s`,
+                '--tx': `${Math.cos(angle) * dist}px`,
+                '--ty': `${Math.sin(angle) * dist}px`,
+              } as React.CSSProperties
+            }
           />
         )
       })}

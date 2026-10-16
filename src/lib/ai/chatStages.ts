@@ -33,10 +33,10 @@ export type ChatStage = 'idle' | 'input' | 'waiting' | 'reply' | 'error'
 // ============ 阶段 → 宠物动画映射 ============
 export const STAGE_ANIMATION: Record<ChatStage, PetState> = {
   idle: 'idle',
-  input: 'sit',      // 用户打开聊天 → 宠物坐下来听
-  waiting: 'eat',    // 等待 LLM 回复 → 宠物吃东西
-  reply: 'happy',    // LLM 回复成功 → 宠物开心
-  error: 'sad',      // LLM 回复失败 → 宠物难过
+  input: 'sit', // 用户打开聊天 → 宠物坐下来听
+  waiting: 'eat', // 等待 LLM 回复 → 宠物吃东西
+  reply: 'happy', // LLM 回复成功 → 宠物开心
+  error: 'sad', // LLM 回复失败 → 宠物难过
 }
 
 // ============ 阶段气泡消息 ============

@@ -277,9 +277,7 @@ export class McpHooksManager extends EventEmitter {
 
     if (mapping) {
       // 根据执行结果选择反应
-      const reaction = ctx.success
-        ? mapping.postSuccessReaction
-        : mapping.postErrorReaction
+      const reaction = ctx.success ? mapping.postSuccessReaction : mapping.postErrorReaction
 
       if (reaction) {
         const codingMgr = getCodingReactionManager()

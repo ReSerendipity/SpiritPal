@@ -7,10 +7,5 @@
 import { FeatureComingSoon } from './FeatureComingSoon'
 
 export function LeaderboardPanel() {
-  return (
-    <FeatureComingSoon
-      title="排行榜"
-      description="在线排行榜正在建设中，上线后将支持与所有玩家比拼养成进度。"
-    />
-  )
+  return <FeatureComingSoon title="排行榜" description="在线排行榜正在建设中，上线后将支持与所有玩家比拼养成进度。" />
 }

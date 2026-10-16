@@ -194,9 +194,7 @@ export function MemoryEditModal({ memory, saving = false, onCancel, onSave }: Me
                       className="inline-flex items-center gap-1 rounded-full bg-tangerine/10 px-2 py-0.5 text-xs text-tangerine"
                     >
                       {dimension && (
-                        <span className="text-[10px] opacity-70">
-                          {TAG_DIMENSION_LABEL_MAP[dimension]}
-                        </span>
+                        <span className="text-[10px] opacity-70">{TAG_DIMENSION_LABEL_MAP[dimension]}</span>
                       )}
                       <span>{value}</span>
                       <button

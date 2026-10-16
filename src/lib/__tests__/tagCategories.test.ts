@@ -19,9 +19,7 @@ import {
 
 describe('tagCategories', () => {
   it('TAG_DIMENSIONS 覆盖五个维度且与 label map 一致', () => {
-    expect(TAG_DIMENSIONS.map((d) => d.value).sort()).toEqual(
-      ['concept', 'event', 'item', 'person', 'place'].sort(),
-    )
+    expect(TAG_DIMENSIONS.map((d) => d.value).sort()).toEqual(['concept', 'event', 'item', 'person', 'place'].sort())
     for (const d of TAG_DIMENSIONS) {
       expect(TAG_DIMENSION_LABEL_MAP[d.value]).toBe(d.label)
     }

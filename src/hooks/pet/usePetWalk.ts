@@ -69,71 +69,74 @@ export function usePetWalk(options: UsePetWalkOptions): UsePetWalkReturn {
     if (videoTime <= WALK_ACCEL_START) return 0.0
     if (videoTime <= WALK_FULL_SPEED_START) {
       const t = videoTime - WALK_ACCEL_START
-      return v * t * t / (2.0 * dIn)
+      return (v * t * t) / (2.0 * dIn)
     }
     if (videoTime <= WALK_DECEL_START) {
-      const easeInDist = v * dIn / 2.0
+      const easeInDist = (v * dIn) / 2.0
       const t = videoTime - WALK_FULL_SPEED_START
       return easeInDist + v * t
     }
     if (videoTime <= WALK_STOP) {
-      const easeInDist = v * dIn / 2.0
+      const easeInDist = (v * dIn) / 2.0
       const linearDist = v * dLin
       const t = videoTime - WALK_DECEL_START
-      return easeInDist + linearDist + v * (t - t * t / (2.0 * dOut))
+      return easeInDist + linearDist + v * (t - (t * t) / (2.0 * dOut))
     }
     return 1.0
   }, [])
 
-  const startWalkAnimation = useCallback((targetX: number, animId: AnimationId, onComplete?: () => void) => {
-    if (walkStateRef.current.isWalking) {
-      cancelAnimationFrame(walkAnimFrameRef.current)
-    }
+  const startWalkAnimation = useCallback(
+    (targetX: number, animId: AnimationId, onComplete?: () => void) => {
+      if (walkStateRef.current.isWalking) {
+        cancelAnimationFrame(walkAnimFrameRef.current)
+      }
 
-    const currentX = posRef.current.x
-    setFacing(targetX < currentX ? 'left' : 'right')
-    setPetState('walk')
-    setCurrentAnimId(animId)
+      const currentX = posRef.current.x
+      setFacing(targetX < currentX ? 'left' : 'right')
+      setPetState('walk')
+      setCurrentAnimId(animId)
 
-    walkStateRef.current = {
-      isWalking: true,
-      startTime: Date.now(),
-      startX: currentX,
-      endX: targetX,
-    }
+      walkStateRef.current = {
+        isWalking: true,
+        startTime: Date.now(),
+        startX: currentX,
+        endX: targetX,
+      }
 
-    const animateWalk = () => {
-      const state = walkStateRef.current
-      if (!state.isWalking) return
+      const animateWalk = () => {
+        const state = walkStateRef.current
+        if (!state.isWalking) return
 
-      const now = Date.now()
-      const elapsed = (now - state.startTime) / 1000.0
-      const videoTime = Math.min(elapsed, WALK_VIDEO_DURATION)
-      const walkNorm = elapsed >= WALK_VIDEO_DURATION ? 1.0 : calcWalkPosition(videoTime)
+        const now = Date.now()
+        const elapsed = (now - state.startTime) / 1000.0
+        const videoTime = Math.min(elapsed, WALK_VIDEO_DURATION)
+        const walkNorm = elapsed >= WALK_VIDEO_DURATION ? 1.0 : calcWalkPosition(videoTime)
 
-      const currentXPos = state.startX + (state.endX - state.startX) * walkNorm
-      const currentY = posRef.current.y
+        const currentXPos = state.startX + (state.endX - state.startX) * walkNorm
+        const currentY = posRef.current.y
 
-      const offsetX = currentXPos - state.startX
-      onWalkOffsetChange?.(offsetX)
-      posRef.current.x = currentXPos
+        const offsetX = currentXPos - state.startX
+        onWalkOffsetChange?.(offsetX)
+        posRef.current.x = currentXPos
 
-      if (elapsed >= WALK_VIDEO_DURATION) {
-        state.isWalking = false
-        onWalkOffsetChange?.(0)
-        setPos({ x: state.endX, y: currentY })
-        setPetState('idle')
-        setCurrentAnimId('idle')
-        onComplete?.()
-        onWalkComplete?.()
-        return
+        if (elapsed >= WALK_VIDEO_DURATION) {
+          state.isWalking = false
+          onWalkOffsetChange?.(0)
+          setPos({ x: state.endX, y: currentY })
+          setPetState('idle')
+          setCurrentAnimId('idle')
+          onComplete?.()
+          onWalkComplete?.()
+          return
+        }
+
+        walkAnimFrameRef.current = requestAnimationFrame(animateWalk)
       }
 
       walkAnimFrameRef.current = requestAnimationFrame(animateWalk)
-    }
-
-    walkAnimFrameRef.current = requestAnimationFrame(animateWalk)
-  }, [calcWalkPosition, posRef, setPos, setPetState, setCurrentAnimId, setFacing, onWalkOffsetChange, onWalkComplete])
+    },
+    [calcWalkPosition, posRef, setPos, setPetState, setCurrentAnimId, setFacing, onWalkOffsetChange, onWalkComplete],
+  )
 
   const interruptWalk = useCallback(() => {
     if (walkStateRef.current.isWalking) {

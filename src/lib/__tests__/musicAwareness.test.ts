@@ -1,10 +1,7 @@
 // musicAwareness 单元测试 — 基于 navigator.mediaSession API 的音乐感知
 // 测试轮询机制、状态/元数据变化通知、订阅/取消订阅、单例
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import {
-  MusicAwarenessManager,
-  getMusicAwarenessManager,
-} from '@/lib/system/musicAwareness'
+import { MusicAwarenessManager, getMusicAwarenessManager } from '@/lib/system/musicAwareness'
 import type { MusicStatus } from '@/lib/system/musicAwareness'
 
 // ============ 辅助函数：mock navigator.mediaSession ============

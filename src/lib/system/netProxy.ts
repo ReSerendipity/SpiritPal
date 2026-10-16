@@ -23,8 +23,7 @@ import { invoke } from '@tauri-apps/api/core'
 export function isTauriRuntime(): boolean {
   return (
     typeof window !== 'undefined' &&
-    typeof (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !==
-      'undefined'
+    typeof (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !== 'undefined'
   )
 }
 

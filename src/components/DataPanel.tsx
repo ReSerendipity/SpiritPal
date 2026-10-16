@@ -22,7 +22,19 @@
  * - syncManager: 同步管理器（自动同步、状态订阅）
  */
 import { useState, useRef, useEffect } from 'react'
-import { Download, Upload, AlertCircle, Check, Database, RotateCcw, Cloud, CloudOff, Link, Loader2, Trash2 } from 'lucide-react'
+import {
+  Download,
+  Upload,
+  AlertCircle,
+  Check,
+  Database,
+  RotateCcw,
+  Cloud,
+  CloudOff,
+  Link,
+  Loader2,
+  Trash2,
+} from 'lucide-react'
 import {
   getDataHealthSnapshot,
   subscribeDataHealth,
@@ -32,12 +44,7 @@ import {
   type DataHealthSnapshot,
 } from '@/lib/data/dataHealth'
 import { getDataManager } from '@/lib/data/dataManager'
-import {
-  listDbBackups,
-  restoreDbBackup,
-  deleteDbBackup,
-  type DBBackupInfoTs,
-} from '@/lib/data/dbBackup'
+import { listDbBackups, restoreDbBackup, deleteDbBackup, type DBBackupInfoTs } from '@/lib/data/dbBackup'
 import { cleanupZombieData, getZombieDataReport, type ZombieDataReport } from '@/lib/data/zombieDataCleanup'
 // P1: 数据健康检查 — 接入启动链路（runMigrations + runDirtyDataChecks）的结果展示
 import { syncManager, type SyncStatus } from '@/lib/system/syncManager'
@@ -81,9 +88,11 @@ export function DataPanel() {
 
   // 从 Keychain 加载密码（异步回调中 setState）+ 订阅同步状态
   useEffect(() => {
-    void getWebDAVClient().loadPassword().then((pwd) => {
-      if (pwd) setWebdavPassword('••••••••') // 显示占位符
-    })
+    void getWebDAVClient()
+      .loadPassword()
+      .then((pwd) => {
+        if (pwd) setWebdavPassword('••••••••') // 显示占位符
+      })
     return syncManager.subscribe((status) => setSyncStatus(status))
   }, [])
 
@@ -207,7 +216,11 @@ export function DataPanel() {
       flash('success', '没有需要清理的迁移遗留数据')
       return
     }
-    if (!confirm(`将删除 ${count} 条迁移遗留副本（约 ${formatBytes(zombieReport!.totalEstimatedBytes)}）。这些是行级迁移前的旧数据备份，确认后无法恢复。`)) {
+    if (
+      !confirm(
+        `将删除 ${count} 条迁移遗留副本（约 ${formatBytes(zombieReport!.totalEstimatedBytes)}）。这些是行级迁移前的旧数据备份，确认后无法恢复。`,
+      )
+    ) {
       return
     }
     setCleaning(true)
@@ -325,16 +338,20 @@ export function DataPanel() {
   return (
     <div className="space-y-5">
       {message && (
-        <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${
-          message.type === 'success' ? 'bg-success/15 text-success' : 'bg-error/15 text-error'
-        }`}>
+        <div
+          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${
+            message.type === 'success' ? 'bg-success/15 text-success' : 'bg-error/15 text-error'
+          }`}
+        >
           {message.type === 'success' ? <Check size={14} /> : <AlertCircle size={14} />}
           {message.text}
         </div>
       )}
 
       {/* 数据健康检查（P1：迁移失败 / 脏数据告警） */}
-      <div className={`rounded-xl p-4 ${health && (health.dirtyTotal > 0 || health.migrationFailed > 0) ? 'bg-warning/15' : 'bg-surface/60'}`}>
+      <div
+        className={`rounded-xl p-4 ${health && (health.dirtyTotal > 0 || health.migrationFailed > 0) ? 'bg-warning/15' : 'bg-surface/60'}`}
+      >
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Database size={16} className="text-ink-muted" />
@@ -351,9 +368,7 @@ export function DataPanel() {
         </div>
 
         {health && health.migrationFailed === 0 && health.dirtyTotal === 0 && (
-          <p className="text-[11px] text-success">
-            数据库结构健康（Schema v{health.schemaVersion}），未发现脏数据。
-          </p>
+          <p className="text-[11px] text-success">数据库结构健康（Schema v{health.schemaVersion}），未发现脏数据。</p>
         )}
 
         {health && health.migrationFailed > 0 && (
@@ -372,7 +387,10 @@ export function DataPanel() {
               发现 {health.dirtyTotal} 条未解决脏数据（最高严重度：{health.highestSeverity ?? '无'}）
             </div>
             {health.topIssues.map((issue, idx) => (
-              <div key={`${issue.table}-${idx}`} className="flex items-start justify-between gap-2 py-0.5 text-[11px] text-warning/80">
+              <div
+                key={`${issue.table}-${idx}`}
+                className="flex items-start justify-between gap-2 py-0.5 text-[11px] text-warning/80"
+              >
                 <span className="min-w-0 flex-1 truncate">
                   <span className="font-mono text-warning/90">[{issue.severity}]</span> {issue.description}
                 </span>
@@ -400,7 +418,11 @@ export function DataPanel() {
       <div className="rounded-xl bg-surface/60 p-4">
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {webdavEnabled ? <Cloud size={16} className="text-info" /> : <CloudOff size={16} className="text-ink-muted" />}
+            {webdavEnabled ? (
+              <Cloud size={16} className="text-info" />
+            ) : (
+              <CloudOff size={16} className="text-ink-muted" />
+            )}
             <h3 className="text-sm font-semibold">WebDAV 云同步</h3>
           </div>
           <label className="flex cursor-pointer items-center gap-2">
@@ -471,11 +493,11 @@ export function DataPanel() {
 
             {/* 连接测试结果 */}
             {webdavTestResult && (
-              <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[11px] ${
-                webdavTestResult.success
-                  ? 'bg-success/15 text-success'
-                  : 'bg-error/15 text-error'
-              }`}>
+              <div
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[11px] ${
+                  webdavTestResult.success ? 'bg-success/15 text-success' : 'bg-error/15 text-error'
+                }`}
+              >
                 {webdavTestResult.success ? <Check size={14} /> : <AlertCircle size={14} />}
                 {webdavTestResult.serverInfo || webdavTestResult.error}
               </div>
@@ -588,9 +610,7 @@ export function DataPanel() {
                 </li>
               )
             })}
-            <li className="pt-1 text-[10px] text-ink-faint">
-              共 {backups.length} 份（自动保留最近 3 份）
-            </li>
+            <li className="pt-1 text-[10px] text-ink-faint">共 {backups.length} 份（自动保留最近 3 份）</li>
           </ul>
         )}
       </div>
@@ -610,13 +630,7 @@ export function DataPanel() {
         >
           <Upload size={16} /> 选择备份文件
         </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json"
-          onChange={handleImportFile}
-          className="hidden"
-        />
+        <input ref={fileInputRef} type="file" accept=".json" onChange={handleImportFile} className="hidden" />
       </div>
 
       {/* B-3: 数据治理 —— 迁移遗留数据清理 */}
@@ -626,14 +640,17 @@ export function DataPanel() {
           <h3 className="text-sm font-semibold">数据治理</h3>
         </div>
         <p className="mb-3 text-[11px] text-ink-muted">
-          记忆迁移到行级存储后，旧 blob 会以 .legacy 副本保留 7 天作为回滚保险。您可以在此查看并手动清理这些迁移遗留数据。
+          记忆迁移到行级存储后，旧 blob 会以 .legacy 副本保留 7
+          天作为回滚保险。您可以在此查看并手动清理这些迁移遗留数据。
         </p>
         {zombieReport &&
         (zombieReport.legacyBlobCount > 0 ||
           zombieReport.expiredEpisodeCount > 0 ||
           zombieReport.expiredEntityCount > 0) ? (
           <ul className="mb-3 space-y-1 rounded-lg bg-cream-deep/30 px-3 py-2 text-[11px] text-ink-muted">
-            <li>迁移遗留副本：{zombieReport.legacyBlobCount} 条（约 {formatBytes(zombieReport.totalEstimatedBytes)}）</li>
+            <li>
+              迁移遗留副本：{zombieReport.legacyBlobCount} 条（约 {formatBytes(zombieReport.totalEstimatedBytes)}）
+            </li>
             <li>过期上下文快照：{zombieReport.expiredEpisodeCount} 条</li>
             <li>孤立实体节点：{zombieReport.expiredEntityCount} 条</li>
           </ul>

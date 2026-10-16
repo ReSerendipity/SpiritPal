@@ -39,7 +39,8 @@ describe('redactErrorText', () => {
 
   it('脱敏长 Bearer JWT token（保留前 12 字符）— 模拟百度千帆/混元/OIDC', () => {
     // 构造 200 字符的 JWT token
-    const longToken = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'
+    const longToken =
+      'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'
     const input = `Authorization: Bearer ${longToken}`
     const result = redactErrorText(input)
     // 前 12 字符 "eyJhbGciOiJS" 应保留（"Bearer " + "eyJhbGciOiJS" = 12 chars after Bearer）
@@ -105,11 +106,14 @@ describe('redactErrorText', () => {
   })
 
   it('同时脱敏多种密钥格式', () => {
-    const input = 'sk-abcdefgh1234 Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.payload.sig x-api-key: AIzaSyABC1234567890'
+    const input =
+      'sk-abcdefgh1234 Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.payload.sig x-api-key: AIzaSyABC1234567890'
     const result = redactErrorText(input)
     expect(result).toContain('sk-abcdefgh***')
     expect(result).toContain('***')
-    expect(result).not.toContain('1234 Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.payload.sig x-api-key: AIzaSyABC1234567890')
+    expect(result).not.toContain(
+      '1234 Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.payload.sig x-api-key: AIzaSyABC1234567890',
+    )
   })
 
   it('超长文本被截断到 500 字符', () => {

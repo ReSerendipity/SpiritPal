@@ -34,7 +34,13 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { getDialogueManager } from '@/lib/ai/dialogueManager'
-import { CHARACTERS, getCharacter, getDefaultCharacter, getAllCharacters, saveCustomCharacter } from '@/lib/data/characters'
+import {
+  CHARACTERS,
+  getCharacter,
+  getDefaultCharacter,
+  getAllCharacters,
+  saveCustomCharacter,
+} from '@/lib/data/characters'
 import { initDB, sqliteStorage } from '@/lib/data/db'
 import type {
   NurturingStats,
@@ -687,8 +693,7 @@ export const usePetStore = create<PetStoreState>()(
         const { currentCharacterId, stats } = get()
         const cur = stats[currentCharacterId]
         if (!cur) return
-        const moodGain =
-          Math.floor(Math.random() * (PLAY_MOOD_GAIN_MAX - PLAY_MOOD_GAIN_MIN + 1)) + PLAY_MOOD_GAIN_MIN
+        const moodGain = Math.floor(Math.random() * (PLAY_MOOD_GAIN_MAX - PLAY_MOOD_GAIN_MIN + 1)) + PLAY_MOOD_GAIN_MIN
         const updateCurrentStats = makeUpdateCurrentStats(currentCharacterId, set)
         updateCurrentStats((c) => ({
           mood: clamp(c.mood + moodGain, MIN_STAT, MAX_STAT),
@@ -765,12 +770,8 @@ export const usePetStore = create<PetStoreState>()(
             ...state.stats,
             [currentCharacterId]: {
               ...cur,
-              hunger: isHpStopped
-                ? cur.hunger
-                : clamp(cur.hunger - TICK_HUNGER_DECAY, MIN_STAT, MAX_STAT),
-              mood: isFvStopped
-                ? cur.mood
-                : clamp(cur.mood - TICK_MOOD_DECAY, MIN_STAT, MAX_STAT),
+              hunger: isHpStopped ? cur.hunger : clamp(cur.hunger - TICK_HUNGER_DECAY, MIN_STAT, MAX_STAT),
+              mood: isFvStopped ? cur.mood : clamp(cur.mood - TICK_MOOD_DECAY, MIN_STAT, MAX_STAT),
               health:
                 cur.hunger < HUNGER_THRESHOLD && !isHpStopped
                   ? clamp(cur.health - TICK_HEALTH_DECAY_HUNGRY, MIN_STAT, MAX_STAT)
@@ -867,9 +868,7 @@ export const usePetStore = create<PetStoreState>()(
         const existing = inventory.find((i) => i.id === item.id)
         let newInventory: InventoryItem[]
         if (existing) {
-          newInventory = inventory.map((i) =>
-            i.id === item.id ? { ...i, count: i.count + 1 } : i,
-          )
+          newInventory = inventory.map((i) => (i.id === item.id ? { ...i, count: i.count + 1 } : i))
         } else {
           newInventory = [...inventory, { ...item, count: 1 }]
         }

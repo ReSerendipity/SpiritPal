@@ -28,11 +28,9 @@ export function MessageMetricsBar({ metrics }: MessageMetricsBarProps) {
   const [expanded, setExpanded] = useState(false)
 
   const totalTokens = metrics.promptTokens + metrics.completionTokens
-  const speed = metrics.tokensPerSec ?? (
-    metrics.durationMs > 0
-      ? Math.round(metrics.completionTokens / (metrics.durationMs / 1000))
-      : 0
-  )
+  const speed =
+    metrics.tokensPerSec ??
+    (metrics.durationMs > 0 ? Math.round(metrics.completionTokens / (metrics.durationMs / 1000)) : 0)
 
   return (
     <div className="mt-1 select-none">
@@ -61,21 +59,10 @@ export function MessageMetricsBar({ metrics }: MessageMetricsBarProps) {
             <DetailRow label="输入 tokens" value={fmtNum(metrics.promptTokens)} />
             <DetailRow label="输出 tokens" value={fmtNum(metrics.completionTokens)} />
             <DetailRow label="总耗时" value={fmtDuration(metrics.durationMs)} />
-            <DetailRow
-              label="首 token 延迟"
-              value={metrics.ttftMs != null ? fmtDuration(metrics.ttftMs) : '—'}
-            />
-            <DetailRow
-              label="输出速率"
-              value={speed > 0 ? `${speed} tok/s` : '—'}
-            />
-            <DetailRow
-              label="模型"
-              value={metrics.model ?? '—'}
-            />
-            {metrics.provider && (
-              <DetailRow label="Provider" value={metrics.provider} />
-            )}
+            <DetailRow label="首 token 延迟" value={metrics.ttftMs != null ? fmtDuration(metrics.ttftMs) : '—'} />
+            <DetailRow label="输出速率" value={speed > 0 ? `${speed} tok/s` : '—'} />
+            <DetailRow label="模型" value={metrics.model ?? '—'} />
+            {metrics.provider && <DetailRow label="Provider" value={metrics.provider} />}
           </div>
         </div>
       )}

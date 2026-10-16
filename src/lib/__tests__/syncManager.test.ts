@@ -80,12 +80,15 @@ describe('syncManager', () => {
     })
 
     it('新实例能从 localStorage 恢复配置', () => {
-      localStorage.setItem('spiritpal-sync-config', JSON.stringify({
-        enabled: true,
-        transport: 'webdav',
-        autoSyncInterval: 120000,
-        webdav: { serverUrl: 'https://dav.restore.com/dav/', username: 'restored' },
-      }))
+      localStorage.setItem(
+        'spiritpal-sync-config',
+        JSON.stringify({
+          enabled: true,
+          transport: 'webdav',
+          autoSyncInterval: 120000,
+          webdav: { serverUrl: 'https://dav.restore.com/dav/', username: 'restored' },
+        }),
+      )
       const fresh = new SyncManager()
       const config = fresh.getConfig()
       expect(config.enabled).toBe(true)
@@ -145,7 +148,8 @@ describe('syncManager', () => {
 
   describe('resolveConflict (LWW)', () => {
     it('远程时间戳更新时选择远程值', () => {
-      const result = syncManager.resolveConflict('field1',
+      const result = syncManager.resolveConflict(
+        'field1',
         { value: 'local', timestamp: 100 },
         { value: 'remote', timestamp: 200 },
       )
@@ -154,7 +158,8 @@ describe('syncManager', () => {
     })
 
     it('本地时间戳更新时选择本地值', () => {
-      const result = syncManager.resolveConflict('field1',
+      const result = syncManager.resolveConflict(
+        'field1',
         { value: 'local', timestamp: 200 },
         { value: 'remote', timestamp: 100 },
       )
@@ -166,7 +171,8 @@ describe('syncManager', () => {
       const localDeviceId = syncManager.getDeviceInfo().deviceId
       // 构造字典序大于本地 deviceId 的远程 deviceId
       const remoteDeviceId = localDeviceId + 'z'
-      const result = syncManager.resolveConflict('field1',
+      const result = syncManager.resolveConflict(
+        'field1',
         { value: 'local', timestamp: 100 },
         { value: 'remote', timestamp: 100 },
         remoteDeviceId,
@@ -179,7 +185,8 @@ describe('syncManager', () => {
       const localDeviceId = syncManager.getDeviceInfo().deviceId
       // 构造字典序小于本地 deviceId 的远程 deviceId
       const remoteDeviceId = localDeviceId.slice(0, -1)
-      const result = syncManager.resolveConflict('field1',
+      const result = syncManager.resolveConflict(
+        'field1',
         { value: 'local', timestamp: 100 },
         { value: 'remote', timestamp: 100 },
         remoteDeviceId,
@@ -190,7 +197,8 @@ describe('syncManager', () => {
 
     it('时间戳相同且未传 remoteDeviceId 时保守选择本地值（默认空串）', () => {
       // 兼容性测试：未传 remoteDeviceId 时默认 ''，本地非空 deviceId 必胜
-      const result = syncManager.resolveConflict('field1',
+      const result = syncManager.resolveConflict(
+        'field1',
         { value: 'local', timestamp: 100 },
         { value: 'remote', timestamp: 100 },
       )
@@ -200,7 +208,8 @@ describe('syncManager', () => {
 
     it('时间戳相同且同 deviceId（同设备回声）时保守选择本地值', () => {
       const localDeviceId = syncManager.getDeviceInfo().deviceId
-      const result = syncManager.resolveConflict('field1',
+      const result = syncManager.resolveConflict(
+        'field1',
         { value: 'local', timestamp: 100 },
         { value: 'remote', timestamp: 100 },
         localDeviceId,
@@ -210,7 +219,8 @@ describe('syncManager', () => {
     })
 
     it('返回完整的冲突记录', () => {
-      const result = syncManager.resolveConflict('stats',
+      const result = syncManager.resolveConflict(
+        'stats',
         { value: { a: 1 }, timestamp: 100 },
         { value: { a: 2 }, timestamp: 200 },
       )
@@ -340,10 +350,7 @@ describe('syncManager', () => {
       }
       const applyFn = vi.fn()
       syncManager.configure({ enabled: true, cloudEndpoint: 'https://test.com' })
-      syncManager.injectDataHandlers(
-        () => mockData,
-        applyFn,
-      )
+      syncManager.injectDataHandlers(() => mockData, applyFn)
       await syncManager.sync()
       // 占位实现返回 null，所以 applyRemoteData 不应被调用
       expect(applyFn).not.toHaveBeenCalled()
@@ -358,14 +365,40 @@ describe('syncManager', () => {
         deviceId: 'local-device',
         timestamp: 300,
         version: 2,
-        stats: { c1: { hunger: 80, mood: 70, health: 100, affection: 500, level: 5, exp: 1200, coins: 500, lastTickAt: 300, lastInteractionAt: 300, lastAffectionDecayAt: 300 } },
+        stats: {
+          c1: {
+            hunger: 80,
+            mood: 70,
+            health: 100,
+            affection: 500,
+            level: 5,
+            exp: 1200,
+            coins: 500,
+            lastTickAt: 300,
+            lastInteractionAt: 300,
+            lastAffectionDecayAt: 300,
+          },
+        },
         sharedCoins: 500,
       }
       const remoteData: SyncPayload = {
         deviceId: 'remote-device',
         timestamp: 100, // 远程较旧
         version: 1,
-        stats: { c1: { hunger: 50, mood: 50, health: 50, affection: 100, level: 3, exp: 600, coins: 999, lastTickAt: 100, lastInteractionAt: 100, lastAffectionDecayAt: 100 } },
+        stats: {
+          c1: {
+            hunger: 50,
+            mood: 50,
+            health: 50,
+            affection: 100,
+            level: 3,
+            exp: 600,
+            coins: 999,
+            lastTickAt: 100,
+            lastInteractionAt: 100,
+            lastAffectionDecayAt: 100,
+          },
+        },
         sharedCoins: 999, // 远程值不应被采纳
       }
 
@@ -409,14 +442,40 @@ describe('syncManager', () => {
         deviceId: 'local-device',
         timestamp: 100,
         version: 1,
-        stats: { c1: { hunger: 80, mood: 70, health: 100, affection: 500, level: 5, exp: 1200, coins: 500, lastTickAt: 100, lastInteractionAt: 100, lastAffectionDecayAt: 100 } },
+        stats: {
+          c1: {
+            hunger: 80,
+            mood: 70,
+            health: 100,
+            affection: 500,
+            level: 5,
+            exp: 1200,
+            coins: 500,
+            lastTickAt: 100,
+            lastInteractionAt: 100,
+            lastAffectionDecayAt: 100,
+          },
+        },
         sharedCoins: 500,
       }
       const remoteData: SyncPayload = {
         deviceId: 'remote-device',
         timestamp: 300, // 远程较新
         version: 3,
-        stats: { c1: { hunger: 60, mood: 90, health: 70, affection: 800, level: 8, exp: 3000, coins: 999, lastTickAt: 300, lastInteractionAt: 300, lastAffectionDecayAt: 300 } },
+        stats: {
+          c1: {
+            hunger: 60,
+            mood: 90,
+            health: 70,
+            affection: 800,
+            level: 8,
+            exp: 3000,
+            coins: 999,
+            lastTickAt: 300,
+            lastInteractionAt: 300,
+            lastAffectionDecayAt: 300,
+          },
+        },
         sharedCoins: 999,
       }
 

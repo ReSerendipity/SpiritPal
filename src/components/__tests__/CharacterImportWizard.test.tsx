@@ -87,7 +87,11 @@ describe('CharacterImportWizard', () => {
     render(<CharacterImportWizard onClose={vi.fn()} />)
 
     // Create a mock JSON file
-    const file = new File([JSON.stringify({ id: 'test-cat', name: 'Test Cat', spritePath: '/test.png', spriteType: 'atlas' })], 'test.json', { type: 'application/json' })
+    const file = new File(
+      [JSON.stringify({ id: 'test-cat', name: 'Test Cat', spritePath: '/test.png', spriteType: 'atlas' })],
+      'test.json',
+      { type: 'application/json' },
+    )
 
     // Find the hidden input and fire change event
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
@@ -148,7 +152,9 @@ describe('CharacterImportWizard', () => {
 
     render(<CharacterImportWizard onClose={vi.fn()} />)
 
-    const file = new File([JSON.stringify({ id: 'test-cat', name: 'Test Cat' })], 'test.json', { type: 'application/json' })
+    const file = new File([JSON.stringify({ id: 'test-cat', name: 'Test Cat' })], 'test.json', {
+      type: 'application/json',
+    })
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     fireEvent.change(input, { target: { files: [file] } })
 

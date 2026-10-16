@@ -93,14 +93,14 @@ export interface RecoveryConfig {
 
 /** 默认恢复配置（1/10 比例渐进恢复） */
 export const DEFAULT_RECOVERY_CONFIG: RecoveryConfig = {
-  recoveryRatio: 0.1,          // 每次恢复差距的 10%
-  tickInterval: 1000,          // 每秒 tick
-  completionThreshold: 1,      // 差距 < 1 时直接赋值
+  recoveryRatio: 0.1, // 每次恢复差距的 10%
+  tickInterval: 1000, // 每秒 tick
+  completionThreshold: 1, // 差距 < 1 时直接赋值
   enabled: true,
   hungerMultiplier: 1.0,
   moodMultiplier: 1.0,
   healthMultiplier: 1.0,
-  affectionMultiplier: 0.5,    // 亲密度恢复更慢
+  affectionMultiplier: 0.5, // 亲密度恢复更慢
 }
 
 // ============ 恢复状态 ============
@@ -184,11 +184,7 @@ export class SaveRecoveryManager {
    * @param saveData 存档数据
    * @param currentStats 当前（衰减后的）养成数值
    */
-  loadSave(
-    characterId: string,
-    saveData: SaveData,
-    currentStats: NurturingStats,
-  ): void {
+  loadSave(characterId: string, saveData: SaveData, currentStats: NurturingStats): void {
     if (!this.config.enabled) {
       // 不启用渐进恢复，直接赋值
       this.updateStats?.(characterId, {
@@ -224,16 +220,10 @@ export class SaveRecoveryManager {
 
     // 创建恢复状态
     const now = Date.now()
-    const maxDiff = Math.max(
-      Math.abs(hungerDiff),
-      Math.abs(moodDiff),
-      Math.abs(healthDiff),
-      Math.abs(affectionDiff),
-    )
+    const maxDiff = Math.max(Math.abs(hungerDiff), Math.abs(moodDiff), Math.abs(healthDiff), Math.abs(affectionDiff))
     // 估算恢复时间：log(maxDiff/threshold) / log(1/(1-ratio)) * tickInterval
     const ticksToComplete = Math.ceil(
-      Math.log(maxDiff / this.config.completionThreshold) /
-      Math.log(1 / (1 - this.config.recoveryRatio)),
+      Math.log(maxDiff / this.config.completionThreshold) / Math.log(1 / (1 - this.config.recoveryRatio)),
     )
 
     const state: RecoveryState = {
@@ -288,7 +278,8 @@ export class SaveRecoveryManager {
       // 亲密度恢复
       const affectionDiff = state.target.affection - currentStats.affection
       if (Math.abs(affectionDiff) > this.config.completionThreshold) {
-        updates.affection = currentStats.affection + affectionDiff * this.config.recoveryRatio * this.config.affectionMultiplier
+        updates.affection =
+          currentStats.affection + affectionDiff * this.config.recoveryRatio * this.config.affectionMultiplier
       } else {
         updates.affection = state.target.affection
       }
@@ -326,7 +317,7 @@ export class SaveRecoveryManager {
     }
 
     // 如果没有正在恢复的，停止定时器
-    const anyRecovering = Array.from(this.recoveryStates.values()).some(s => s.recovering)
+    const anyRecovering = Array.from(this.recoveryStates.values()).some((s) => s.recovering)
     if (!anyRecovering) {
       this.stopTicking()
     }
@@ -335,10 +326,7 @@ export class SaveRecoveryManager {
   /** 确保定时器运行 */
   private ensureTicking(): void {
     if (this.tickIntervalId !== null) return
-    this.tickIntervalId = setInterval(
-      () => this.recoveryTick(),
-      this.config.tickInterval,
-    )
+    this.tickIntervalId = setInterval(() => this.recoveryTick(), this.config.tickInterval)
   }
 
   /** 停止定时器 */

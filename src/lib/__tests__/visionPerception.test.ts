@@ -116,9 +116,6 @@ describe('VisionPerceptionManager', () => {
 
     expect(result).toBeNull()
     expect(onError).toHaveBeenCalledOnce()
-    expect(mockInvoke).toHaveBeenCalledWith(
-      'take_screenshot',
-      expect.objectContaining({ region: expect.anything() }),
-    )
+    expect(mockInvoke).toHaveBeenCalledWith('take_screenshot', expect.objectContaining({ region: expect.anything() }))
   })
 })

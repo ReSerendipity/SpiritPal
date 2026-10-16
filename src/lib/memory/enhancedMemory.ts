@@ -59,14 +59,10 @@ import {
   upsertSemanticFact,
   type MemoryRow,
   type MemoryStateRow,
-  type SemanticFactRow,  // P1-6
+  type SemanticFactRow, // P1-6
 } from '@/lib/data/db'
 // S2: 迁移器
-import {
-  stringSimilarity,
-  tokenize,
-  estimateTokens,
-} from '@/lib/system/stringSimilarity'
+import { stringSimilarity, tokenize, estimateTokens } from '@/lib/system/stringSimilarity'
 import { embed, isVectorSearchAvailable, searchSimilar, terminateVectorSearch } from '@/lib/system/vectorSearch'
 import { getEntityManager } from './entityLinking'
 import { INJECTION_CONFIG } from './memoryConfig'
@@ -224,21 +220,21 @@ const QUERY_SYNONYMS: Record<string, string[]> = {
 export class EnhancedMemoryManager {
   private characterId: string
   private storageKey: string
-  private workingMemory: EnhancedMemory[]    // 工作记忆（最近5条）
-  private episodicMemory: EnhancedMemory[]   // 情景记忆（历史对话）
+  private workingMemory: EnhancedMemory[] // 工作记忆（最近5条）
+  private episodicMemory: EnhancedMemory[] // 情景记忆（历史对话）
   // P1-6: 语义层结构化 — 保留 string 类型用于向后兼容（legacy 迁移），新数据写入 structured table
-  private semanticMemory: string             // 语义记忆（摘要，legacy 格式）
-  private semanticFacts: SemanticFactRow[]   // P1-6: 结构化语义事实（从 memory_semantic_facts 表加载）
+  private semanticMemory: string // 语义记忆（摘要，legacy 格式）
+  private semanticFacts: SemanticFactRow[] // P1-6: 结构化语义事实（从 memory_semantic_facts 表加载）
   private autobiographicalMemory: EnhancedMemory[] // 自传记忆（重要事件）
   // B-4 Fix A：被情景压缩"溢出"的记忆不再丢弃，保留为可检索的压缩情景记忆，
   // 仅当检索池过大时按容量上限裁剪。retrieve 会把它纳入候选，避免宠物"忘记"旧细节。
   private compressedEpisodic: EnhancedMemory[] = []
   private topicFrequency: Map<string, number> = new Map()
   // 触发频率控制状态
-  private triggerLog: { timestamp: number; type: string }[] = []  // 触发历史
-  private ignoreCount: Record<string, number> = {}  // 各类型连续忽略次数
-  private lastPeriodicFireDate: Record<string, string> = {}  // 周期事件当日已触发标记
-  private pendingPeriodicEventKey: string | null = null  // 待确认的周期事件键
+  private triggerLog: { timestamp: number; type: string }[] = [] // 触发历史
+  private ignoreCount: Record<string, number> = {} // 各类型连续忽略次数
+  private lastPeriodicFireDate: Record<string, string> = {} // 周期事件当日已触发标记
+  private pendingPeriodicEventKey: string | null = null // 待确认的周期事件键
   // P0-2 修复：真正的"上次对话日期"（YYYY-MM-DD 本地时区），用于时间触发判断。
   // 之前的实现误用 workingMemory[0].lastAccessed，而新记忆创建时 lastAccessed=0
   // 且只有检索命中才更新，导致"新的一天"几乎每条消息都触发（复读机）。
@@ -255,11 +251,11 @@ export class EnhancedMemoryManager {
   private vectorAvailable: boolean | null = null
   private vectorAvailableCheckedAt: number = 0
   private static readonly VECTOR_RETRY_COOLDOWN_MS = 5 * 60 * 1000 // 失败后 5 分钟重试（与 vectorSearch.ts 对齐）
-  private embeddingCache: Map<number, Float32Array> = new Map()  // dbId → embedding
-  private embeddingsLoaded: boolean = false  // 是否已从 SQLite 加载过 embedding
+  private embeddingCache: Map<number, Float32Array> = new Map() // dbId → embedding
+  private embeddingsLoaded: boolean = false // 是否已从 SQLite 加载过 embedding
   // P3-1：RAG 混合检索器（BM25+向量+RRF）——在构造函数中初始化
   private ragRetriever: ReturnType<typeof getRAGRetriever> | null = null
-  private ragIndexBuilt: boolean = false  // RAG 索引是否已构建
+  private ragIndexBuilt: boolean = false // RAG 索引是否已构建
   // S3：查询向量缓存——同一查询 60s 内复用 embedding，消除 D7 双重检索
   private queryEmbeddingCache: Map<string, { embedding: Float32Array; timestamp: number }> = new Map()
   private static readonly QUERY_CACHE_TTL_MS = 60_000 // 60 秒
@@ -286,7 +282,7 @@ export class EnhancedMemoryManager {
     this.workingMemory = []
     this.episodicMemory = []
     this.semanticMemory = ''
-    this.semanticFacts = []  // P1-6: 结构化语义事实
+    this.semanticFacts = [] // P1-6: 结构化语义事实
     this.autobiographicalMemory = []
     this.triggerLog = []
     this.ignoreCount = {}
@@ -388,17 +384,33 @@ export class EnhancedMemoryManager {
       const state = await getMemoryState(this.characterId)
       if (state) {
         this.lastChatDate = state.last_chat_date ?? null
-        try { this.triggerLog = JSON.parse(state.trigger_log ?? '[]') } catch { this.triggerLog = [] }
-        try { this.ignoreCount = JSON.parse(state.ignore_count ?? '{}') } catch { this.ignoreCount = {} }
-        try { this.lastPeriodicFireDate = JSON.parse(state.last_periodic_fire_date ?? '{}') } catch { this.lastPeriodicFireDate = {} }
+        try {
+          this.triggerLog = JSON.parse(state.trigger_log ?? '[]')
+        } catch {
+          this.triggerLog = []
+        }
+        try {
+          this.ignoreCount = JSON.parse(state.ignore_count ?? '{}')
+        } catch {
+          this.ignoreCount = {}
+        }
+        try {
+          this.lastPeriodicFireDate = JSON.parse(state.last_periodic_fire_date ?? '{}')
+        } catch {
+          this.lastPeriodicFireDate = {}
+        }
         try {
           const injectedObj = JSON.parse(state.injected_at ?? '{}')
           this.injectedAt = new Map(Object.entries(injectedObj))
-        } catch { this.injectedAt = new Map() }
+        } catch {
+          this.injectedAt = new Map()
+        }
         try {
           const reassessedArr = JSON.parse(state.llm_reassessed_ids ?? '[]')
           this.llmReassessedIds = new Set(reassessedArr)
-        } catch { this.llmReassessedIds = new Set() }
+        } catch {
+          this.llmReassessedIds = new Set()
+        }
       }
     } catch (e) {
       console.error(`[S2] loadFromRows failed for ${this.characterId}:`, e)
@@ -414,7 +426,11 @@ export class EnhancedMemoryManager {
   private rowToMemory(row: MemoryRow): EnhancedMemory | null {
     if (!row.content) return null
     let tags: string[]
-    try { tags = JSON.parse(row.tags ?? '[]') } catch { tags = [] }
+    try {
+      tags = JSON.parse(row.tags ?? '[]')
+    } catch {
+      tags = []
+    }
     return {
       id: row.memory_id ?? `mem-${row.id}`,
       created_at: new Date(row.created_at).toISOString(),
@@ -487,7 +503,7 @@ export class EnhancedMemoryManager {
       this.workingMemory = data.workingMemory ?? []
       this.episodicMemory = data.episodicMemory ?? []
       this.semanticMemory = data.semanticMemory ?? ''
-      this.semanticFacts = data.semanticFacts ?? []  // P1-6: 结构化语义事实
+      this.semanticFacts = data.semanticFacts ?? [] // P1-6: 结构化语义事实
       this.autobiographicalMemory = data.autobiographicalMemory ?? []
       this.triggerLog = data.triggerLog ?? []
       this.ignoreCount = data.ignoreCount ?? {}
@@ -569,7 +585,7 @@ export class EnhancedMemoryManager {
         workingMemory: this.workingMemory,
         episodicMemory: this.episodicMemory,
         semanticMemory: this.semanticMemory,
-        semanticFacts: this.semanticFacts,  // P1-6: 结构化语义事实
+        semanticFacts: this.semanticFacts, // P1-6: 结构化语义事实
         autobiographicalMemory: this.autobiographicalMemory,
         triggerLog: this.triggerLog,
         ignoreCount: this.ignoreCount,
@@ -680,9 +696,7 @@ export class EnhancedMemoryManager {
       // F4：软上限从配置读取
       const autoLimit = this.categoryConfig.autobiographicalSoftLimit
       if (this.autobiographicalMemory.length > autoLimit) {
-        this.autobiographicalMemory.sort((a, b) =>
-          (b.strength ?? 1) * b.importance - (a.strength ?? 1) * a.importance,
-        )
+        this.autobiographicalMemory.sort((a, b) => (b.strength ?? 1) * b.importance - (a.strength ?? 1) * a.importance)
         this.autobiographicalMemory = this.autobiographicalMemory.slice(0, autoLimit)
       }
     }
@@ -835,10 +849,10 @@ export class EnhancedMemoryManager {
       for (const { id, embedding } of embeddings) {
         this.embeddingCache.set(id, embedding)
       }
-    this.embeddingsLoaded = true
-    // P3-1：构建 RAG 混合检索索引（BM25+向量）
-    this.buildRAGIndex()
-  } catch (e) {
+      this.embeddingsLoaded = true
+      // P3-1：构建 RAG 混合检索索引（BM25+向量）
+      this.buildRAGIndex()
+    } catch (e) {
       console.warn('[EnhancedMemory] Failed to load embeddings:', e)
     }
   }
@@ -858,8 +872,7 @@ export class EnhancedMemoryManager {
       const shouldRecheck =
         this.vectorAvailable === null ||
         (this.vectorAvailable === false &&
-          Date.now() - this.vectorAvailableCheckedAt >=
-            EnhancedMemoryManager.VECTOR_RETRY_COOLDOWN_MS)
+          Date.now() - this.vectorAvailableCheckedAt >= EnhancedMemoryManager.VECTOR_RETRY_COOLDOWN_MS)
       if (shouldRecheck) {
         this.vectorAvailable = await isVectorSearchAvailable()
         this.vectorAvailableCheckedAt = Date.now()
@@ -1065,10 +1078,10 @@ export class EnhancedMemoryManager {
       if (this.compressedEpisodic.length > maxCompressed) {
         this.compressedEpisodic = this.compressedEpisodic.slice(-maxCompressed)
       }
-      const summary = toCompress
-        .map((m) => `${m.category}: ${m.user.slice(0, 50)}`)
-        .join('; ')
-      this.semanticMemory = `${this.semanticMemory} ${summary}`.trim().slice(-this.categoryConfig.semanticSummaryMaxChars)
+      const summary = toCompress.map((m) => `${m.category}: ${m.user.slice(0, 50)}`).join('; ')
+      this.semanticMemory = `${this.semanticMemory} ${summary}`
+        .trim()
+        .slice(-this.categoryConfig.semanticSummaryMaxChars)
     }
   }
 
@@ -1167,9 +1180,7 @@ export class EnhancedMemoryManager {
     // 连续忽略 ≥3 次：该类型间隔加倍（降频 50%）
     const ignores = this.ignoreCount[type] || 0
     if (ignores >= IGNORE_THRESHOLD) {
-      const lastTypeTrigger = [...this.triggerLog]
-        .reverse()
-        .find((t) => t.type === type)
+      const lastTypeTrigger = [...this.triggerLog].reverse().find((t) => t.type === type)
       if (lastTypeTrigger && now - lastTypeTrigger.timestamp < MIN_TRIGGER_INTERVAL_MS * 2) {
         return false
       }
@@ -1269,8 +1280,7 @@ export class EnhancedMemoryManager {
     if (this.lastPeriodicFireDate[eventKey] === todayStr) return null
     this.pendingPeriodicEventKey = eventKey
 
-    const message =
-      ANNIVERSARY_MESSAGES[daysSince] || `主人，今天是我们认识的第 ${daysSince} 天呢！`
+    const message = ANNIVERSARY_MESSAGES[daysSince] || `主人，今天是我们认识的第 ${daysSince} 天呢！`
     return {
       type: 'periodic',
       memories: this.autobiographicalMemory.slice(-3),
@@ -1321,11 +1331,7 @@ export class EnhancedMemoryManager {
       return this.firstInteractionDateCache
     }
 
-    const all = [
-      ...this.workingMemory,
-      ...this.episodicMemory,
-      ...this.autobiographicalMemory,
-    ]
+    const all = [...this.workingMemory, ...this.episodicMemory, ...this.autobiographicalMemory]
     if (all.length === 0) {
       this.firstInteractionDateCache = null
       return null
@@ -1362,9 +1368,7 @@ export class EnhancedMemoryManager {
     const tokens = tokenize(input)
     for (const t of tokens) {
       if (t.length > 1 && (this.topicFrequency.get(t) || 0) >= 3) {
-        const related = this.episodicMemory
-          .filter((m) => m.user.includes(t) || m.tags.includes(t))
-          .slice(0, 3)
+        const related = this.episodicMemory.filter((m) => m.user.includes(t) || m.tags.includes(t)).slice(0, 3)
         if (related.length > 0) {
           return {
             type: 'frequency',
@@ -1384,7 +1388,11 @@ export class EnhancedMemoryManager {
     // S3：优先使用统一检索（复用 getContextForChat 的缓存）
     // B-4：相关性触发排除工作/自传层，语义为"历史会话回忆"，避免单条记忆自我匹配或
     // 永久事实（如"幸运数字7"）抢先命中而压制 emotion/keyword 触发。
-    const retrieved = await this.retrieve(input, 1, { purpose: 'trigger', excludeWorking: true, excludeAutobiographical: true })
+    const retrieved = await this.retrieve(input, 1, {
+      purpose: 'trigger',
+      excludeWorking: true,
+      excludeAutobiographical: true,
+    })
     if (retrieved.length > 0) {
       // 二次验证：LCS 相似度门槛，避免不相关查询误触发
       const bestRetrieved = retrieved[0].memory
@@ -1392,7 +1400,7 @@ export class EnhancedMemoryManager {
       if (lcsScore > 0.15) {
         return {
           type: 'relevance',
-          memories: retrieved.map(r => r.memory),
+          memories: retrieved.map((r) => r.memory),
           message: `我记得你上次说过类似的话呢～`,
           // P0-1：透传真实融合检索分（0-1），替换原 recallEngine 的硬编码 relevance
           score: retrieved[0]?.score,
@@ -1432,9 +1440,7 @@ export class EnhancedMemoryManager {
     const hasEmotion = EMOTION_KEYWORDS.some((kw) => input.includes(kw))
     if (!hasEmotion) return null
 
-    const emotional = this.autobiographicalMemory
-      .filter((m) => m.emotionalIntensity >= 0.5)
-      .slice(0, 2)
+    const emotional = this.autobiographicalMemory.filter((m) => m.emotionalIntensity >= 0.5).slice(0, 2)
 
     if (emotional.length > 0) {
       return {
@@ -1450,9 +1456,7 @@ export class EnhancedMemoryManager {
   private checkKeywordTrigger(input: string): TriggerResult | null {
     for (const kw of EVENT_KEYWORDS) {
       if (input.includes(kw)) {
-        const related = this.autobiographicalMemory
-          .filter((m) => m.tags.some((t) => input.includes(t)))
-          .slice(0, 2)
+        const related = this.autobiographicalMemory.filter((m) => m.tags.some((t) => input.includes(t))).slice(0, 2)
         if (related.length > 0) {
           return {
             type: 'keyword',
@@ -1480,9 +1484,7 @@ export class EnhancedMemoryManager {
     if (this.lastPeriodicFireDate['morning_review'] === today) return null
 
     // 回忆最近一条自传/情景记忆作为"昨天我们聊过"的素材
-    const morningMem =
-      this.autobiographicalMemory.slice(-1)[0] ??
-      this.episodicMemory.slice(-1)[0]
+    const morningMem = this.autobiographicalMemory.slice(-1)[0] ?? this.episodicMemory.slice(-1)[0]
     if (morningMem) {
       // 标记今天已触发，避免后续消息重复触发
       this.lastPeriodicFireDate['morning_review'] = today
@@ -1533,9 +1535,7 @@ export class EnhancedMemoryManager {
     // 第二层：情景记忆（向量检索相关历史）
     const retrieved = await this.searchEpisodic(query, 5)
     if (retrieved.length > 0) {
-      const recalled = retrieved
-        .map((e) => `用户：${e.user}\n角色：${e.assistant}`)
-        .join('\n---\n')
+      const recalled = retrieved.map((e) => `用户：${e.user}\n角色：${e.assistant}`).join('\n---\n')
       parts.push(`【相关历史回忆】\n${recalled}`)
     }
 
@@ -1633,7 +1633,7 @@ export class EnhancedMemoryManager {
     if (this.episodicMemory.length > 0 && usedTokens < tokenBudget) {
       const retrievedResults = query
         ? await this.retrieve(query, 5, { purpose: 'chat' })
-        : this.episodicMemory.slice(-5).map(mem => ({ memory: mem, score: 0, baseScore: 0, fusedScore: 0 }))
+        : this.episodicMemory.slice(-5).map((mem) => ({ memory: mem, score: 0, baseScore: 0, fusedScore: 0 }))
       // 冷却过滤：跳过 INJECTION_COOLDOWN_MS 内已注入的记忆
       const cooled = retrievedResults.filter((r) => {
         const last = this.injectedAt.get(r.memory.id) ?? 0
@@ -1644,9 +1644,7 @@ export class EnhancedMemoryManager {
       // 记录本次注入时间，供后续轮次冷却判断
       for (const r of toInject) this.injectedAt.set(r.memory.id, Date.now())
       if (toInject.length > 0) {
-        const shortTerm = toInject
-          .map((e) => this.formatMemoryByTier(e.memory))
-          .join('\n---\n')
+        const shortTerm = toInject.map((e) => this.formatMemoryByTier(e.memory)).join('\n---\n')
         tryAddSection(`【短期记忆】\n${shortTerm}`)
       }
     }
@@ -1658,17 +1656,16 @@ export class EnhancedMemoryManager {
       if (this.semanticFacts.length > 0) {
         // 结构化语义事实：按重要性排序，格式化输出
         const facts = this.semanticFacts
-          .slice(0, 10)  // 最多取前10条
-          .map(f => `[${f.fact_key}] ${f.fact_value}`)
+          .slice(0, 10) // 最多取前10条
+          .map((f) => `[${f.fact_key}] ${f.fact_value}`)
           .join('\n')
         longTermContent = facts
       } else if (this.semanticMemory) {
         // Fallback: 旧字符串格式
         const remainingBudget = tokenBudget - usedTokens
         const maxChars = Math.max(100, remainingBudget * 3)
-        longTermContent = this.semanticMemory.length > maxChars
-          ? this.semanticMemory.slice(0, maxChars) + '…'
-          : this.semanticMemory
+        longTermContent =
+          this.semanticMemory.length > maxChars ? this.semanticMemory.slice(0, maxChars) + '…' : this.semanticMemory
       } else {
         longTermContent = ''
       }
@@ -1715,18 +1712,14 @@ export class EnhancedMemoryManager {
     now: number,
     currentMood?: { valence: number; arousal: number },
   ): number {
-    const recency = mem.lastAccessed > 0
-      ? 1 / (1 + (now - mem.lastAccessed) / 86400000)
-      : 0.1
+    const recency = mem.lastAccessed > 0 ? 1 / (1 + (now - mem.lastAccessed) / 86400000) : 0.1
     const importance = mem.importance / 100
     const emotionalBoost = mem.emotionalIntensity * 0.2
 
     // P4-3：Temporal Reasoning — 查询包含时间词时，含时间标记的记忆获得加成
     const TIME_KEYWORD_RE = /今天|昨天|明天|上周|下周|这个月|去年|今年|明年|以前|之前|之后/
     const hasTimeQuery = TIME_KEYWORD_RE.test(query)
-    const temporalBoost = hasTimeQuery && mem.tags.some(t => TIME_KEYWORD_RE.test(t))
-      ? 0.1
-      : 0
+    const temporalBoost = hasTimeQuery && mem.tags.some((t) => TIME_KEYWORD_RE.test(t)) ? 0.1 : 0
 
     // F2 修正：情绪一致性——主人当前情绪与记忆情绪越贴近越易被想起
     // 旧公式 1-|mem.valence| 奖励的是"中性记忆"，而非"情绪一致的记忆"
@@ -1737,16 +1730,11 @@ export class EnhancedMemoryManager {
     }
 
     // W1：低 valence 高 arousal（创伤/冲突类）默认降权
-    const traumaPenalty =
-      (mem.emotionalValence ?? 0) < -0.5 && (mem.emotionalArousal ?? 0) > 0.6 ? 0.1 : 0
+    const traumaPenalty = (mem.emotionalValence ?? 0) < -0.5 && (mem.emotionalArousal ?? 0) > 0.6 ? 0.1 : 0
 
-    return baseScore * 0.5
-      + recency * 0.15
-      + importance * 0.3
-      + emotionalBoost
-      + temporalBoost
-      + moodFit
-      - traumaPenalty
+    return (
+      baseScore * 0.5 + recency * 0.15 + importance * 0.3 + emotionalBoost + temporalBoost + moodFit - traumaPenalty
+    )
   }
 
   /**
@@ -1770,7 +1758,12 @@ export class EnhancedMemoryManager {
     // S3：同一查询 5 秒内复用缓存结果（消除 D7）
     // 2.2：带 timeRange 或不带排除项以外的情况不缓存
     const now = Date.now()
-    if (!opts?.timeRange && !hasExclusion && this.lastRetrievalQuery === query && now - this.lastRetrievalTimestamp < 5_000) {
+    if (
+      !opts?.timeRange &&
+      !hasExclusion &&
+      this.lastRetrievalQuery === query &&
+      now - this.lastRetrievalTimestamp < 5_000
+    ) {
       return this.lastRetrievalResultWithScores.slice(0, limit)
     }
 
@@ -1781,7 +1774,7 @@ export class EnhancedMemoryManager {
     if (!opts?.timeRange && !hasExclusion) {
       this.lastRetrievalQuery = query
       this.lastRetrievalResultWithScores = results
-      this.lastRetrievalResult = results.map(r => r.memory)
+      this.lastRetrievalResult = results.map((r) => r.memory)
       this.lastRetrievalTimestamp = now
     }
 
@@ -1800,11 +1793,14 @@ export class EnhancedMemoryManager {
       this.ragIndexBuilt = false
       return
     }
-    void this.ragRetriever.buildIndex(allMemories, this.embeddingCache).then(() => {
-      this.ragIndexBuilt = true
-    }).catch(() => {
-      this.ragIndexBuilt = false
-    })
+    void this.ragRetriever
+      .buildIndex(allMemories, this.embeddingCache)
+      .then(() => {
+        this.ragIndexBuilt = true
+      })
+      .catch(() => {
+        this.ragIndexBuilt = false
+      })
   }
 
   /**
@@ -1815,10 +1811,14 @@ export class EnhancedMemoryManager {
     if (!timeRange) return null
     if (!timeRange.startTime && !timeRange.endTime) return null
     const start = timeRange.startTime
-      ? (typeof timeRange.startTime === 'number' ? timeRange.startTime : new Date(timeRange.startTime).getTime())
+      ? typeof timeRange.startTime === 'number'
+        ? timeRange.startTime
+        : new Date(timeRange.startTime).getTime()
       : 0
     const end = timeRange.endTime
-      ? (typeof timeRange.endTime === 'number' ? timeRange.endTime : new Date(timeRange.endTime).getTime())
+      ? typeof timeRange.endTime === 'number'
+        ? timeRange.endTime
+        : new Date(timeRange.endTime).getTime()
       : Date.now()
     if (isNaN(start) || isNaN(end)) return null
     return { start, end }
@@ -1879,7 +1879,7 @@ export class EnhancedMemoryManager {
     // 2.2：时间范围过滤候选集
     const range = EnhancedMemoryManager.timeRangeToTimestamps(timeRange)
     const candidatePool = range
-      ? this.getRetrievalCandidates().filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
+      ? this.getRetrievalCandidates().filter((m) => EnhancedMemoryManager.isWithinTimeRange(m, range))
       : this.getRetrievalCandidates()
     if (candidatePool.length === 0) return []
 
@@ -1899,7 +1899,7 @@ export class EnhancedMemoryManager {
           // 标准 RRF: score = 1 / (k + rank)，k=60 为 DEFAULT_RAG_CONFIG.rrfK
           const now = Date.now()
           const scored = ragResults
-            .filter(r => EnhancedMemoryManager.isWithinTimeRange(r.memory, range))
+            .filter((r) => EnhancedMemoryManager.isWithinTimeRange(r.memory, range))
             .map((r, idx) => {
               const mem = r.memory
               const rank = idx + 1
@@ -1908,23 +1908,25 @@ export class EnhancedMemoryManager {
               // F2：传入 currentMood
               const fusedScore = this.computeMultiFactorScore(normalizedRRF, mem, query, now, currentMood)
               return { mem, fusedScore }
-            }).sort((a, b) => b.fusedScore - a.fusedScore)
+            })
+            .sort((a, b) => b.fusedScore - a.fusedScore)
 
           // F7：接入 entityLinking——通过实体名查找关联记忆，补充到结果中
-          const entityLinked = (await this.getEntityLinkedMemories(query, limit))
-            .filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
-          const existingIds = new Set(scored.map(s => s.mem.id))
+          const entityLinked = (await this.getEntityLinkedMemories(query, limit)).filter((m) =>
+            EnhancedMemoryManager.isWithinTimeRange(m, range),
+          )
+          const existingIds = new Set(scored.map((s) => s.mem.id))
           const entityExtras = entityLinked
-            .filter(m => !existingIds.has(m.id))
-            .map(mem => ({
+            .filter((m) => !existingIds.has(m.id))
+            .map((mem) => ({
               mem,
               fusedScore: this.computeMultiFactorScore(0.3, mem, query, now, currentMood),
             }))
           // T-5：接入视觉记忆——最近的视觉快照与查询语义相关时并入（观察类线索）
           const visualExtras = (await this.getVisualMemoryCandidates(query, limit))
-            .filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
-            .filter(m => !existingIds.has(m.id))
-            .map(mem => ({
+            .filter((m) => EnhancedMemoryManager.isWithinTimeRange(m, range))
+            .filter((m) => !existingIds.has(m.id))
+            .map((mem) => ({
               mem,
               fusedScore: this.computeMultiFactorScore(0.25, mem, query, now, currentMood),
             }))
@@ -1995,17 +1997,21 @@ export class EnhancedMemoryManager {
     // 2.2：时间范围过滤候选集
     const range = EnhancedMemoryManager.timeRangeToTimestamps(timeRange)
     let candidatePool = range
-      ? this.getRetrievalCandidates().filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
+      ? this.getRetrievalCandidates().filter((m) => EnhancedMemoryManager.isWithinTimeRange(m, range))
       : this.getRetrievalCandidates()
     // B-4：相关性触发排除工作/自传层（避免"用户刚说的这句"或永久事实被当成历史召回）
-    if (excl?.working) candidatePool = candidatePool.filter(m => !this.workingMemory.some(w => w.id === m.id))
-    if (excl?.autobiographical) candidatePool = candidatePool.filter(m => !m.isAutobiographical)
+    if (excl?.working) candidatePool = candidatePool.filter((m) => !this.workingMemory.some((w) => w.id === m.id))
+    if (excl?.autobiographical) candidatePool = candidatePool.filter((m) => !m.isAutobiographical)
     if (candidatePool.length === 0) return []
 
     const queryTokens = this.expandQueryTokens(query)
-    if (queryTokens.size === 0) return candidatePool.slice(-limit).map(mem => ({
-      memory: mem, score: 0.5, baseScore: 0.5, fusedScore: 0.5
-    }))
+    if (queryTokens.size === 0)
+      return candidatePool.slice(-limit).map((mem) => ({
+        memory: mem,
+        score: 0.5,
+        baseScore: 0.5,
+        fusedScore: 0.5,
+      }))
 
     const currentMood = this.getCurrentMood()
     const now = Date.now()
@@ -2018,33 +2024,45 @@ export class EnhancedMemoryManager {
         if (ragResults.length > 0) {
           // P0-3 修复：RRF rank-based 归一化
           const scored = ragResults
-            .filter(r => EnhancedMemoryManager.isWithinTimeRange(r.memory, range))
+            .filter((r) => EnhancedMemoryManager.isWithinTimeRange(r.memory, range))
             .map((r, idx) => {
               const mem = r.memory
               const rank = idx + 1
               const normalizedRRF = 1 / (DEFAULT_RAG_CONFIG.rrfK + rank)
               const fusedScore = this.computeMultiFactorScore(normalizedRRF, mem, query, now, currentMood)
               return { memory: mem, score: fusedScore, baseScore: normalizedRRF, fusedScore }
-            }).sort((a, b) => b.fusedScore - a.fusedScore)
+            })
+            .sort((a, b) => b.fusedScore - a.fusedScore)
 
           // F7：接入 entityLinking
-          const entityLinked = (await this.getEntityLinkedMemories(query, limit))
-            .filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
-          const existingIds = new Set(scored.map(s => s.memory.id))
+          const entityLinked = (await this.getEntityLinkedMemories(query, limit)).filter((m) =>
+            EnhancedMemoryManager.isWithinTimeRange(m, range),
+          )
+          const existingIds = new Set(scored.map((s) => s.memory.id))
           const entityExtras = entityLinked
-            .filter(m => !existingIds.has(m.id))
-            .map(mem => {
+            .filter((m) => !existingIds.has(m.id))
+            .map((mem) => {
               const base = 0.3
-              return { memory: mem, score: this.computeMultiFactorScore(base, mem, query, now, currentMood), baseScore: base, fusedScore: this.computeMultiFactorScore(base, mem, query, now, currentMood) }
+              return {
+                memory: mem,
+                score: this.computeMultiFactorScore(base, mem, query, now, currentMood),
+                baseScore: base,
+                fusedScore: this.computeMultiFactorScore(base, mem, query, now, currentMood),
+              }
             })
 
           // T-5：接入视觉记忆
           const visualExtras = (await this.getVisualMemoryCandidates(query, limit))
-            .filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
-            .filter(m => !existingIds.has(m.id))
-            .map(mem => {
+            .filter((m) => EnhancedMemoryManager.isWithinTimeRange(m, range))
+            .filter((m) => !existingIds.has(m.id))
+            .map((mem) => {
               const base = 0.25
-              return { memory: mem, score: this.computeMultiFactorScore(base, mem, query, now, currentMood), baseScore: base, fusedScore: this.computeMultiFactorScore(base, mem, query, now, currentMood) }
+              return {
+                memory: mem,
+                score: this.computeMultiFactorScore(base, mem, query, now, currentMood),
+                baseScore: base,
+                fusedScore: this.computeMultiFactorScore(base, mem, query, now, currentMood),
+              }
             })
 
           const merged = [...scored, ...entityExtras, ...visualExtras]
@@ -2054,12 +2072,12 @@ export class EnhancedMemoryManager {
           // B-4：相关性触发排除工作/自传层（RAG 结果同样受控，避免高匹配永久事实抢先命中）
           const excluded = (r: RetrievalResult): boolean =>
             Boolean(
-              (excl?.working && this.workingMemory.some(w => w.id === r.memory.id)) ||
-                (excl?.autobiographical && r.memory.isAutobiographical),
+              (excl?.working && this.workingMemory.some((w) => w.id === r.memory.id)) ||
+              (excl?.autobiographical && r.memory.isAutobiographical),
             )
-          const finalMerged = excl?.working || excl?.autobiographical ? merged.filter(r => !excluded(r)) : merged
+          const finalMerged = excl?.working || excl?.autobiographical ? merged.filter((r) => !excluded(r)) : merged
 
-          return finalMerged.map(r => {
+          return finalMerged.map((r) => {
             r.memory.accessCount++
             r.memory.lastAccessed = now
             r.memory.strength = Math.min((r.memory.strength ?? 1) * 1.6 + 0.5, 30)
@@ -2083,7 +2101,9 @@ export class EnhancedMemoryManager {
     const lcsScored = candidatePool.map((mem) => {
       const text = `${mem.user} ${mem.assistant}`.toLowerCase()
       let overlap = 0
-      queryTokens.forEach((t) => { if (text.includes(t)) overlap++ })
+      queryTokens.forEach((t) => {
+        if (text.includes(t)) overlap++
+      })
       const ratio = stringSimilarity(queryLower, text.slice(0, 800))
       const recency = mem.lastAccessed ? 1 / (1 + (now - mem.lastAccessed) / 86400000) : 0.1
       const importance = mem.importance / 100
@@ -2096,7 +2116,7 @@ export class EnhancedMemoryManager {
       .filter((s) => s.score > 0.2)
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
-      .map(r => {
+      .map((r) => {
         r.memory.accessCount++
         r.memory.lastAccessed = now
         return r
@@ -2110,27 +2130,23 @@ export class EnhancedMemoryManager {
     query: string,
     pool: EnhancedMemory[],
     limit: number,
-    _currentMood?: { valence: number; arousal: number }
+    _currentMood?: { valence: number; arousal: number },
   ): Promise<RetrievalResult[]> {
     const vectorResults = await this.vectorSearchInMemories(query, pool, limit)
 
     // vectorSearchInMemories 返回的已计算过 fusedScore，这里近似为 0.7
-    return vectorResults.map(mem => ({
+    return vectorResults.map((mem) => ({
       memory: mem,
       score: 0.7,
       baseScore: 0.7,
-      fusedScore: 0.7
+      fusedScore: 0.7,
     }))
   }
 
   // ============ 获取所有记忆（UI使用）============
 
   getAllMemories(): EnhancedMemory[] {
-    return [
-      ...this.autobiographicalMemory,
-      ...this.episodicMemory,
-      ...this.workingMemory,
-    ]
+    return [...this.autobiographicalMemory, ...this.episodicMemory, ...this.workingMemory]
   }
 
   /**
@@ -2153,9 +2169,7 @@ export class EnhancedMemoryManager {
   getMemoryTimeline(granularity: 'day' | 'week' | 'month' = 'day', timeRange?: TimeRangeFilter): MemoryTimelineEntry[] {
     const range = EnhancedMemoryManager.timeRangeToTimestamps(timeRange)
     const allMemories = this.getAllMemories()
-    const filtered = range
-      ? allMemories.filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
-      : allMemories
+    const filtered = range ? allMemories.filter((m) => EnhancedMemoryManager.isWithinTimeRange(m, range)) : allMemories
     if (filtered.length === 0) return []
 
     const map = new Map<string, EnhancedMemory[]>()
@@ -2200,7 +2214,7 @@ export class EnhancedMemoryManager {
     const firstThursday = tmp.valueOf()
     tmp.setMonth(0, 1)
     if (tmp.getDay() !== 4) {
-      tmp.setMonth(0, 1 + ((4 - tmp.getDay()) + 7) % 7)
+      tmp.setMonth(0, 1 + ((4 - tmp.getDay() + 7) % 7))
     }
     const weekNum = 1 + Math.ceil((firstThursday - tmp.valueOf()) / 604800000)
     return `${y}-W${String(weekNum).padStart(2, '0')}`
@@ -2216,7 +2230,7 @@ export class EnhancedMemoryManager {
     const range = EnhancedMemoryManager.timeRangeToTimestamps(timeRange)
     if (!range) return this.getAllMemories()
     return this.getAllMemories()
-      .filter(m => EnhancedMemoryManager.isWithinTimeRange(m, range))
+      .filter((m) => EnhancedMemoryManager.isWithinTimeRange(m, range))
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
   }
 
@@ -2243,10 +2257,11 @@ export class EnhancedMemoryManager {
     const all = this.getAllMemories()
     if (!query) return all
     const queryLower = query.toLowerCase()
-    return all.filter((m) =>
-      m.user.toLowerCase().includes(queryLower) ||
-      m.assistant.toLowerCase().includes(queryLower) ||
-      m.tags.some((t) => t.includes(queryLower)),
+    return all.filter(
+      (m) =>
+        m.user.toLowerCase().includes(queryLower) ||
+        m.assistant.toLowerCase().includes(queryLower) ||
+        m.tags.some((t) => t.includes(queryLower)),
     )
   }
 
@@ -2346,7 +2361,7 @@ export class EnhancedMemoryManager {
     // B-4 Fix A：清空同步压缩情景记忆
     this.compressedEpisodic = []
     this.semanticMemory = ''
-    this.semanticFacts = []  // P1-6: 清空结构化语义事实
+    this.semanticFacts = [] // P1-6: 清空结构化语义事实
     this.autobiographicalMemory = []
     this.topicFrequency.clear()
     this.triggerLog = []
@@ -2392,14 +2407,12 @@ export class EnhancedMemoryManager {
       const linkedIds = new Set<string>()
       for (const token of queryTokens) {
         const ids = mgr.getLinkedMemoryIds(token)
-        ids.forEach(id => linkedIds.add(id))
+        ids.forEach((id) => linkedIds.add(id))
       }
       if (linkedIds.size === 0) return []
       // 在所有记忆池中查找匹配的记忆
       const allMemories = [...this.episodicMemory, ...this.autobiographicalMemory, ...this.workingMemory]
-      return allMemories
-        .filter(m => linkedIds.has(m.id))
-        .slice(0, limit)
+      return allMemories.filter((m) => linkedIds.has(m.id)).slice(0, limit)
     } catch {
       // entityLinking 不可用时返回空
       return []
@@ -2463,7 +2476,9 @@ export class EnhancedMemoryManager {
       // 简化实现：从最近的工作记忆中取平均 valence/arousal
       if (this.workingMemory.length > 0) {
         const recent = this.workingMemory.slice(-3)
-        let totalV = 0, totalA = 0, count = 0
+        let totalV = 0,
+          totalA = 0,
+          count = 0
         for (const m of recent) {
           if (m.emotionalValence !== undefined) {
             totalV += m.emotionalValence
@@ -2557,8 +2572,8 @@ export class EnhancedMemoryManager {
       }
       this.purgeMemoriesFromStore(mergedAwayMemories)
       // 重新分配合并后的记忆到各层
-      this.episodicMemory = merged.filter(m => !m.isAutobiographical).slice(-50)
-      this.autobiographicalMemory = merged.filter(m => m.isAutobiographical).slice(-20)
+      this.episodicMemory = merged.filter((m) => !m.isAutobiographical).slice(-50)
+      this.autobiographicalMemory = merged.filter((m) => m.isAutobiographical).slice(-20)
       // 记忆合并可能删除内容，使首次互动日期缓存失效
       this.firstInteractionDateCache = undefined
       this.scheduleSave()
@@ -2570,24 +2585,28 @@ export class EnhancedMemoryManager {
   // ============ 导出/导入 ============
 
   export(): string {
-    return JSON.stringify({
-      workingMemory: this.workingMemory,
-      episodicMemory: this.episodicMemory,
-      // B-4 Fix A：备份压缩情景记忆，恢复后不丢旧细节
-      compressedEpisodic: this.compressedEpisodic,
-      semanticMemory: this.semanticMemory,
-      semanticFacts: this.semanticFacts,  // P1-6: 结构化语义事实
-      autobiographicalMemory: this.autobiographicalMemory,
-      triggerLog: this.triggerLog,
-      ignoreCount: this.ignoreCount,
-      lastPeriodicFireDate: this.lastPeriodicFireDate,
-      // P1-1 修复：导出 lastChatDate，使备份恢复后"新的一天"判定不失效
-      lastChatDate: this.lastChatDate,
-      // P1-1 修复：导出注入冷却表，使恢复后记忆不会在冷却期内被重复注入
-      injectedAt: Array.from(this.injectedAt.entries()),
-      // P1-1 修复：导出 LLM 已重评集合，避免恢复后重复重评
-      llmReassessedIds: Array.from(this.llmReassessedIds),
-    }, null, 2)
+    return JSON.stringify(
+      {
+        workingMemory: this.workingMemory,
+        episodicMemory: this.episodicMemory,
+        // B-4 Fix A：备份压缩情景记忆，恢复后不丢旧细节
+        compressedEpisodic: this.compressedEpisodic,
+        semanticMemory: this.semanticMemory,
+        semanticFacts: this.semanticFacts, // P1-6: 结构化语义事实
+        autobiographicalMemory: this.autobiographicalMemory,
+        triggerLog: this.triggerLog,
+        ignoreCount: this.ignoreCount,
+        lastPeriodicFireDate: this.lastPeriodicFireDate,
+        // P1-1 修复：导出 lastChatDate，使备份恢复后"新的一天"判定不失效
+        lastChatDate: this.lastChatDate,
+        // P1-1 修复：导出注入冷却表，使恢复后记忆不会在冷却期内被重复注入
+        injectedAt: Array.from(this.injectedAt.entries()),
+        // P1-1 修复：导出 LLM 已重评集合，避免恢复后重复重评
+        llmReassessedIds: Array.from(this.llmReassessedIds),
+      },
+      null,
+      2,
+    )
   }
 
   import(jsonStr: string): boolean {
@@ -2604,7 +2623,7 @@ export class EnhancedMemoryManager {
       // B-4 Fix A：恢复压缩情景记忆
       this.compressedEpisodic = data.compressedEpisodic ?? []
       this.semanticMemory = data.semanticMemory ?? ''
-      this.semanticFacts = data.semanticFacts ?? []  // P1-6: 结构化语义事实
+      this.semanticFacts = data.semanticFacts ?? [] // P1-6: 结构化语义事实
       this.autobiographicalMemory = data.autobiographicalMemory ?? []
       this.triggerLog = data.triggerLog ?? []
       this.ignoreCount = data.ignoreCount ?? {}
@@ -2823,8 +2842,8 @@ export class EnhancedMemoryManager {
           character_id: this.characterId,
           fact_key: `consolidation-${consolidationId}`,
           fact_value: summary,
-          source_memory_ids: candidates.map(m => m.id),
-          importance: 50,  // 中等重要性
+          source_memory_ids: candidates.map((m) => m.id),
+          importance: 50, // 中等重要性
           created_at: now,
           updated_at: now,
           is_autobiographical: 0,
@@ -2875,9 +2894,7 @@ export class EnhancedMemoryManager {
 
   /** 简单拼接摘要（LLM 不可用时的回退） */
   private generateSimpleSummary(memories: EnhancedMemory[]): string {
-    return memories
-      .map((m) => `[${m.category}] ${m.user.slice(0, 60)}`)
-      .join('；')
+    return memories.map((m) => `[${m.category}] ${m.user.slice(0, 60)}`).join('；')
   }
 
   /** 获取晋升事件日志 */
@@ -2933,12 +2950,8 @@ export class EnhancedMemoryManager {
     const DAY_MS = 86400000
     const now = Date.now()
     // 选取 24h 内未重评的记忆
-    const candidates = [
-      ...this.episodicMemory,
-      ...this.workingMemory,
-    ].filter((m) =>
-      now - new Date(m.created_at).getTime() < DAY_MS &&
-      !this.llmReassessedIds.has(m.id),
+    const candidates = [...this.episodicMemory, ...this.workingMemory].filter(
+      (m) => now - new Date(m.created_at).getTime() < DAY_MS && !this.llmReassessedIds.has(m.id),
     )
     if (candidates.length === 0) return
 

@@ -25,7 +25,7 @@ export interface MemoryEntity {
   id: string
   name: string
   type: 'person' | 'location' | 'time' | 'event' | 'object' | 'concept'
-  memoryIds: string[]  // 关联的记忆 ID 列表
+  memoryIds: string[] // 关联的记忆 ID 列表
   embedding?: Float32Array
   createdAt: number
 }
@@ -36,7 +36,7 @@ export interface MemoryEntityEdge {
   entityA: string
   entityB: string
   weight: number
-  cooccurCount: number  // 共现次数
+  cooccurCount: number // 共现次数
   createdAt: number
 }
 
@@ -76,7 +76,7 @@ export async function upsertEntity(
   name: string,
   type: MemoryEntity['type'],
   memoryId: string,
-  embedding?: Float32Array
+  embedding?: Float32Array,
 ): Promise<string> {
   const now = Date.now()
   const candidateId = `ent-${now}-${Math.random().toString(36).slice(2, 9)}`
@@ -93,12 +93,8 @@ export async function upsertEntity(
 /**
  * 添加或更新实体关系边
  */
-export async function upsertEntityEdge(
-  entityA: string,
-  entityB: string,
-  weightIncrement: number = 1.0
-): Promise<void> {
-  const [a, b] = entityA < entityB ? [entityA, entityB] : [entityB, entityA]  // 保证顺序一致
+export async function upsertEntityEdge(entityA: string, entityB: string, weightIncrement: number = 1.0): Promise<void> {
+  const [a, b] = entityA < entityB ? [entityA, entityB] : [entityB, entityA] // 保证顺序一致
   await upsertEntityGraphEdge({ entityA: a, entityB: b, weightIncrement, createdAt: Date.now() })
 }
 
@@ -110,7 +106,7 @@ export async function findEntitiesByName(names: string[]): Promise<MemoryEntity[
 
   const rows = await findEntityNodesByName(names)
 
-  return rows.map(r => ({
+  return rows.map((r) => ({
     id: r.id,
     name: r.name,
     type: r.type as MemoryEntity['type'],
@@ -122,9 +118,7 @@ export async function findEntitiesByName(names: string[]): Promise<MemoryEntity[
 /**
  * 获取实体的邻居节点
  */
-export async function getEntityNeighbors(
-  entityName: string
-): Promise<{ neighbor: string; weight: number }[]> {
+export async function getEntityNeighbors(entityName: string): Promise<{ neighbor: string; weight: number }[]> {
   return getEntityGraphNeighbors(entityName)
 }
 
@@ -142,26 +136,26 @@ export async function getEntityNeighbors(
 export async function personalizedPageRank(
   seeds: string[],
   damping: number = 0.15,
-  iterations: number = 20
+  iterations: number = 20,
 ): Promise<Map<string, number>> {
   const scores = new Map<string, number>()
   if (seeds.length === 0) return scores
 
   // 初始化种子节点分数
-  seeds.forEach(s => scores.set(s, 1 / seeds.length))
+  seeds.forEach((s) => scores.set(s, 1 / seeds.length))
 
   // 幂迭代
   for (let i = 0; i < iterations; i++) {
     const newScores = new Map<string, number>()
 
     // 阻尼因子：随机跳转回种子
-    seeds.forEach(s => {
+    seeds.forEach((s) => {
       newScores.set(s, (newScores.get(s) || 0) + damping / seeds.length)
     })
 
     // 扩散：沿边传播分数
     for (const [node, score] of Array.from(scores.entries())) {
-      if (score < 0.001) continue  // 剪枝：忽略极小分数
+      if (score < 0.001) continue // 剪枝：忽略极小分数
       const neighbors = await getEntityNeighbors(node)
       const totalWeight = neighbors.reduce((sum, n) => sum + n.weight, 0)
       if (totalWeight === 0) continue
@@ -175,7 +169,7 @@ export async function personalizedPageRank(
     // 更新分数
     scores.clear()
     for (const [k, v] of Array.from(newScores.entries())) {
-      if (v > 0.001) scores.set(k, v)  // 剪枝
+      if (v > 0.001) scores.set(k, v) // 剪枝
     }
   }
 
@@ -188,7 +182,7 @@ export async function personalizedPageRank(
  */
 export async function pprMultiHopRetrieval(
   queryEntities: string[],
-  topK: number = 10
+  topK: number = 10,
 ): Promise<{ memoryId: string; pprScore: number; entityPath: string[] }[]> {
   const pprScores = await personalizedPageRank(queryEntities)
   const results: { memoryId: string; pprScore: number; entityPath: string[] }[] = []
@@ -196,7 +190,7 @@ export async function pprMultiHopRetrieval(
   // 获取高分实体的关联记忆
   const sortedEntities = Array.from(pprScores.entries())
     .sort((a, b) => b[1] - a[1])
-    .slice(0, topK * 2)  // 取 2x 作为候选
+    .slice(0, topK * 2) // 取 2x 作为候选
 
   for (const [entityName, score] of sortedEntities) {
     const entities = await findEntitiesByName([entityName])
@@ -210,7 +204,7 @@ export async function pprMultiHopRetrieval(
   // 去重并按分数排序
   const seen = new Set<string>()
   return results
-    .filter(r => {
+    .filter((r) => {
       if (seen.has(r.memoryId)) return false
       seen.add(r.memoryId)
       return true
@@ -254,7 +248,7 @@ export function extractEntitiesSimple(text: string): { name: string; type: Memor
 
   // 去重
   const seen = new Set<string>()
-  return entities.filter(e => {
+  return entities.filter((e) => {
     const key = `${e.name}:${e.type}`
     if (seen.has(key)) return false
     seen.add(key)
@@ -266,9 +260,7 @@ export function extractEntitiesSimple(text: string): { name: string; type: Memor
  * 从记忆构建实体图（批量）
  * 用于初始化或重建实体图
  */
-export async function buildEntityGraphFromMemories(
-  memories: EnhancedMemory[]
-): Promise<void> {
+export async function buildEntityGraphFromMemories(memories: EnhancedMemory[]): Promise<void> {
   await initEntityGraphTables()
 
   for (const memory of memories) {

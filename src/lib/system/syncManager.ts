@@ -44,7 +44,14 @@
  * P3-21: WebDAV 自动同步支持
  */
 
-import type { NurturingStats, InventoryItem, AppSettings, ChatMessage, WornDecoration, BackgroundConfig } from '@/lib/data/types'
+import type {
+  NurturingStats,
+  InventoryItem,
+  AppSettings,
+  ChatMessage,
+  WornDecoration,
+  BackgroundConfig,
+} from '@/lib/data/types'
 
 // ============ 同步数据类型 ============
 
@@ -105,7 +112,7 @@ export type SyncStatus = 'idle' | 'syncing' | 'success' | 'error' | 'offline'
 export interface SyncConfig {
   enabled: boolean
   autoSyncInterval: number // 自动同步间隔（毫秒），0 = 禁用
-  transport: 'cloud' | 'lan' | 'webdav'  // [P3-21] 新增 WebDAV 传输
+  transport: 'cloud' | 'lan' | 'webdav' // [P3-21] 新增 WebDAV 传输
   cloudEndpoint?: string
   lanPort?: number
   webdav?: {
@@ -242,10 +249,7 @@ export class SyncManager {
   /**
    * 注入本地数据访问函数（由 stores 调用）
    */
-  injectDataHandlers(
-    getData: () => SyncPayload | null,
-    applyData: (data: SyncPayload) => void,
-  ): void {
+  injectDataHandlers(getData: () => SyncPayload | null, applyData: (data: SyncPayload) => void): void {
     this.getLocalData = getData
     this.applyRemoteData = applyData
   }
@@ -468,9 +472,17 @@ export class SyncManager {
       if (remoteData && this.applyRemoteData) {
         // 逐字段比较并应用
         const fieldsToMerge: Array<keyof SyncPayload> = [
-          'stats', 'sharedCoins', 'currentCharacterId', 'inventory',
-          'wornDecorations', 'background', 'position', 'settings',
-          'sessions', 'messagesBySession', 'activeSessionByCharacter',
+          'stats',
+          'sharedCoins',
+          'currentCharacterId',
+          'inventory',
+          'wornDecorations',
+          'background',
+          'position',
+          'settings',
+          'sessions',
+          'messagesBySession',
+          'activeSessionByCharacter',
         ]
 
         // BUGFIX: [R6-B] 修复整体覆盖导致本地新值丢失的 Bug
@@ -575,11 +587,13 @@ export class SyncManager {
         position: payload.position,
       },
       settings: payload.settings,
-      chatData: payload.sessions ? {
-        sessions: payload.sessions,
-        messagesBySession: payload.messagesBySession,
-        activeSessionByCharacter: payload.activeSessionByCharacter,
-      } : undefined,
+      chatData: payload.sessions
+        ? {
+            sessions: payload.sessions,
+            messagesBySession: payload.messagesBySession,
+            activeSessionByCharacter: payload.activeSessionByCharacter,
+          }
+        : undefined,
     })
 
     // 下载远程数据

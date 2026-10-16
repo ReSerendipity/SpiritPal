@@ -155,12 +155,11 @@ describe('S2: 迁移场景 — 4 种存量库场景', () => {
   })
 
   it('场景2: ENC1 旧库 → 迁移应解密并写入行', async () => {
-    const { getSetting, isMemoryMigrated, isLegacyMode, insertMemoryRow, upsertMemorySummary, upsertMemoryState } = await import('@/lib/data/db')
+    const { getSetting, isMemoryMigrated, isLegacyMode, insertMemoryRow, upsertMemorySummary, upsertMemoryState } =
+      await import('@/lib/data/db')
     const { migrateCharacterMemory } = await import('@/lib/memory/memoryMigrator')
 
-    const legacyData = makeLegacyBlobData([
-      { user: '你好', assistant: '你好呀', id: 'mem-enc1-001' },
-    ])
+    const legacyData = makeLegacyBlobData([{ user: '你好', assistant: '你好呀', id: 'mem-enc1-001' }])
     vi.mocked(getSetting).mockResolvedValueOnce(`ENC1:${legacyData}`)
     vi.mocked(isMemoryMigrated).mockResolvedValueOnce(false)
     vi.mocked(isLegacyMode).mockResolvedValueOnce(false)
@@ -210,9 +209,7 @@ describe('S2: 迁移场景 — 4 种存量库场景', () => {
     const { getSetting, isMemoryMigrated, isLegacyMode, insertMemoryRow } = await import('@/lib/data/db')
     const { migrateCharacterMemory } = await import('@/lib/memory/memoryMigrator')
 
-    const legacyData = makeLegacyBlobData([
-      { user: '数据', assistant: '回复', id: 'mem-fail-001' },
-    ])
+    const legacyData = makeLegacyBlobData([{ user: '数据', assistant: '回复', id: 'mem-fail-001' }])
     vi.mocked(getSetting).mockResolvedValueOnce(`ENC2:${legacyData}`)
     vi.mocked(isMemoryMigrated).mockResolvedValueOnce(false)
     vi.mocked(isLegacyMode).mockResolvedValueOnce(false)
@@ -240,10 +237,7 @@ describe('S2: 迁移场景 — 4 种存量库场景', () => {
     await migrateCharacterMemory('legacy-char')
 
     // .legacy 副本应被写入
-    expect(setSetting).toHaveBeenCalledWith(
-      'spiritpal-enhanced-memory-legacy-char.legacy',
-      encBlob,
-    )
+    expect(setSetting).toHaveBeenCalledWith('spiritpal-enhanced-memory-legacy-char.legacy', encBlob)
   })
 })
 
@@ -270,9 +264,6 @@ describe('S2: corrupt 保留逻辑', () => {
     await mgr.ensureLoaded()
 
     // .corrupt 副本应被写入
-    expect(setSetting).toHaveBeenCalledWith(
-      expect.stringContaining('.corrupt'),
-      corruptBlob,
-    )
+    expect(setSetting).toHaveBeenCalledWith(expect.stringContaining('.corrupt'), corruptBlob)
   })
 })

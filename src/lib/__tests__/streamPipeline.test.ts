@@ -56,10 +56,7 @@ async function* arraySource(chunks: string[]): AsyncIterable<string> {
 }
 
 /** 同步收集管道全部事件 */
-async function collect(
-  source: AsyncIterable<string>,
-  options: PipelineOptions = {},
-): Promise<StreamEvent[]> {
+async function collect(source: AsyncIterable<string>, options: PipelineOptions = {}): Promise<StreamEvent[]> {
   const events: StreamEvent[] = []
   for await (const event of streamPipeline(source, options)) {
     events.push(event)

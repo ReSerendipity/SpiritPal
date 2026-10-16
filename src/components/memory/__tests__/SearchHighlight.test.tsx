@@ -52,9 +52,7 @@ describe('highlightText', () => {
   })
 
   it('多关键词同时高亮', () => {
-    const html = renderToStaticMarkup(
-      <>{highlightText('昨天和小张喝咖啡', ['昨天', '咖啡'])}</>,
-    )
+    const html = renderToStaticMarkup(<>{highlightText('昨天和小张喝咖啡', ['昨天', '咖啡'])}</>)
     expect((html.match(/<mark/g) ?? []).length).toBe(2)
   })
 

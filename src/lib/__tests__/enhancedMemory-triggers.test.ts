@@ -89,7 +89,7 @@ describe('EnhancedMemoryManager', () => {
     })
   })
 
-describe('触发频率控制', () => {
+  describe('触发频率控制', () => {
     it('canTrigger 初始允许触发', () => {
       expect(mgr.canTrigger('frequency')).toBe(true)
     })
@@ -120,7 +120,7 @@ describe('触发频率控制', () => {
     })
   })
 
-describe('触发机制详解', () => {
+  describe('触发机制详解', () => {
     describe('checkFrequencyTrigger', () => {
       it('Latin token 出现3次以上且有情结记忆', async () => {
         for (let i = 0; i < 7; i++) {
@@ -237,12 +237,10 @@ describe('触发机制详解', () => {
     })
   })
 
-describe('周期触发', () => {
+  describe('周期触发', () => {
     it('纪念日里程碑（100天）', async () => {
       mgr.addExchange('first message', 'first reply')
-      mgr.getWorkingMemories()[0].created_at = new Date(
-        Date.now() - 100 * 86400000,
-      ).toISOString()
+      mgr.getWorkingMemories()[0].created_at = new Date(Date.now() - 100 * 86400000).toISOString()
       const result = await mgr.checkTriggers()
       expect(result).not.toBeNull()
       expect(result!.type).toBe('periodic')
@@ -251,9 +249,7 @@ describe('周期触发', () => {
 
     it('同一天不重复触发纪念日', async () => {
       mgr.addExchange('first message', 'first reply')
-      mgr.getWorkingMemories()[0].created_at = new Date(
-        Date.now() - 100 * 86400000,
-      ).toISOString()
+      mgr.getWorkingMemories()[0].created_at = new Date(Date.now() - 100 * 86400000).toISOString()
       const r1 = await mgr.checkTriggers()
       expect(r1).not.toBeNull()
       const r2 = await mgr.checkTriggers()
@@ -262,17 +258,13 @@ describe('周期触发', () => {
 
     it('认识不足100天不触发纪念日', async () => {
       mgr.addExchange('first', 'reply')
-      mgr.getWorkingMemories()[0].created_at = new Date(
-        Date.now() - 50 * 86400000,
-      ).toISOString()
+      mgr.getWorkingMemories()[0].created_at = new Date(Date.now() - 50 * 86400000).toISOString()
       expect(await mgr.checkTriggers()).toBeNull()
     })
 
     it('认识天数非里程碑不触发', async () => {
       mgr.addExchange('first', 'reply')
-      mgr.getWorkingMemories()[0].created_at = new Date(
-        Date.now() - 101 * 86400000,
-      ).toISOString()
+      mgr.getWorkingMemories()[0].created_at = new Date(Date.now() - 101 * 86400000).toISOString()
       expect(await mgr.checkTriggers()).toBeNull()
     })
 
@@ -314,10 +306,7 @@ describe('周期触发', () => {
 
     it('宠物生日触发', async () => {
       const now = new Date()
-      localStorage.setItem(
-        'spiritpal-pet-birthday-test-char',
-        `${now.getMonth() + 1}-${now.getDate()}`,
-      )
+      localStorage.setItem('spiritpal-pet-birthday-test-char', `${now.getMonth() + 1}-${now.getDate()}`)
       const result = await mgr.checkTriggers()
       expect(result).not.toBeNull()
       expect(result!.message).toContain('生日快乐')
@@ -342,20 +331,14 @@ describe('周期触发', () => {
 
     it('周期触发被频率限制（主动模式返回null）', async () => {
       const now = new Date()
-      localStorage.setItem(
-        'spiritpal-pet-birthday-test-char',
-        `${now.getMonth() + 1}-${now.getDate()}`,
-      )
+      localStorage.setItem('spiritpal-pet-birthday-test-char', `${now.getMonth() + 1}-${now.getDate()}`)
       mgr.recordTrigger('frequency')
       expect(await mgr.checkTriggers()).toBeNull()
     })
 
     it('周期触发被限流但有输入时继续检查其他触发', async () => {
       const now = new Date()
-      localStorage.setItem(
-        'spiritpal-pet-birthday-test-char',
-        `${now.getMonth() + 1}-${now.getDate()}`,
-      )
+      localStorage.setItem('spiritpal-pet-birthday-test-char', `${now.getMonth() + 1}-${now.getDate()}`)
       mgr.recordTrigger('frequency')
       mgr.addExchange('开心难过生气害怕担心', '我理解')
       const result = await mgr.checkTriggers('我今天好开心')

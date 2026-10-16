@@ -48,12 +48,7 @@ const DEFAULT_THINK_PHRASES: string[] = [
 ]
 
 /** 快速思考短语 — 用于短响应场景（如简单问答） */
-const QUICK_THINK_PHRASES: string[] = [
-  '嗯…',
-  '让我看看…',
-  '马上！',
-  '好嘞～',
-]
+const QUICK_THINK_PHRASES: string[] = ['嗯…', '让我看看…', '马上！', '好嘞～']
 
 /** 深度思考短语 — 用于复杂分析场景（如代码审查、逻辑推理） */
 const DEEP_THINK_PHRASES: string[] = [
@@ -141,11 +136,7 @@ export class ThinkBubbleManager {
     this.thinkStartTime = Date.now()
 
     // 根据模式选择短语池
-    const phrases = mode === 'quick'
-      ? QUICK_THINK_PHRASES
-      : mode === 'deep'
-        ? DEEP_THINK_PHRASES
-        : this.config.phrases
+    const phrases = mode === 'quick' ? QUICK_THINK_PHRASES : mode === 'deep' ? DEEP_THINK_PHRASES : this.config.phrases
 
     // 选择初始短语
     this.currentPhrase = this.pickRandom(phrases)

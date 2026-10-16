@@ -61,10 +61,7 @@ export interface ChromaKeyResult {
  * 对 ImageData 执行色度键抠像：RGB 均 <= threshold 的像素 alpha 置 0。
  * 原地修改 data 并返回统计结果。
  */
-export function applyChromaKey(
-  imageData: ImageData,
-  threshold: number = CHROMA_KEY_THRESHOLD,
-): ChromaKeyResult {
+export function applyChromaKey(imageData: ImageData, threshold: number = CHROMA_KEY_THRESHOLD): ChromaKeyResult {
   const d = imageData.data
   let keyed = 0
   for (let i = 0; i < d.length; i += 4) {

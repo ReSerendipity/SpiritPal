@@ -97,7 +97,9 @@ export function FirstRunGreeting({ character, onConfirm, onBrowse, onGotoAIConfi
                 </button>
               )}
               <button
-                onClick={() => { /* 提示消失，用户直接进入日常陪伴 */ }}
+                onClick={() => {
+                  /* 提示消失，用户直接进入日常陪伴 */
+                }}
                 className="rounded-full bg-cream-deep px-5 py-2.5 text-sm font-medium text-ink-muted hover:bg-ink/5"
               >
                 {t('firstrun.ai_hint_skip')}

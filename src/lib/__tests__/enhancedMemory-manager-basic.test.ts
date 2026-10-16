@@ -75,7 +75,7 @@ describe('EnhancedMemoryManager', () => {
     })
   })
 
-describe('getAllMemories', () => {
+  describe('getAllMemories', () => {
     it('返回所有层级的记忆', () => {
       mgr.addExchange('消息1', '回复1')
       mgr.addExchange('消息2', '回复2')
@@ -84,7 +84,7 @@ describe('getAllMemories', () => {
     })
   })
 
-describe('search', () => {
+  describe('search', () => {
     it('空查询返回所有记忆', () => {
       mgr.addExchange('苹果', '好吃')
       const results = mgr.search('')
@@ -104,7 +104,7 @@ describe('search', () => {
     })
   })
 
-describe('deleteMemory', () => {
+  describe('deleteMemory', () => {
     it('删除指定记忆', () => {
       const mem = mgr.addExchange('测试', '回复')
       expect(mgr.getAllMemories().length).toBeGreaterThan(0)
@@ -113,7 +113,7 @@ describe('deleteMemory', () => {
     })
   })
 
-describe('clear', () => {
+  describe('clear', () => {
     it('清空所有记忆', () => {
       mgr.addExchange('测试1', '回复1')
       mgr.addExchange('测试2', '回复2')
@@ -123,7 +123,7 @@ describe('clear', () => {
     })
   })
 
-describe('export / import', () => {
+  describe('export / import', () => {
     it('export 返回 JSON 字符串', () => {
       mgr.addExchange('测试', '回复')
       const json = mgr.export()
@@ -144,7 +144,7 @@ describe('export / import', () => {
     })
   })
 
-describe('getEnhancedMemoryManager 单例', () => {
+  describe('getEnhancedMemoryManager 单例', () => {
     it('相同 characterId 返回同一实例', () => {
       const m1 = getEnhancedMemoryManager('char-x')
       const m2 = getEnhancedMemoryManager('char-x')

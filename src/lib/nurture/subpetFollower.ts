@@ -82,11 +82,7 @@ export class SubpetFollower {
    * @param config 覆盖默认跟随参数
    * @param offset 相对主宠的期望偏移
    */
-  constructor(
-    start: Position,
-    config?: Partial<SubpetFollowerConfig>,
-    offset?: Position,
-  ) {
+  constructor(start: Position, config?: Partial<SubpetFollowerConfig>, offset?: Position) {
     this.position = { ...start }
     this.config = { ...DEFAULT_FOLLOWER_CONFIG, ...(config ?? {}) }
     if (offset) this.offset = { ...offset }

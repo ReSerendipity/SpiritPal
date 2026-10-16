@@ -35,16 +35,12 @@ vi.mock('@/lib/system/vectorSearch', () => ({
 const db = vi.hoisted(() => ({
   getSetting: vi.fn((_key: string): Promise<string | null> => Promise.resolve(null)),
   setSetting: vi.fn((_key: string, _val: string): Promise<void> => Promise.resolve()),
-  addMemory: vi.fn(
-    (_c: string, _t: string, _x: string, _i: number): Promise<number> => Promise.resolve(1),
-  ),
+  addMemory: vi.fn((_c: string, _t: string, _x: string, _i: number): Promise<number> => Promise.resolve(1)),
   insertMemoryRow: vi.fn((_row: Record<string, unknown>): Promise<number> => Promise.resolve(1)),
   updateMemoryRow: vi.fn((_id: number, _p: Record<string, unknown>): Promise<void> => Promise.resolve()),
   saveEmbedding: vi.fn((_id: number, _e: Float32Array): Promise<void> => Promise.resolve()),
   getAllEmbeddings: vi.fn((_c: string): Promise<unknown[]> => Promise.resolve([])),
-  getMemoriesByTier: vi.fn(
-    (_c: string, _t?: string[] | null): Promise<unknown[]> => Promise.resolve([]),
-  ),
+  getMemoriesByTier: vi.fn((_c: string, _t?: string[] | null): Promise<unknown[]> => Promise.resolve([])),
   getMemorySummary: vi.fn((_c: string): Promise<string | null> => Promise.resolve(null)),
   getMemoryState: vi.fn((_c: string): Promise<unknown> => Promise.resolve(null)),
   getSemanticFacts: vi.fn((_c: string): Promise<unknown[]> => Promise.resolve([])),
@@ -104,8 +100,11 @@ describe('S2 存储模式判定：全新安装', () => {
     await mgr.ensureLoaded()
     await flush()
 
-    expect(db.getMemoriesByTier).toHaveBeenCalledWith('fresh-install-char-2',
-      ['working', 'episodic', 'autobiographical'])
+    expect(db.getMemoriesByTier).toHaveBeenCalledWith('fresh-install-char-2', [
+      'working',
+      'episodic',
+      'autobiographical',
+    ])
     // 行级路径不应再读那个从未被写过的 blob 键
     const blobKeys = db.getSetting.mock.calls
       .map((c) => String(c[0]))

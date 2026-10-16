@@ -10,11 +10,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import {
-  cleanupZombieData,
-  getZombieDataReport,
-  autoCleanupIfDue,
-} from '@/lib/data/zombieDataCleanup'
+import { cleanupZombieData, getZombieDataReport, autoCleanupIfDue } from '@/lib/data/zombieDataCleanup'
 
 const mocks = vi.hoisted(() => ({
   getZombieReport: vi.fn(),
@@ -118,10 +114,7 @@ describe('autoCleanupIfDue', () => {
 
     expect(executed).toBe(true)
     expect(result).toBeTruthy()
-    expect(mocks.setSetting).toHaveBeenCalledWith(
-      'spiritpal-last-zombie-cleanup',
-      expect.any(String),
-    )
+    expect(mocks.setSetting).toHaveBeenCalledWith('spiritpal-last-zombie-cleanup', expect.any(String))
   })
 
   it('24h 内不重复执行', async () => {

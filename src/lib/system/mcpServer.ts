@@ -103,7 +103,8 @@ export function createMcpServer(): McpServer {
         const store = usePetStore.getState()
         const stats = store.getCurrentStats()
         const moodLabel = stats.mood >= 80 ? '开心' : stats.mood >= 50 ? '一般' : stats.mood >= 20 ? '低落' : '难过'
-        const hungerLabel = stats.hunger >= 80 ? '饱' : stats.hunger >= 50 ? '还行' : stats.hunger >= 20 ? '饿了' : '很饿'
+        const hungerLabel =
+          stats.hunger >= 80 ? '饱' : stats.hunger >= 50 ? '还行' : stats.hunger >= 20 ? '饿了' : '很饿'
         return {
           content: [
             {
@@ -165,9 +166,7 @@ export function createMcpServer(): McpServer {
 
         // 触发动画（通过事件通知前端）
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(
-            new CustomEvent('spiritpal-mcp-react', { detail: animId }),
-          )
+          window.dispatchEvent(new CustomEvent('spiritpal-mcp-react', { detail: animId }))
         }
 
         return {
@@ -201,9 +200,7 @@ export function createMcpServer(): McpServer {
       try {
         // 触发气泡消息（通过事件通知前端）
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(
-            new CustomEvent('spiritpal-mcp-say', { detail: message }),
-          )
+          window.dispatchEvent(new CustomEvent('spiritpal-mcp-say', { detail: message }))
         }
 
         return {
@@ -248,30 +245,36 @@ export function createMcpServer(): McpServer {
           }
           const results = mgr.search(query)
           return {
-            content: [{
-              type: 'text' as const,
-              text: JSON.stringify(results.slice(0, 10).map(m => ({
-                user: m.user,
-                assistant: m.assistant,
-                created_at: m.created_at,
-                category: m.category,
-              }))),
-            }],
+            content: [
+              {
+                type: 'text' as const,
+                text: JSON.stringify(
+                  results.slice(0, 10).map((m) => ({
+                    user: m.user,
+                    assistant: m.assistant,
+                    created_at: m.created_at,
+                    category: m.category,
+                  })),
+                ),
+              },
+            ],
           }
         }
 
         // list action
         const all = mgr.getAllMemories()
         return {
-          content: [{
-            type: 'text' as const,
-            text: JSON.stringify({
-              total: all.length,
-              working: mgr.getWorkingMemories().length,
-              episodic: mgr.getEpisodicMemories().length,
-              autobiographical: mgr.getAutobiographicalMemories().length,
-            }),
-          }],
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                total: all.length,
+                working: mgr.getWorkingMemories().length,
+                episodic: mgr.getEpisodicMemories().length,
+                autobiographical: mgr.getAutobiographicalMemories().length,
+              }),
+            },
+          ],
         }
       } catch (err) {
         return {
@@ -288,9 +291,7 @@ export function createMcpServer(): McpServer {
     'spiritpal_memory_edit',
     'Edit the pet memory system: create/read/update/delete memories or get stats',
     {
-      action: z
-        .enum(['create', 'read', 'update', 'delete', 'stats'])
-        .describe('Edit action to perform'),
+      action: z.enum(['create', 'read', 'update', 'delete', 'stats']).describe('Edit action to perform'),
       memoryId: z.string().optional().describe('Target memory ID (required for read/update/delete)'),
       content: z.string().optional().describe('Memory content (create: new text; update: replacement)'),
       category: z.string().optional().describe('Memory category (create/update)'),
@@ -381,26 +382,28 @@ export function createMcpServer(): McpServer {
         )
         if (!food) {
           return {
-            content: [{
-              type: 'text' as const,
-              text: `Food '${foodName}' not found in inventory. Available: ${inventory.map(i => i.name).join(', ') || 'none'}`,
-            }],
+            content: [
+              {
+                type: 'text' as const,
+                text: `Food '${foodName}' not found in inventory. Available: ${inventory.map((i) => i.name).join(', ') || 'none'}`,
+              },
+            ],
             isError: true,
           }
         }
         store.feed(food)
         // 触发事件通知前端
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(
-            new CustomEvent('spiritpal-mcp-feed', { detail: foodName }),
-          )
+          window.dispatchEvent(new CustomEvent('spiritpal-mcp-feed', { detail: foodName }))
         }
         const stats = store.getCurrentStats()
         return {
-          content: [{
-            type: 'text' as const,
-            text: `Fed pet with ${food.name}. Hunger: ${Math.round(stats.hunger)}, Coins: ${store.sharedCoins}`,
-          }],
+          content: [
+            {
+              type: 'text' as const,
+              text: `Fed pet with ${food.name}. Hunger: ${Math.round(stats.hunger)}, Coins: ${store.sharedCoins}`,
+            },
+          ],
         }
       } catch (err) {
         return {
@@ -413,35 +416,30 @@ export function createMcpServer(): McpServer {
 
   // ---- 工具 6: spiritpal_pet ----
   // 摸头宠物（增加好感度）
-  server.tool(
-    'spiritpal_pet',
-    'Pet the pet (pet its head to increase affection)',
-    {},
-    async () => {
-      try {
-        const store = usePetStore.getState()
-        store.pet()
-        // 触发事件通知前端
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(
-            new CustomEvent('spiritpal-mcp-pet'),
-          )
-        }
-        const stats = store.getCurrentStats()
-        return {
-          content: [{
+  server.tool('spiritpal_pet', 'Pet the pet (pet its head to increase affection)', {}, async () => {
+    try {
+      const store = usePetStore.getState()
+      store.pet()
+      // 触发事件通知前端
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('spiritpal-mcp-pet'))
+      }
+      const stats = store.getCurrentStats()
+      return {
+        content: [
+          {
             type: 'text' as const,
             text: `Pet the pet successfully. Affection: ${stats.affection}, Mood: ${Math.round(stats.mood)}`,
-          }],
-        }
-      } catch (err) {
-        return {
-          content: [{ type: 'text' as const, text: `Error: ${err}` }],
-          isError: true,
-        }
+          },
+        ],
       }
-    },
-  )
+    } catch (err) {
+      return {
+        content: [{ type: 'text' as const, text: `Error: ${err}` }],
+        isError: true,
+      }
+    }
+  })
 
   return server
 }

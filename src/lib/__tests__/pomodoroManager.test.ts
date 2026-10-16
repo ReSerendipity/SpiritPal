@@ -1,10 +1,6 @@
 // 番茄钟状态机单测（审计工单 P1-6）
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  __resetPomodoroManagerForTest,
-  getPomodoroManager,
-  type PomodoroReward,
-} from '@/lib/nurture/pomodoroManager'
+import { __resetPomodoroManagerForTest, getPomodoroManager, type PomodoroReward } from '@/lib/nurture/pomodoroManager'
 
 describe('pomodoroManager', () => {
   beforeEach(() => {

@@ -2,12 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setSecret, getSecret, deleteSecret } from '@/lib/data/secureStorage'
 import { safeFetch } from '@/lib/system/ssrfProtection'
-import {
-  WebDAVClient,
-  getWebDAVClient,
-  resetWebDAVClient,
-  type WebDAVConfig,
-} from '@/lib/system/webdavClient'
+import { WebDAVClient, getWebDAVClient, resetWebDAVClient, type WebDAVConfig } from '@/lib/system/webdavClient'
 
 // Mock secureStorage
 vi.mock('@/lib/data/secureStorage', () => ({
@@ -145,17 +140,13 @@ describe('WebDAVClient', () => {
 
   describe('uploadSyncData', () => {
     it('未配置时抛出错误', async () => {
-      await expect(
-        client.uploadSyncData({ timestamp: Date.now(), deviceId: 'dev1' }),
-      ).rejects.toThrow('未配置')
+      await expect(client.uploadSyncData({ timestamp: Date.now(), deviceId: 'dev1' })).rejects.toThrow('未配置')
     })
 
     it('未设置密码时抛出错误', async () => {
       await client.configure(testConfig)
       vi.mocked(getSecret).mockResolvedValue(null)
-      await expect(
-        client.uploadSyncData({ timestamp: Date.now(), deviceId: 'dev1' }),
-      ).rejects.toThrow('密码')
+      await expect(client.uploadSyncData({ timestamp: Date.now(), deviceId: 'dev1' })).rejects.toThrow('密码')
     })
 
     it('上传宠物数据时调用 PUT', async () => {
@@ -173,9 +164,7 @@ describe('WebDAVClient', () => {
       // 至少调用了 MKCOL（4次目录创建）+ PUT（pet-data + manifest）
       expect(safeFetch).toHaveBeenCalled()
       // 检查是否有 PUT 请求
-      const putCalls = vi.mocked(safeFetch).mock.calls.filter(
-        (call) => (call[1] as RequestInit)?.method === 'PUT',
-      )
+      const putCalls = vi.mocked(safeFetch).mock.calls.filter((call) => (call[1] as RequestInit)?.method === 'PUT')
       expect(putCalls.length).toBeGreaterThan(0)
     })
   })

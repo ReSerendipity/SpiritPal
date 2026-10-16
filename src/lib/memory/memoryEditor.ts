@@ -100,10 +100,7 @@ export interface MemorySearchOptions {
 }
 
 /** 记忆批量操作类型 */
-export type MemoryBatchOperationType =
-  | 'delete'
-  | 'update_importance'
-  | 'update_category'
+export type MemoryBatchOperationType = 'delete' | 'update_importance' | 'update_category'
 
 /** 记忆批量操作定义 */
 export interface MemoryBatchOperation {
@@ -229,7 +226,7 @@ export class MemoryEditor {
   async readMemory(memoryId: string): Promise<MemoryEditResult> {
     try {
       const memories = this.memoryManager.getAllMemories()
-      const memory = memories.find(m => m.id === memoryId)
+      const memory = memories.find((m) => m.id === memoryId)
 
       if (!memory) {
         return {
@@ -271,7 +268,7 @@ export class MemoryEditor {
   ): Promise<MemoryEditResult> {
     try {
       const memories = this.memoryManager.getAllMemories()
-      const memory = memories.find(m => m.id === memoryId)
+      const memory = memories.find((m) => m.id === memoryId)
 
       if (!memory) {
         return {
@@ -297,13 +294,11 @@ export class MemoryEditor {
           ...(updates.category !== undefined ? { category: updates.category } : {}),
           ...(updates.tags !== undefined ? { tags: JSON.stringify(updates.tags) } : {}),
           ...(updates.importance !== undefined ? { importance: updates.importance } : {}),
-          ...(updates.createdAt !== undefined
-            ? { created_at: new Date(updates.createdAt).getTime() }
-            : {}),
-          ...(updates.emotionalIntensity !== undefined
-            ? { emotional_intensity: updates.emotionalIntensity }
-            : {}),
-        }).catch(() => { /* 行不存在等场景静默，内存态已生效 */ })
+          ...(updates.createdAt !== undefined ? { created_at: new Date(updates.createdAt).getTime() } : {}),
+          ...(updates.emotionalIntensity !== undefined ? { emotional_intensity: updates.emotionalIntensity } : {}),
+        }).catch(() => {
+          /* 行不存在等场景静默，内存态已生效 */
+        })
       }
 
       this.logOperation('update', memoryId, updates)
@@ -329,7 +324,7 @@ export class MemoryEditor {
   async deleteMemory(memoryId: string): Promise<MemoryEditResult> {
     try {
       const memories = this.memoryManager.getAllMemories()
-      const memory = memories.find(m => m.id === memoryId)
+      const memory = memories.find((m) => m.id === memoryId)
 
       if (!memory) {
         return {
@@ -370,17 +365,18 @@ export class MemoryEditor {
       // 应用过滤条件
       if (options.query) {
         const query = options.query.toLowerCase()
-        memories = memories.filter(m =>
-          m.user.toLowerCase().includes(query) ||
-          m.category.toLowerCase().includes(query) ||
-          m.tags.some(tag => tag.toLowerCase().includes(query))
+        memories = memories.filter(
+          (m) =>
+            m.user.toLowerCase().includes(query) ||
+            m.category.toLowerCase().includes(query) ||
+            m.tags.some((tag) => tag.toLowerCase().includes(query)),
         )
       }
 
       if (options.timeRange) {
         const start = options.timeRange.start ?? 0
         const end = options.timeRange.end ?? Date.now()
-        memories = memories.filter(m => {
+        memories = memories.filter((m) => {
           const timestamp = new Date(m.created_at).getTime()
           return timestamp >= start && timestamp <= end
         })
@@ -389,25 +385,19 @@ export class MemoryEditor {
       if (options.importanceRange) {
         const min = options.importanceRange.min ?? 0
         const max = options.importanceRange.max ?? 100
-        memories = memories.filter(m =>
-          m.importance >= min && m.importance <= max
-        )
+        memories = memories.filter((m) => m.importance >= min && m.importance <= max)
       }
 
       if (options.categories) {
-        memories = memories.filter(m =>
-          options.categories!.includes(m.category)
-        )
+        memories = memories.filter((m) => options.categories!.includes(m.category))
       }
 
       if (options.tags) {
-        memories = memories.filter(m =>
-          options.tags!.some(tag => m.tags.includes(tag))
-        )
+        memories = memories.filter((m) => options.tags!.some((tag) => m.tags.includes(tag)))
       }
 
       if (options.tagDimensions && options.tagDimensions.length > 0) {
-        memories = memories.filter(m => memoryMatchesDimensions(m.tags, options.tagDimensions!))
+        memories = memories.filter((m) => memoryMatchesDimensions(m.tags, options.tagDimensions!))
       }
 
       // 应用排序
@@ -444,7 +434,7 @@ export class MemoryEditor {
 
       this.logOperation('search', 'batch', {
         query: options.query,
-        resultCount: memories.length
+        resultCount: memories.length,
       })
 
       return {
@@ -485,7 +475,7 @@ export class MemoryEditor {
                 result = { success: false, error: 'Missing importance parameter' }
               } else {
                 result = await this.updateMemory(memoryId, {
-                  importance: operation.params.importance
+                  importance: operation.params.importance,
                 })
               }
               break
@@ -494,7 +484,7 @@ export class MemoryEditor {
                 result = { success: false, error: 'Missing category parameter' }
               } else {
                 result = await this.updateMemory(memoryId, {
-                  category: operation.params.category
+                  category: operation.params.category,
                 })
               }
               break
@@ -554,25 +544,25 @@ export class MemoryEditor {
       // 计算分类分布
       const categoryDistribution: Record<string, number> = {}
       const tagDistribution: Record<string, number> = {}
-      memories.forEach(m => {
+      memories.forEach((m) => {
         categoryDistribution[m.category] = (categoryDistribution[m.category] || 0) + 1
-        m.tags.forEach(tag => {
+        m.tags.forEach((tag) => {
           tagDistribution[tag] = (tagDistribution[tag] || 0) + 1
         })
       })
 
       // 计算重要性分布
       const importanceDistribution = {
-        low: memories.filter(m => m.importance < 30).length,
-        medium: memories.filter(m => m.importance >= 30 && m.importance < 70).length,
-        high: memories.filter(m => m.importance >= 70).length,
+        low: memories.filter((m) => m.importance < 30).length,
+        medium: memories.filter((m) => m.importance >= 30 && m.importance < 70).length,
+        high: memories.filter((m) => m.importance >= 70).length,
       }
 
       // 计算情感强度分布
       const emotionalIntensityDistribution = {
-        neutral: memories.filter(m => m.emotionalIntensity >= 0 && m.emotionalIntensity <= 0.3).length,
-        positive: memories.filter(m => m.emotionalIntensity > 0.3).length,
-        negative: memories.filter(m => m.emotionalIntensity < 0).length,
+        neutral: memories.filter((m) => m.emotionalIntensity >= 0 && m.emotionalIntensity <= 0.3).length,
+        positive: memories.filter((m) => m.emotionalIntensity > 0.3).length,
+        negative: memories.filter((m) => m.emotionalIntensity < 0).length,
       }
 
       // 计算存储健康度

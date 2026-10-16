@@ -85,7 +85,8 @@ function validateSingleLine(value: string, fieldName: string): ValidationResult 
 // ============ 第 3 层：代码特征检测 ============
 
 /** 代码关键字模式 */
-const CODE_KEYWORDS = /\b(function|class|import|export|const |let |var |def |return |from |require\(|module\.|interface |type |enum |async |await |try|catch|throw|new )\b/i
+const CODE_KEYWORDS =
+  /\b(function|class|import|export|const |let |var |def |return |from |require\(|module\.|interface |type |enum |async |await |try|catch|throw|new )\b/i
 
 /** 代码结构模式 — 括号配对 + 分号 */
 const CODE_STRUCTURE = /[{];[^}]*[}]|[()]\s*;|=>\s*[{]|\\u[0-9a-fA-F]{4}/
@@ -157,7 +158,8 @@ function validateUrlDetection(value: string): ValidationResult {
 // ============ 第 5 层：密钥/令牌检测 ============
 
 /** API Key 模式 — 匹配常见的 key/value 对格式 */
-const SECRET_KEY_VALUE = /(?:api[_-]?key|secret|token|password|credential|auth|access[_-]?key|private[_-]?key)["'\s]*[:=]["'\s]*[\w./+-]{8,}/i
+const SECRET_KEY_VALUE =
+  /(?:api[_-]?key|secret|token|password|credential|auth|access[_-]?key|private[_-]?key)["'\s]*[:=]["'\s]*[\w./+-]{8,}/i
 
 /** 独立密钥模式 — 匹配常见格式的密钥字符串 */
 const SECRET_STANDALONE = /(?:sk-|pk-|ghp_|gho_|github_pat_|AKIA|AIza|eyJ)[a-zA-Z0-9_.-]{10,}/
@@ -221,10 +223,7 @@ export interface TextValidationOptions {
  * @param options 校验选项
  * @returns 校验结果
  */
-export function validateMcpInput(
-  value: string,
-  options: TextValidationOptions = {},
-): ValidationResult {
+export function validateMcpInput(value: string, options: TextValidationOptions = {}): ValidationResult {
   const {
     maxLength = MAX_TEXT_LENGTH,
     singleLine = true,
@@ -277,37 +276,37 @@ export function validateMcpInput(
 export function createValidatedTextSchema(options: TextValidationOptions = {}): z.ZodString {
   const { maxLength = MAX_TEXT_LENGTH, fieldName = '文本' } = options
 
-  return z.string()
-    .min(1, `${fieldName}不能为空`)
-    .max(maxLength, `${fieldName}长度超限（最大 ${maxLength} 字符）`)
-    // 第 2 层：单行检查
-    .refine(
-      (s) => options.singleLine !== false ? !s.includes('\n') : true,
-      `${fieldName}必须为单行`,
-    )
-    // 第 3 层：代码特征检测
-    .refine(
-      (s) => options.detectCode !== false ? !CODE_KEYWORDS.test(s) : true,
-      `${fieldName}包含代码关键字，不允许显示代码`,
-    )
-    .refine(
-      (s) => options.detectCode !== false ? !CODE_STRUCTURE.test(s) : true,
-      `${fieldName}包含代码结构，不允许显示代码`,
-    )
-    // 第 4 层：URL 检测
-    .refine(
-      (s) => options.detectUrl !== false ? !URL_PATTERN.test(s) : true,
-      `${fieldName}包含 URL，不允许显示链接`,
-    )
-    // 第 5 层：密钥检测
-    .refine(
-      (s) => options.detectSecret !== false ? !SECRET_KEY_VALUE.test(s) : true,
-      `${fieldName}可能包含敏感凭证`,
-    )
-    .refine(
-      (s) => options.detectSecret !== false ? !SECRET_STANDALONE.test(s) : true,
-      `${fieldName}可能包含密钥或令牌`,
-    )
+  return (
+    z
+      .string()
+      .min(1, `${fieldName}不能为空`)
+      .max(maxLength, `${fieldName}长度超限（最大 ${maxLength} 字符）`)
+      // 第 2 层：单行检查
+      .refine((s) => (options.singleLine !== false ? !s.includes('\n') : true), `${fieldName}必须为单行`)
+      // 第 3 层：代码特征检测
+      .refine(
+        (s) => (options.detectCode !== false ? !CODE_KEYWORDS.test(s) : true),
+        `${fieldName}包含代码关键字，不允许显示代码`,
+      )
+      .refine(
+        (s) => (options.detectCode !== false ? !CODE_STRUCTURE.test(s) : true),
+        `${fieldName}包含代码结构，不允许显示代码`,
+      )
+      // 第 4 层：URL 检测
+      .refine(
+        (s) => (options.detectUrl !== false ? !URL_PATTERN.test(s) : true),
+        `${fieldName}包含 URL，不允许显示链接`,
+      )
+      // 第 5 层：密钥检测
+      .refine(
+        (s) => (options.detectSecret !== false ? !SECRET_KEY_VALUE.test(s) : true),
+        `${fieldName}可能包含敏感凭证`,
+      )
+      .refine(
+        (s) => (options.detectSecret !== false ? !SECRET_STANDALONE.test(s) : true),
+        `${fieldName}可能包含密钥或令牌`,
+      )
+  )
 }
 
 /**
@@ -315,7 +314,8 @@ export function createValidatedTextSchema(options: TextValidationOptions = {}): 
  * ID 字段仅需长度限制 + 单行检查，不做代码/URL 检测
  */
 export function createValidatedIdSchema(fieldName = 'ID'): z.ZodString {
-  return z.string()
+  return z
+    .string()
     .min(1, `${fieldName}不能为空`)
     .max(MAX_ID_LENGTH, `${fieldName}长度超限（最大 ${MAX_ID_LENGTH} 字符）`)
     .refine((s) => !s.includes('\n'), `${fieldName}必须为单行`)

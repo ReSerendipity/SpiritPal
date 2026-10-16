@@ -20,12 +20,9 @@ export interface BrandButtonProps extends ButtonHTMLAttributes<HTMLButtonElement
 }
 
 const variantClasses: Record<NonNullable<BrandButtonProps['variant']>, string> = {
-  primary:
-    'bg-tangerine text-white hover:bg-tangerine-deep disabled:opacity-50',
-  secondary:
-    'border border-ink/15 text-ink-muted hover:border-tangerine hover:text-tangerine-deep disabled:opacity-50',
-  ghost:
-    'text-ink-muted hover:bg-ink/5 disabled:opacity-50',
+  primary: 'bg-tangerine text-white hover:bg-tangerine-deep disabled:opacity-50',
+  secondary: 'border border-ink/15 text-ink-muted hover:border-tangerine hover:text-tangerine-deep disabled:opacity-50',
+  ghost: 'text-ink-muted hover:bg-ink/5 disabled:opacity-50',
 }
 
 const sizeClasses: Record<NonNullable<BrandButtonProps['size']>, string> = {

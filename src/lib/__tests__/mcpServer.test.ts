@@ -198,9 +198,7 @@ describe('createMcpServer', () => {
 
     expect(result.isError).toBeFalsy()
     expect(result.content[0].text).toContain('Pet reacted with: idle')
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'spiritpal-mcp-react' }),
-    )
+    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'spiritpal-mcp-react' }))
     dispatchSpy.mockRestore()
   })
 
@@ -232,9 +230,7 @@ describe('createMcpServer', () => {
 
     expect(result.isError).toBeFalsy()
     expect(result.content[0].text).toContain('Pet reacted with: idle')
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'spiritpal-mcp-react', detail: 'idle' }),
-    )
+    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'spiritpal-mcp-react', detail: 'idle' }))
     dispatchSpy.mockRestore()
   })
 
@@ -247,9 +243,7 @@ describe('createMcpServer', () => {
 
     expect(result.isError).toBeFalsy()
     expect(result.content[0].text).toBe('Pet says: 你好呀')
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'spiritpal-mcp-say', detail: '你好呀' }),
-    )
+    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'spiritpal-mcp-say', detail: '你好呀' }))
     dispatchSpy.mockRestore()
   })
 
@@ -375,10 +369,7 @@ describe('createMcpServer', () => {
     })
 
     expect(result.isError).toBeFalsy()
-    expect(mocks.editor.updateMemory).toHaveBeenCalledWith(
-      'mem-1',
-      expect.objectContaining({ content: '新内容' }),
-    )
+    expect(mocks.editor.updateMemory).toHaveBeenCalledWith('mem-1', expect.objectContaining({ content: '新内容' }))
   })
 
   it('spiritpal_memory_edit delete 成功', async () => {
@@ -429,9 +420,7 @@ describe('createMcpServer', () => {
   // ---- spiritpal_feed ----
 
   it('spiritpal_feed 找到食物并调用 feed（按名称）', async () => {
-    mocks.store.inventory = [
-      { id: 'apple', name: '苹果', type: 'food', icon: '🍎', price: 5, count: 2 },
-    ]
+    mocks.store.inventory = [{ id: 'apple', name: '苹果', type: 'food', icon: '🍎', price: 5, count: 2 }]
 
     const result = await getRegisteredTools(server)['spiritpal_feed'].handler({ foodName: '苹果' })
 

@@ -19,12 +19,7 @@ import { mkdir, writeFile, readFile, copyFile, readdir, rm } from 'node:fs/promi
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
-import {
-  BUILTIN_IDS,
-  normalizeId,
-  XQ_STATE_MAP,
-  DSHPET_STATE_MAP,
-} from './community-pet-maps.mjs'
+import { BUILTIN_IDS, normalizeId, XQ_STATE_MAP, DSHPET_STATE_MAP } from './community-pet-maps.mjs'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const PETS = path.join(ROOT, 'public', 'pets')
@@ -32,9 +27,7 @@ const PETS = path.join(ROOT, 'public', 'pets')
 // ffmpeg 便携版路径（scripts/tools/ffmpeg/bin/ffmpeg.exe，见 README asset-pipeline）
 const FFMPEG =
   process.env.FFMPEG_BIN ||
-  (process.platform === 'win32'
-    ? path.join(ROOT, 'scripts', 'tools', 'ffmpeg', 'bin', 'ffmpeg.exe')
-    : 'ffmpeg')
+  (process.platform === 'win32' ? path.join(ROOT, 'scripts', 'tools', 'ffmpeg', 'bin', 'ffmpeg.exe') : 'ffmpeg')
 const FFPROBE = FFMPEG.replace(/ffmpeg(\.exe)?$/, 'ffprobe$1')
 
 /** 转 VP9 alpha webm（带或不带 colorkey 抠像） */
@@ -47,7 +40,11 @@ function toWebmAlpha(input, output, { blackKey = false } = {}) {
 
 /** 探测视频是否有 alpha 平面（yuva / rgba 等） */
 function hasAlpha(input) {
-  const r = spawnSync(FFPROBE, ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=pix_fmt', '-of', 'csv=p=0', input], { encoding: 'utf8' })
+  const r = spawnSync(
+    FFPROBE,
+    ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=pix_fmt', '-of', 'csv=p=0', input],
+    { encoding: 'utf8' },
+  )
   const fmt = String(r.stdout).trim()
   return /a/.test(fmt) && /yuva|rgba|argb/.test(fmt)
 }
@@ -67,8 +64,17 @@ async function ghBlob(repo, sha) {
 const OC_CLAW_BASE = 'https://api.github.com/repos/rainnoon/oc-claw'
 const GH_HEADERS = { 'User-Agent': 'spiritpal-import', Accept: 'application/vnd.github+json' }
 const OC_CLAW_PACKS = [
-  'doro.codex-pet', 'elaina-2', 'homie', 'linnea-2', 'mambo',
-  'naruto', 'nezuko', 'phoebe.codex-pet', 'skirk-2', 'taffy', 'wukong',
+  'doro.codex-pet',
+  'elaina-2',
+  'homie',
+  'linnea-2',
+  'mambo',
+  'naruto',
+  'nezuko',
+  'phoebe.codex-pet',
+  'skirk-2',
+  'taffy',
+  'wukong',
 ]
 
 async function importOcClaw({ force }) {
@@ -76,11 +82,17 @@ async function importOcClaw({ force }) {
   for (const src of OC_CLAW_PACKS) {
     const id = normalizeId(src, 'occlaw')
     const outDir = path.join(PETS, id)
-    if (!force && existsSync(path.join(outDir, 'pet.json'))) { console.log(`skip occlaw ${id}`); continue }
+    if (!force && existsSync(path.join(outDir, 'pet.json'))) {
+      console.log(`skip occlaw ${id}`)
+      continue
+    }
     const spriteEntry =
       tree.tree.find((e) => e.path === `frontend/public/assets/builtin/${src}/spritesheet.webp`) ??
       tree.tree.find((e) => e.path === `frontend/public/assets/builtin/${src}/spritesheet.png`)
-    if (!spriteEntry) { console.warn(`!! occlaw ${src}: spritesheet 缺失，跳过`); continue }
+    if (!spriteEntry) {
+      console.warn(`!! occlaw ${src}: spritesheet 缺失，跳过`)
+      continue
+    }
     const spriteExt = path.extname(spriteEntry.path)
     const [metaRes, blobRes] = await Promise.all([
       fetch(`${OC_CLAW_BASE}/contents/frontend/public/assets/builtin/${src}/pet.json`, { headers: GH_HEADERS }),
@@ -121,7 +133,9 @@ async function importWindowPet() {
   const configsDir = path.join(shimejiDir, 'configs')
   const profilesDir = path.join(shimejiDir, 'profiles')
   if (!existsSync(vendorConfigs)) {
-    console.warn('!! windowpet: 未找到 scripts/vendor/windowpet（先 git clone --depth 1 https://github.com/SeakMengs/WindowPet scripts/vendor/windowpet）')
+    console.warn(
+      '!! windowpet: 未找到 scripts/vendor/windowpet（先 git clone --depth 1 https://github.com/SeakMengs/WindowPet scripts/vendor/windowpet）',
+    )
     return
   }
   await mkdir(configsDir, { recursive: true })
@@ -148,12 +162,30 @@ async function importWindowPet() {
 
 // ─── D. OpenPets 开学季 24 只（zip.openpets.dev） ───────────
 const OPENPETS_PACKS = [
-  'notebook-buddy', 'backpack-buddy', 'pixel-terminal', 'globe-buddy',
-  'desk-lamp-buddy', 'paper-ball-buddy', 'pencil-pal', 'calculator-buddy',
-  'apple-scholar', 'reminder-note', 'pencil-case-pal', 'hoodie-cat',
-  'brain-trainer', 'bubble-flask', 'book-stack-buddy', 'study-fuel',
-  'eraser-buddy', 'glue-bottle-buddy', 'music-player-buddy', 'scissors-buddy',
-  'chalkboard-buddy', 'banana-skater', 'bookworm-reader', 'paper-plane-pal',
+  'notebook-buddy',
+  'backpack-buddy',
+  'pixel-terminal',
+  'globe-buddy',
+  'desk-lamp-buddy',
+  'paper-ball-buddy',
+  'pencil-pal',
+  'calculator-buddy',
+  'apple-scholar',
+  'reminder-note',
+  'pencil-case-pal',
+  'hoodie-cat',
+  'brain-trainer',
+  'bubble-flask',
+  'book-stack-buddy',
+  'study-fuel',
+  'eraser-buddy',
+  'glue-bottle-buddy',
+  'music-player-buddy',
+  'scissors-buddy',
+  'chalkboard-buddy',
+  'banana-skater',
+  'bookworm-reader',
+  'paper-plane-pal',
 ]
 
 async function importOpenPets({ force }) {
@@ -161,7 +193,10 @@ async function importOpenPets({ force }) {
   await mkdir(tmpRoot, { recursive: true })
   for (const id of OPENPETS_PACKS) {
     const outDir = path.join(PETS, id)
-    if (!force && existsSync(path.join(outDir, 'pet.json'))) { console.log(`skip openpets ${id}`); continue }
+    if (!force && existsSync(path.join(outDir, 'pet.json'))) {
+      console.log(`skip openpets ${id}`)
+      continue
+    }
     const tmp = path.join(tmpRoot, id)
     await mkdir(tmp, { recursive: true })
     const zipUrl = `https://zip.openpets.dev/pets/${id}-openpets/${id}.zip`
@@ -200,13 +235,19 @@ async function importOpenPets({ force }) {
 // ─── B. OC-Claw 香企鹅（视频：.mov → VP9 alpha webm） ──────
 async function importXiangQie({ force }) {
   const outDir = path.join(PETS, 'xiang-qie')
-  if (!force && existsSync(path.join(outDir, 'pet.json'))) { console.log('skip xiang-qie'); return }
+  if (!force && existsSync(path.join(outDir, 'pet.json'))) {
+    console.log('skip xiang-qie')
+    return
+  }
   const tree = await ghTree('rainnoon/oc-claw')
   await mkdir(outDir, { recursive: true })
   for (const [state, file] of Object.entries(XQ_STATE_MAP)) {
     const srcPath = `frontend/public/assets/builtin/香企鹅/large/mov/${file}.mov`
     const entry = tree.find((e) => e.path === srcPath)
-    if (!entry) { console.warn(`!! 香企鹅 缺 ${file}.mov`); continue }
+    if (!entry) {
+      console.warn(`!! 香企鹅 缺 ${file}.mov`)
+      continue
+    }
     const buf = await ghBlob('rainnoon/oc-claw', entry.sha)
     const tmp = path.join(outDir, `${file}.mov`)
     await writeFile(tmp, buf)
@@ -237,13 +278,19 @@ async function importXiangQie({ force }) {
 // ─── E. dsh-pet 大肥鱼（视频：8 状态子集映射） ──────────────
 async function importDshPet({ force }) {
   const outDir = path.join(PETS, 'dashayu')
-  if (!force && existsSync(path.join(outDir, 'pet.json'))) { console.log('skip dashayu'); return }
+  if (!force && existsSync(path.join(outDir, 'pet.json'))) {
+    console.log('skip dashayu')
+    return
+  }
   const tree = await ghTree('PC2005-cloud/dsh-pet')
   await mkdir(outDir, { recursive: true })
   for (const [state, name] of Object.entries(DSHPET_STATE_MAP)) {
     const srcPath = `dsh-pet/assets/webm/${name}.webm`
     const entry = tree.find((e) => e.path === srcPath)
-    if (!entry) { console.warn(`!! dsh-pet 缺 ${name}.webm`); continue }
+    if (!entry) {
+      console.warn(`!! dsh-pet 缺 ${name}.webm`)
+      continue
+    }
     const buf = await ghBlob('PC2005-cloud/dsh-pet', entry.sha)
     const tmp = path.join(outDir, `${state}.src.webm`)
     await writeFile(tmp, buf)
@@ -279,7 +326,10 @@ async function importDyberPet({ force }) {
   for (const role of DYBERPET_ROLES) {
     const id = normalizeId(role, 'dyberpet')
     const outDir = path.join(PETS, id)
-    if (!force && existsSync(path.join(outDir, 'pet.json'))) { console.log(`skip ${id}`); continue }
+    if (!force && existsSync(path.join(outDir, 'pet.json'))) {
+      console.log(`skip ${id}`)
+      continue
+    }
     const prefix = `res/role/${role}/`
     const frames = tree
       .filter((e) => e.path.startsWith(prefix + 'action/') && e.path.endsWith('.png'))
@@ -290,7 +340,10 @@ async function importDyberPet({ force }) {
     const onfloors = frames.filter((p) => /onfloor_\d+\.png$/.test(p)).sort()
     const idleFrames = stands.length ? stands : onfloors
     const walkFrames = rightwalks.length + leftwalks.length ? [...rightwalks, ...leftwalks] : onfloors
-    if (idleFrames.length === 0 || walkFrames.length === 0) { console.warn(`!! ${role}: 缺少 idle/walk 帧，跳过`); continue }
+    if (idleFrames.length === 0 || walkFrames.length === 0) {
+      console.warn(`!! ${role}: 缺少 idle/walk 帧，跳过`)
+      continue
+    }
     const tmpDir = path.join(ROOT, '.tmp-dyberpet', role)
     await mkdir(tmpDir, { recursive: true })
     // 下载所有帧
@@ -312,7 +365,9 @@ async function importDyberPet({ force }) {
     const sheet = path.join(tmpDir, 'spritesheet.png')
     await tileRow(idleFrames, row0)
     await tileRow(walkFrames, row1)
-    execFileSync(FFMPEG, ['-y', '-i', row0, '-i', row1, '-filter_complex', '[0:v][1:v]vstack', sheet], { stdio: 'ignore' })
+    execFileSync(FFMPEG, ['-y', '-i', row0, '-i', row1, '-filter_complex', '[0:v][1:v]vstack', sheet], {
+      stdio: 'ignore',
+    })
     await mkdir(outDir, { recursive: true })
     await copyFile(sheet, path.join(outDir, 'spritesheet.png'))
     await writeFile(
@@ -342,9 +397,7 @@ async function importDyberPet({ force }) {
 
 // ─── manifest.json 汇总（社区宠物 id，排除内置与 shimeji） ──
 async function writeManifest() {
-  const entries = (await readdir(PETS, { withFileTypes: true })).filter(
-    (d) => d.isDirectory() && d.name !== 'shimeji',
-  )
+  const entries = (await readdir(PETS, { withFileTypes: true })).filter((d) => d.isDirectory() && d.name !== 'shimeji')
   const ids = []
   for (const d of entries) {
     const pj = path.join(PETS, d.name, 'pet.json')
@@ -363,9 +416,7 @@ const sourceArg = args.find((a) => a.startsWith('--source='))?.split('=')[1] ?? 
 const force = args.includes('--force')
 
 const sources =
-  sourceArg === 'all'
-    ? ['occlaw', 'windowpet', 'openpets', 'xiangqie', 'dashayu', 'dyberpet']
-    : [sourceArg]
+  sourceArg === 'all' ? ['occlaw', 'windowpet', 'openpets', 'xiangqie', 'dashayu', 'dyberpet'] : [sourceArg]
 for (const s of sources) {
   if (s === 'occlaw') await importOcClaw({ force })
   else if (s === 'windowpet') await importWindowPet()
@@ -375,7 +426,13 @@ for (const s of sources) {
   else if (s === 'dyberpet') await importDyberPet({ force })
   else console.warn(`!! 未知源: ${s}（可选 occlaw|windowpet|openpets|xiangqie|dashayu|dyberpet）`)
 }
-if (sources.includes('occlaw') || sources.includes('openpets') || sources.includes('xiangqie') || sources.includes('dashayu') || sources.includes('dyberpet')) {
+if (
+  sources.includes('occlaw') ||
+  sources.includes('openpets') ||
+  sources.includes('xiangqie') ||
+  sources.includes('dashayu') ||
+  sources.includes('dyberpet')
+) {
   await writeManifest()
 }
 console.log('完成。')

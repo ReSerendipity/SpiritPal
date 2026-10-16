@@ -142,10 +142,7 @@ describe('FrameAnimationCache', () => {
   it('params 参与 key 生成（资源换了不应命中旧条目）', () => {
     const cache = new FrameAnimationCache({ maxItems: 10 })
 
-    cache.cacheFrame(
-      { animationId: 'doro', row: 0, frame: 0, scale: 32, params: { src: '/old.png' } },
-      'old',
-    )
+    cache.cacheFrame({ animationId: 'doro', row: 0, frame: 0, scale: 32, params: { src: '/old.png' } }, 'old')
     expect(
       cache.getFrame({
         animationId: 'doro',

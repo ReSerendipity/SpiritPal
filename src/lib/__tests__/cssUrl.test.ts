@@ -13,8 +13,7 @@ describe('cssUrl', () => {
   })
 
   it('should not double-encode already percent-encoded paths', () => {
-    expect(cssUrl('/pets/shimeji/The%20Chosen%20One.png'))
-      .toBe('url("/pets/shimeji/The%20Chosen%20One.png")')
+    expect(cssUrl('/pets/shimeji/The%20Chosen%20One.png')).toBe('url("/pets/shimeji/The%20Chosen%20One.png")')
   })
 
   it('should encode non-ASCII characters', () => {

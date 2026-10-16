@@ -143,11 +143,7 @@ export interface FoodDisplayInfo {
  * @param fvLock 稀有度等级
  * @returns UI 显示信息
  */
-export function getFoodDisplayInfo(
-  food: IFood,
-  icon: string,
-  fvLock?: number,
-): FoodDisplayInfo {
+export function getFoodDisplayInfo(food: IFood, icon: string, fvLock?: number): FoodDisplayInfo {
   // 构建效果文本
   const effects: string[] = []
   if (food.HungerRestore > 0) effects.push(`饱食度+${food.HungerRestore}`)
@@ -229,7 +225,7 @@ export function createFoodEffect(item: InventoryItem): IFood {
  * 批量创建 IFood 实例
  */
 export function createFoodEffects(items: InventoryItem[]): IFood[] {
-  return items.map(item => new FoodEffect(item))
+  return items.map((item) => new FoodEffect(item))
 }
 
 // ============ 效果组合 ============
@@ -252,7 +248,7 @@ export function combineFoodEffects(foods: IFood[]): {
     moodRestore: foods.reduce((sum, f) => sum + f.MoodRestore, 0),
     healthRestore: foods.reduce((sum, f) => sum + f.HealthRestore, 0),
     totalPrice: foods.reduce((sum, f) => sum + f.Price, 0),
-    maxDuration: Math.max(0, ...foods.map(f => f.Duration)),
+    maxDuration: Math.max(0, ...foods.map((f) => f.Duration)),
   }
 }
 

@@ -109,12 +109,14 @@ export async function getAvailableMonitors(): Promise<MonitorInfo[]> {
   } catch (e) {
     console.warn('[MultiMonitor] 获取显示器信息失败:', e)
     // 降级：返回默认 1920x1080 单显示器
-    return [{
-      name: 'default',
-      size: { width: 1920, height: 1080 },
-      position: { x: 0, y: 0 },
-      scaleFactor: 1.0,
-    }]
+    return [
+      {
+        name: 'default',
+        size: { width: 1920, height: 1080 },
+        position: { x: 0, y: 0 },
+        scaleFactor: 1.0,
+      },
+    ]
   }
 }
 
@@ -190,9 +192,12 @@ export async function getCurrentMonitor(): Promise<MonitorInfo> {
 export function calculateScreenBounds(monitors: MonitorInfo[]): ScreenBounds {
   if (monitors.length === 0) {
     return {
-      minX: 0, minY: 0,
-      maxX: 1920, maxY: 1080,
-      totalWidth: 1920, totalHeight: 1080,
+      minX: 0,
+      minY: 0,
+      maxX: 1920,
+      maxY: 1080,
+      totalWidth: 1920,
+      totalHeight: 1080,
     }
   }
 
@@ -276,8 +281,14 @@ export function isPositionOnScreen(
     const monBottom = monitor.position.y + monitor.size.height
 
     // 计算窗口与显示器的交集面积
-    const overlapX = Math.max(0, Math.min(position.x + windowSize.width, monRight) - Math.max(position.x, monitor.position.x))
-    const overlapY = Math.max(0, Math.min(position.y + windowSize.height, monBottom) - Math.max(position.y, monitor.position.y))
+    const overlapX = Math.max(
+      0,
+      Math.min(position.x + windowSize.width, monRight) - Math.max(position.x, monitor.position.x),
+    )
+    const overlapY = Math.max(
+      0,
+      Math.min(position.y + windowSize.height, monBottom) - Math.max(position.y, monitor.position.y),
+    )
     const overlapArea = overlapX * overlapY
 
     if (overlapArea >= minPixels * minPixels) {
@@ -297,10 +308,7 @@ export function isPositionOnScreen(
  * @param scaleFactor 目标显示器的缩放因子
  * @returns 物理坐标
  */
-export function logicalToPhysical(
-  logicalPos: WindowPosition,
-  scaleFactor: number,
-): WindowPosition {
+export function logicalToPhysical(logicalPos: WindowPosition, scaleFactor: number): WindowPosition {
   return {
     x: logicalPos.x * scaleFactor,
     y: logicalPos.y * scaleFactor,
@@ -314,10 +322,7 @@ export function logicalToPhysical(
  * @param scaleFactor 源显示器的缩放因子
  * @returns 逻辑坐标
  */
-export function physicalToLogical(
-  physicalPos: WindowPosition,
-  scaleFactor: number,
-): WindowPosition {
+export function physicalToLogical(physicalPos: WindowPosition, scaleFactor: number): WindowPosition {
   if (scaleFactor === 0) return physicalPos
   return {
     x: physicalPos.x / scaleFactor,

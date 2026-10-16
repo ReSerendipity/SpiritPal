@@ -124,8 +124,8 @@ describe('T-06: SQLite 集成测试', () => {
       db.run(
         `INSERT INTO memories (category, content, tags, importance, created_at, last_accessed, access_count, embedding)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        ['event', '测试记忆', '[]', 5, Date.now(), Date.now(), 0, embeddingBytes
-      ])
+        ['event', '测试记忆', '[]', 5, Date.now(), Date.now(), 0, embeddingBytes],
+      )
 
       const result = db.exec('SELECT content, importance FROM memories WHERE content = ?', ['测试记忆'])
       expect(result.length).toBe(1)
@@ -138,8 +138,8 @@ describe('T-06: SQLite 集成测试', () => {
         `INSERT INTO character_stats
         (character_id, hunger, mood, health, affection, level, exp, coins, last_tick_at, last_interaction_at, last_affection_decay_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        ['doro', 80, 70, 100, 500, 5, 0, 1000, Date.now(), Date.now(), Date.now()
-      ])
+        ['doro', 80, 70, 100, 500, 5, 0, 1000, Date.now(), Date.now(), Date.now()],
+      )
 
       const result = db.exec('SELECT hunger, mood, health FROM character_stats WHERE character_id = ?', ['doro'])
       expect(result.length).toBe(1)
@@ -149,8 +149,11 @@ describe('T-06: SQLite 集成测试', () => {
     })
 
     it('mods 表 enabled 字段默认值为 1', () => {
-      db.run("INSERT INTO mods (id, name, version, installed_at) VALUES (?, ?, ?, ?)", [
-        'test-mod', 'Test Mod', '1.0.0', Date.now()
+      db.run('INSERT INTO mods (id, name, version, installed_at) VALUES (?, ?, ?, ?)', [
+        'test-mod',
+        'Test Mod',
+        '1.0.0',
+        Date.now(),
       ])
 
       const result = db.exec('SELECT enabled FROM mods WHERE id = ?', ['test-mod'])

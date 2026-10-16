@@ -9,23 +9,242 @@ const APPLY = process.argv.includes('--apply')
 
 // ---- 分组映射（顶层平铺文件名 → 群）----
 const G = {}
-const add = (g) => (names) => { for (const n of names) G[n] = g }
-add('ai')(['aiAgent','aiAssistantDetector','aiConfig','agentSandbox','agentScheduler','agentStateLayer','agentTools','behaviorEngine','dualBrain','llmClient','llmProviders','multimodalLLM','promptRegistry','streamPipeline','sseUtils','generatorPipeline','toxicityFilter','contextAwareness','emotionEngine','emotionExtractor','emotionManager','codingReactionRows','dialogueConfig','dialogueManager','dialogueSystem','chatStages','personalityEngine','personalityTemplates','proactiveSpeak'])
-add('memory')(['contextManager','contextEpisodeManager','memoryBackground','memoryConfig','memoryEditor','memoryExporter','memoryMigrator','memoryQualityCheck','memoryRecommendation','memorySummarizer','memoryTrace','memoryTypes','enhancedMemory','embeddingCache','dreamingConsolidation','entityGraph','entityLinking','keyframeMemory','multimodalMemory','ownerFacts','recallEngine','ragRetrieval','visionPerception','visualMemory','visualMemoryManager','visualPerception','localEmbedding'])
-add('nurture')(['achievementSystem','affectionNumeric','affectionQuantifier','buffManager','commitmentTracker','dailyJournal','diarySystem','foodContract','foodEffectContract','interactionCounter','items','itemSchema','petForm','petMetadata','scheduleManager','shopManager','taskManager','characterConsistency','petExperience','characterPack','characterCardImporter','characterCardSystem','characterImportService'])
-add('render')(['declarativeTheme','animationConfig','animationFallback','batchRenderer','chromaKey','dragInteraction','frameCache','gpuParticleSystem','live2dPhysicsParser','renderAdapter','spriteAtlasBuilder','spriteLayout','spriteLayoutConfig','spriteMemoryManager','spriteSheetTool','svgAnimationAnalyzer','thinkBubble','thinkTagParser','trayIconRenderer','bubbleManager','bubbleConfig','hiddenStateManager','movementEngine','shimejiLoader','characterResourceImporter','characterResourceLoader'])
-add('data')(['db','blobCrypto','dataManager','dirtyDataTracker','saveRecovery','saveRestore','zombieDataCleanup','characters','collectionManager','collectionSystem','encryptedExport','encryptedStorage','secureStorage','securityUtils','piiMasking','jsonUtils','commonUtils','constants','types','modCreatorIncentive','modDistribution','modLoader','modManager','modPackager','modTestFramework','batchOperationManager'])
-add('system')(['appWindows','windowManager','windowEventBus','windowPositionMemory','windowTitleExtractor','petWindowSizing','multiMonitor','macosPanel','miniMode','pixelClickThrough','deviceInput','systemControls','clipboardManager','analytics','auditLogger','logger','runtimeMonitor','healthCheck','qualityMonitor','latencySLO','i18n','i18nManager','i18nTranslations','syncManager','widgetState','calendarIntegration','timezoneSync','icsParser','weatherAwareness','musicAwareness','screenshotManager','updater','pushNotificationManager','silentModeManager','eventSystem','typedEventEmitter','antiRepetition','sentenceDivider','emojiCultureData','cultureEmoji','stringSimilarity','paramAutoMapper','toolParamValidator','ipcErrorCode','ipcSecurity','tauriInvoker','mcpAppBridge','mcpBridge','mcpClient','mcpHooks','mcpInputValidator','mcpLease','mcpPermissions','mcpServer','permissionBubble','pluginManager','pluginPermissions','pluginSdk','themeManager','gradualRollout','swallowedCatch','uploadMagic','ssrfProtection','pathConvention','pathSecurity','pathTraversalGuard','ttsEngine','ttsTaskManager','sentry','externalLinks','legalDocuments','webdavClient','vectorSearch','vectorWorker','webgl.worker','webglWorker','useInputReactions'])
+const add = (g) => (names) => {
+  for (const n of names) G[n] = g
+}
+add('ai')([
+  'aiAgent',
+  'aiAssistantDetector',
+  'aiConfig',
+  'agentSandbox',
+  'agentScheduler',
+  'agentStateLayer',
+  'agentTools',
+  'behaviorEngine',
+  'dualBrain',
+  'llmClient',
+  'llmProviders',
+  'multimodalLLM',
+  'promptRegistry',
+  'streamPipeline',
+  'sseUtils',
+  'generatorPipeline',
+  'toxicityFilter',
+  'contextAwareness',
+  'emotionEngine',
+  'emotionExtractor',
+  'emotionManager',
+  'codingReactionRows',
+  'dialogueConfig',
+  'dialogueManager',
+  'dialogueSystem',
+  'chatStages',
+  'personalityEngine',
+  'personalityTemplates',
+  'proactiveSpeak',
+])
+add('memory')([
+  'contextManager',
+  'contextEpisodeManager',
+  'memoryBackground',
+  'memoryConfig',
+  'memoryEditor',
+  'memoryExporter',
+  'memoryMigrator',
+  'memoryQualityCheck',
+  'memoryRecommendation',
+  'memorySummarizer',
+  'memoryTrace',
+  'memoryTypes',
+  'enhancedMemory',
+  'embeddingCache',
+  'dreamingConsolidation',
+  'entityGraph',
+  'entityLinking',
+  'keyframeMemory',
+  'multimodalMemory',
+  'ownerFacts',
+  'recallEngine',
+  'ragRetrieval',
+  'visionPerception',
+  'visualMemory',
+  'visualMemoryManager',
+  'visualPerception',
+  'localEmbedding',
+])
+add('nurture')([
+  'achievementSystem',
+  'affectionNumeric',
+  'affectionQuantifier',
+  'buffManager',
+  'commitmentTracker',
+  'dailyJournal',
+  'diarySystem',
+  'foodContract',
+  'foodEffectContract',
+  'interactionCounter',
+  'items',
+  'itemSchema',
+  'petForm',
+  'petMetadata',
+  'scheduleManager',
+  'shopManager',
+  'taskManager',
+  'characterConsistency',
+  'petExperience',
+  'characterPack',
+  'characterCardImporter',
+  'characterCardSystem',
+  'characterImportService',
+])
+add('render')([
+  'declarativeTheme',
+  'animationConfig',
+  'animationFallback',
+  'batchRenderer',
+  'chromaKey',
+  'dragInteraction',
+  'frameCache',
+  'gpuParticleSystem',
+  'live2dPhysicsParser',
+  'renderAdapter',
+  'spriteAtlasBuilder',
+  'spriteLayout',
+  'spriteLayoutConfig',
+  'spriteMemoryManager',
+  'spriteSheetTool',
+  'svgAnimationAnalyzer',
+  'thinkBubble',
+  'thinkTagParser',
+  'trayIconRenderer',
+  'bubbleManager',
+  'bubbleConfig',
+  'hiddenStateManager',
+  'movementEngine',
+  'shimejiLoader',
+  'characterResourceImporter',
+  'characterResourceLoader',
+])
+add('data')([
+  'db',
+  'blobCrypto',
+  'dataManager',
+  'dirtyDataTracker',
+  'saveRecovery',
+  'saveRestore',
+  'zombieDataCleanup',
+  'characters',
+  'collectionManager',
+  'collectionSystem',
+  'encryptedExport',
+  'encryptedStorage',
+  'secureStorage',
+  'securityUtils',
+  'piiMasking',
+  'jsonUtils',
+  'commonUtils',
+  'constants',
+  'types',
+  'modCreatorIncentive',
+  'modDistribution',
+  'modLoader',
+  'modManager',
+  'modPackager',
+  'modTestFramework',
+  'batchOperationManager',
+])
+add('system')([
+  'appWindows',
+  'windowManager',
+  'windowEventBus',
+  'windowPositionMemory',
+  'windowTitleExtractor',
+  'petWindowSizing',
+  'multiMonitor',
+  'macosPanel',
+  'miniMode',
+  'pixelClickThrough',
+  'deviceInput',
+  'systemControls',
+  'clipboardManager',
+  'analytics',
+  'auditLogger',
+  'logger',
+  'runtimeMonitor',
+  'healthCheck',
+  'qualityMonitor',
+  'latencySLO',
+  'i18n',
+  'i18nManager',
+  'i18nTranslations',
+  'syncManager',
+  'widgetState',
+  'calendarIntegration',
+  'timezoneSync',
+  'icsParser',
+  'weatherAwareness',
+  'musicAwareness',
+  'screenshotManager',
+  'updater',
+  'pushNotificationManager',
+  'silentModeManager',
+  'eventSystem',
+  'typedEventEmitter',
+  'antiRepetition',
+  'sentenceDivider',
+  'emojiCultureData',
+  'cultureEmoji',
+  'stringSimilarity',
+  'paramAutoMapper',
+  'toolParamValidator',
+  'ipcErrorCode',
+  'ipcSecurity',
+  'tauriInvoker',
+  'mcpAppBridge',
+  'mcpBridge',
+  'mcpClient',
+  'mcpHooks',
+  'mcpInputValidator',
+  'mcpLease',
+  'mcpPermissions',
+  'mcpServer',
+  'permissionBubble',
+  'pluginManager',
+  'pluginPermissions',
+  'pluginSdk',
+  'themeManager',
+  'gradualRollout',
+  'swallowedCatch',
+  'uploadMagic',
+  'ssrfProtection',
+  'pathConvention',
+  'pathSecurity',
+  'pathTraversalGuard',
+  'ttsEngine',
+  'ttsTaskManager',
+  'sentry',
+  'externalLinks',
+  'legalDocuments',
+  'webdavClient',
+  'vectorSearch',
+  'vectorWorker',
+  'webgl.worker',
+  'webglWorker',
+  'useInputReactions',
+])
 
 const norm = (p) => p.replace(/\\/g, '/')
 const stripExt = (p) => p.replace(/\.(ts|tsx|d\.ts)$/, '')
 const isSrcFile = (n) => /\.(ts|tsx)$/.test(n) && !n.endsWith('.d.ts') && !/\.(test|spec)\./.test(n)
 
 // ---- 收集 src/lib 顶层文件（排除测试）----
-const topFiles = fs.readdirSync(LIB).filter((n) => {
-  const f = path.join(LIB, n)
-  return fs.statSync(f).isFile() && isSrcFile(n)
-}).map((n) => stripExt(n))
+const topFiles = fs
+  .readdirSync(LIB)
+  .filter((n) => {
+    const f = path.join(LIB, n)
+    return fs.statSync(f).isFile() && isSrcFile(n)
+  })
+  .map((n) => stripExt(n))
 
 const toMove = topFiles.filter((f) => G[f])
 const stays = topFiles.filter((f) => !G[f])
@@ -43,7 +262,8 @@ const ALL_FILES = []
   }
 })(path.join(ROOT, 'src'))
 
-const IMPORT_RE = /(?:from[\s(]*|vi\.mock\(\s*|vi\.importActual\(\s*|vi\.importMock\(\s*|jest\.mock\(\s*|jest\.requireActual\(\s*)(['"])([^'"]+)\1|import\s*\(\s*(['"])([^'"]+)\3\s*\)/g
+const IMPORT_RE =
+  /(?:from[\s(]*|vi\.mock\(\s*|vi\.importActual\(\s*|vi\.importMock\(\s*|jest\.mock\(\s*|jest\.requireActual\(\s*)(['"])([^'"]+)\1|import\s*\(\s*(['"])([^'"]+)\3\s*\)/g
 const SRC_ABS = norm(path.join(ROOT, 'src'))
 const existsAny = (p) => fs.existsSync(p + '.ts') || fs.existsSync(p + '.tsx')
 // src 的顶层业务目录：lib 子目录内相对引用错位解析时会误落到 src/lib/<dir>/ 下
@@ -98,14 +318,19 @@ for (const file of ALL_FILES) {
     }
   }
 }
-console.log(`引用扫描: ${refs.length} 处将重写（涉及 ${new Set(refs.map(r => norm(r.file))).size} 个文件）`)
+console.log(`引用扫描: ${refs.length} 处将重写（涉及 ${new Set(refs.map((r) => norm(r.file))).size} 个文件）`)
 if (process.argv.includes('--trace')) {
-  for (const r of refs.filter((x) => /enhancedMemory-triggers/.test(x.file) || /zombieDataCleanup|streamPipeline/.test(x.file))) {
+  for (const r of refs.filter(
+    (x) => /enhancedMemory-triggers/.test(x.file) || /zombieDataCleanup|streamPipeline/.test(x.file),
+  )) {
     console.log('TRACE:', norm(r.file), '->', r.abs, r.kind)
   }
 }
 
-if (!APPLY) { console.log('\ndry-run 完成。确认后执行：node scripts/split-lib.mjs --apply'); process.exit(0) }
+if (!APPLY) {
+  console.log('\ndry-run 完成。确认后执行：node scripts/split-lib.mjs --apply')
+  process.exit(0)
+}
 
 // ---- apply: 移动 + 重写 ----
 const movedMap = new Map() // 旧stripExt-abs -> 新stripExt-abs
@@ -114,9 +339,15 @@ for (const mv of [...new Set(toMove)]) {
   const dstDir = path.join(LIB, G[mv])
   fs.mkdirSync(dstDir, { recursive: true })
   const dstTs = path.join(dstDir, mv)
-  if (fs.existsSync(srcTs + '.ts')) { fs.renameSync(srcTs + '.ts', dstTs + '.ts'); movedMap.set(stripExt(norm(srcTs)), stripExt(norm(dstTs))) }
-  else if (fs.existsSync(srcTs + '.tsx')) { fs.renameSync(srcTs + '.tsx', dstTs + '.tsx'); movedMap.set(stripExt(norm(srcTs)), stripExt(norm(dstTs))) }
-  else { console.warn('找不到源文件:', mv) }
+  if (fs.existsSync(srcTs + '.ts')) {
+    fs.renameSync(srcTs + '.ts', dstTs + '.ts')
+    movedMap.set(stripExt(norm(srcTs)), stripExt(norm(dstTs)))
+  } else if (fs.existsSync(srcTs + '.tsx')) {
+    fs.renameSync(srcTs + '.tsx', dstTs + '.tsx')
+    movedMap.set(stripExt(norm(srcTs)), stripExt(norm(dstTs)))
+  } else {
+    console.warn('找不到源文件:', mv)
+  }
 }
 
 const contents = new Map() // key(旧stripExt-abs) -> lines[]
@@ -124,11 +355,15 @@ for (const r of refs) {
   const key = stripExt(norm(r.file))
   if (contents.has(key)) continue
   const readPath = movedMap.get(key) ?? r.file
-  if (!fs.existsSync(readPath)) { console.warn('跳过不存在的文件:', readPath); continue }
+  if (!fs.existsSync(readPath)) {
+    console.warn('跳过不存在的文件:', readPath)
+    continue
+  }
   contents.set(key, fs.readFileSync(readPath, 'utf8').split('\n'))
 }
 
-const REWRITE_RE = /((?:from[\s(]*|import\s*\(\s*|vi\.mock\(\s*|vi\.importActual\(\s*|vi\.importMock\(\s*|jest\.mock\(\s*|jest\.requireActual\(\s*)(['"])((?:\.[^'"]+|@\/[^'"]+))\2)/g
+const REWRITE_RE =
+  /((?:from[\s(]*|import\s*\(\s*|vi\.mock\(\s*|vi\.importActual\(\s*|vi\.importMock\(\s*|jest\.mock\(\s*|jest\.requireActual\(\s*)(['"])((?:\.[^'"]+|@\/[^'"]+))\2)/g
 for (const [key, lines] of contents) {
   const actualPath = movedMap.get(key) ?? key
   const srcIsMoved = norm(path.dirname(actualPath)) !== norm(LIB)
@@ -152,7 +387,10 @@ const extOf = (p) => (fs.existsSync(p + '.ts') ? '.ts' : fs.existsSync(p + '.tsx
 for (const [key, lines] of contents) {
   const target = movedMap.get(key) ?? key
   const ext = extOf(target)
-  if (!ext) { console.warn('写回跳过（无扩展名可判定）:', target); continue }
+  if (!ext) {
+    console.warn('写回跳过（无扩展名可判定）:', target)
+    continue
+  }
   const next = lines.join('\n')
   fs.writeFileSync(target + ext, next, 'utf8')
   console.log('rewrote:', target + ext)

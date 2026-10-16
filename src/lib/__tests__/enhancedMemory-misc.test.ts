@@ -67,7 +67,7 @@ describe('EnhancedMemoryManager', () => {
     })
   })
 
-describe('getPetBirthday 异常处理', () => {
+  describe('getPetBirthday 异常处理', () => {
     it('localStorage 异常时返回 null', async () => {
       const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
         throw new Error('localStorage error')
@@ -125,17 +125,21 @@ describe('第五轮修复验证', () => {
     it('RAG 路径下，仅靠实体链接关联的记忆即使 BM25 未命中也会并入结果', async () => {
       ;(getSetting as ReturnType<typeof vi.fn>).mockImplementation((key: string) => {
         if (key === 'spiritpal-entities-f7-char') {
-          return Promise.resolve(JSON.stringify({
-            entities: [{
-              id: 'e1',
-              name: '咪',
-              type: 'thing',
-              linkedMemoryIds: ['mem-x'],
-              mentionCount: 1,
-              firstSeen: 0,
-              lastSeen: 0,
-            }],
-          }))
+          return Promise.resolve(
+            JSON.stringify({
+              entities: [
+                {
+                  id: 'e1',
+                  name: '咪',
+                  type: 'thing',
+                  linkedMemoryIds: ['mem-x'],
+                  mentionCount: 1,
+                  firstSeen: 0,
+                  lastSeen: 0,
+                },
+              ],
+            }),
+          )
         }
         return Promise.resolve(null)
       })

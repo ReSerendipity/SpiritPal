@@ -8,25 +8,13 @@
  */
 import { emit } from '@tauri-apps/api/event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import {
-  PluginManager,
-  getPluginManager,
-  resetPluginManager,
-} from '@/lib/system/pluginManager'
+import { PluginManager, getPluginManager, resetPluginManager } from '@/lib/system/pluginManager'
 import { resetPluginSandboxManager } from '@/lib/system/pluginPermissions'
-import type {
-  PluginManifest,
-  Plugin,
-  PluginPermission,
-  SpiritPalPluginContext,
-} from '@/lib/system/pluginSdk'
+import type { PluginManifest, Plugin, PluginPermission, SpiritPalPluginContext } from '@/lib/system/pluginSdk'
 
 // ============ 测试数据 ============
 
-function makeManifest(
-  id: string,
-  permissions: PluginPermission[] = [],
-): PluginManifest {
+function makeManifest(id: string, permissions: PluginPermission[] = []): PluginManifest {
   return {
     id,
     name: id,
@@ -69,11 +57,9 @@ describe('registerPlugin', () => {
 
   it('显式权限列表 → 批准对应权限', () => {
     const mgr = new PluginManager()
-    const approval = mgr.registerPlugin(
-      makeManifest('p2', ['pet:speak', 'ui:bubble']),
-      () => makePlugin(),
-      ['pet:speak'],
-    )
+    const approval = mgr.registerPlugin(makeManifest('p2', ['pet:speak', 'ui:bubble']), () => makePlugin(), [
+      'pet:speak',
+    ])
     expect(approval.granted).toBe(true)
     expect(approval.permissions).toEqual(['pet:speak'])
     expect(mgr.hasPermission('p2', 'pet:speak')).toBe(true)
