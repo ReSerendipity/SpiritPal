@@ -28,13 +28,13 @@
 
 当前 `vitest.config.ts` 阈值 lines 46 / branches 38 / functions 42 / statements 45。2026-10-16 实测全量覆盖率：**lines 49.74%（11274/22664）、functions 45.91%（2444/5323）、branches 41.47%（5624/13560）**。处置结论见 `vitest.config.ts` 提交记录（棘轮上调须以实测值为准）。
 
-## 3. 评测集已登记缺口（批次三，`src/lib/ai/__tests__/prompt.eval.test.ts`）
+## 3. 评测集缺口台账（`src/lib/ai/__tests__/prompt.eval.test.ts`）
 
 | 编号 | 缺口 | 现状 | 搬入计分表条件 |
 | --- | --- | --- | --- |
-| GAP-01 | 提醒文本语义注入（提示内容伪装成系统提醒绕过注入检测） | `KNOWN_GAP_CASES` 中为 `gap` | 补语义过滤后 |
-| GAP-02 | 搜索词越狱前缀 | `KNOWN_GAP_CASES` 中为 `gap` | 补语义过滤后 |
-| GAP-03 | `FORBIDDEN_PATH_SEGMENTS` 仅覆盖 `.ssh/.gnupg/.aws/.config` 四类 dot 目录，不含 Windows 系统路径（如 `C:/Windows/System32`） | TS 层放行，依赖 Rust 侧白名单兜底（`RUST_BACKSTOP_CASES`） | 如需 TS 层独立防御 |
+| GAP-01 | 提醒文本语义注入（提示内容伪装成系统提醒绕过注入检测） | **已关闭（2026-10-16）**：`inputInjectionScreen.ts` 语义初筛落地，命中升级为必须用户确认；用例已搬入 A 组计分表（G01），台账关闭留痕见「缺口台账收口记录」测试 | —— |
+| GAP-02 | 搜索词越狱前缀 | **已关闭（2026-10-16）**：同上（G02 入计分表） | —— |
+| GAP-03 | `FORBIDDEN_PATH_SEGMENTS` 仅覆盖 `.ssh/.gnupg/.aws/.config` 四类 dot 目录，不含 Windows 系统路径（如 `C:/Windows/System32`） | 开放：TS 层放行，依赖 Rust 侧白名单兜底（`RUST_BACKSTOP_CASES`） | 如需 TS 层独立防御 |
 
 ## 4. 架构漂移结论（P1②，核实后不予处置）
 
