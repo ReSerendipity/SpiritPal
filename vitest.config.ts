@@ -16,7 +16,10 @@ export default defineConfig({
     exclude: ['node_modules', 'dist', 'e2e/**', 'scripts/__tests__/lint-capabilities.test.mjs'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html', 'lcov'],
+      // json-summary（2026-10-16 追加）：给 statements 维度提供可测口径——
+      // lcov 格式不含 statement 记录，此前 statements 阈值（45）一直无可实测依据；
+      // coverage/coverage-summary.json 的 totals.statements 可直接棘轮判定
+      reporter: ['text', 'html', 'lcov', 'json-summary'],
       reportsDirectory: './coverage',
       include: ['src/lib/**/*.{ts,tsx}', 'src/components/**/*.{ts,tsx}'],
       exclude: [
@@ -82,11 +85,15 @@ export default defineConfig({
       // functions 46.06%（2454/5328）、branches 41.56%（5636/13560）。
       // 按「实测值 - ~1.5~2pp 余量」上调至 48/44/40；statements 无 lcov 记录可测
       // （lcov 仅含 LF/LH/BRF/BRH/FNF/FNH），维持 45 不动，待有可测口径再棘轮。
+      //
+      // statements 棘轮（2026-10-16 同日追加）：coverage reporter 增加 json-summary
+      // 后取得可测口径 —— 实测 statements 49.02%（12217/24920，语义注入初筛批次后
+      // 全量实跑），按「实测值 - ~2pp 余量」上调至 47。
       thresholds: {
         lines: 48,
         functions: 44,
         branches: 40,
-        statements: 45,
+        statements: 47,
       },
     },
   },
