@@ -34,7 +34,7 @@
 | --- | --- | --- | --- |
 | GAP-01 | 提醒文本语义注入（提示内容伪装成系统提醒绕过注入检测） | **已关闭（2026-10-16）**：`inputInjectionScreen.ts` 语义初筛落地，命中升级为必须用户确认；用例已搬入 A 组计分表（G01），台账关闭留痕见「缺口台账收口记录」测试 | —— |
 | GAP-02 | 搜索词越狱前缀 | **已关闭（2026-10-16）**：同上（G02 入计分表） | —— |
-| GAP-03 | `FORBIDDEN_PATH_SEGMENTS` 仅覆盖 `.ssh/.gnupg/.aws/.config` 四类 dot 目录，不含 Windows 系统路径（如 `C:/Windows/System32`） | 开放：TS 层放行，依赖 Rust 侧白名单兜底（`RUST_BACKSTOP_CASES`） | 如需 TS 层独立防御 |
+| GAP-03 | `FORBIDDEN_PATH_SEGMENTS` 仅覆盖 `.ssh/.gnupg/.aws/.config` 四类 dot 目录，不含 Windows 系统路径（如 `C:/Windows/System32`） | **已关闭（2026-10-16）**：补上 `windows/system32`、`windows/syswow64`、`windows/start menu`、`program files( x86)`、`programdata` 五段（段匹配要求两侧分隔符防误伤；刻意不拦 AppData——宠物数据目录在其下）；A04 搬回计分表（expect=reject），Rust 白名单兜底降级为第二道防线 | —— |
 
 ## 4. 架构漂移结论（P1②，核实后不予处置）
 

@@ -132,6 +132,48 @@ describe('toolParamValidator', () => {
     })
   })
 
+  describe('path 字段敏感目录拦截（GAP-03 收口，2026-10-16）', () => {
+    it('should reject Windows system32 paths at TS layer（原 A04 Rust 兜底登记项）', () => {
+      const result = validateToolParams('read_file', { path: 'C:/Windows/System32/config/SAM' })
+      expect(result.valid).toBe(false)
+      expect(result.errors[0]).toContain('敏感目录')
+    })
+
+    it('should reject SysWOW64 / Program Files / ProgramData / Start Menu（读写双端）', () => {
+      const cases: Array<[string, string]> = [
+        ['read_file', 'C:/Windows/SysWOW64/kernel32.dll'],
+        ['write_file', 'C:/Program Files/App/payload.dll'],
+        ['write_file', 'C:/Program Files (x86)/App/payload.dll'],
+        ['write_file', 'C:/ProgramData/persistence.xml'],
+        ['write_file', 'C:/Users/x/AppData/Roaming/Microsoft/Windows/Start Menu/evil.lnk'],
+      ]
+      for (const [tool, path] of cases) {
+        const result = validateToolParams(tool, { path, content: 'x' })
+        expect(result.valid, `${tool} ${path} 应被拦截`).toBe(false)
+        expect(result.errors[0]).toContain('敏感目录')
+      }
+    })
+
+    it('should reject backslash paths outright（既有纵深：DANGEROUS_CHARS 含反斜杠，先于分段规则生效）', () => {
+      const result = validateToolParams('read_file', { path: 'C:\\Windows\\System32\\config\\SAM' })
+      expect(result.valid).toBe(false)
+      expect(result.errors[0]).toContain('危险字符')
+    })
+
+    it('should NOT over-block：宠物数据目录（AppData）与项目相对路径保持放行', () => {
+      const cases: Array<[string, string]> = [
+        ['read_file', 'C:/Users/x/AppData/Roaming/com.spiritpal/memory.db'],
+        ['write_file', 'notes.txt'],
+        ['read_file', './src/lib/system/toolParamValidator.ts'],
+        ['read_file', 'C:/myprojects/windows-notes/readme.md'], // 目录名含子串不误伤
+      ]
+      for (const [tool, path] of cases) {
+        const result = validateToolParams(tool, { path, content: 'x' })
+        expect(result.valid, `${tool} ${path} 不应被误伤`).toBe(true)
+      }
+    })
+  })
+
   describe('unknown tool', () => {
     it('should reject unknown tool name', () => {
       const result = validateToolParams('malicious_tool', { cmd: 'rm -rf /' })
