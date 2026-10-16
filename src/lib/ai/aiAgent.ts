@@ -55,7 +55,7 @@ import {
   // 导致 agentTools 已实现的 search_files / execute_command 在 isToolAllowed 下不可用。
   getToolsForMode,
   isToolAvailableInMode,
-  isToolConfirmationRequired,
+  decideToolGate,
   ToolMode as AgentToolMode,
 } from './agentTools'
 import { loadAIConfig } from './aiConfig'
@@ -419,8 +419,13 @@ export async function processAgentRequest(
     }
     const sanitizedParams = validation.sanitizedParams ?? plan.params
 
-    // 3.2 确认闸门（默认拒绝 + 豁免名单之外必须用户确认，fail-closed）
-    if (isToolConfirmationRequired(plan.tool)) {
+    // 3.2 确认闸门（默认拒绝 + 豁免名单之外必须用户确认，fail-closed）；
+    //     语义注入初筛（2026-10-16）：豁免名单内的工具若参数命中注入特征，同样升级为必须确认
+    const gate = decideToolGate(plan.tool, sanitizedParams)
+    if (gate.injectionHits.length > 0) {
+      console.warn('[aiAgent] 工具参数语义注入初筛命中', plan.tool, gate.injectionHits)
+    }
+    if (gate.confirmationRequired) {
       const confirmation = await requestToolConfirmation(plan.tool, sanitizedParams, 'worker')
       if (!confirmation.approved) {
         return `🔧 已拒绝执行「${plan.tool}」：${confirmation.reason ?? '用户未确认'}`
@@ -727,8 +732,13 @@ export async function processReActRequest(
             } else {
               const sanitizedParams = validation.sanitizedParams ?? params
 
-              // 2. 确认闸门（豁免名单之外必须用户确认，fail-closed）
-              if (isToolConfirmationRequired(tool)) {
+              // 2. 确认闸门（豁免名单之外必须用户确认，fail-closed）；
+              //    语义注入初筛（2026-10-16）：豁免名单内的工具若参数命中注入特征，同样升级为必须确认
+              const gate = decideToolGate(tool, sanitizedParams)
+              if (gate.injectionHits.length > 0) {
+                console.warn('[aiAgent] 工具参数语义注入初筛命中', tool, gate.injectionHits)
+              }
+              if (gate.confirmationRequired) {
                 const confirmation = await requestToolConfirmation(tool, sanitizedParams, toolMode)
                 if (!confirmation.approved) {
                   observation = `已拒绝执行「${tool}」：${confirmation.reason ?? '用户未确认'}`

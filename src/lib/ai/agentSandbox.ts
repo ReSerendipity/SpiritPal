@@ -21,7 +21,7 @@
  * @requires ./agentTools - 工具模式定义、工具权限映射
  */
 
-import { isToolAvailableInMode, isToolConfirmationRequired, ToolMode, getToolsForMode } from './agentTools'
+import { isToolAvailableInMode, decideToolGate, ToolMode, getToolsForMode } from './agentTools'
 
 // ============ 类型定义 ============
 
@@ -176,7 +176,9 @@ export class AgentSandbox {
     params?: Record<string, unknown>,
   ): { allowed: boolean; reason?: string; riskLevel: RiskLevel; needsConfirmation: boolean } {
     const riskLevel = TOOL_RISK_MAP[toolName] ?? 'medium'
-    const needsConfirmation = isToolConfirmationRequired(toolName)
+    // 确认语义（2026-10-16）：静态豁免名单 + 语义注入初筛统一决策（与 aiAgent 两条执行路径等价）
+    const gate = decideToolGate(toolName, params)
+    const needsConfirmation = gate.confirmationRequired
 
     // 1. 模式检查：工具是否在当前模式下可用
     if (!isToolAvailableInMode(toolName, mode)) {

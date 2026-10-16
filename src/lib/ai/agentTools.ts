@@ -32,6 +32,7 @@ import { getScheduleManager } from '@/lib/nurture/scheduleManager'
 import type { EnhancedScheduleEvent } from '@/lib/nurture/scheduleManager'
 import { getWeatherAwarenessManager } from '@/lib/system/weatherAwareness'
 import { usePetStore } from '@/stores/petStore'
+import { scanToolParamsForInjection } from './inputInjectionScreen'
 
 // ============ 应用名称映射（中文 → 系统命令）============
 
@@ -396,6 +397,32 @@ export function isToolAvailableInMode(toolName: string, mode: ToolMode): boolean
  */
 export function isToolConfirmationRequired(toolName: string): boolean {
   return !CONFIRMATION_EXEMPT_TOOLS.has(toolName)
+}
+
+/** 工具闸门统一决策结果 */
+export interface ToolGateDecision {
+  confirmationRequired: boolean
+  /** 语义注入初筛命中的 pattern id（用于日志与确认提示；空数组 = 未命中） */
+  injectionHits: string[]
+}
+
+/**
+ * 工具闸门统一决策（P0-1 静态确认闸门 + 2026-10-16 语义注入初筛升级）：
+ *
+ * 1. 静态层：不在 [`CONFIRMATION_EXEMPT_TOOLS`] 内的工具必须确认（原有语义不变）；
+ * 2. 语义层：豁免名单内的工具，若参数命中注入特征（[`scanToolParamsForInjection`]），
+ *    同样升级为必须确认 —— fail-closed to human，收口评测集 G01/G02 台账缺口。
+ *
+ * @param toolName 工具名称
+ * @param params 已通过 zod 校验的工具参数（未传时不做语义扫描）
+ * @see {@link ./inputInjectionScreen.ts} 语义初筛的模式表与边界声明
+ */
+export function decideToolGate(toolName: string, params?: Record<string, unknown>): ToolGateDecision {
+  const injectionHits = params ? scanToolParamsForInjection(params) : []
+  return {
+    confirmationRequired: isToolConfirmationRequired(toolName) || injectionHits.length > 0,
+    injectionHits,
+  }
 }
 
 /**
