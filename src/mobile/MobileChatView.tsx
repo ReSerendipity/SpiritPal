@@ -46,6 +46,7 @@ import Markdown from 'react-markdown'
 import rehypeSanitize from 'rehype-sanitize'
 // P2-14：消息指标条（复用桌面端组件，可展开查看 tokens/TTFT/速率）
 import { MessageMetricsBar } from '@/components/chat/MessageMetricsBar'
+import { truncateAssistantHistory } from '@/lib/ai/onDeviceContext'
 import { composeFullSystemPrompt, getEffectivePersonality } from '@/lib/ai/personalityEngine'
 import { getCharacter } from '@/lib/data/characters'
 import { getContextEpisodeManager } from '@/lib/memory/contextEpisodeManager'
@@ -271,15 +272,19 @@ export function MobileChatView() {
       const isOnDevice = config.provider === 'ondevice'
       const historyTurns = isOnDevice ? ON_DEVICE_HISTORY_TURNS : CLOUD_HISTORY_TURNS
       // 重试场景下末条助手消息内容为空，不应进入上下文
-      const history = messages
-        .filter((m) => m.content.trim())
-        .slice(-historyTurns)
-        .map((m) => ({
-          id: m.id,
-          role: m.role,
-          content: m.content,
-          timestamp: m.timestamp,
-        }))
+      const history = truncateAssistantHistory(
+        messages
+          .filter((m) => m.content.trim())
+          .slice(-historyTurns)
+          .map((m) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            timestamp: m.timestamp,
+          })),
+        // 端侧：截断助手自己的历史输出，降低「被自己上一轮的错误答案锚死」的概率（GOTCHAS #184）
+        isOnDevice,
+      )
 
       // D8：移动端注入记忆上下文
       let memCtx = ''
