@@ -37,6 +37,24 @@ jobs:
           node-version: 22
           cache: 'pnpm'
 
+      # 发布触发闸：本仓在用的协议检查点标签（v29-p1-1 … v29-p1-12 / v29-wb-start）与本 workflow 的
+      # `on.push.tags: 'v*'` 共用同一命名空间，过去任何一枚检查点标签进入远端标签区就会跑完整三平台
+      # 发布，并按 package.json 的 version 创建/公开一个与实际发版无关的 release。
+      # 仓内已有同口径校验 .github/workflows/verify-release-version.yml，但它是独立 workflow，
+      # 跨 workflow 无法 needs 阻断 release（只能并行变红），故发布链自身必须在任何创建动作前判一次。
+      - name: Verify release tag matches package version
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ github.ref_name }}"
+          PKG=$(node -p "require('./package.json').version")
+          echo "tag=$TAG  package.json=v$PKG"
+          if [ "v$PKG" != "$TAG" ]; then
+            echo "::error::tag $TAG 与 package.json 版本 v$PKG 不一致——不是发版标签（协议检查点请用不匹配 v* 的命名）。已在任何 release 创建/上传动作之前终止。"
+            exit 1
+          fi
+          echo "✓ 版本一致，继续发布：$TAG"
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
@@ -237,15 +255,12 @@ jobs:
           grep -q "untrusted comment" /tmp/sighead 2>/dev/null || { echo "::error::签名文件格式异常（非 minisign）"; exit 1; }
           echo "✓ 签名文件校验通过"
 
-      # 2026-09-10 全自主：Verify 通过后发布正式化（用户可立即下载）；updates.json 随后生成（tagged URL）
-      - name: Publish draft release (draft=false)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          gh release edit "${{ github.ref_name }}" --repo "${{ github.repository }}" --draft=false
-          echo "::notice::draft 已转正式 release：${{ github.ref_name }}"
-
+      # 顺序修正（Better Harness finding: release-goes-public-before-updates-manifest-verified）：
+      # 原顺序是 转公开 → 生成 updates.json → 校验内容 → 提交推送，而本 job 上方 :202 的注释写明
+      # 「漏更新 updates.json = 用户永远检查不到新版本，故放发布链路上强制同步」。生成/校验任一步失败时
+      # release 已对用户可下载而清单仍是旧版本，且没有任何退回。
+      # 现在把生成与校验前置：generate 走 gh release view（draft 可读，见 scripts/generate-updates-json.mjs:92
+      # 的 2026-09-10 注记），不依赖公开发布；校验通过才转公开。
       - name: Generate updates.json
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -266,6 +281,14 @@ jobs:
             console.log('✓ updates.json 有效:', u.version, Object.keys(u.platforms).join(','));
           "
 
+      - name: Publish draft release (draft=false)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release edit "${{ github.ref_name }}" --repo "${{ github.repository }}" --draft=false
+          echo "::notice::draft 已转正式 release：${{ github.ref_name }}（updates.json 已先于此校验通过）"
+
       - name: Commit and push updates.json
         run: |
           git config user.name "github-actions[bot]"
@@ -277,4 +300,21 @@ jobs:
             git commit -m "chore(ci): sync updates.json for ${{ github.ref_name }} [skip ci]"
             # checkout 在 tag（detached HEAD），无本地 main ref；用 HEAD:main 推送
             git push origin HEAD:main
+          fi
+
+      # 失败侧收口：公开发布之后的任一步失败（典型如 tag 提交不在 main 历史上、对 main 非快进被拒）时，
+      # 把该 release 退回 draft，避免留下「用户可下载但更新清单没跟上」的半完成态。
+      - name: Re-draft release if a post-publication step failed
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          STATE=$(gh release view "${{ github.ref_name }}" --repo "${{ github.repository }}" --json isDraft -q '.isDraft' 2>/dev/null || echo unknown)
+          echo "当前 isDraft=$STATE"
+          if [ "$STATE" = "false" ]; then
+            gh release edit "${{ github.ref_name }}" --repo "${{ github.repository }}" --draft=true
+            echo "::error::发布链后半段失败，已把 ${{ github.ref_name }} 退回 draft；在 updates.json 同步成功前不要让该版本对外可见"
+          else
+            echo "该 release 未处于公开态（或不存在），无需退回"
           fi
