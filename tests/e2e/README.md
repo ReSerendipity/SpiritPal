@@ -34,7 +34,7 @@ npx playwright test --ui
 
 * `CI=true`: CI 环境下禁用并行、增加重试次数
 
-* `PLAYWRIGHT_BASE_URL`: 自定义测试基础 URL（默认 <http://localhost:5173）>
+* `E2E_BASE_URL`: 自定义测试基础 URL（默认 <http://127.0.0.1:5223>，取自 `playwright.config.ts` 的 `baseURL`；端口与 `vite.config.ts` 的 `server.port` 一致且 `strictPort: true`）
 
 ## 故障排查
 
@@ -46,16 +46,17 @@ npx playwright test --ui
 
 > 历史遗留：`e2e/` 顶层曾有一批旧 spec 与 Tauri IPC mock（`e2e/fixtures/tauri-mock.ts`），
 > 但 `playwright.config.ts` 的 `testDir` 早已指向 `tests/e2e`，旧目录无任何配置引用，
-> 已按审计整改清理（P1-3），仅保留桌面真机层。
+> 已按审计整改清理（P1-3）。桌面真机层现位于 `tests/e2e/tauri-driver/`；顶层 `e2e/` 已不存在，
+> 往里放用例不会被任何配置收集。
 
 | 目录                  | 配置                                                          | 定位                                                          | 何时跑                                                                          |
 | ------------------- | ----------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | `tests/e2e/`（本目录）   | `playwright.config.ts`（`testDir: ./tests/e2e`）              | **Web E2E**：vite dev server + Playwright，纯浏览器环境（无 Tauri 后端） | CI 必跑（`pnpm test:e2e`）                                                       |
-| `e2e/tauri-driver/` | `playwright.tauri.config.ts`（`testDir: ./e2e/tauri-driver`） | **桌面真机 E2E**：tauri-driver + WebDriverIO 连接真实构建产物            | 仅本地手动（需 `pnpm tauri build` + `tauri-driver`），CI 通过 `TAURI_DRIVER_ENABLED` 跳过 |
+| `tests/e2e/tauri-driver/` | `playwright.tauri.config.ts`（`testDir: ./tests/e2e/tauri-driver`） | **桌面真机 E2E**：tauri-driver + WebDriverIO 连接真实构建产物            | 仅本地手动（需 `pnpm tauri build` + `tauri-driver`），CI 通过 `TAURI_DRIVER_ENABLED` 跳过 |
 
 * **新增 Web E2E** → 放本目录，遵循上方「添加新测试」约定。
 
-* **新增桌面真机用例** → 放 `e2e/tauri-driver/`，参考该目录 spec 头注释的前置条件。
+* **新增桌面真机用例** → 放 `tests/e2e/tauri-driver/`（即 `playwright.tauri.config.ts` 的 `testDir`），参考该目录 spec 头注释的前置条件。放错目录的用例不会被任何入口收集，命令仍会报绿。
 
 * 两层各自独立，互不干扰；`tests/e2e/setup/tauri-helper.ts` 是真实应用等待助手（非 IPC mock），
   若未来需要「带 Tauri API 的 Web E2E」，将 mock 放回 `tests/e2e/setup/` 单独维护。

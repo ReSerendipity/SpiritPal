@@ -32,8 +32,12 @@ export default defineConfig({
         'src/**/*.spec.{ts,tsx}',
         'src/mobile/**',
         // 重度依赖 Tauri 原生 API 的 UI 组件，需 E2E 测试覆盖
-        'src/components/PetWindow.tsx',
-        'src/components/SettingsWindow.tsx',
+        // 2026-10-17：PetWindow.tsx 与 SettingsWindow.tsx 已从本排除表移出、放回分母。
+        // 理由：这条「需 E2E 覆盖」的承诺落在 E2E Tests (Playwright) 作业上，而该作业不在 main 的
+        // 任何必需检查里（现测必需检查 5 项：Lint and Test / Rust Tests / layout / Dependency Vuln Scan /
+        // DCO Check），即改坏这两个窗口级组件无人阻断。现由挂载级测试覆盖（各 40%~47% 行覆盖），
+        // 实测放回后 lines 50.20 / functions 46.58 / branches 41.11 / statements 49.43，
+        // 相对阈值 48/44/40/47 全部仍达标（branches 余量最小，1.11pp）。
         'src/components/CommunityPanel.tsx',
         'src/components/ModPanel.tsx',
         'src/components/CharacterCreator.tsx',

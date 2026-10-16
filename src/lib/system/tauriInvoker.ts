@@ -2,8 +2,8 @@
  * @file tauriInvoker.ts
  * @description Tauri invoke 统一封装 — 超时控制 + 错误处理 + 自动重试
  *
- * 评估报告 P1-1：AGENTS.md §3.2 设计了 tauriInvoker.ts（超时 30s + retry 1 次），
- * 但实际文件缺失，所有调用方直接 import { invoke } 绕过封装。
+ * 设计口径（本模块自身即为来源）：超时 30s + retry 1 次。源自评估报告 P1-1 的整改——
+ * 当时封装文件缺失，所有调用方直接 import { invoke } 绕过封装。
  * 本模块提供统一入口，后续可逐步替换散落的直接 invoke 调用。
  *
  * 核心接口：

@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""snapshot_local_docs.py — 本地层治理文档快照与恢复（AGENTS.md + docs/agents/）。
+"""snapshot_local_docs.py — 本地层治理文档快照与恢复（AGENTS.md + LOCAL_RULES.md + docs/agents/ + .qoder/skills/）。
 
-本地层文件（AGENTS.md + docs/agents/）被 .gitignore 忽略、无版本库保护，
+本地层文件（AGENTS.md + LOCAL_RULES.md + docs/agents/ + .qoder/skills/）被 .gitignore 忽略、无版本库保护，
 2026-09-17 曾发生目录整体硬删除事故（GOTCHAS #115，6 个子文档只能凭记忆重写）。
-本脚本为这两个路径建立项目内最小恢复路径：
+本脚本为这些路径建立项目内最小恢复路径；2026-10-17 起把两个项目级 Skill
+（SOP-3 发版预检、SOP-8 快照恢复的可执行封装）与本地策略层 LOCAL_RULES.md 一并纳入——
+Skill 与 SOP 是同一流程的两份副本，此前只保护 SOP 一侧，事故后恢复会得到漂移或缺失的
+Skill（GOTCHAS #174）；LOCAL_RULES.md 承载「不许删除 / 只做本仓 / sidecar 静默降级」三条
+硬约束，此前既不在 Git 也不在任何快照里，是唯一副本无保护（AGENTS.md §0 已于同日把它入档）。
 
-  快照：AGENTS.md + docs/agents/ 全部文件 -> backups/agents-snapshots/<时间戳>/
+  快照：上述路径的全部文件 -> backups/agents-snapshots/<时间戳>/
         （backups/ 已被 .gitignore 忽略，不改变两级文档设计）
         每份快照附 MANIFEST.json（逐文件 sha256）；内容无变化时自动跳过。
   恢复：restore 先校验快照自身哈希，再复制到 --dest（默认仓库根，即就地恢复；
@@ -40,7 +44,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCES = ("AGENTS.md", "docs/agents")          # 受保护的本地层路径
+SOURCES = ("AGENTS.md", "LOCAL_RULES.md", "docs/agents", ".qoder/skills")  # 受保护的本地层路径（2026-10-17 补入项目级 Skill 与本地策略层）
 SNAPSHOT_ROOT = ROOT / "backups" / "agents-snapshots"
 MANIFEST_NAME = "MANIFEST.json"
 DEFAULT_KEEP = 30                                # 滚动保留最近 N 份快照

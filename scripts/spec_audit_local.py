@@ -230,10 +230,24 @@ def audit(root: Path, project: str) -> dict:
     ignored = git_ignored(root, [c.path for c in claims])
     phantoms: dict[str, list[str]] = {}
     dead_links: list[dict] = []
+    untracked: dict[str, list[str]] = {}
+    # 引用来源自身的跟踪状态：本地层文件引用兄弟本地层文件属设计内行为，不计入台账。
+    ignored_specs = git_ignored(root, sorted({c.loc.rpartition(":")[0] for c in claims}))
     checked = 0
     for claim in claims:
         checked += 1
-        if claim.path in KNOWN_ABSENT or claim.path in ignored:
+        if claim.path in KNOWN_ABSENT:
+            continue
+        if claim.path in ignored:
+            # 被 .gitignore 命中的路径不按幻影判：本地层不入库是有意设计
+            # （见 snapshot_local_docs.py 的镜像拒绝逻辑）。但 check-ignore 只匹配
+            # 模式、不看文件是否存在，所以「已跟踪文档要求去动一个不随仓库分发的
+            # 文件」这类引用过去被整条静默减掉，门禁对它永远无信号。这里不判失败，
+            # 只把它记成可见台账。
+            if claim.loc.rpartition(":")[0] not in ignored_specs:
+                bucket = untracked.setdefault(claim.path, [])
+                if claim.loc not in bucket:
+                    bucket.append(claim.loc)
             continue
         if (root / claim.path).exists():
             continue
@@ -258,6 +272,8 @@ def audit(root: Path, project: str) -> dict:
         "claims_checked": checked,
         "findings": findings,
         "dead_links": dead_links,
+        "untracked_refs": [{"ref": ref, "specs": sorted(set(locs))}
+                           for ref, locs in sorted(untracked.items())],
         "workflows": {"missing": bad_workflow},
         "precommit": {"declared_not_configured": bad_hooks},
     }
@@ -311,11 +327,14 @@ def main(argv=None) -> int:
             print(f"  DEAD    {d['spec']}:{d['line']} -> {d['link']}")
         for h in report["precommit"]["declared_not_configured"]:
             print(f"  HOOK    {h}")
+        for u in report["untracked_refs"]:
+            print(f"  UNTRACKED {u['ref']}  in {', '.join(u['specs'])}")
     print(f"[spec-audit-local] status={'FAIL' if hard else 'PASS'} "
           f"claims={report['claims_checked']} phantom={len(report['findings'])} "
           f"dead_links={len(report['dead_links'])} "
           f"bad_workflow={len(report['workflows']['missing'])} "
           f"bad_hook={len(report['precommit']['declared_not_configured'])} "
+          f"untracked_refs={len(report['untracked_refs'])} "
           f"docs={len(report['governance_docs_audited'])} "
           f"absent={','.join(report['governance_docs_absent']) or '-'}")
     return 1 if hard else 0
