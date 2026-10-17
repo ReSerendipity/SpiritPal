@@ -679,40 +679,48 @@ pub async fn sp_db_migrate(app: AppHandle) -> Result<bool, String> {
 
 // ---- settings ----
 
+// 命令层与逻辑层的分层约定（D-1 可测化）：
+// `sp_*` 只负责「拿到连接」（`with_conn` 需要 `AppHandle`，而 Tauri 把命令签名钉死为
+// `AppHandle<Wry>`，测试里构造不出来），真正的 SQL 逻辑放在 `*_impl(conn, …)` 里，
+// 由单元测试用内存库直接调用。改逻辑只改 impl，wrapper 保持一行转发。
+
 #[tauri::command]
 pub async fn sp_settings_get(app: AppHandle, key: String) -> Result<Option<String>, String> {
-    with_conn(app, move |conn| {
-        scalar(
-            conn,
-            "SELECT value FROM settings WHERE key = ?1",
-            &[sq(&key)],
-        )
-    })
-    .await
+    with_conn(app, move |conn| sp_settings_get_impl(conn, &key)).await
+}
+
+fn sp_settings_get_impl(conn: &Connection, key: &str) -> Result<Option<String>, String> {
+    scalar(
+        conn,
+        "SELECT value FROM settings WHERE key = ?1",
+        &[sq(key)],
+    )
 }
 
 #[tauri::command]
 pub async fn sp_settings_set(app: AppHandle, key: String, value: String) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        let now = chrono::Utc::now().timestamp_millis();
-        exec(
-            conn,
-            "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, ?3)
-             ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = ?3",
-            &[sq(&key), sq(&value), sqi(now)],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_settings_set_impl(conn, &key, &value)).await
+}
+
+fn sp_settings_set_impl(conn: &Connection, key: &str, value: &str) -> Result<(), String> {
+    let now = chrono::Utc::now().timestamp_millis();
+    exec(
+        conn,
+        "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, ?3)
+         ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = ?3",
+        &[sq(key), sq(value), sqi(now)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_settings_remove(app: AppHandle, key: String) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(conn, "DELETE FROM settings WHERE key = ?1", &[sq(&key)])?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_settings_remove_impl(conn, &key)).await
+}
+
+fn sp_settings_remove_impl(conn: &Connection, key: &str) -> Result<(), String> {
+    exec(conn, "DELETE FROM settings WHERE key = ?1", &[sq(key)])?;
+    Ok(())
 }
 
 // ---- characters ----
@@ -722,14 +730,15 @@ pub async fn sp_char_get_stats(
     app: AppHandle,
     character_id: String,
 ) -> Result<Option<String>, String> {
-    with_conn(app, move |conn| {
-        scalar(
-            conn,
-            "SELECT stats FROM characters WHERE id = ?1",
-            &[sq(&character_id)],
-        )
-    })
-    .await
+    with_conn(app, move |conn| sp_char_get_stats_impl(conn, &character_id)).await
+}
+
+fn sp_char_get_stats_impl(conn: &Connection, character_id: &str) -> Result<Option<String>, String> {
+    scalar(
+        conn,
+        "SELECT stats FROM characters WHERE id = ?1",
+        &[sq(character_id)],
+    )
 }
 
 #[tauri::command]
@@ -739,24 +748,33 @@ pub async fn sp_char_save_stats(
     stats: String,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        let now = chrono::Utc::now().timestamp_millis();
-        exec(
-            conn,
-            "INSERT INTO characters (id, stats, updated_at) VALUES (?1, ?2, ?3)
-             ON CONFLICT(id) DO UPDATE SET stats = ?2, updated_at = ?3",
-            &[sq(&character_id), sq(&stats), sqi(now)],
-        )?;
-        Ok(())
+        sp_char_save_stats_impl(conn, &character_id, &stats)
     })
     .await
 }
 
+fn sp_char_save_stats_impl(
+    conn: &Connection,
+    character_id: &str,
+    stats: &str,
+) -> Result<(), String> {
+    let now = chrono::Utc::now().timestamp_millis();
+    exec(
+        conn,
+        "INSERT INTO characters (id, stats, updated_at) VALUES (?1, ?2, ?3)
+         ON CONFLICT(id) DO UPDATE SET stats = ?2, updated_at = ?3",
+        &[sq(character_id), sq(stats), sqi(now)],
+    )?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn sp_char_list(app: AppHandle) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, move |conn| {
-        json_rows(conn, "SELECT id, stats, updated_at FROM characters", &[])
-    })
-    .await
+    with_conn(app, move |conn| sp_char_list_impl(conn)).await
+}
+
+fn sp_char_list_impl(conn: &Connection) -> Result<Vec<JsonValue>, String> {
+    json_rows(conn, "SELECT id, stats, updated_at FROM characters", &[])
 }
 
 // ---- memories ----
@@ -770,17 +788,33 @@ pub async fn sp_mem_add(
     importance: Option<i64>,
 ) -> Result<i64, String> {
     with_conn(app, move |conn| {
-        let now = chrono::Utc::now().timestamp_millis();
-        let imp = json_or(importance, 50);
-        exec(
-            conn,
-            "INSERT INTO memories (character_id, type, content, importance, created_at, last_accessed)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
-            &[sq(&character_id), sq(&memory_type), sq(&content), sqi(imp), sqi(now)],
-        )?;
-        Ok(scalar(conn, "SELECT last_insert_rowid()", &[])?.unwrap_or(0))
+        sp_mem_add_impl(conn, &character_id, &memory_type, &content, importance)
     })
     .await
+}
+
+fn sp_mem_add_impl(
+    conn: &Connection,
+    character_id: &str,
+    memory_type: &str,
+    content: &str,
+    importance: Option<i64>,
+) -> Result<i64, String> {
+    let now = chrono::Utc::now().timestamp_millis();
+    let imp = json_or(importance, 50);
+    exec(
+        conn,
+        "INSERT INTO memories (character_id, type, content, importance, created_at, last_accessed)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+        &[
+            sq(character_id),
+            sq(memory_type),
+            sq(content),
+            sqi(imp),
+            sqi(now),
+        ],
+    )?;
+    Ok(scalar(conn, "SELECT last_insert_rowid()", &[])?.unwrap_or(0))
 }
 
 #[tauri::command]
@@ -790,14 +824,22 @@ pub async fn sp_mem_save_embedding(
     embedding_b64: String,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "UPDATE memories SET embedding = ?1 WHERE id = ?2",
-            &[sq(&embedding_b64), sqi(memory_id)],
-        )?;
-        Ok(())
+        sp_mem_save_embedding_impl(conn, memory_id, &embedding_b64)
     })
     .await
+}
+
+fn sp_mem_save_embedding_impl(
+    conn: &Connection,
+    memory_id: i64,
+    embedding_b64: &str,
+) -> Result<(), String> {
+    exec(
+        conn,
+        "UPDATE memories SET embedding = ?1 WHERE id = ?2",
+        &[sq(embedding_b64), sqi(memory_id)],
+    )?;
+    Ok(())
 }
 
 /// 批量保存嵌入（单事务）
@@ -810,37 +852,45 @@ pub async fn sp_mem_save_embeddings_batch(
         return Ok(());
     }
     with_conn(app, move |conn| {
-        let tx = conn
-            .transaction()
-            .map_err(|e| format!("开启事务失败: {e}"))?;
-        for it in &items {
-            tx.execute(
-                "UPDATE memories SET embedding = ?1 WHERE id = ?2",
-                params_from_iter([
-                    SqValue::Text(it.embedding_b64.clone()),
-                    SqValue::Integer(it.memory_id),
-                ]),
-            )
-            .map_err(|e| format!("批量嵌入写入失败: {e}"))?;
-        }
-        tx.commit().map_err(|e| format!("提交事务失败: {e}"))?;
-        Ok(())
+        sp_mem_save_embeddings_batch_impl(conn, &items)
     })
     .await
 }
 
+fn sp_mem_save_embeddings_batch_impl(
+    conn: &mut Connection,
+    items: &[EmbedItem],
+) -> Result<(), String> {
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("开启事务失败: {e}"))?;
+    for it in items {
+        tx.execute(
+            "UPDATE memories SET embedding = ?1 WHERE id = ?2",
+            params_from_iter([
+                SqValue::Text(it.embedding_b64.clone()),
+                SqValue::Integer(it.memory_id),
+            ]),
+        )
+        .map_err(|e| format!("批量嵌入写入失败: {e}"))?;
+    }
+    tx.commit().map_err(|e| format!("提交事务失败: {e}"))?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn sp_mem_touch(app: AppHandle, memory_id: i64) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        let now = chrono::Utc::now().timestamp_millis();
-        exec(
-            conn,
-            "UPDATE memories SET last_accessed = ?1 WHERE id = ?2",
-            &[sqi(now), sqi(memory_id)],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_mem_touch_impl(conn, memory_id)).await
+}
+
+fn sp_mem_touch_impl(conn: &Connection, memory_id: i64) -> Result<(), String> {
+    let now = chrono::Utc::now().timestamp_millis();
+    exec(
+        conn,
+        "UPDATE memories SET last_accessed = ?1 WHERE id = ?2",
+        &[sqi(now), sqi(memory_id)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -851,22 +901,31 @@ pub async fn sp_mem_get_embeddings(
     memory_type: Option<String>,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        let lim = json_or(limit, 1000);
-        json_rows(
-            conn,
-            "SELECT id, embedding FROM memories
-             WHERE embedding IS NOT NULL
-               AND (?1 IS NULL OR character_id = ?1)
-               AND (?2 IS NULL OR type = ?2)
-             ORDER BY created_at DESC LIMIT ?3",
-            &[
-                character_id.map(|s| sq(&s)).unwrap_or(sqn()),
-                memory_type.map(|s| sq(&s)).unwrap_or(sqn()),
-                sqi(lim),
-            ],
-        )
+        sp_mem_get_embeddings_impl(conn, character_id.as_deref(), limit, memory_type.as_deref())
     })
     .await
+}
+
+fn sp_mem_get_embeddings_impl(
+    conn: &Connection,
+    character_id: Option<&str>,
+    limit: Option<i64>,
+    memory_type: Option<&str>,
+) -> Result<Vec<JsonValue>, String> {
+    let lim = json_or(limit, 1000);
+    json_rows(
+        conn,
+        "SELECT id, embedding FROM memories
+         WHERE embedding IS NOT NULL
+           AND (?1 IS NULL OR character_id = ?1)
+           AND (?2 IS NULL OR type = ?2)
+         ORDER BY created_at DESC LIMIT ?3",
+        &[
+            character_id.map(sq).unwrap_or(sqn()),
+            memory_type.map(sq).unwrap_or(sqn()),
+            sqi(lim),
+        ],
+    )
 }
 
 #[tauri::command]
@@ -876,44 +935,51 @@ pub async fn sp_mem_list(
     memory_type: Option<String>,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM memories
-             WHERE character_id = ?1 AND (?2 IS NULL OR type = ?2)
-             ORDER BY created_at DESC",
-            &[
-                sq(&character_id),
-                memory_type.map(|s| sq(&s)).unwrap_or(sqn()),
-            ],
-        )
+        sp_mem_list_impl(conn, &character_id, memory_type.as_deref())
     })
     .await
+}
+
+fn sp_mem_list_impl(
+    conn: &Connection,
+    character_id: &str,
+    memory_type: Option<&str>,
+) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM memories
+         WHERE character_id = ?1 AND (?2 IS NULL OR type = ?2)
+         ORDER BY created_at DESC",
+        &[sq(character_id), memory_type.map(sq).unwrap_or(sqn())],
+    )
 }
 
 #[tauri::command]
 pub async fn sp_mem_delete(app: AppHandle, memory_id: i64) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM memories WHERE id = ?1",
-            &[sqi(memory_id)],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_mem_delete_impl(conn, memory_id)).await
+}
+
+fn sp_mem_delete_impl(conn: &Connection, memory_id: i64) -> Result<(), String> {
+    exec(
+        conn,
+        "DELETE FROM memories WHERE id = ?1",
+        &[sqi(memory_id)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_mem_clear(app: AppHandle, character_id: String) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM memories WHERE character_id = ?1",
-            &[sq(&character_id)],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_mem_clear_impl(conn, &character_id)).await
+}
+
+fn sp_mem_clear_impl(conn: &Connection, character_id: &str) -> Result<(), String> {
+    exec(
+        conn,
+        "DELETE FROM memories WHERE character_id = ?1",
+        &[sq(character_id)],
+    )?;
+    Ok(())
 }
 
 /// 插入完整记忆行，返回 rowid（字段白名单，无字符串拼 SQL）
@@ -1230,13 +1296,20 @@ pub async fn sp_owner_facts_list(
     character_id: String,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM owner_facts WHERE character_id = ?1 ORDER BY confidence DESC, updated_at DESC",
-            &[sq(&character_id)],
-        )
+        sp_owner_facts_list_impl(conn, &character_id)
     })
     .await
+}
+
+fn sp_owner_facts_list_impl(
+    conn: &Connection,
+    character_id: &str,
+) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM owner_facts WHERE character_id = ?1 ORDER BY confidence DESC, updated_at DESC",
+        &[sq(character_id)],
+    )
 }
 
 #[tauri::command]
@@ -1246,17 +1319,25 @@ pub async fn sp_owner_facts_as_of(
     as_of_time: i64,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM owner_facts
-             WHERE character_id = ?1
-               AND (valid_at IS NULL OR valid_at <= ?2)
-               AND (invalid_at IS NULL OR invalid_at > ?2)
-             ORDER BY confidence DESC, updated_at DESC",
-            &[sq(&character_id), sqi(as_of_time)],
-        )
+        sp_owner_facts_as_of_impl(conn, &character_id, as_of_time)
     })
     .await
+}
+
+fn sp_owner_facts_as_of_impl(
+    conn: &Connection,
+    character_id: &str,
+    as_of_time: i64,
+) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM owner_facts
+         WHERE character_id = ?1
+           AND (valid_at IS NULL OR valid_at <= ?2)
+           AND (invalid_at IS NULL OR invalid_at > ?2)
+         ORDER BY confidence DESC, updated_at DESC",
+        &[sq(character_id), sqi(as_of_time)],
+    )
 }
 
 #[tauri::command]
@@ -1265,59 +1346,67 @@ pub async fn sp_owner_facts_history(
     character_id: String,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM owner_facts
-             WHERE character_id = ?1 AND invalid_at IS NOT NULL
-             ORDER BY invalid_at DESC",
-            &[sq(&character_id)],
-        )
+        sp_owner_facts_history_impl(conn, &character_id)
     })
     .await
 }
 
+fn sp_owner_facts_history_impl(
+    conn: &Connection,
+    character_id: &str,
+) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM owner_facts
+         WHERE character_id = ?1 AND invalid_at IS NOT NULL
+         ORDER BY invalid_at DESC",
+        &[sq(character_id)],
+    )
+}
+
 #[tauri::command]
 pub async fn sp_owner_facts_upsert(app: AppHandle, row: JsonValue) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        let character_id = gs(&row, "character_id").ok_or("缺少 character_id")?;
-        let fact_key = gs(&row, "fact_key").ok_or("缺少 fact_key")?;
-        let now = chrono::Utc::now().timestamp_millis();
-        // P1-5: 同 key 有效旧值先标记失效（被取代）
-        let old_id: Option<i64> = scalar(
-            conn,
-            "SELECT id FROM owner_facts
-             WHERE character_id = ?1 AND fact_key = ?2 AND (invalid_at IS NULL OR invalid_at > ?3)
-             LIMIT 1",
-            &[sq(&character_id), sq(&fact_key), sqi(now)],
-        )?;
-        if let Some(old_id) = old_id {
-            exec(
-                conn,
-                "UPDATE owner_facts SET invalid_at = ?1, superseded_by = ?2 WHERE id = ?3",
-                &[sqi(now), sqi(gi(&row, "id").unwrap_or(0)), sqi(old_id)],
-            )?;
-        }
+    with_conn(app, move |conn| sp_owner_facts_upsert_impl(conn, &row)).await
+}
+
+fn sp_owner_facts_upsert_impl(conn: &Connection, row: &JsonValue) -> Result<(), String> {
+    let character_id = gs(row, "character_id").ok_or("缺少 character_id")?;
+    let fact_key = gs(row, "fact_key").ok_or("缺少 fact_key")?;
+    let now = chrono::Utc::now().timestamp_millis();
+    // P1-5: 同 key 有效旧值先标记失效（被取代）
+    let old_id: Option<i64> = scalar(
+        conn,
+        "SELECT id FROM owner_facts
+         WHERE character_id = ?1 AND fact_key = ?2 AND (invalid_at IS NULL OR invalid_at > ?3)
+         LIMIT 1",
+        &[sq(&character_id), sq(&fact_key), sqi(now)],
+    )?;
+    if let Some(old_id) = old_id {
         exec(
             conn,
-            "INSERT INTO owner_facts (character_id, fact_id, fact_key, fact_value, source_memory_id, confidence, updated_at, user_provided, valid_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
-             ON CONFLICT(character_id, fact_key) DO UPDATE SET
-               fact_value = ?4, source_memory_id = ?5, confidence = ?6, updated_at = ?7, user_provided = ?8, valid_at = ?9",
-            &[
-                sq(&character_id),
-                sq(&gs(&row, "fact_id").unwrap_or_default()),
-                sq(&fact_key),
-                sq(&gs(&row, "fact_value").unwrap_or_default()),
-                gs(&row, "source_memory_id").map(|s| sq(&s)).unwrap_or(sqn()),
-                sqf(gf(&row, "confidence").unwrap_or(0.5)),
-                sqi(gi(&row, "updated_at").unwrap_or(now)),
-                sqi(gi(&row, "user_provided").unwrap_or(0)),
-                sqi(now),
-            ],
+            "UPDATE owner_facts SET invalid_at = ?1, superseded_by = ?2 WHERE id = ?3",
+            &[sqi(now), sqi(gi(row, "id").unwrap_or(0)), sqi(old_id)],
         )?;
-        Ok(())
-    })
-    .await
+    }
+    exec(
+        conn,
+        "INSERT INTO owner_facts (character_id, fact_id, fact_key, fact_value, source_memory_id, confidence, updated_at, user_provided, valid_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+         ON CONFLICT(character_id, fact_key) DO UPDATE SET
+           fact_value = ?4, source_memory_id = ?5, confidence = ?6, updated_at = ?7, user_provided = ?8, valid_at = ?9",
+        &[
+            sq(&character_id),
+            sq(&gs(row, "fact_id").unwrap_or_default()),
+            sq(&fact_key),
+            sq(&gs(row, "fact_value").unwrap_or_default()),
+            gs(row, "source_memory_id").map(|s| sq(&s)).unwrap_or(sqn()),
+            sqf(gf(row, "confidence").unwrap_or(0.5)),
+            sqi(gi(row, "updated_at").unwrap_or(now)),
+            sqi(gi(row, "user_provided").unwrap_or(0)),
+            sqi(now),
+        ],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1327,27 +1416,39 @@ pub async fn sp_owner_facts_delete(
     fact_key: String,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM owner_facts WHERE character_id = ?1 AND fact_key = ?2",
-            &[sq(&character_id), sq(&fact_key)],
-        )?;
-        Ok(())
+        sp_owner_facts_delete_impl(conn, &character_id, &fact_key)
     })
     .await
+}
+
+fn sp_owner_facts_delete_impl(
+    conn: &Connection,
+    character_id: &str,
+    fact_key: &str,
+) -> Result<(), String> {
+    exec(
+        conn,
+        "DELETE FROM owner_facts WHERE character_id = ?1 AND fact_key = ?2",
+        &[sq(character_id), sq(fact_key)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_owner_facts_clear(app: AppHandle, character_id: String) -> Result<(), String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM owner_facts WHERE character_id = ?1",
-            &[sq(&character_id)],
-        )?;
-        Ok(())
+        sp_owner_facts_clear_impl(conn, &character_id)
     })
     .await
+}
+
+fn sp_owner_facts_clear_impl(conn: &Connection, character_id: &str) -> Result<(), String> {
+    exec(
+        conn,
+        "DELETE FROM owner_facts WHERE character_id = ?1",
+        &[sq(character_id)],
+    )?;
+    Ok(())
 }
 
 // ---- memory_semantic_facts ----
@@ -1357,14 +1458,15 @@ pub async fn sp_sem_facts_list(
     app: AppHandle,
     character_id: String,
 ) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM memory_semantic_facts WHERE character_id = ?1 ORDER BY importance DESC, updated_at DESC",
-            &[sq(&character_id)],
-        )
-    })
-    .await
+    with_conn(app, move |conn| sp_sem_facts_list_impl(conn, &character_id)).await
+}
+
+fn sp_sem_facts_list_impl(conn: &Connection, character_id: &str) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM memory_semantic_facts WHERE character_id = ?1 ORDER BY importance DESC, updated_at DESC",
+        &[sq(character_id)],
+    )
 }
 
 #[tauri::command]
@@ -1374,50 +1476,59 @@ pub async fn sp_sem_facts_by_key(
     fact_key: String,
 ) -> Result<Option<JsonValue>, String> {
     with_conn(app, move |conn| {
-        Ok(json_rows(
-            conn,
-            "SELECT * FROM memory_semantic_facts
-             WHERE character_id = ?1 AND fact_key = ?2 ORDER BY importance DESC LIMIT 1",
-            &[sq(&character_id), sq(&fact_key)],
-        )?
-        .into_iter()
-        .next())
+        sp_sem_facts_by_key_impl(conn, &character_id, &fact_key)
     })
     .await
 }
 
+fn sp_sem_facts_by_key_impl(
+    conn: &Connection,
+    character_id: &str,
+    fact_key: &str,
+) -> Result<Option<JsonValue>, String> {
+    Ok(json_rows(
+        conn,
+        "SELECT * FROM memory_semantic_facts
+         WHERE character_id = ?1 AND fact_key = ?2 ORDER BY importance DESC LIMIT 1",
+        &[sq(character_id), sq(fact_key)],
+    )?
+    .into_iter()
+    .next())
+}
+
 #[tauri::command]
 pub async fn sp_sem_facts_upsert(app: AppHandle, row: JsonValue) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        let character_id = gs(&row, "character_id").ok_or("缺少 character_id")?;
-        let fact_key = gs(&row, "fact_key").ok_or("缺少 fact_key")?;
-        let fact_value = gs(&row, "fact_value").unwrap_or_default();
-        let source_ids = match row.get("source_memory_ids") {
-            Some(JsonValue::Array(arr)) => json!(arr).to_string(),
-            Some(JsonValue::String(s)) => s.clone(),
-            _ => "[]".to_string(),
-        };
-        let now = chrono::Utc::now().timestamp_millis();
-        exec(
-            conn,
-            "INSERT INTO memory_semantic_facts (character_id, fact_key, fact_value, source_memory_ids, importance, created_at, updated_at, is_autobiographical)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-             ON CONFLICT(character_id, fact_key) DO UPDATE SET
-               fact_value = ?3, source_memory_ids = ?4, importance = ?5, updated_at = ?7, is_autobiographical = ?8",
-            &[
-                sq(&character_id),
-                sq(&fact_key),
-                sq(&fact_value),
-                sq(&source_ids),
-                sqi(gi(&row, "importance").unwrap_or(50)),
-                sqi(gi(&row, "created_at").unwrap_or(now)),
-                sqi(gi(&row, "updated_at").unwrap_or(now)),
-                sqi(gi(&row, "is_autobiographical").unwrap_or(0)),
-            ],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_sem_facts_upsert_impl(conn, &row)).await
+}
+
+fn sp_sem_facts_upsert_impl(conn: &Connection, row: &JsonValue) -> Result<(), String> {
+    let character_id = gs(row, "character_id").ok_or("缺少 character_id")?;
+    let fact_key = gs(row, "fact_key").ok_or("缺少 fact_key")?;
+    let fact_value = gs(row, "fact_value").unwrap_or_default();
+    let source_ids = match row.get("source_memory_ids") {
+        Some(JsonValue::Array(arr)) => json!(arr).to_string(),
+        Some(JsonValue::String(s)) => s.clone(),
+        _ => "[]".to_string(),
+    };
+    let now = chrono::Utc::now().timestamp_millis();
+    exec(
+        conn,
+        "INSERT INTO memory_semantic_facts (character_id, fact_key, fact_value, source_memory_ids, importance, created_at, updated_at, is_autobiographical)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+         ON CONFLICT(character_id, fact_key) DO UPDATE SET
+           fact_value = ?3, source_memory_ids = ?4, importance = ?5, updated_at = ?7, is_autobiographical = ?8",
+        &[
+            sq(&character_id),
+            sq(&fact_key),
+            sq(&fact_value),
+            sq(&source_ids),
+            sqi(gi(row, "importance").unwrap_or(50)),
+            sqi(gi(row, "created_at").unwrap_or(now)),
+            sqi(gi(row, "updated_at").unwrap_or(now)),
+            sqi(gi(row, "is_autobiographical").unwrap_or(0)),
+        ],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1427,40 +1538,56 @@ pub async fn sp_sem_facts_delete(
     fact_key: String,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM memory_semantic_facts WHERE character_id = ?1 AND fact_key = ?2",
-            &[sq(&character_id), sq(&fact_key)],
-        )?;
-        Ok(())
+        sp_sem_facts_delete_impl(conn, &character_id, &fact_key)
     })
     .await
+}
+
+fn sp_sem_facts_delete_impl(
+    conn: &Connection,
+    character_id: &str,
+    fact_key: &str,
+) -> Result<(), String> {
+    exec(
+        conn,
+        "DELETE FROM memory_semantic_facts WHERE character_id = ?1 AND fact_key = ?2",
+        &[sq(character_id), sq(fact_key)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_sem_facts_clear(app: AppHandle, character_id: String) -> Result<(), String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM memory_semantic_facts WHERE character_id = ?1",
-            &[sq(&character_id)],
-        )?;
-        Ok(())
+        sp_sem_facts_clear_impl(conn, &character_id)
     })
     .await
+}
+
+fn sp_sem_facts_clear_impl(conn: &Connection, character_id: &str) -> Result<(), String> {
+    exec(
+        conn,
+        "DELETE FROM memory_semantic_facts WHERE character_id = ?1",
+        &[sq(character_id)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_sem_facts_count(app: AppHandle, character_id: String) -> Result<i64, String> {
     with_conn(app, move |conn| {
-        Ok(scalar(
-            conn,
-            "SELECT COUNT(*) FROM memory_semantic_facts WHERE character_id = ?1",
-            &[sq(&character_id)],
-        )?
-        .unwrap_or(0))
+        sp_sem_facts_count_impl(conn, &character_id)
     })
     .await
+}
+
+fn sp_sem_facts_count_impl(conn: &Connection, character_id: &str) -> Result<i64, String> {
+    Ok(scalar(
+        conn,
+        "SELECT COUNT(*) FROM memory_semantic_facts WHERE character_id = ?1",
+        &[sq(character_id)],
+    )?
+    .unwrap_or(0))
 }
 
 // ---- pet_experiences / visual_memories / entity_nodes ----
@@ -1470,49 +1597,52 @@ pub async fn sp_pet_exp_list(
     app: AppHandle,
     character_id: String,
 ) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM pet_experiences WHERE character_id = ?1 ORDER BY timestamp ASC",
-            &[sq(&character_id)],
-        )
-    })
-    .await
+    with_conn(app, move |conn| sp_pet_exp_list_impl(conn, &character_id)).await
+}
+
+fn sp_pet_exp_list_impl(conn: &Connection, character_id: &str) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM pet_experiences WHERE character_id = ?1 ORDER BY timestamp ASC",
+        &[sq(character_id)],
+    )
 }
 
 #[tauri::command]
 pub async fn sp_pet_exp_insert(app: AppHandle, row: JsonValue) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "INSERT INTO pet_experiences (id, character_id, type, description, timestamp, sentiment, intensity)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            &[
-                sq(&gs(&row, "id").ok_or("缺少 id")?),
-                sq(&gs(&row, "character_id").ok_or("缺少 character_id")?),
-                sq(&gs(&row, "type").unwrap_or_default()),
-                sq(&gs(&row, "description").unwrap_or_default()),
-                sqi(gi(&row, "timestamp").unwrap_or(0)),
-                sq(&gs(&row, "sentiment").unwrap_or_else(|| "neutral".to_string())),
-                sqf(gf(&row, "intensity").unwrap_or(0.5)),
-            ],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_pet_exp_insert_impl(conn, &row)).await
+}
+
+fn sp_pet_exp_insert_impl(conn: &Connection, row: &JsonValue) -> Result<(), String> {
+    exec(
+        conn,
+        "INSERT INTO pet_experiences (id, character_id, type, description, timestamp, sentiment, intensity)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        &[
+            sq(&gs(row, "id").ok_or("缺少 id")?),
+            sq(&gs(row, "character_id").ok_or("缺少 character_id")?),
+            sq(&gs(row, "type").unwrap_or_default()),
+            sq(&gs(row, "description").unwrap_or_default()),
+            sqi(gi(row, "timestamp").unwrap_or(0)),
+            sq(&gs(row, "sentiment").unwrap_or_else(|| "neutral".to_string())),
+            sqf(gf(row, "intensity").unwrap_or(0.5)),
+        ],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_pet_exp_clear(app: AppHandle, character_id: String) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM pet_experiences WHERE character_id = ?1",
-            &[sq(&character_id)],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_pet_exp_clear_impl(conn, &character_id)).await
+}
+
+fn sp_pet_exp_clear_impl(conn: &Connection, character_id: &str) -> Result<(), String> {
+    exec(
+        conn,
+        "DELETE FROM pet_experiences WHERE character_id = ?1",
+        &[sq(character_id)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1520,50 +1650,53 @@ pub async fn sp_visual_list(
     app: AppHandle,
     character_id: String,
 ) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM visual_memories WHERE character_id = ?1 ORDER BY timestamp ASC",
-            &[sq(&character_id)],
-        )
-    })
-    .await
+    with_conn(app, move |conn| sp_visual_list_impl(conn, &character_id)).await
+}
+
+fn sp_visual_list_impl(conn: &Connection, character_id: &str) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM visual_memories WHERE character_id = ?1 ORDER BY timestamp ASC",
+        &[sq(character_id)],
+    )
 }
 
 #[tauri::command]
 pub async fn sp_visual_insert(app: AppHandle, row: JsonValue) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "INSERT INTO visual_memories (id, character_id, type, description, image_path, timestamp, sentiment, related_memory_id)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            &[
-                sq(&gs(&row, "id").ok_or("缺少 id")?),
-                sq(&gs(&row, "character_id").ok_or("缺少 character_id")?),
-                sq(&gs(&row, "type").unwrap_or_default()),
-                sq(&gs(&row, "description").unwrap_or_default()),
-                gs(&row, "image_path").map(|s| sq(&s)).unwrap_or(sqn()),
-                sqi(gi(&row, "timestamp").unwrap_or(0)),
-                sq(&gs(&row, "sentiment").unwrap_or_else(|| "neutral".to_string())),
-                gs(&row, "related_memory_id").map(|s| sq(&s)).unwrap_or(sqn()),
-            ],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_visual_insert_impl(conn, &row)).await
+}
+
+fn sp_visual_insert_impl(conn: &Connection, row: &JsonValue) -> Result<(), String> {
+    exec(
+        conn,
+        "INSERT INTO visual_memories (id, character_id, type, description, image_path, timestamp, sentiment, related_memory_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        &[
+            sq(&gs(row, "id").ok_or("缺少 id")?),
+            sq(&gs(row, "character_id").ok_or("缺少 character_id")?),
+            sq(&gs(row, "type").unwrap_or_default()),
+            sq(&gs(row, "description").unwrap_or_default()),
+            gs(row, "image_path").map(|s| sq(&s)).unwrap_or(sqn()),
+            sqi(gi(row, "timestamp").unwrap_or(0)),
+            sq(&gs(row, "sentiment").unwrap_or_else(|| "neutral".to_string())),
+            gs(row, "related_memory_id").map(|s| sq(&s)).unwrap_or(sqn()),
+        ],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_visual_clear(app: AppHandle, character_id: String) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM visual_memories WHERE character_id = ?1",
-            &[sq(&character_id)],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_visual_clear_impl(conn, &character_id)).await
+}
+
+fn sp_visual_clear_impl(conn: &Connection, character_id: &str) -> Result<(), String> {
+    exec(
+        conn,
+        "DELETE FROM visual_memories WHERE character_id = ?1",
+        &[sq(character_id)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1571,128 +1704,142 @@ pub async fn sp_entity_list(
     app: AppHandle,
     character_id: String,
 ) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM entity_nodes WHERE character_id = ?1 ORDER BY mention_count DESC",
-            &[sq(&character_id)],
-        )
-    })
-    .await
+    with_conn(app, move |conn| sp_entity_list_impl(conn, &character_id)).await
+}
+
+fn sp_entity_list_impl(conn: &Connection, character_id: &str) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM entity_nodes WHERE character_id = ?1 ORDER BY mention_count DESC",
+        &[sq(character_id)],
+    )
 }
 
 #[tauri::command]
 pub async fn sp_entity_upsert(app: AppHandle, row: JsonValue) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "INSERT INTO entity_nodes (id, character_id, name, type, linked_memory_ids, mention_count, first_seen, last_seen)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-             ON CONFLICT(character_id, name) DO UPDATE SET
-               linked_memory_ids = ?5, mention_count = ?6, last_seen = ?8",
-            &[
-                sq(&gs(&row, "id").ok_or("缺少 id")?),
-                sq(&gs(&row, "character_id").ok_or("缺少 character_id")?),
-                sq(&gs(&row, "name").ok_or("缺少 name")?),
-                sq(&gs(&row, "type").unwrap_or_default()),
-                sq(&gs(&row, "linked_memory_ids").unwrap_or_else(|| "[]".to_string())),
-                sqi(gi(&row, "mention_count").unwrap_or(0)),
-                sqi(gi(&row, "first_seen").unwrap_or(0)),
-                sqi(gi(&row, "last_seen").unwrap_or(0)),
-            ],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_entity_upsert_impl(conn, &row)).await
+}
+
+fn sp_entity_upsert_impl(conn: &Connection, row: &JsonValue) -> Result<(), String> {
+    exec(
+        conn,
+        "INSERT INTO entity_nodes (id, character_id, name, type, linked_memory_ids, mention_count, first_seen, last_seen)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+         ON CONFLICT(character_id, name) DO UPDATE SET
+           linked_memory_ids = ?5, mention_count = ?6, last_seen = ?8",
+        &[
+            sq(&gs(row, "id").ok_or("缺少 id")?),
+            sq(&gs(row, "character_id").ok_or("缺少 character_id")?),
+            sq(&gs(row, "name").ok_or("缺少 name")?),
+            sq(&gs(row, "type").unwrap_or_default()),
+            sq(&gs(row, "linked_memory_ids").unwrap_or_else(|| "[]".to_string())),
+            sqi(gi(row, "mention_count").unwrap_or(0)),
+            sqi(gi(row, "first_seen").unwrap_or(0)),
+            sqi(gi(row, "last_seen").unwrap_or(0)),
+        ],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_entity_clear(app: AppHandle, character_id: String) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM entity_nodes WHERE character_id = ?1",
-            &[sq(&character_id)],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_entity_clear_impl(conn, &character_id)).await
+}
+
+fn sp_entity_clear_impl(conn: &Connection, character_id: &str) -> Result<(), String> {
+    exec(
+        conn,
+        "DELETE FROM entity_nodes WHERE character_id = ?1",
+        &[sq(character_id)],
+    )?;
+    Ok(())
 }
 
 // ---- mods / inventory / schedules ----
 
 #[tauri::command]
 pub async fn sp_mods_save(app: AppHandle, row: JsonValue) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        let now = chrono::Utc::now().timestamp_millis();
-        exec(
-            conn,
-            "INSERT INTO mods (id, name, version, config, enabled, installed_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-             ON CONFLICT(id) DO UPDATE SET name = ?2, version = ?3, config = ?4, enabled = ?5",
-            &[
-                sq(&gs(&row, "id").ok_or("缺少 id")?),
-                sq(&gs(&row, "name").ok_or("缺少 name")?),
-                gs(&row, "version").map(|s| sq(&s)).unwrap_or(sqn()),
-                sq(&gs(&row, "config").unwrap_or_else(|| "{}".to_string())),
-                sqi(if gbool(&row, "enabled").unwrap_or(true) {
-                    1
-                } else {
-                    0
-                }),
-                sqi(gi(&row, "installed_at").unwrap_or(now)),
-            ],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_mods_save_impl(conn, &row)).await
+}
+
+fn sp_mods_save_impl(conn: &Connection, row: &JsonValue) -> Result<(), String> {
+    let now = chrono::Utc::now().timestamp_millis();
+    exec(
+        conn,
+        "INSERT INTO mods (id, name, version, config, enabled, installed_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+         ON CONFLICT(id) DO UPDATE SET name = ?2, version = ?3, config = ?4, enabled = ?5",
+        &[
+            sq(&gs(row, "id").ok_or("缺少 id")?),
+            sq(&gs(row, "name").ok_or("缺少 name")?),
+            gs(row, "version").map(|s| sq(&s)).unwrap_or(sqn()),
+            sq(&gs(row, "config").unwrap_or_else(|| "{}".to_string())),
+            sqi(if gbool(row, "enabled").unwrap_or(true) {
+                1
+            } else {
+                0
+            }),
+            sqi(gi(row, "installed_at").unwrap_or(now)),
+        ],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_mods_list(app: AppHandle) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, |conn| json_rows(conn, "SELECT * FROM mods", &[])).await
+    with_conn(app, |conn| sp_mods_list_impl(conn)).await
+}
+
+fn sp_mods_list_impl(conn: &Connection) -> Result<Vec<JsonValue>, String> {
+    json_rows(conn, "SELECT * FROM mods", &[])
 }
 
 #[tauri::command]
 pub async fn sp_mods_delete(app: AppHandle, id: String) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(conn, "DELETE FROM mods WHERE id = ?1", &[sq(&id)])?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_mods_delete_impl(conn, &id)).await
+}
+
+fn sp_mods_delete_impl(conn: &Connection, id: &str) -> Result<(), String> {
+    exec(conn, "DELETE FROM mods WHERE id = ?1", &[sq(id)])?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_mods_set_enabled(app: AppHandle, id: String, enabled: bool) -> Result<(), String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "UPDATE mods SET enabled = ?1 WHERE id = ?2",
-            &[sqi(if enabled { 1 } else { 0 }), sq(&id)],
-        )?;
-        Ok(())
+        sp_mods_set_enabled_impl(conn, &id, enabled)
     })
     .await
 }
 
+fn sp_mods_set_enabled_impl(conn: &Connection, id: &str, enabled: bool) -> Result<(), String> {
+    exec(
+        conn,
+        "UPDATE mods SET enabled = ?1 WHERE id = ?2",
+        &[sqi(if enabled { 1 } else { 0 }), sq(id)],
+    )?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn sp_inventory_save(app: AppHandle, item: JsonValue) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "INSERT INTO inventory (id, item_id, quantity, character_id)
-             VALUES (?1, ?2, ?3, ?4)
-             ON CONFLICT(id) DO UPDATE SET item_id = ?2, quantity = ?3, character_id = ?4",
-            &[
-                sq(&gs(&item, "id").ok_or("缺少 id")?),
-                sq(&gs(&item, "item_id").ok_or("缺少 item_id")?),
-                sqi(gi(&item, "quantity").unwrap_or(1)),
-                gs(&item, "character_id").map(|s| sq(&s)).unwrap_or(sqn()),
-            ],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_inventory_save_impl(conn, &item)).await
+}
+
+fn sp_inventory_save_impl(conn: &Connection, item: &JsonValue) -> Result<(), String> {
+    exec(
+        conn,
+        "INSERT INTO inventory (id, item_id, quantity, character_id)
+         VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(id) DO UPDATE SET item_id = ?2, quantity = ?3, character_id = ?4",
+        &[
+            sq(&gs(item, "id").ok_or("缺少 id")?),
+            sq(&gs(item, "item_id").ok_or("缺少 item_id")?),
+            sqi(gi(item, "quantity").unwrap_or(1)),
+            gs(item, "character_id").map(|s| sq(&s)).unwrap_or(sqn()),
+        ],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1701,56 +1848,66 @@ pub async fn sp_inventory_list(
     character_id: Option<String>,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM inventory WHERE (?1 IS NULL OR character_id = ?1 OR character_id IS NULL)",
-            &[character_id.map(|s| sq(&s)).unwrap_or(sqn())],
-        )
+        sp_inventory_list_impl(conn, character_id.as_deref())
     })
     .await
+}
+
+fn sp_inventory_list_impl(
+    conn: &Connection,
+    character_id: Option<&str>,
+) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM inventory WHERE (?1 IS NULL OR character_id = ?1 OR character_id IS NULL)",
+        &[character_id.map(sq).unwrap_or(sqn())],
+    )
 }
 
 #[tauri::command]
 pub async fn sp_schedules_save(app: AppHandle, schedule: JsonValue) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "INSERT INTO schedules (id, title, time, repeat, completed)
-             VALUES (?1, ?2, ?3, ?4, ?5)
-             ON CONFLICT(id) DO UPDATE SET title = ?2, time = ?3, repeat = ?4, completed = ?5",
-            &[
-                sq(&gs(&schedule, "id").ok_or("缺少 id")?),
-                sq(&gs(&schedule, "title").ok_or("缺少 title")?),
-                sqi(gi(&schedule, "time").unwrap_or(0)),
-                gs(&schedule, "repeat").map(|s| sq(&s)).unwrap_or(sqn()),
-                sqi(if gbool(&schedule, "completed").unwrap_or(false) {
-                    1
-                } else {
-                    0
-                }),
-            ],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_schedules_save_impl(conn, &schedule)).await
+}
+
+fn sp_schedules_save_impl(conn: &Connection, schedule: &JsonValue) -> Result<(), String> {
+    exec(
+        conn,
+        "INSERT INTO schedules (id, title, time, repeat, completed)
+         VALUES (?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(id) DO UPDATE SET title = ?2, time = ?3, repeat = ?4, completed = ?5",
+        &[
+            sq(&gs(schedule, "id").ok_or("缺少 id")?),
+            sq(&gs(schedule, "title").ok_or("缺少 title")?),
+            sqi(gi(schedule, "time").unwrap_or(0)),
+            gs(schedule, "repeat").map(|s| sq(&s)).unwrap_or(sqn()),
+            sqi(if gbool(schedule, "completed").unwrap_or(false) {
+                1
+            } else {
+                0
+            }),
+        ],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_schedules_list(app: AppHandle) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, move |conn| {
-        json_rows(conn, "SELECT * FROM schedules ORDER BY time ASC", &[])
-    })
-    .await
+    with_conn(app, move |conn| sp_schedules_list_impl(conn)).await
+}
+
+fn sp_schedules_list_impl(conn: &Connection) -> Result<Vec<JsonValue>, String> {
+    json_rows(conn, "SELECT * FROM schedules ORDER BY time ASC", &[])
 }
 
 /// 删除指定日程（P3-1 收尾：scheduleManager.removeEvent 镜像删除，避免 DB 残留行复活）
 #[tauri::command]
 pub async fn sp_schedules_delete(app: AppHandle, id: String) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(conn, "DELETE FROM schedules WHERE id = ?1", &[sq(&id)])?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_schedules_delete_impl(conn, &id)).await
+}
+
+fn sp_schedules_delete_impl(conn: &Connection, id: &str) -> Result<(), String> {
+    exec(conn, "DELETE FROM schedules WHERE id = ?1", &[sq(id)])?;
+    Ok(())
 }
 
 // ============ 健康检查 / 完整性 / 快照（healthCheck / dbBackup） ============
@@ -1758,22 +1915,23 @@ pub async fn sp_schedules_delete(app: AppHandle, id: String) -> Result<(), Strin
 /// PRAGMA integrity_check 全量行（健康检查 / 启动完整性探针）
 #[tauri::command]
 pub async fn sp_db_integrity(app: AppHandle) -> Result<Vec<String>, String> {
-    with_conn(app, move |conn| {
-        let rows = json_rows(
-            conn,
-            "SELECT integrity_check FROM pragma_integrity_check",
-            &[],
-        )?;
-        Ok(rows
-            .iter()
-            .filter_map(|r| {
-                r.get("integrity_check")
-                    .and_then(JsonValue::as_str)
-                    .map(String::from)
-            })
-            .collect())
-    })
-    .await
+    with_conn(app, move |conn| sp_db_integrity_impl(conn)).await
+}
+
+fn sp_db_integrity_impl(conn: &Connection) -> Result<Vec<String>, String> {
+    let rows = json_rows(
+        conn,
+        "SELECT integrity_check FROM pragma_integrity_check",
+        &[],
+    )?;
+    Ok(rows
+        .iter()
+        .filter_map(|r| {
+            r.get("integrity_check")
+                .and_then(JsonValue::as_str)
+                .map(String::from)
+        })
+        .collect())
 }
 
 /// 表级全量快照（dbBackup.exportDatabaseSnapshot；表名来自编译期白名单）
@@ -1797,23 +1955,24 @@ const SNAPSHOT_TABLES: &[&str] = &[
 
 #[tauri::command]
 pub async fn sp_db_snapshot(app: AppHandle) -> Result<Map<String, JsonValue>, String> {
-    with_conn(app, move |conn| {
-        let mut out = Map::new();
-        for t in SNAPSHOT_TABLES {
-            // t 来自编译期常量白名单 → 无注入
-            let sql = format!("SELECT * FROM \"{t}\"");
-            match json_rows(conn, &sql, &[]) {
-                Ok(rows) => {
-                    out.insert(t.to_string(), JsonValue::Array(rows));
-                }
-                Err(_) => {
-                    out.insert(t.to_string(), JsonValue::Array(vec![]));
-                }
+    with_conn(app, move |conn| sp_db_snapshot_impl(conn)).await
+}
+
+fn sp_db_snapshot_impl(conn: &Connection) -> Result<Map<String, JsonValue>, String> {
+    let mut out = Map::new();
+    for t in SNAPSHOT_TABLES {
+        // t 来自编译期常量白名单 → 无注入
+        let sql = format!("SELECT * FROM \"{t}\"");
+        match json_rows(conn, &sql, &[]) {
+            Ok(rows) => {
+                out.insert(t.to_string(), JsonValue::Array(rows));
+            }
+            Err(_) => {
+                out.insert(t.to_string(), JsonValue::Array(vec![]));
             }
         }
-        Ok(out)
-    })
-    .await
+    }
+    Ok(out)
 }
 
 // ============ settings 通用（memoryMigrator / zombieDataCleanup） ============
@@ -1821,39 +1980,41 @@ pub async fn sp_db_snapshot(app: AppHandle) -> Result<Map<String, JsonValue>, St
 /// 按 LIKE 模式返回 settings 键列表（pattern 为参数，非拼接）
 #[tauri::command]
 pub async fn sp_settings_keys(app: AppHandle, pattern: String) -> Result<Vec<String>, String> {
-    with_conn(app, move |conn| {
-        let rows = json_rows(
-            conn,
-            "SELECT key FROM settings WHERE key LIKE ?1 ORDER BY key ASC",
-            &[sq(&pattern)],
-        )?;
-        Ok(rows
-            .iter()
-            .filter_map(|r| r.get("key").and_then(JsonValue::as_str).map(String::from))
-            .collect())
-    })
-    .await
+    with_conn(app, move |conn| sp_settings_keys_impl(conn, &pattern)).await
+}
+
+fn sp_settings_keys_impl(conn: &Connection, pattern: &str) -> Result<Vec<String>, String> {
+    let rows = json_rows(
+        conn,
+        "SELECT key FROM settings WHERE key LIKE ?1 ORDER BY key ASC",
+        &[sq(pattern)],
+    )?;
+    Ok(rows
+        .iter()
+        .filter_map(|r| r.get("key").and_then(JsonValue::as_str).map(String::from))
+        .collect())
 }
 
 // ============ 全量清空（dataManager.resetAll，GDPR） ============
 
 #[tauri::command]
 pub async fn sp_db_purge(app: AppHandle) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        let _ = exec(conn, "DELETE FROM memories", &[]);
-        let _ = exec(conn, "DELETE FROM commitments", &[]);
-        let _ = exec(conn, "DELETE FROM context_episodes", &[]);
-        let _ = exec(
-            conn,
-            "DELETE FROM settings WHERE key LIKE 'spiritpal:%'",
-            &[],
-        );
-        let _ = exec(conn, "DELETE FROM schedules", &[]);
-        let _ = exec(conn, "DELETE FROM memory_entity_edges", &[]);
-        let _ = exec(conn, "DELETE FROM memory_entities", &[]);
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_db_purge_impl(conn)).await
+}
+
+fn sp_db_purge_impl(conn: &Connection) -> Result<(), String> {
+    let _ = exec(conn, "DELETE FROM memories", &[]);
+    let _ = exec(conn, "DELETE FROM commitments", &[]);
+    let _ = exec(conn, "DELETE FROM context_episodes", &[]);
+    let _ = exec(
+        conn,
+        "DELETE FROM settings WHERE key LIKE 'spiritpal:%'",
+        &[],
+    );
+    let _ = exec(conn, "DELETE FROM schedules", &[]);
+    let _ = exec(conn, "DELETE FROM memory_entity_edges", &[]);
+    let _ = exec(conn, "DELETE FROM memory_entities", &[]);
+    Ok(())
 }
 
 // ============ commitments（commitmentTracker） ============
@@ -1869,22 +2030,44 @@ pub async fn sp_commitments_insert(
     repeat: Option<String>,
 ) -> Result<i64, String> {
     with_conn(app, move |conn| {
-        let now = chrono::Utc::now().timestamp_millis();
-        exec(
+        sp_commitments_insert_impl(
             conn,
-            "INSERT INTO commitments (character_id, content, actor, due_at, status, source_memory_id, created_at, follow_up_count, repeat)
-             VALUES (?1, ?2, ?3, ?4, 'open', ?5, ?6, 0, ?7)",
-            &[
-                sq(&character_id), sq(&content), sq(&actor),
-                due_at.map(sqi).unwrap_or_else(sqn),
-                source_memory_id.map(sqi).unwrap_or_else(sqn),
-                sqi(now),
-                repeat.as_deref().map(sq).unwrap_or_else(sqn),
-            ],
-        )?;
-        Ok(scalar(conn, "SELECT last_insert_rowid()", &[])?.unwrap_or(0))
+            &character_id,
+            &content,
+            &actor,
+            due_at,
+            source_memory_id,
+            repeat.as_deref(),
+        )
     })
     .await
+}
+
+fn sp_commitments_insert_impl(
+    conn: &Connection,
+    character_id: &str,
+    content: &str,
+    actor: &str,
+    due_at: Option<i64>,
+    source_memory_id: Option<i64>,
+    repeat: Option<&str>,
+) -> Result<i64, String> {
+    let now = chrono::Utc::now().timestamp_millis();
+    exec(
+        conn,
+        "INSERT INTO commitments (character_id, content, actor, due_at, status, source_memory_id, created_at, follow_up_count, repeat)
+         VALUES (?1, ?2, ?3, ?4, 'open', ?5, ?6, 0, ?7)",
+        &[
+            sq(character_id),
+            sq(content),
+            sq(actor),
+            due_at.map(sqi).unwrap_or_else(sqn),
+            source_memory_id.map(sqi).unwrap_or_else(sqn),
+            sqi(now),
+            repeat.map(sq).unwrap_or_else(sqn),
+        ],
+    )?;
+    Ok(scalar(conn, "SELECT last_insert_rowid()", &[])?.unwrap_or(0))
 }
 
 #[tauri::command]
@@ -1893,13 +2076,20 @@ pub async fn sp_commitments_list(
     character_id: String,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM commitments WHERE character_id = ?1 AND status = 'open' ORDER BY due_at ASC",
-            &[sq(&character_id)],
-        )
+        sp_commitments_list_impl(conn, &character_id)
     })
     .await
+}
+
+fn sp_commitments_list_impl(
+    conn: &Connection,
+    character_id: &str,
+) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM commitments WHERE character_id = ?1 AND status = 'open' ORDER BY due_at ASC",
+        &[sq(character_id)],
+    )
 }
 
 #[tauri::command]
@@ -1910,13 +2100,22 @@ pub async fn sp_commitments_due(
     end: i64,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM commitments WHERE character_id = ?1 AND status = 'open' AND due_at >= ?2 AND due_at < ?3 ORDER BY due_at ASC",
-            &[sq(&character_id), sqi(start), sqi(end)],
-        )
+        sp_commitments_due_impl(conn, &character_id, start, end)
     })
     .await
+}
+
+fn sp_commitments_due_impl(
+    conn: &Connection,
+    character_id: &str,
+    start: i64,
+    end: i64,
+) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM commitments WHERE character_id = ?1 AND status = 'open' AND due_at >= ?2 AND due_at < ?3 ORDER BY due_at ASC",
+        &[sq(character_id), sqi(start), sqi(end)],
+    )
 }
 
 #[tauri::command]
@@ -1927,13 +2126,22 @@ pub async fn sp_commitments_overdue(
     before: i64,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM commitments WHERE character_id = ?1 AND status = 'open' AND due_at < ?2 AND due_at > ?3 ORDER BY due_at ASC",
-            &[sq(&character_id), sqi(now), sqi(before)],
-        )
+        sp_commitments_overdue_impl(conn, &character_id, now, before)
     })
     .await
+}
+
+fn sp_commitments_overdue_impl(
+    conn: &Connection,
+    character_id: &str,
+    now: i64,
+    before: i64,
+) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM commitments WHERE character_id = ?1 AND status = 'open' AND due_at < ?2 AND due_at > ?3 ORDER BY due_at ASC",
+        &[sq(character_id), sqi(now), sqi(before)],
+    )
 }
 
 /// 约定状态白名单（防字段/状态注入）
@@ -1946,30 +2154,38 @@ pub async fn sp_commitments_set_status(
     status: String,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        if !COMMITMENT_STATUS_UPDATABLE.contains(&status.as_str()) {
-            return Err(format!("非法约定状态: {status}"));
-        }
-        exec(
-            conn,
-            "UPDATE commitments SET status = ?1 WHERE id = ?2",
-            &[sq(&status), sqi(id)],
-        )?;
-        Ok(())
+        sp_commitments_set_status_impl(conn, id, &status)
     })
     .await
+}
+
+fn sp_commitments_set_status_impl(conn: &Connection, id: i64, status: &str) -> Result<(), String> {
+    if !COMMITMENT_STATUS_UPDATABLE.contains(&status) {
+        return Err(format!("非法约定状态: {status}"));
+    }
+    exec(
+        conn,
+        "UPDATE commitments SET status = ?1 WHERE id = ?2",
+        &[sq(status), sqi(id)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_commitments_increment_follow_up(app: AppHandle, id: i64) -> Result<(), String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "UPDATE commitments SET follow_up_count = follow_up_count + 1 WHERE id = ?1",
-            &[sqi(id)],
-        )?;
-        Ok(())
+        sp_commitments_increment_follow_up_impl(conn, id)
     })
     .await
+}
+
+fn sp_commitments_increment_follow_up_impl(conn: &Connection, id: i64) -> Result<(), String> {
+    exec(
+        conn,
+        "UPDATE commitments SET follow_up_count = follow_up_count + 1 WHERE id = ?1",
+        &[sqi(id)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1979,13 +2195,21 @@ pub async fn sp_commitments_auto_lapse(
     threshold: i64,
 ) -> Result<usize, String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "UPDATE commitments SET status = 'lapsed' WHERE character_id = ?1 AND status = 'open' AND due_at < ?2",
-            &[sq(&character_id), sqi(threshold)],
-        )
+        sp_commitments_auto_lapse_impl(conn, &character_id, threshold)
     })
     .await
+}
+
+fn sp_commitments_auto_lapse_impl(
+    conn: &Connection,
+    character_id: &str,
+    threshold: i64,
+) -> Result<usize, String> {
+    exec(
+        conn,
+        "UPDATE commitments SET status = 'lapsed' WHERE character_id = ?1 AND status = 'open' AND due_at < ?2",
+        &[sq(character_id), sqi(threshold)],
+    )
 }
 
 #[tauri::command]
@@ -1994,13 +2218,20 @@ pub async fn sp_commitments_recurring_done(
     character_id: String,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM commitments WHERE character_id = ?1 AND status IN ('fulfilled','lapsed') AND repeat IS NOT NULL AND repeat != 'null'",
-            &[sq(&character_id)],
-        )
+        sp_commitments_recurring_done_impl(conn, &character_id)
     })
     .await
+}
+
+fn sp_commitments_recurring_done_impl(
+    conn: &Connection,
+    character_id: &str,
+) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM commitments WHERE character_id = ?1 AND status IN ('fulfilled','lapsed') AND repeat IS NOT NULL AND repeat != 'null'",
+        &[sq(character_id)],
+    )
 }
 
 #[tauri::command]
@@ -2011,13 +2242,22 @@ pub async fn sp_commitments_open_recent(
     since: i64,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT id FROM commitments WHERE character_id = ?1 AND content = ?2 AND status = 'open' AND created_at > ?3",
-            &[sq(&character_id), sq(&content), sqi(since)],
-        )
+        sp_commitments_open_recent_impl(conn, &character_id, &content, since)
     })
     .await
+}
+
+fn sp_commitments_open_recent_impl(
+    conn: &Connection,
+    character_id: &str,
+    content: &str,
+    since: i64,
+) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT id FROM commitments WHERE character_id = ?1 AND content = ?2 AND status = 'open' AND created_at > ?3",
+        &[sq(character_id), sq(content), sqi(since)],
+    )
 }
 
 // ============ context_episodes（contextEpisodeManager） ============
@@ -2033,34 +2273,56 @@ pub async fn sp_ctx_insert(
     music: Option<String>,
 ) -> Result<i64, String> {
     with_conn(app, move |conn| {
-        exec(
+        sp_ctx_insert_impl(
             conn,
-            "INSERT INTO context_episodes (character_id, started_at, work_state, weather, idle_minutes, music)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            &[
-                sq(&character_id), sqi(started_at),
-                work_state.as_deref().map(sq).unwrap_or_else(sqn),
-                weather.as_deref().map(sq).unwrap_or_else(sqn),
-                idle_minutes.map(sqi).unwrap_or_else(sqn),
-                music.as_deref().map(sq).unwrap_or_else(sqn),
-            ],
-        )?;
-        Ok(scalar(conn, "SELECT last_insert_rowid()", &[])?.unwrap_or(0))
+            &character_id,
+            started_at,
+            work_state.as_deref(),
+            weather.as_deref(),
+            idle_minutes,
+            music.as_deref(),
+        )
     })
     .await
 }
 
+fn sp_ctx_insert_impl(
+    conn: &Connection,
+    character_id: &str,
+    started_at: i64,
+    work_state: Option<&str>,
+    weather: Option<&str>,
+    idle_minutes: Option<i64>,
+    music: Option<&str>,
+) -> Result<i64, String> {
+    exec(
+        conn,
+        "INSERT INTO context_episodes (character_id, started_at, work_state, weather, idle_minutes, music)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        &[
+            sq(character_id),
+            sqi(started_at),
+            work_state.map(sq).unwrap_or_else(sqn),
+            weather.map(sq).unwrap_or_else(sqn),
+            idle_minutes.map(sqi).unwrap_or_else(sqn),
+            music.map(sq).unwrap_or_else(sqn),
+        ],
+    )?;
+    Ok(scalar(conn, "SELECT last_insert_rowid()", &[])?.unwrap_or(0))
+}
+
 #[tauri::command]
 pub async fn sp_ctx_close(app: AppHandle, id: i64, ended_at: i64) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "UPDATE context_episodes SET ended_at = ?1 WHERE id = ?2",
-            &[sqi(ended_at), sqi(id)],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_ctx_close_impl(conn, id, ended_at)).await
+}
+
+fn sp_ctx_close_impl(conn: &Connection, id: i64, ended_at: i64) -> Result<(), String> {
+    exec(
+        conn,
+        "UPDATE context_episodes SET ended_at = ?1 WHERE id = ?2",
+        &[sqi(ended_at), sqi(id)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -2071,20 +2333,29 @@ pub async fn sp_ctx_list(
     end: Option<i64>,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        match end {
-            Some(e) => json_rows(
-                conn,
-                "SELECT * FROM context_episodes WHERE character_id = ?1 AND started_at >= ?2 AND started_at < ?3 ORDER BY started_at ASC",
-                &[sq(&character_id), sqi(start), sqi(e)],
-            ),
-            None => json_rows(
-                conn,
-                "SELECT * FROM context_episodes WHERE character_id = ?1 AND started_at >= ?2 ORDER BY started_at ASC",
-                &[sq(&character_id), sqi(start)],
-            ),
-        }
+        sp_ctx_list_impl(conn, &character_id, start, end)
     })
     .await
+}
+
+fn sp_ctx_list_impl(
+    conn: &Connection,
+    character_id: &str,
+    start: i64,
+    end: Option<i64>,
+) -> Result<Vec<JsonValue>, String> {
+    match end {
+        Some(e) => json_rows(
+            conn,
+            "SELECT * FROM context_episodes WHERE character_id = ?1 AND started_at >= ?2 AND started_at < ?3 ORDER BY started_at ASC",
+            &[sq(character_id), sqi(start), sqi(e)],
+        ),
+        None => json_rows(
+            conn,
+            "SELECT * FROM context_episodes WHERE character_id = ?1 AND started_at >= ?2 ORDER BY started_at ASC",
+            &[sq(character_id), sqi(start)],
+        ),
+    }
 }
 
 // ============ entityGraph（memory_entities / memory_entity_edges） ============
@@ -2100,62 +2371,87 @@ pub async fn sp_entitygraph_upsert_node(
     embedding_b64: Option<String>,
 ) -> Result<String, String> {
     with_conn(app, move |conn| {
-        let existing = json_rows(
+        sp_entitygraph_upsert_node_impl(
             conn,
-            "SELECT id, memory_ids FROM memory_entities WHERE name = ?1 AND type = ?2",
-            &[sq(&name), sq(&node_type)],
-        )?;
-        if let Some(row) = existing.first() {
-            let id = row.get("id").and_then(JsonValue::as_str).map(String::from).ok_or("缺 id")?;
-            let memory_ids: Vec<String> = row
-                .get("memory_ids")
-                .and_then(JsonValue::as_str)
-                .and_then(|s| serde_json::from_str::<Vec<String>>(s).ok())
-                .unwrap_or_default();
-            if !memory_ids.contains(&memory_id) {
-                let mut ids = memory_ids;
-                ids.push(memory_id.clone());
-                let payload = serde_json::to_string(&ids).unwrap_or_else(|_| "[]".to_string());
-                match embedding_b64 {
-                    Some(eb) => {
-                        exec(
-                            conn,
-                            "UPDATE memory_entities SET memory_ids = ?1, embedding = ?2 WHERE id = ?3",
-                            &[sq(&payload), sq(&eb), sq(&id)],
-                        )?;
-                    }
-                    None => {
-                        exec(
-                            conn,
-                            "UPDATE memory_entities SET memory_ids = ?1 WHERE id = ?2",
-                            &[sq(&payload), sq(&id)],
-                        )?;
-                    }
-                }
-            }
-            Ok(id)
-        } else {
-            let payload = serde_json::to_string(&vec![memory_id.clone()]).unwrap_or_else(|_| "[]".to_string());
+            &name,
+            &node_type,
+            &memory_id,
+            &candidate_id,
+            created_at,
+            embedding_b64.as_deref(),
+        )
+    })
+    .await
+}
+
+fn sp_entitygraph_upsert_node_impl(
+    conn: &Connection,
+    name: &str,
+    node_type: &str,
+    memory_id: &str,
+    candidate_id: &str,
+    created_at: i64,
+    embedding_b64: Option<&str>,
+) -> Result<String, String> {
+    let existing = json_rows(
+        conn,
+        "SELECT id, memory_ids FROM memory_entities WHERE name = ?1 AND type = ?2",
+        &[sq(name), sq(node_type)],
+    )?;
+    if let Some(row) = existing.first() {
+        let id = row
+            .get("id")
+            .and_then(JsonValue::as_str)
+            .map(String::from)
+            .ok_or("缺 id")?;
+        let memory_ids: Vec<String> = row
+            .get("memory_ids")
+            .and_then(JsonValue::as_str)
+            .and_then(|s| serde_json::from_str::<Vec<String>>(s).ok())
+            .unwrap_or_default();
+        if !memory_ids.iter().any(|m| m == memory_id) {
+            let mut ids = memory_ids;
+            ids.push(memory_id.to_string());
+            let payload = serde_json::to_string(&ids).unwrap_or_else(|_| "[]".to_string());
             match embedding_b64 {
                 Some(eb) => {
                     exec(
                         conn,
-                        "INSERT INTO memory_entities (id, name, type, memory_ids, embedding, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                        &[sq(&candidate_id), sq(&name), sq(&node_type), sq(&payload), sq(&eb), sqi(created_at)],
+                        "UPDATE memory_entities SET memory_ids = ?1, embedding = ?2 WHERE id = ?3",
+                        &[sq(&payload), sq(eb), sq(&id)],
                     )?;
                 }
                 None => {
                     exec(
                         conn,
-                        "INSERT INTO memory_entities (id, name, type, memory_ids, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-                        &[sq(&candidate_id), sq(&name), sq(&node_type), sq(&payload), sqi(created_at)],
+                        "UPDATE memory_entities SET memory_ids = ?1 WHERE id = ?2",
+                        &[sq(&payload), sq(&id)],
                     )?;
                 }
             }
-            Ok(candidate_id)
         }
-    })
-    .await
+        Ok(id)
+    } else {
+        let payload = serde_json::to_string(&vec![memory_id.to_string()])
+            .unwrap_or_else(|_| "[]".to_string());
+        match embedding_b64 {
+            Some(eb) => {
+                exec(
+                    conn,
+                    "INSERT INTO memory_entities (id, name, type, memory_ids, embedding, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    &[sq(candidate_id), sq(name), sq(node_type), sq(&payload), sq(eb), sqi(created_at)],
+                )?;
+            }
+            None => {
+                exec(
+                    conn,
+                    "INSERT INTO memory_entities (id, name, type, memory_ids, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+                    &[sq(candidate_id), sq(name), sq(node_type), sq(&payload), sqi(created_at)],
+                )?;
+            }
+        }
+        Ok(candidate_id.to_string())
+    }
 }
 
 #[tauri::command]
@@ -2167,29 +2463,43 @@ pub async fn sp_entitygraph_upsert_edge(
     created_at: i64,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        let existing = json_rows(
-            conn,
-            "SELECT id FROM memory_entity_edges WHERE entity_a = ?1 AND entity_b = ?2",
-            &[sq(&entity_a), sq(&entity_b)],
-        )?;
-        if let Some(row) = existing.first() {
-            let id = row.get("id").and_then(JsonValue::as_str).map(String::from).ok_or("缺 id")?;
-            exec(
-                conn,
-                "UPDATE memory_entity_edges SET cooccur_count = cooccur_count + 1, weight = weight + ?1 WHERE id = ?2",
-                &[sqf(weight_increment), sq(&id)],
-            )?;
-        } else {
-            let id = format!("edge-{created_at}");
-            exec(
-                conn,
-                "INSERT INTO memory_entity_edges (id, entity_a, entity_b, weight, cooccur_count, created_at) VALUES (?1, ?2, ?3, ?4, 1, ?5)",
-                &[sq(&id), sq(&entity_a), sq(&entity_b), sqf(weight_increment), sqi(created_at)],
-            )?;
-        }
-        Ok(())
+        sp_entitygraph_upsert_edge_impl(conn, &entity_a, &entity_b, weight_increment, created_at)
     })
     .await
+}
+
+fn sp_entitygraph_upsert_edge_impl(
+    conn: &Connection,
+    entity_a: &str,
+    entity_b: &str,
+    weight_increment: f64,
+    created_at: i64,
+) -> Result<(), String> {
+    let existing = json_rows(
+        conn,
+        "SELECT id FROM memory_entity_edges WHERE entity_a = ?1 AND entity_b = ?2",
+        &[sq(entity_a), sq(entity_b)],
+    )?;
+    if let Some(row) = existing.first() {
+        let id = row
+            .get("id")
+            .and_then(JsonValue::as_str)
+            .map(String::from)
+            .ok_or("缺 id")?;
+        exec(
+            conn,
+            "UPDATE memory_entity_edges SET cooccur_count = cooccur_count + 1, weight = weight + ?1 WHERE id = ?2",
+            &[sqf(weight_increment), sq(&id)],
+        )?;
+    } else {
+        let id = format!("edge-{created_at}");
+        exec(
+            conn,
+            "INSERT INTO memory_entity_edges (id, entity_a, entity_b, weight, cooccur_count, created_at) VALUES (?1, ?2, ?3, ?4, 1, ?5)",
+            &[sq(&id), sq(entity_a), sq(entity_b), sqf(weight_increment), sqi(created_at)],
+        )?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -2198,19 +2508,26 @@ pub async fn sp_entitygraph_find_by_names(
     names: Vec<String>,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        if names.is_empty() {
-            return Ok(vec![]);
-        }
-        let n = names.len();
-        let ph: Vec<String> = (1..=n).map(|i| format!("?{i}")).collect();
-        let sql = format!(
-            "SELECT id, name, type, memory_ids FROM memory_entities WHERE name IN ({})",
-            ph.join(",")
-        );
-        let params: Vec<SqValue> = names.into_iter().map(|t| sq(&t)).collect();
-        json_rows(conn, &sql, &params)
+        sp_entitygraph_find_by_names_impl(conn, &names)
     })
     .await
+}
+
+fn sp_entitygraph_find_by_names_impl(
+    conn: &Connection,
+    names: &[String],
+) -> Result<Vec<JsonValue>, String> {
+    if names.is_empty() {
+        return Ok(vec![]);
+    }
+    let n = names.len();
+    let ph: Vec<String> = (1..=n).map(|i| format!("?{i}")).collect();
+    let sql = format!(
+        "SELECT id, name, type, memory_ids FROM memory_entities WHERE name IN ({})",
+        ph.join(",")
+    );
+    let params: Vec<SqValue> = names.iter().map(|t| sq(t)).collect();
+    json_rows(conn, &sql, &params)
 }
 
 #[tauri::command]
@@ -2219,26 +2536,49 @@ pub async fn sp_entitygraph_neighbors(
     entity_name: String,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        let entity_id: Option<String> = scalar(conn, "SELECT id FROM memory_entities WHERE name = ?1", &[sq(&entity_name)])?;
-        let Some(entity_id) = entity_id else { return Ok(vec![]); };
-        let edge_rows = json_rows(
-            conn,
-            "SELECT entity_a, entity_b, weight FROM memory_entity_edges WHERE entity_a = ?1 OR entity_b = ?1",
-            &[sq(&entity_id)],
-        )?;
-        let mut out = Vec::new();
-        for e in edge_rows {
-            let a = e.get("entity_a").and_then(JsonValue::as_str).unwrap_or("");
-            let b = e.get("entity_b").and_then(JsonValue::as_str).unwrap_or("");
-            let neighbor_id = if a == entity_id.as_str() { b.to_string() } else { a.to_string() };
-            let name: Option<String> = scalar(conn, "SELECT name FROM memory_entities WHERE id = ?1", &[sq(&neighbor_id)])?;
-            if let Some(nm) = name {
-                out.push(json!({ "neighbor": nm, "weight": e.get("weight").cloned().unwrap_or(json!(1.0)) }));
-            }
-        }
-        Ok(out)
+        sp_entitygraph_neighbors_impl(conn, &entity_name)
     })
     .await
+}
+
+fn sp_entitygraph_neighbors_impl(
+    conn: &Connection,
+    entity_name: &str,
+) -> Result<Vec<JsonValue>, String> {
+    let entity_id: Option<String> = scalar(
+        conn,
+        "SELECT id FROM memory_entities WHERE name = ?1",
+        &[sq(entity_name)],
+    )?;
+    let Some(entity_id) = entity_id else {
+        return Ok(vec![]);
+    };
+    let edge_rows = json_rows(
+        conn,
+        "SELECT entity_a, entity_b, weight FROM memory_entity_edges WHERE entity_a = ?1 OR entity_b = ?1",
+        &[sq(&entity_id)],
+    )?;
+    let mut out = Vec::new();
+    for e in edge_rows {
+        let a = e.get("entity_a").and_then(JsonValue::as_str).unwrap_or("");
+        let b = e.get("entity_b").and_then(JsonValue::as_str).unwrap_or("");
+        let neighbor_id = if a == entity_id.as_str() {
+            b.to_string()
+        } else {
+            a.to_string()
+        };
+        let name: Option<String> = scalar(
+            conn,
+            "SELECT name FROM memory_entities WHERE id = ?1",
+            &[sq(&neighbor_id)],
+        )?;
+        if let Some(nm) = name {
+            out.push(
+                json!({ "neighbor": nm, "weight": e.get("weight").cloned().unwrap_or(json!(1.0)) }),
+            );
+        }
+    }
+    Ok(out)
 }
 
 // ============ zombie 数据清理（zombieDataCleanup） ============
@@ -2250,32 +2590,62 @@ pub async fn sp_zombie_report(
     entity_threshold: i64,
 ) -> Result<JsonValue, String> {
     with_conn(app, move |conn| {
-        let legacy = json_rows(
-            conn,
-            "SELECT COUNT(*) AS count, MIN(CASE WHEN updated_at > 0 THEN updated_at END) AS oldest FROM settings WHERE key LIKE '%.legacy'",
-            &[],
-        )?;
-        let legacy_count: i64 = legacy.first().and_then(|r| r.get("count").and_then(JsonValue::as_i64)).unwrap_or(0);
-        let legacy_oldest: Option<i64> = legacy
-            .first()
-            .and_then(|r| r.get("oldest").and_then(JsonValue::as_i64))
-            .filter(|v| *v > 0);
-        let episode_count: i64 = scalar(conn, "SELECT COUNT(*) FROM context_episodes WHERE started_at < ?1", &[sqi(context_threshold)])?.unwrap_or(0);
-        let entity_count: i64 = scalar(conn, "SELECT COUNT(*) FROM entity_nodes WHERE last_seen < ?1 AND mention_count < 3", &[sqi(entity_threshold)])?.unwrap_or(0);
-        let bytes_rows = json_rows(conn, "SELECT value FROM settings WHERE key LIKE '%.legacy'", &[])?;
-        let bytes: usize = bytes_rows
-            .iter()
-            .map(|r| r.get("value").and_then(JsonValue::as_str).map(|s| s.len()).unwrap_or(0))
-            .sum();
-        Ok(json!({
-            "legacyCount": legacy_count,
-            "legacyOldest": legacy_oldest,
-            "episodeCount": episode_count,
-            "entityCount": entity_count,
-            "bytes": bytes,
-        }))
+        sp_zombie_report_impl(conn, context_threshold, entity_threshold)
     })
     .await
+}
+
+fn sp_zombie_report_impl(
+    conn: &Connection,
+    context_threshold: i64,
+    entity_threshold: i64,
+) -> Result<JsonValue, String> {
+    let legacy = json_rows(
+        conn,
+        "SELECT COUNT(*) AS count, MIN(CASE WHEN updated_at > 0 THEN updated_at END) AS oldest FROM settings WHERE key LIKE '%.legacy'",
+        &[],
+    )?;
+    let legacy_count: i64 = legacy
+        .first()
+        .and_then(|r| r.get("count").and_then(JsonValue::as_i64))
+        .unwrap_or(0);
+    let legacy_oldest: Option<i64> = legacy
+        .first()
+        .and_then(|r| r.get("oldest").and_then(JsonValue::as_i64))
+        .filter(|v| *v > 0);
+    let episode_count: i64 = scalar(
+        conn,
+        "SELECT COUNT(*) FROM context_episodes WHERE started_at < ?1",
+        &[sqi(context_threshold)],
+    )?
+    .unwrap_or(0);
+    let entity_count: i64 = scalar(
+        conn,
+        "SELECT COUNT(*) FROM entity_nodes WHERE last_seen < ?1 AND mention_count < 3",
+        &[sqi(entity_threshold)],
+    )?
+    .unwrap_or(0);
+    let bytes_rows = json_rows(
+        conn,
+        "SELECT value FROM settings WHERE key LIKE '%.legacy'",
+        &[],
+    )?;
+    let bytes: usize = bytes_rows
+        .iter()
+        .map(|r| {
+            r.get("value")
+                .and_then(JsonValue::as_str)
+                .map(|s| s.len())
+                .unwrap_or(0)
+        })
+        .sum();
+    Ok(json!({
+        "legacyCount": legacy_count,
+        "legacyOldest": legacy_oldest,
+        "episodeCount": episode_count,
+        "entityCount": entity_count,
+        "bytes": bytes,
+    }))
 }
 
 #[tauri::command]
@@ -2286,21 +2656,30 @@ pub async fn sp_zombie_cleanup_legacy(
     limit: i64,
 ) -> Result<usize, String> {
     with_conn(app, move |conn| {
-        if force {
-            exec(
-                conn,
-                "DELETE FROM settings WHERE key LIKE '%.legacy' AND key IN (SELECT key FROM settings WHERE key LIKE '%.legacy' LIMIT ?1)",
-                &[sqi(limit)],
-            )
-        } else {
-            exec(
-                conn,
-                "DELETE FROM settings WHERE key LIKE '%.legacy' AND updated_at > 0 AND updated_at < ?1 AND key IN (SELECT key FROM settings WHERE key LIKE '%.legacy' AND updated_at > 0 AND updated_at < ?1 LIMIT ?2)",
-                &[sqi(threshold), sqi(limit)],
-            )
-        }
+        sp_zombie_cleanup_legacy_impl(conn, threshold, force, limit)
     })
     .await
+}
+
+fn sp_zombie_cleanup_legacy_impl(
+    conn: &Connection,
+    threshold: i64,
+    force: bool,
+    limit: i64,
+) -> Result<usize, String> {
+    if force {
+        exec(
+            conn,
+            "DELETE FROM settings WHERE key LIKE '%.legacy' AND key IN (SELECT key FROM settings WHERE key LIKE '%.legacy' LIMIT ?1)",
+            &[sqi(limit)],
+        )
+    } else {
+        exec(
+            conn,
+            "DELETE FROM settings WHERE key LIKE '%.legacy' AND updated_at > 0 AND updated_at < ?1 AND key IN (SELECT key FROM settings WHERE key LIKE '%.legacy' AND updated_at > 0 AND updated_at < ?1 LIMIT ?2)",
+            &[sqi(threshold), sqi(limit)],
+        )
+    }
 }
 
 #[tauri::command]
@@ -2310,13 +2689,21 @@ pub async fn sp_zombie_cleanup_episodes(
     limit: i64,
 ) -> Result<usize, String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM context_episodes WHERE id IN (SELECT id FROM context_episodes WHERE started_at < ?1 LIMIT ?2)",
-            &[sqi(threshold), sqi(limit)],
-        )
+        sp_zombie_cleanup_episodes_impl(conn, threshold, limit)
     })
     .await
+}
+
+fn sp_zombie_cleanup_episodes_impl(
+    conn: &Connection,
+    threshold: i64,
+    limit: i64,
+) -> Result<usize, String> {
+    exec(
+        conn,
+        "DELETE FROM context_episodes WHERE id IN (SELECT id FROM context_episodes WHERE started_at < ?1 LIMIT ?2)",
+        &[sqi(threshold), sqi(limit)],
+    )
 }
 
 #[tauri::command]
@@ -2326,37 +2713,58 @@ pub async fn sp_zombie_cleanup_entities(
     limit: i64,
 ) -> Result<usize, String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM entity_nodes WHERE id IN (SELECT id FROM entity_nodes WHERE last_seen < ?1 AND mention_count < 3 LIMIT ?2)",
-            &[sqi(threshold), sqi(limit)],
-        )
+        sp_zombie_cleanup_entities_impl(conn, threshold, limit)
     })
     .await
+}
+
+fn sp_zombie_cleanup_entities_impl(
+    conn: &Connection,
+    threshold: i64,
+    limit: i64,
+) -> Result<usize, String> {
+    exec(
+        conn,
+        "DELETE FROM entity_nodes WHERE id IN (SELECT id FROM entity_nodes WHERE last_seen < ?1 AND mention_count < 3 LIMIT ?2)",
+        &[sqi(threshold), sqi(limit)],
+    )
 }
 
 // ============ schemaRunner（迁移标记 + 只读校验） ============
 
 #[tauri::command]
 pub async fn sp_schema_version_current(app: AppHandle) -> Result<i64, String> {
-    with_conn(app, |conn| {
-        Ok(scalar::<i64>(conn, "SELECT MAX(version) FROM schema_versions", &[])?.unwrap_or(0))
-    })
-    .await
+    with_conn(app, |conn| sp_schema_version_current_impl(conn)).await
+}
+
+fn sp_schema_version_current_impl(conn: &Connection) -> Result<i64, String> {
+    // ⚠️ 必须 COALESCE：空表时 `MAX(version)` 返回的是 **NULL 值**（一行一列），
+    // 而不是「没有行」——`scalar::<i64>` 会在 NULL 上 FromSql 失败并报
+    // 「Invalid column type Null」，`.unwrap_or(0)` 兜不住。全新库上会直接报错。
+    Ok(scalar::<i64>(
+        conn,
+        "SELECT COALESCE(MAX(version), 0) FROM schema_versions",
+        &[],
+    )?
+    .unwrap_or(0))
 }
 
 #[tauri::command]
 pub async fn sp_schema_version_applied(app: AppHandle, version: i64) -> Result<bool, String> {
     with_conn(app, move |conn| {
-        Ok(scalar::<i64>(
-            conn,
-            "SELECT COUNT(*) FROM schema_versions WHERE version = ?1",
-            &[sqi(version)],
-        )?
-        .unwrap_or(0)
-            > 0)
+        sp_schema_version_applied_impl(conn, version)
     })
     .await
+}
+
+fn sp_schema_version_applied_impl(conn: &Connection, version: i64) -> Result<bool, String> {
+    Ok(scalar::<i64>(
+        conn,
+        "SELECT COUNT(*) FROM schema_versions WHERE version = ?1",
+        &[sqi(version)],
+    )?
+    .unwrap_or(0)
+        > 0)
 }
 
 #[tauri::command]
@@ -2367,23 +2775,37 @@ pub async fn sp_schema_version_record(
     sql_checksum: String,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        let now = chrono::Utc::now().timestamp_millis();
-        exec(
-            conn,
-            "INSERT INTO schema_versions (version, description, applied_at, sql_checksum) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(version) DO NOTHING",
-            &[sqi(version), sq(&description), sqi(now), sq(&sql_checksum)],
-        )?;
-        Ok(())
+        sp_schema_version_record_impl(conn, version, &description, &sql_checksum)
     })
     .await
 }
 
+fn sp_schema_version_record_impl(
+    conn: &Connection,
+    version: i64,
+    description: &str,
+    sql_checksum: &str,
+) -> Result<(), String> {
+    let now = chrono::Utc::now().timestamp_millis();
+    exec(
+        conn,
+        "INSERT INTO schema_versions (version, description, applied_at, sql_checksum) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(version) DO NOTHING",
+        &[sqi(version), sq(description), sqi(now), sq(sql_checksum)],
+    )?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn sp_schema_version_history(app: AppHandle) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, |conn| {
-        json_rows(conn, "SELECT version, description, applied_at, sql_checksum FROM schema_versions ORDER BY version ASC", &[])
-    })
-    .await
+    with_conn(app, |conn| sp_schema_version_history_impl(conn)).await
+}
+
+fn sp_schema_version_history_impl(conn: &Connection) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT version, description, applied_at, sql_checksum FROM schema_versions ORDER BY version ASC",
+        &[],
+    )
 }
 
 #[tauri::command]
@@ -2394,15 +2816,29 @@ pub async fn sp_schema_log_failure(
     sql_statement: Option<String>,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        let now = chrono::Utc::now().timestamp_millis();
-        exec(
-            conn,
-            "INSERT INTO schema_migration_log (version, attempted_at, error_message, sql_statement) VALUES (?1, ?2, ?3, ?4)",
-            &[sqi(version), sqi(now), sq(&error_message), sql_statement.as_deref().map(sq).unwrap_or_else(sqn)],
-        )?;
-        Ok(())
+        sp_schema_log_failure_impl(conn, version, &error_message, sql_statement.as_deref())
     })
     .await
+}
+
+fn sp_schema_log_failure_impl(
+    conn: &Connection,
+    version: i64,
+    error_message: &str,
+    sql_statement: Option<&str>,
+) -> Result<(), String> {
+    let now = chrono::Utc::now().timestamp_millis();
+    exec(
+        conn,
+        "INSERT INTO schema_migration_log (version, attempted_at, error_message, sql_statement) VALUES (?1, ?2, ?3, ?4)",
+        &[
+            sqi(version),
+            sqi(now),
+            sq(error_message),
+            sql_statement.map(sq).unwrap_or_else(sqn),
+        ],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -2412,26 +2848,35 @@ pub async fn sp_schema_resolve_failure(
     resolved_at: i64,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "UPDATE schema_migration_log SET resolved = 1, resolved_at = ?1 WHERE id = ?2",
-            &[sqi(resolved_at), sqi(log_id)],
-        )?;
-        Ok(())
+        sp_schema_resolve_failure_impl(conn, log_id, resolved_at)
     })
     .await
 }
 
+fn sp_schema_resolve_failure_impl(
+    conn: &Connection,
+    log_id: i64,
+    resolved_at: i64,
+) -> Result<(), String> {
+    exec(
+        conn,
+        "UPDATE schema_migration_log SET resolved = 1, resolved_at = ?1 WHERE id = ?2",
+        &[sqi(resolved_at), sqi(log_id)],
+    )?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn sp_schema_unresolved(app: AppHandle) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM schema_migration_log WHERE resolved = 0 ORDER BY attempted_at DESC",
-            &[],
-        )
-    })
-    .await
+    with_conn(app, |conn| sp_schema_unresolved_impl(conn)).await
+}
+
+fn sp_schema_unresolved_impl(conn: &Connection) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM schema_migration_log WHERE resolved = 0 ORDER BY attempted_at DESC",
+        &[],
+    )
 }
 
 // ============ dirty_data_registry（dirtyDataTracker） ============
@@ -2439,12 +2884,15 @@ pub async fn sp_schema_unresolved(app: AppHandle) -> Result<Vec<JsonValue>, Stri
 /// 运行全部脏数据检测并返回归一化 issues（检测逻辑集中在 Rust，静态 SQL）
 #[tauri::command]
 pub async fn sp_dirty_scan(app: AppHandle) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, move |conn| {
-        let now = chrono::Utc::now().timestamp_millis();
-        let mut issues: Vec<JsonValue> = Vec::new();
+    with_conn(app, move |conn| sp_dirty_scan_impl(conn)).await
+}
 
-        // 1. inventory 孤引用
-        for r in json_rows(
+fn sp_dirty_scan_impl(conn: &Connection) -> Result<Vec<JsonValue>, String> {
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut issues: Vec<JsonValue> = Vec::new();
+
+    // 1. inventory 孤引用
+    for r in json_rows(
             conn,
             "SELECT i.id, i.character_id FROM inventory i LEFT JOIN characters c ON i.character_id = c.id WHERE i.character_id IS NOT NULL AND c.id IS NULL",
             &[],
@@ -2454,8 +2902,8 @@ pub async fn sp_dirty_scan(app: AppHandle) -> Result<Vec<JsonValue>, String> {
             issues.push(json!({"table": "inventory", "column": "character_id", "rowId": id, "dataType": "ORPHAN_REFERENCE", "severity": "medium", "description": format!("背包物品引用的角色 {cid} 不存在"), "detectedAt": now}));
         }
 
-        // 2. memories 孤引用
-        for r in json_rows(
+    // 2. memories 孤引用
+    for r in json_rows(
             conn,
             "SELECT m.id, m.character_id FROM memories m LEFT JOIN characters c ON m.character_id = c.id WHERE c.id IS NULL",
             &[],
@@ -2465,55 +2913,73 @@ pub async fn sp_dirty_scan(app: AppHandle) -> Result<Vec<JsonValue>, String> {
             issues.push(json!({"table": "memories", "column": "character_id", "rowId": id, "dataType": "ORPHAN_REFERENCE", "severity": "medium", "description": format!("记忆引用角色 {cid} 不存在"), "detectedAt": now}));
         }
 
-        // 3. characters.stats 非 JSON
-        for r in json_rows(conn, "SELECT id, stats FROM characters", &[])? {
+    // 3. characters.stats 非 JSON
+    for r in json_rows(conn, "SELECT id, stats FROM characters", &[])? {
+        let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
+        let stats = r.get("stats").and_then(JsonValue::as_str).unwrap_or("");
+        if serde_json::from_str::<JsonValue>(stats).is_err() {
+            let detail = stats.chars().take(100).collect::<String>();
+            issues.push(json!({"table": "characters", "column": "stats", "rowId": id, "dataType": "DATA_TYPE_MISMATCH", "severity": "high", "description": format!("角色 {id} 的 stats 字段不是有效 JSON"), "details": detail, "detectedAt": now}));
+        }
+    }
+
+    // 4. inventory.quantity 负数
+    for r in json_rows(
+        conn,
+        "SELECT id, item_id, quantity FROM inventory WHERE quantity < 0",
+        &[],
+    )? {
+        let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
+        let item = r.get("item_id").and_then(JsonValue::as_str).unwrap_or("");
+        let qty = r.get("quantity").and_then(JsonValue::as_i64).unwrap_or(0);
+        issues.push(json!({"table": "inventory", "column": "quantity", "rowId": id, "dataType": "BUSINESS_RULE_VIOLATION", "severity": "medium", "description": format!("背包物品 {item} 数量为负数 ({qty})"), "detectedAt": now}));
+    }
+
+    // 5. memories.importance 超界
+    for r in json_rows(
+        conn,
+        "SELECT id, importance FROM memories WHERE importance < 0 OR importance > 100",
+        &[],
+    )? {
+        let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
+        let imp = r.get("importance").and_then(JsonValue::as_i64).unwrap_or(0);
+        issues.push(json!({"table": "memories", "column": "importance", "rowId": id, "dataType": "BUSINESS_RULE_VIOLATION", "severity": "low", "description": format!("记忆 {id} 的重要性值为 {imp}（有效范围 0-100）"), "detectedAt": now}));
+    }
+
+    // 6. memories.type 非法枚举
+    let allowed_types: &[&str] = &[
+        "episodic",
+        "semantic",
+        "procedural",
+        "emotional",
+        "preference",
+        "fear",
+        "dream",
+        "event",
+        "skill",
+    ];
+    {
+        let ph: Vec<String> = (1..=allowed_types.len()).map(|i| format!("?{i}")).collect();
+        let sql = format!(
+            "SELECT id, type FROM memories WHERE type NOT IN ({})",
+            ph.join(",")
+        );
+        let params: Vec<SqValue> = allowed_types.iter().map(|t| sq(t)).collect();
+        for r in json_rows(conn, &sql, &params)? {
             let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
-            let stats = r.get("stats").and_then(JsonValue::as_str).unwrap_or("");
-            if serde_json::from_str::<JsonValue>(stats).is_err() {
-                let detail = stats.chars().take(100).collect::<String>();
-                issues.push(json!({"table": "characters", "column": "stats", "rowId": id, "dataType": "DATA_TYPE_MISMATCH", "severity": "high", "description": format!("角色 {id} 的 stats 字段不是有效 JSON"), "details": detail, "detectedAt": now}));
-            }
+            let t = r.get("type").and_then(JsonValue::as_str).unwrap_or("");
+            issues.push(json!({"table": "memories", "column": "type", "rowId": id, "dataType": "BUSINESS_RULE_VIOLATION", "severity": "low", "description": format!("记忆 {id} 的类型 \"{t}\" 不在允许范围内"), "detectedAt": now}));
         }
+    }
 
-        // 4. inventory.quantity 负数
-        for r in json_rows(conn, "SELECT id, item_id, quantity FROM inventory WHERE quantity < 0", &[])? {
-            let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
-            let item = r.get("item_id").and_then(JsonValue::as_str).unwrap_or("");
-            let qty = r.get("quantity").and_then(JsonValue::as_i64).unwrap_or(0);
-            issues.push(json!({"table": "inventory", "column": "quantity", "rowId": id, "dataType": "BUSINESS_RULE_VIOLATION", "severity": "medium", "description": format!("背包物品 {item} 数量为负数 ({qty})"), "detectedAt": now}));
-        }
+    // 7. characters.stats NULL（NOT NULL 违反）
+    for r in json_rows(conn, "SELECT id FROM characters WHERE stats IS NULL", &[])? {
+        let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
+        issues.push(json!({"table": "characters", "column": "stats", "rowId": id, "dataType": "CONSTRAINT_VIOLATION", "severity": "high", "description": format!("角色 {id} 的 stats 字段违反 NOT NULL 约束"), "detectedAt": now}));
+    }
 
-        // 5. memories.importance 超界
-        for r in json_rows(conn, "SELECT id, importance FROM memories WHERE importance < 0 OR importance > 100", &[])? {
-            let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
-            let imp = r.get("importance").and_then(JsonValue::as_i64).unwrap_or(0);
-            issues.push(json!({"table": "memories", "column": "importance", "rowId": id, "dataType": "BUSINESS_RULE_VIOLATION", "severity": "low", "description": format!("记忆 {id} 的重要性值为 {imp}（有效范围 0-100）"), "detectedAt": now}));
-        }
-
-        // 6. memories.type 非法枚举
-        let allowed_types: &[&str] = &[
-            "episodic", "semantic", "procedural", "emotional",
-            "preference", "fear", "dream", "event", "skill",
-        ];
-        {
-            let ph: Vec<String> = (1..=allowed_types.len()).map(|i| format!("?{i}")).collect();
-            let sql = format!("SELECT id, type FROM memories WHERE type NOT IN ({})", ph.join(","));
-            let params: Vec<SqValue> = allowed_types.iter().map(|t| sq(t)).collect();
-            for r in json_rows(conn, &sql, &params)? {
-                let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
-                let t = r.get("type").and_then(JsonValue::as_str).unwrap_or("");
-                issues.push(json!({"table": "memories", "column": "type", "rowId": id, "dataType": "BUSINESS_RULE_VIOLATION", "severity": "low", "description": format!("记忆 {id} 的类型 \"{t}\" 不在允许范围内"), "detectedAt": now}));
-            }
-        }
-
-        // 7. characters.stats NULL（NOT NULL 违反）
-        for r in json_rows(conn, "SELECT id FROM characters WHERE stats IS NULL", &[])? {
-            let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
-            issues.push(json!({"table": "characters", "column": "stats", "rowId": id, "dataType": "CONSTRAINT_VIOLATION", "severity": "high", "description": format!("角色 {id} 的 stats 字段违反 NOT NULL 约束"), "detectedAt": now}));
-        }
-
-        // 8. memory_id 重复
-        for r in json_rows(
+    // 8. memory_id 重复
+    for r in json_rows(
             conn,
             "SELECT character_id, memory_id, COUNT(*) AS cnt FROM memories WHERE memory_id IS NOT NULL GROUP BY character_id, memory_id HAVING COUNT(*) > 1 LIMIT 50",
             &[],
@@ -2524,23 +2990,26 @@ pub async fn sp_dirty_scan(app: AppHandle) -> Result<Vec<JsonValue>, String> {
             issues.push(json!({"table": "memories", "column": "memory_id", "rowId": mid, "dataType": "DUPLICATE_ENTRY", "severity": "medium", "description": format!("角色 {cid} 的记忆 memory_id={mid} 重复出现 {cnt} 次"), "detectedAt": now}));
         }
 
-        // 9. 级联删除残留（表名来自编译期常量白名单）
-        let remnant_tables: &[&str] = &[
-            "memory_summaries", "memory_state", "commitments", "context_episodes", "owner_facts", "entity_nodes",
-        ];
-        for t in remnant_tables {
-            let sql = format!(
+    // 9. 级联删除残留（表名来自编译期常量白名单）
+    let remnant_tables: &[&str] = &[
+        "memory_summaries",
+        "memory_state",
+        "commitments",
+        "context_episodes",
+        "owner_facts",
+        "entity_nodes",
+    ];
+    for t in remnant_tables {
+        let sql = format!(
                 "SELECT t.rowid AS id FROM \"{t}\" t LEFT JOIN characters c ON t.character_id = c.id WHERE t.character_id IS NOT NULL AND c.id IS NULL LIMIT 50"
             );
-            for r in json_rows(conn, &sql, &[])? {
-                let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
-                issues.push(json!({"table": *t, "column": "character_id", "rowId": id, "dataType": "INCONSISTENT_STATE", "severity": "medium", "description": format!("表 {t} 残留引用已删除角色（行 id={id}）"), "detectedAt": now}));
-            }
+        for r in json_rows(conn, &sql, &[])? {
+            let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
+            issues.push(json!({"table": *t, "column": "character_id", "rowId": id, "dataType": "INCONSISTENT_STATE", "severity": "medium", "description": format!("表 {t} 残留引用已删除角色（行 id={id}）"), "detectedAt": now}));
         }
+    }
 
-        Ok(issues)
-    })
-    .await
+    Ok(issues)
 }
 
 /// 写入脏数据问题（幂等：同 kind+target_id 的未解决记录更新时间戳）
@@ -2553,43 +3022,57 @@ pub async fn sp_dirty_upsert(
     detected_at: i64,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        let existing: Option<i64> = scalar(
-            conn,
-            "SELECT id FROM dirty_data_registry WHERE kind = ?1 AND target_id = ?2 AND resolved_at IS NULL LIMIT 1",
-            &[sq(&kind), sq(&target_id)],
-        )?;
-        match existing {
-            Some(id) => {
-                exec(
-                    conn,
-                    "UPDATE dirty_data_registry SET detected_at = ?1, payload = ?2 WHERE id = ?3",
-                    &[sqi(detected_at), sq(&payload), sqi(id)],
-                )?;
-            }
-            None => {
-                exec(
-                    conn,
-                    "INSERT INTO dirty_data_registry (kind, target_id, payload, detected_at) VALUES (?1, ?2, ?3, ?4)",
-                    &[sq(&kind), sq(&target_id), sq(&payload), sqi(detected_at)],
-                )?;
-            }
-        }
-        Ok(())
+        sp_dirty_upsert_impl(conn, &kind, &target_id, &payload, detected_at)
     })
     .await
+}
+
+fn sp_dirty_upsert_impl(
+    conn: &Connection,
+    kind: &str,
+    target_id: &str,
+    payload: &str,
+    detected_at: i64,
+) -> Result<(), String> {
+    let existing: Option<i64> = scalar(
+        conn,
+        "SELECT id FROM dirty_data_registry WHERE kind = ?1 AND target_id = ?2 AND resolved_at IS NULL LIMIT 1",
+        &[sq(kind), sq(target_id)],
+    )?;
+    match existing {
+        Some(id) => {
+            exec(
+                conn,
+                "UPDATE dirty_data_registry SET detected_at = ?1, payload = ?2 WHERE id = ?3",
+                &[sqi(detected_at), sq(payload), sqi(id)],
+            )?;
+        }
+        None => {
+            exec(
+                conn,
+                "INSERT INTO dirty_data_registry (kind, target_id, payload, detected_at) VALUES (?1, ?2, ?3, ?4)",
+                &[sq(kind), sq(target_id), sq(payload), sqi(detected_at)],
+            )?;
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_dirty_resolve(app: AppHandle, id: i64, resolved_at: i64) -> Result<(), String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "UPDATE dirty_data_registry SET resolved_at = ?1 WHERE id = ?2",
-            &[sqi(resolved_at), sqi(id)],
-        )?;
-        Ok(())
+        sp_dirty_resolve_impl(conn, id, resolved_at)
     })
     .await
+}
+
+fn sp_dirty_resolve_impl(conn: &Connection, id: i64, resolved_at: i64) -> Result<(), String> {
+    exec(
+        conn,
+        "UPDATE dirty_data_registry SET resolved_at = ?1 WHERE id = ?2",
+        &[sqi(resolved_at), sqi(id)],
+    )?;
+    Ok(())
 }
 
 /// 按表批量解决（target_id 前缀 `${table}::%`；pattern 为参数绑定）
@@ -2600,34 +3083,48 @@ pub async fn sp_dirty_resolve_table(
     resolved_at: i64,
 ) -> Result<usize, String> {
     with_conn(app, move |conn| {
-        let prefix = format!("{table}::%");
-        exec(
-            conn,
-            "UPDATE dirty_data_registry SET resolved_at = ?1 WHERE resolved_at IS NULL AND target_id LIKE ?2",
-            &[sqi(resolved_at), sq(&prefix)],
-        )
+        sp_dirty_resolve_table_impl(conn, &table, resolved_at)
     })
     .await
+}
+
+fn sp_dirty_resolve_table_impl(
+    conn: &Connection,
+    table: &str,
+    resolved_at: i64,
+) -> Result<usize, String> {
+    let prefix = format!("{table}::%");
+    exec(
+        conn,
+        "UPDATE dirty_data_registry SET resolved_at = ?1 WHERE resolved_at IS NULL AND target_id LIKE ?2",
+        &[sqi(resolved_at), sq(&prefix)],
+    )
 }
 
 #[tauri::command]
 pub async fn sp_dirty_list(app: AppHandle) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, |conn| {
-        json_rows(conn, "SELECT id, kind, target_id, payload, detected_at, resolved_at FROM dirty_data_registry ORDER BY detected_at DESC", &[])
-    })
-    .await
+    with_conn(app, |conn| sp_dirty_list_impl(conn)).await
+}
+
+fn sp_dirty_list_impl(conn: &Connection) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT id, kind, target_id, payload, detected_at, resolved_at FROM dirty_data_registry ORDER BY detected_at DESC",
+        &[],
+    )
 }
 
 #[tauri::command]
 pub async fn sp_dirty_cleanup(app: AppHandle, threshold: i64) -> Result<usize, String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM dirty_data_registry WHERE resolved_at IS NOT NULL AND resolved_at < ?1",
-            &[sqi(threshold)],
-        )
-    })
-    .await
+    with_conn(app, move |conn| sp_dirty_cleanup_impl(conn, threshold)).await
+}
+
+fn sp_dirty_cleanup_impl(conn: &Connection, threshold: i64) -> Result<usize, String> {
+    exec(
+        conn,
+        "DELETE FROM dirty_data_registry WHERE resolved_at IS NOT NULL AND resolved_at < ?1",
+        &[sqi(threshold)],
+    )
 }
 
 /// 批量嵌入项（serde camelCase 与前端参数对齐）
@@ -3024,5 +3521,1077 @@ mod tests {
         // 取 Text 列但声明 i64 → FromSql 失败，应走错误路径而非 panic
         let e = scalar::<i64>(&conn, "SELECT 'not-a-number'", &[]).unwrap_err();
         assert!(e.contains("标量查询失败"), "实际报错: {e}");
+    }
+
+    // ===== 命令层 impl（D-1 可测化：`sp_*` 只转发，逻辑在 `*_impl`）=====
+
+    #[test]
+    fn test_settings_impl_upsert_and_remove() {
+        let conn = mem_conn();
+        assert_eq!(sp_settings_get_impl(&conn, "k").unwrap(), None);
+        sp_settings_set_impl(&conn, "k", "v1").unwrap();
+        assert_eq!(
+            sp_settings_get_impl(&conn, "k").unwrap().as_deref(),
+            Some("v1")
+        );
+        // 同键二次写入走 ON CONFLICT(key) DO UPDATE 分支
+        sp_settings_set_impl(&conn, "k", "v2").unwrap();
+        assert_eq!(
+            sp_settings_get_impl(&conn, "k").unwrap().as_deref(),
+            Some("v2")
+        );
+        sp_settings_remove_impl(&conn, "k").unwrap();
+        assert_eq!(sp_settings_get_impl(&conn, "k").unwrap(), None);
+        // 删除不存在的键应静默成功（幂等）
+        sp_settings_remove_impl(&conn, "k").unwrap();
+    }
+
+    #[test]
+    fn test_char_stats_impl_roundtrip() {
+        let conn = mem_conn();
+        assert_eq!(sp_char_get_stats_impl(&conn, "c1").unwrap(), None);
+        sp_char_save_stats_impl(&conn, "c1", r#"{"hp":10}"#).unwrap();
+        assert_eq!(
+            sp_char_get_stats_impl(&conn, "c1").unwrap().as_deref(),
+            Some(r#"{"hp":10}"#)
+        );
+        // 同 id 二次写入走 upsert
+        sp_char_save_stats_impl(&conn, "c1", r#"{"hp":20}"#).unwrap();
+        let rows = sp_char_list_impl(&conn).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], json!("c1"));
+        assert_eq!(rows[0]["stats"], json!(r#"{"hp":20}"#));
+        assert!(rows[0]["updated_at"].as_i64().unwrap() > 0);
+    }
+
+    #[test]
+    fn test_mem_add_impl_default_and_explicit_importance() {
+        let conn = mem_conn();
+        let a = sp_mem_add_impl(&conn, "c1", "episodic", "记得喂食", None).unwrap();
+        let b = sp_mem_add_impl(&conn, "c1", "long_term", "生日是三月", Some(90)).unwrap();
+        assert!(a > 0 && b > a, "rowid 应递增: {a} / {b}");
+
+        let rows = sp_mem_list_impl(&conn, "c1", None).unwrap();
+        assert_eq!(rows.len(), 2);
+        let importance: std::collections::HashMap<i64, i64> = rows
+            .iter()
+            .map(|r| (r["id"].as_i64().unwrap(), r["importance"].as_i64().unwrap()))
+            .collect();
+        assert_eq!(importance[&a], 50, "缺省 importance 应为 50");
+        assert_eq!(importance[&b], 90);
+    }
+
+    #[test]
+    fn test_mem_list_impl_type_filter_and_isolation() {
+        let conn = mem_conn();
+        sp_mem_add_impl(&conn, "c1", "episodic", "a", None).unwrap();
+        sp_mem_add_impl(&conn, "c1", "long_term", "b", None).unwrap();
+        sp_mem_add_impl(&conn, "c2", "episodic", "c", None).unwrap();
+
+        assert_eq!(sp_mem_list_impl(&conn, "c1", None).unwrap().len(), 2);
+        let only_long = sp_mem_list_impl(&conn, "c1", Some("long_term")).unwrap();
+        assert_eq!(only_long.len(), 1);
+        assert_eq!(only_long[0]["content"], json!("b"));
+        // 类型不存在 → 空集（不是报错）
+        assert!(sp_mem_list_impl(&conn, "c1", Some("nope"))
+            .unwrap()
+            .is_empty());
+        // 角色隔离
+        assert_eq!(sp_mem_list_impl(&conn, "c2", None).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_mem_embeddings_impl_filters_and_limit() {
+        let conn = mem_conn();
+        let a = sp_mem_add_impl(&conn, "c1", "episodic", "a", None).unwrap();
+        let _b = sp_mem_add_impl(&conn, "c1", "long_term", "b", None).unwrap();
+        let c = sp_mem_add_impl(&conn, "c2", "episodic", "c", None).unwrap();
+
+        // 全部无嵌入 → 空集
+        assert!(sp_mem_get_embeddings_impl(&conn, None, None, None)
+            .unwrap()
+            .is_empty());
+
+        sp_mem_save_embedding_impl(&conn, a, "AAA=").unwrap();
+        sp_mem_save_embedding_impl(&conn, c, "CCC=").unwrap();
+
+        assert_eq!(
+            sp_mem_get_embeddings_impl(&conn, None, None, None)
+                .unwrap()
+                .len(),
+            2
+        );
+        let c1 = sp_mem_get_embeddings_impl(&conn, Some("c1"), None, None).unwrap();
+        assert_eq!(c1.len(), 1);
+        assert_eq!(c1[0]["embedding"], json!("AAA="));
+        // c1 的 long_term 行没有嵌入 → 空集
+        assert!(
+            sp_mem_get_embeddings_impl(&conn, Some("c1"), None, Some("long_term"))
+                .unwrap()
+                .is_empty()
+        );
+        // limit 生效
+        assert_eq!(
+            sp_mem_get_embeddings_impl(&conn, None, Some(1), None)
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn test_mem_save_embeddings_batch_impl() {
+        let mut conn = mem_conn();
+        let a = sp_mem_add_impl(&conn, "c1", "episodic", "a", None).unwrap();
+        let b = sp_mem_add_impl(&conn, "c1", "episodic", "b", None).unwrap();
+
+        // 空批次：不开启事务、直接返回
+        sp_mem_save_embeddings_batch_impl(&mut conn, &[]).unwrap();
+        assert!(sp_mem_get_embeddings_impl(&conn, Some("c1"), None, None)
+            .unwrap()
+            .is_empty());
+
+        let items = vec![
+            EmbedItem {
+                memory_id: a,
+                embedding_b64: "QQ==".to_string(),
+            },
+            EmbedItem {
+                memory_id: b,
+                embedding_b64: "Qg==".to_string(),
+            },
+        ];
+        sp_mem_save_embeddings_batch_impl(&mut conn, &items).unwrap();
+        assert_eq!(
+            sp_mem_get_embeddings_impl(&conn, Some("c1"), None, None)
+                .unwrap()
+                .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn test_mem_touch_delete_clear_impl() {
+        let conn = mem_conn();
+        let a = sp_mem_add_impl(&conn, "c1", "episodic", "a", None).unwrap();
+        let b = sp_mem_add_impl(&conn, "c1", "episodic", "b", None).unwrap();
+
+        let read_accessed = |id: i64| -> i64 {
+            scalar(
+                &conn,
+                "SELECT last_accessed FROM memories WHERE id = ?1",
+                &[sqi(id)],
+            )
+            .unwrap()
+            .unwrap()
+        };
+        let before = read_accessed(a);
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        sp_mem_touch_impl(&conn, a).unwrap();
+        assert!(
+            read_accessed(a) >= before,
+            "touch 后 last_accessed 不应回退"
+        );
+
+        sp_mem_delete_impl(&conn, b).unwrap();
+        assert_eq!(sp_mem_list_impl(&conn, "c1", None).unwrap().len(), 1);
+
+        sp_mem_clear_impl(&conn, "c1").unwrap();
+        assert!(sp_mem_list_impl(&conn, "c1", None).unwrap().is_empty());
+        // 清空不存在的角色同样幂等
+        sp_mem_clear_impl(&conn, "c1").unwrap();
+    }
+
+    // ===== 第二批：commitments / context_episodes / entityGraph =====
+
+    #[test]
+    fn test_commitments_insert_list_and_status() {
+        let conn = mem_conn();
+        let id = sp_commitments_insert_impl(
+            &conn,
+            "c1",
+            "给主人买猫粮",
+            "assistant",
+            Some(1000),
+            None,
+            None,
+        )
+        .unwrap();
+        assert!(id > 0);
+
+        let open = sp_commitments_list_impl(&conn, "c1").unwrap();
+        assert_eq!(open.len(), 1);
+        assert_eq!(open[0]["status"], json!("open"));
+        assert_eq!(open[0]["follow_up_count"], json!(0));
+
+        // 状态白名单：非法值拒绝，合法值生效
+        assert!(sp_commitments_set_status_impl(&conn, id, "bogus").is_err());
+        sp_commitments_set_status_impl(&conn, id, "fulfilled").unwrap();
+        assert!(sp_commitments_list_impl(&conn, "c1").unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_commitments_due_and_overdue_windows() {
+        let conn = mem_conn();
+        let _early =
+            sp_commitments_insert_impl(&conn, "c1", "a", "assistant", Some(500), None, None)
+                .unwrap();
+        let mid = sp_commitments_insert_impl(&conn, "c1", "b", "assistant", Some(1500), None, None)
+            .unwrap();
+        let _late =
+            sp_commitments_insert_impl(&conn, "c1", "c", "assistant", Some(2500), None, None)
+                .unwrap();
+
+        // due 是半开区间 [start, end)
+        let due = sp_commitments_due_impl(&conn, "c1", 1000, 2000).unwrap();
+        assert_eq!(due.len(), 1);
+        assert_eq!(due[0]["id"], json!(mid));
+
+        // overdue 是 (before, now)
+        let overdue = sp_commitments_overdue_impl(&conn, "c1", 2000, 100).unwrap();
+        assert_eq!(overdue.len(), 2);
+    }
+
+    #[test]
+    fn test_commitments_follow_up_and_auto_lapse() {
+        let conn = mem_conn();
+        let id = sp_commitments_insert_impl(&conn, "c1", "x", "assistant", Some(100), None, None)
+            .unwrap();
+        sp_commitments_increment_follow_up_impl(&conn, id).unwrap();
+        sp_commitments_increment_follow_up_impl(&conn, id).unwrap();
+        let rows = sp_commitments_list_impl(&conn, "c1").unwrap();
+        assert_eq!(rows[0]["follow_up_count"], json!(2));
+
+        // 过期自动失效，返回受影响行数
+        assert_eq!(sp_commitments_auto_lapse_impl(&conn, "c1", 200).unwrap(), 1);
+        assert!(sp_commitments_list_impl(&conn, "c1").unwrap().is_empty());
+        // 已 lapsed 的不再被重复计入
+        assert_eq!(sp_commitments_auto_lapse_impl(&conn, "c1", 200).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_commitments_recurring_done_and_open_recent() {
+        let conn = mem_conn();
+        let recurring = sp_commitments_insert_impl(
+            &conn,
+            "c1",
+            "每天喂猫",
+            "assistant",
+            Some(10),
+            None,
+            Some("daily"),
+        )
+        .unwrap();
+        let plain =
+            sp_commitments_insert_impl(&conn, "c1", "一次性", "assistant", Some(10), None, None)
+                .unwrap();
+
+        // open 状态下不算「已完成」
+        assert!(sp_commitments_recurring_done_impl(&conn, "c1")
+            .unwrap()
+            .is_empty());
+        sp_commitments_set_status_impl(&conn, recurring, "fulfilled").unwrap();
+        sp_commitments_set_status_impl(&conn, plain, "fulfilled").unwrap();
+        let done = sp_commitments_recurring_done_impl(&conn, "c1").unwrap();
+        assert_eq!(done.len(), 1, "只有带 repeat 的约定才算 recurring");
+        assert_eq!(done[0]["id"], json!(recurring));
+
+        // open_recent：只返回 open 且 created_at > since 的同名约定
+        assert!(sp_commitments_open_recent_impl(&conn, "c1", "每天喂猫", 0)
+            .unwrap()
+            .is_empty());
+        let new_id = sp_commitments_insert_impl(
+            &conn,
+            "c1",
+            "每天喂猫",
+            "assistant",
+            None,
+            None,
+            Some("daily"),
+        )
+        .unwrap();
+        let recent = sp_commitments_open_recent_impl(&conn, "c1", "每天喂猫", 0).unwrap();
+        assert_eq!(recent.len(), 1);
+        assert_eq!(recent[0]["id"], json!(new_id));
+    }
+
+    #[test]
+    fn test_ctx_insert_close_and_list() {
+        let conn = mem_conn();
+        let a = sp_ctx_insert_impl(
+            &conn,
+            "c1",
+            100,
+            Some("coding"),
+            Some("sunny"),
+            Some(5),
+            Some("lofi"),
+        )
+        .unwrap();
+        let _b = sp_ctx_insert_impl(&conn, "c1", 300, None, None, None, None).unwrap();
+        let _other = sp_ctx_insert_impl(&conn, "c2", 200, None, None, None, None).unwrap();
+
+        // 无 end：只按起点过滤
+        assert_eq!(sp_ctx_list_impl(&conn, "c1", 0, None).unwrap().len(), 2);
+        // 有 end：半开区间，且角色隔离
+        let window = sp_ctx_list_impl(&conn, "c1", 0, Some(200)).unwrap();
+        assert_eq!(window.len(), 1);
+        assert_eq!(window[0]["id"], json!(a));
+        assert_eq!(window[0]["work_state"], json!("coding"));
+
+        sp_ctx_close_impl(&conn, a, 150).unwrap();
+        let closed = sp_ctx_list_impl(&conn, "c1", 0, Some(200)).unwrap();
+        assert_eq!(closed[0]["ended_at"], json!(150));
+    }
+
+    #[test]
+    fn test_entitygraph_node_upsert_and_find() {
+        let conn = mem_conn();
+        let id1 = sp_entitygraph_upsert_node_impl(&conn, "小橘", "cat", "m1", "ent-1", 100, None)
+            .unwrap();
+        assert_eq!(id1, "ent-1");
+
+        // 同 name+type 复用节点 id，追加 memory_ids
+        let id2 =
+            sp_entitygraph_upsert_node_impl(&conn, "小橘", "cat", "m2", "ent-2", 100, Some("EMB="))
+                .unwrap();
+        assert_eq!(id2, "ent-1");
+        // 重复 memory_id 不重复追加
+        let id3 = sp_entitygraph_upsert_node_impl(&conn, "小橘", "cat", "m2", "ent-3", 100, None)
+            .unwrap();
+        assert_eq!(id3, "ent-1");
+
+        let rows = sp_entitygraph_find_by_names_impl(&conn, &["小橘".to_string()]).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["memory_ids"], json!("[\"m1\",\"m2\"]"));
+
+        // 空名单直接返回空集（不拼 SQL）；未命中同样空集
+        assert!(sp_entitygraph_find_by_names_impl(&conn, &[])
+            .unwrap()
+            .is_empty());
+        assert!(
+            sp_entitygraph_find_by_names_impl(&conn, &["不存在".to_string()])
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn test_entitygraph_edges_and_neighbors() {
+        let conn = mem_conn();
+        let a = sp_entitygraph_upsert_node_impl(&conn, "小橘", "cat", "m1", "ent-a", 100, None)
+            .unwrap();
+        let b = sp_entitygraph_upsert_node_impl(&conn, "猫粮", "object", "m1", "ent-b", 100, None)
+            .unwrap();
+
+        // 首条边 INSERT，重复边 UPDATE（权重累加 + 共现次数 +1）
+        sp_entitygraph_upsert_edge_impl(&conn, &a, &b, 1.5, 500).unwrap();
+        sp_entitygraph_upsert_edge_impl(&conn, &a, &b, 0.5, 600).unwrap();
+
+        let nbrs = sp_entitygraph_neighbors_impl(&conn, "小橘").unwrap();
+        assert_eq!(nbrs.len(), 1);
+        assert_eq!(nbrs[0]["neighbor"], json!("猫粮"));
+        assert_eq!(nbrs[0]["weight"], json!(2.0));
+
+        // 反向同样可达（entity_a / entity_b 都参与匹配）
+        let rev = sp_entitygraph_neighbors_impl(&conn, "猫粮").unwrap();
+        assert_eq!(rev[0]["neighbor"], json!("小橘"));
+
+        assert!(sp_entitygraph_neighbors_impl(&conn, "不存在")
+            .unwrap()
+            .is_empty());
+    }
+
+    // ===== 第三批：owner_facts / memory_semantic_facts / pet_exp / visual / entity_nodes =====
+
+    #[test]
+    fn test_owner_facts_as_of_window_and_history() {
+        let conn = mem_conn();
+        for (key, val, id) in [("a", "A", 1), ("b", "B", 2), ("c", "C", 3)] {
+            sp_owner_facts_upsert_impl(
+                &conn,
+                &json!({"character_id":"c1","fact_key":key,"fact_value":val,"id":id}),
+            )
+            .unwrap();
+        }
+        // 手工构造时间窗：b 在 [100,200) 内有效；c 在 [10,50) 内有效；a 保持 valid_at=now 且无失效
+        exec(
+            &conn,
+            "UPDATE owner_facts SET valid_at = 100, invalid_at = 200 WHERE fact_key = 'b'",
+            &[],
+        )
+        .unwrap();
+        exec(
+            &conn,
+            "UPDATE owner_facts SET valid_at = 10, invalid_at = 50 WHERE fact_key = 'c'",
+            &[],
+        )
+        .unwrap();
+
+        let keys_at = |t: i64| -> Vec<String> {
+            sp_owner_facts_as_of_impl(&conn, "c1", t)
+                .unwrap()
+                .iter()
+                .filter_map(|r| r["fact_key"].as_str().map(String::from))
+                .collect()
+        };
+        assert!(keys_at(150).contains(&"b".to_string()), "150 落在 b 的窗内");
+        assert!(
+            !keys_at(150).contains(&"c".to_string()),
+            "150 已超出 c 的窗"
+        );
+        assert!(keys_at(20).contains(&"c".to_string()), "20 落在 c 的窗内");
+        assert!(
+            !keys_at(20).contains(&"b".to_string()),
+            "20 早于 b 的 valid_at"
+        );
+        // a 的 valid_at = now（毫秒时间戳），两个查询点都早于它 → 均不可见
+        assert!(!keys_at(150).contains(&"a".to_string()));
+
+        // history 只收 invalid_at 非空的（b、c）
+        let hist = sp_owner_facts_history_impl(&conn, "c1").unwrap();
+        assert_eq!(hist.len(), 2);
+        // 全量 list 不筛时间窗
+        assert_eq!(sp_owner_facts_list_impl(&conn, "c1").unwrap().len(), 3);
+
+        // delete / clear
+        sp_owner_facts_delete_impl(&conn, "c1", "a").unwrap();
+        assert_eq!(sp_owner_facts_list_impl(&conn, "c1").unwrap().len(), 2);
+        sp_owner_facts_clear_impl(&conn, "c1").unwrap();
+        assert!(sp_owner_facts_list_impl(&conn, "c1").unwrap().is_empty());
+    }
+
+    /// ⚠️ 该用例记录的是**当前实现的真实行为**，不是期望行为。
+    ///
+    /// 表上有 `CREATE UNIQUE INDEX idx_owner_facts_char_key ON owner_facts(character_id, fact_key)`，
+    /// 于是 `sp_owner_facts_upsert_impl` 里「同 key 有效旧值先标记失效」的 UPDATE 与随后的
+    /// `ON CONFLICT(character_id, fact_key) DO UPDATE` 作用在**同一行**：
+    /// 结果是该行被写上 invalid_at，新值覆盖旧值 —— 版本化设计（invalid_at / superseded_by /
+    /// history 查询）与唯一索引互相矛盾，同 key 二次 upsert 后该事实在 `as_of(now)` 里不可见。
+    /// 这里只断言「分支确实执行了」，不把该行为固化成期望值；修复需单开 issue。
+    #[test]
+    fn test_owner_facts_impl_supersede_marks_row_invalid() {
+        let conn = mem_conn();
+        sp_owner_facts_upsert_impl(
+            &conn,
+            &json!({"character_id":"c1","fact_key":"city","fact_value":"杭州","id":1}),
+        )
+        .unwrap();
+        sp_owner_facts_upsert_impl(
+            &conn,
+            &json!({"character_id":"c1","fact_key":"city","fact_value":"上海","id":2}),
+        )
+        .unwrap();
+
+        let rows = sp_owner_facts_list_impl(&conn, "c1").unwrap();
+        assert_eq!(rows.len(), 1, "唯一索引决定同 key 只有一行");
+        assert_eq!(
+            rows[0]["fact_value"],
+            json!("上海"),
+            "ON CONFLICT 覆盖为新值"
+        );
+        assert!(
+            rows[0]["invalid_at"].is_number(),
+            "supersede 分支确实把该行标记为失效"
+        );
+        assert_eq!(rows[0]["superseded_by"], json!(2));
+    }
+
+    #[test]
+    fn test_sem_facts_impl_upsert_count_and_source_ids() {
+        let conn = mem_conn();
+        assert_eq!(sp_sem_facts_count_impl(&conn, "c1").unwrap(), 0);
+
+        // source_memory_ids 三种形态：数组 / 字符串 / 缺失
+        sp_sem_facts_upsert_impl(
+            &conn,
+            &json!({"character_id":"c1","fact_key":"likes","fact_value":"猫",
+                    "importance":80,"source_memory_ids":["m1","m2"]}),
+        )
+        .unwrap();
+        sp_sem_facts_upsert_impl(
+            &conn,
+            &json!({"character_id":"c1","fact_key":"dislikes","fact_value":"雨",
+                    "source_memory_ids":"[\"m9\"]"}),
+        )
+        .unwrap();
+        sp_sem_facts_upsert_impl(
+            &conn,
+            &json!({"character_id":"c1","fact_key":"x","fact_value":"y"}),
+        )
+        .unwrap();
+        assert_eq!(sp_sem_facts_count_impl(&conn, "c1").unwrap(), 3);
+
+        let by_key = |k: &str| sp_sem_facts_by_key_impl(&conn, "c1", k).unwrap();
+        assert_eq!(
+            by_key("likes").unwrap()["source_memory_ids"],
+            json!("[\"m1\",\"m2\"]")
+        );
+        assert_eq!(
+            by_key("dislikes").unwrap()["source_memory_ids"],
+            json!("[\"m9\"]")
+        );
+        assert_eq!(by_key("x").unwrap()["source_memory_ids"], json!("[]"));
+        assert_eq!(by_key("x").unwrap()["importance"], json!(50), "缺省 50");
+
+        // 同 key 二次 upsert → ON CONFLICT 更新，不新增行
+        sp_sem_facts_upsert_impl(
+            &conn,
+            &json!({"character_id":"c1","fact_key":"likes","fact_value":"狗","importance":90}),
+        )
+        .unwrap();
+        assert_eq!(sp_sem_facts_count_impl(&conn, "c1").unwrap(), 3);
+        assert_eq!(by_key("likes").unwrap()["fact_value"], json!("狗"));
+        // 未命中 → None
+        assert!(by_key("nope").is_none());
+        // list 按 importance DESC，likes(90) 居首
+        let list = sp_sem_facts_list_impl(&conn, "c1").unwrap();
+        assert_eq!(list.len(), 3);
+        assert_eq!(list[0]["fact_key"], json!("likes"));
+
+        sp_sem_facts_delete_impl(&conn, "c1", "likes").unwrap();
+        assert_eq!(sp_sem_facts_count_impl(&conn, "c1").unwrap(), 2);
+        sp_sem_facts_clear_impl(&conn, "c1").unwrap();
+        assert_eq!(sp_sem_facts_count_impl(&conn, "c1").unwrap(), 0);
+    }
+
+    #[test]
+    fn test_pet_exp_impl_insert_defaults_and_clear() {
+        let conn = mem_conn();
+        sp_pet_exp_insert_impl(
+            &conn,
+            &json!({"id":"e1","character_id":"c1","type":"play","description":"玩球",
+                    "timestamp":100,"sentiment":"happy","intensity":0.9}),
+        )
+        .unwrap();
+        // 只给必填 → 其余走缺省
+        sp_pet_exp_insert_impl(
+            &conn,
+            &json!({"id":"e2","character_id":"c1","type":"eat","timestamp":50}),
+        )
+        .unwrap();
+
+        let rows = sp_pet_exp_list_impl(&conn, "c1").unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0]["id"], json!("e2"), "按 timestamp ASC");
+        assert_eq!(rows[0]["sentiment"], json!("neutral"));
+        assert_eq!(rows[0]["intensity"], json!(0.5));
+        assert_eq!(rows[1]["sentiment"], json!("happy"));
+
+        // 缺 id → Err（必填校验）
+        assert!(sp_pet_exp_insert_impl(&conn, &json!({"character_id":"c1"})).is_err());
+
+        sp_pet_exp_clear_impl(&conn, "c1").unwrap();
+        assert!(sp_pet_exp_list_impl(&conn, "c1").unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_visual_impl_insert_nullable_fields() {
+        let conn = mem_conn();
+        sp_visual_insert_impl(
+            &conn,
+            &json!({"id":"v1","character_id":"c1","type":"scene","description":"夕阳",
+                    "image_path":"/tmp/a.png","timestamp":10,"related_memory_id":"m1"}),
+        )
+        .unwrap();
+        // image_path / related_memory_id 缺失 → NULL
+        sp_visual_insert_impl(
+            &conn,
+            &json!({"id":"v2","character_id":"c1","type":"scene","timestamp":20}),
+        )
+        .unwrap();
+
+        let rows = sp_visual_list_impl(&conn, "c1").unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0]["image_path"], json!("/tmp/a.png"));
+        assert_eq!(rows[0]["related_memory_id"], json!("m1"));
+        assert_eq!(rows[1]["image_path"], json!(null));
+        assert_eq!(rows[1]["sentiment"], json!("neutral"));
+
+        assert!(sp_visual_insert_impl(&conn, &json!({"character_id":"c1"})).is_err());
+
+        sp_visual_clear_impl(&conn, "c1").unwrap();
+        assert!(sp_visual_list_impl(&conn, "c1").unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_entity_nodes_impl_upsert_conflict_and_clear() {
+        let conn = mem_conn();
+        sp_entity_upsert_impl(
+            &conn,
+            &json!({"id":"n1","character_id":"c1","name":"小橘","type":"cat",
+                    "linked_memory_ids":"[\"m1\"]","mention_count":3,"first_seen":10,"last_seen":20}),
+        )
+        .unwrap();
+        // 同 (character_id, name) → ON CONFLICT 只更新 linked/mention/last_seen
+        sp_entity_upsert_impl(
+            &conn,
+            &json!({"id":"n2","character_id":"c1","name":"小橘","type":"cat",
+                    "linked_memory_ids":"[\"m1\",\"m2\"]","mention_count":5,"first_seen":10,"last_seen":30}),
+        )
+        .unwrap();
+
+        let rows = sp_entity_list_impl(&conn, "c1").unwrap();
+        assert_eq!(rows.len(), 1, "同角色同名只保留一行");
+        assert_eq!(rows[0]["id"], json!("n1"), "id 不被 ON CONFLICT 覆盖");
+        assert_eq!(rows[0]["mention_count"], json!(5));
+        assert_eq!(rows[0]["last_seen"], json!(30));
+        assert_eq!(rows[0]["linked_memory_ids"], json!("[\"m1\",\"m2\"]"));
+
+        // 缺 name → Err
+        assert!(sp_entity_upsert_impl(&conn, &json!({"id":"n3","character_id":"c1"})).is_err());
+
+        sp_entity_clear_impl(&conn, "c1").unwrap();
+        assert!(sp_entity_list_impl(&conn, "c1").unwrap().is_empty());
+    }
+
+    // ===== 第四批：mods / inventory / schedules / 完整性 / 快照 / purge =====
+
+    fn row_by_id<'a>(rows: &'a [JsonValue], id: &str) -> &'a JsonValue {
+        rows.iter()
+            .find(|r| r["id"] == json!(id))
+            .unwrap_or_else(|| panic!("未找到 id={id} 的行"))
+    }
+
+    #[test]
+    fn test_mods_impl_save_upsert_enable_delete() {
+        let conn = mem_conn();
+        sp_mods_save_impl(&conn, &json!({"id":"m1","name":"猫咪语音包"})).unwrap();
+        sp_mods_save_impl(
+            &conn,
+            &json!({"id":"m2","name":"天气插件","version":"1.2","enabled":false}),
+        )
+        .unwrap();
+
+        let rows = sp_mods_list_impl(&conn).unwrap();
+        assert_eq!(rows.len(), 2);
+        // 缺省：config="{}"、enabled=1、version=NULL
+        assert_eq!(row_by_id(&rows, "m1")["config"], json!("{}"));
+        assert_eq!(row_by_id(&rows, "m1")["enabled"], json!(1));
+        assert_eq!(row_by_id(&rows, "m1")["version"], json!(null));
+        assert_eq!(row_by_id(&rows, "m2")["enabled"], json!(0));
+
+        // upsert：覆盖 name/version/config/enabled，但 installed_at 不在更新列里
+        let installed_at = row_by_id(&rows, "m1")["installed_at"].clone();
+        sp_mods_save_impl(
+            &conn,
+            &json!({"id":"m1","name":"改名","config":"{\"k\":1}","enabled":false}),
+        )
+        .unwrap();
+        let rows = sp_mods_list_impl(&conn).unwrap();
+        assert_eq!(rows.len(), 2, "同 id 不新增行");
+        assert_eq!(row_by_id(&rows, "m1")["name"], json!("改名"));
+        assert_eq!(row_by_id(&rows, "m1")["config"], json!("{\"k\":1}"));
+        assert_eq!(row_by_id(&rows, "m1")["enabled"], json!(0));
+        assert_eq!(
+            row_by_id(&rows, "m1")["installed_at"],
+            installed_at,
+            "installed_at 不在 ON CONFLICT 更新列里"
+        );
+
+        sp_mods_set_enabled_impl(&conn, "m1", true).unwrap();
+        let rows = sp_mods_list_impl(&conn).unwrap();
+        assert_eq!(row_by_id(&rows, "m1")["enabled"], json!(1));
+
+        // 必填校验
+        assert!(sp_mods_save_impl(&conn, &json!({"name":"缺 id"})).is_err());
+        assert!(sp_mods_save_impl(&conn, &json!({"id":"x"})).is_err());
+
+        sp_mods_delete_impl(&conn, "m2").unwrap();
+        assert_eq!(sp_mods_list_impl(&conn).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_inventory_impl_save_and_scope_filter() {
+        let conn = mem_conn();
+        // inventory.character_id 有 FK → characters(id)，先建角色
+        sp_char_save_stats_impl(&conn, "c1", "{}").unwrap();
+        sp_char_save_stats_impl(&conn, "c2", "{}").unwrap();
+        sp_inventory_save_impl(
+            &conn,
+            &json!({"id":"i1","item_id":"fish","quantity":3,"character_id":"c1"}),
+        )
+        .unwrap();
+        // quantity 缺省 1、character_id 缺省 NULL（全局物品）
+        sp_inventory_save_impl(&conn, &json!({"id":"i2","item_id":"ball"})).unwrap();
+        sp_inventory_save_impl(
+            &conn,
+            &json!({"id":"i3","item_id":"milk","character_id":"c2"}),
+        )
+        .unwrap();
+
+        assert_eq!(sp_inventory_list_impl(&conn, None).unwrap().len(), 3);
+        // 按角色：自己的 + 全局（character_id IS NULL）
+        let c1 = sp_inventory_list_impl(&conn, Some("c1")).unwrap();
+        assert_eq!(c1.len(), 2, "应含本角色物品与全局物品");
+        assert!(c1.iter().any(|r| r["id"] == json!("i2")));
+        assert!(!c1.iter().any(|r| r["id"] == json!("i3")));
+
+        // upsert 覆盖数量
+        sp_inventory_save_impl(
+            &conn,
+            &json!({"id":"i1","item_id":"fish","quantity":9,"character_id":"c1"}),
+        )
+        .unwrap();
+        let all = sp_inventory_list_impl(&conn, None).unwrap();
+        assert_eq!(all.len(), 3, "同 id 不新增行");
+        assert_eq!(row_by_id(&all, "i1")["quantity"], json!(9));
+        assert_eq!(row_by_id(&all, "i2")["quantity"], json!(1), "缺省 1");
+
+        assert!(sp_inventory_save_impl(&conn, &json!({"id":"i4"})).is_err());
+    }
+
+    #[test]
+    fn test_schedules_impl_save_list_delete() {
+        let conn = mem_conn();
+        sp_schedules_save_impl(&conn, &json!({"id":"s1","title":"喂猫","time":200})).unwrap();
+        sp_schedules_save_impl(
+            &conn,
+            &json!({"id":"s2","title":"铲屎","time":100,"repeat":"daily"}),
+        )
+        .unwrap();
+
+        let rows = sp_schedules_list_impl(&conn).unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0]["id"], json!("s2"), "按 time ASC");
+        assert_eq!(rows[0]["repeat"], json!("daily"));
+        assert_eq!(rows[1]["repeat"], json!(null));
+        assert_eq!(rows[1]["completed"], json!(0), "缺省 false");
+
+        sp_schedules_save_impl(
+            &conn,
+            &json!({"id":"s1","title":"喂猫(改)","time":300,"completed":true}),
+        )
+        .unwrap();
+        let rows = sp_schedules_list_impl(&conn).unwrap();
+        assert_eq!(rows.len(), 2, "同 id 不新增行");
+        assert_eq!(row_by_id(&rows, "s1")["title"], json!("喂猫(改)"));
+        assert_eq!(row_by_id(&rows, "s1")["completed"], json!(1));
+
+        assert!(sp_schedules_save_impl(&conn, &json!({"id":"s3"})).is_err());
+
+        sp_schedules_delete_impl(&conn, "s1").unwrap();
+        assert_eq!(sp_schedules_list_impl(&conn).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_db_integrity_and_snapshot_impl() {
+        let conn = mem_conn();
+        assert_eq!(
+            sp_db_integrity_impl(&conn).unwrap(),
+            vec!["ok".to_string()],
+            "内存库 integrity_check 应为 ok"
+        );
+
+        let snap = sp_db_snapshot_impl(&conn).unwrap();
+        assert_eq!(snap.len(), SNAPSHOT_TABLES.len(), "快照应覆盖全部白名单表");
+        for t in SNAPSHOT_TABLES {
+            assert!(snap.contains_key(*t), "快照缺表: {t}");
+            assert!(snap[*t].is_array(), "表 {t} 的快照应为数组");
+        }
+
+        // 有数据时快照带行
+        sp_settings_set_impl(&conn, "k", "v").unwrap();
+        let snap = sp_db_snapshot_impl(&conn).unwrap();
+        assert_eq!(snap["settings"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_settings_keys_impl_like_pattern() {
+        let conn = mem_conn();
+        for k in ["spiritpal:a", "spiritpal:b", "other:c"] {
+            sp_settings_set_impl(&conn, k, "v").unwrap();
+        }
+        assert_eq!(
+            sp_settings_keys_impl(&conn, "spiritpal:%").unwrap(),
+            vec!["spiritpal:a".to_string(), "spiritpal:b".to_string()],
+            "应按 key ASC 且只命中前缀"
+        );
+        assert!(sp_settings_keys_impl(&conn, "none:%").unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_db_purge_impl_clears_selected_tables_only() {
+        let conn = mem_conn();
+        sp_mem_add_impl(&conn, "c1", "episodic", "a", None).unwrap();
+        sp_commitments_insert_impl(&conn, "c1", "x", "assistant", None, None, None).unwrap();
+        sp_ctx_insert_impl(&conn, "c1", 1, None, None, None, None).unwrap();
+        sp_schedules_save_impl(&conn, &json!({"id":"s1","title":"t"})).unwrap();
+        sp_settings_set_impl(&conn, "spiritpal:a", "1").unwrap();
+        sp_settings_set_impl(&conn, "other:b", "2").unwrap();
+        sp_entitygraph_upsert_node_impl(&conn, "小橘", "cat", "m1", "ent-1", 100, None).unwrap();
+
+        sp_db_purge_impl(&conn).unwrap();
+
+        assert!(sp_mem_list_impl(&conn, "c1", None).unwrap().is_empty());
+        assert!(sp_commitments_list_impl(&conn, "c1").unwrap().is_empty());
+        assert!(sp_ctx_list_impl(&conn, "c1", 0, None).unwrap().is_empty());
+        assert!(sp_schedules_list_impl(&conn).unwrap().is_empty());
+        assert!(
+            sp_entitygraph_find_by_names_impl(&conn, &["小橘".to_string()])
+                .unwrap()
+                .is_empty()
+        );
+        // settings 只清 spiritpal: 前缀，别的前缀必须保留
+        assert_eq!(sp_settings_get_impl(&conn, "spiritpal:a").unwrap(), None);
+        assert_eq!(
+            sp_settings_get_impl(&conn, "other:b").unwrap().as_deref(),
+            Some("2")
+        );
+    }
+
+    // ===== 第五批：zombie / schemaRunner / dirty_data_registry =====
+
+    #[test]
+    fn test_zombie_report_and_cleanup_impl() {
+        let conn = mem_conn();
+        // 两条 legacy 设置：一条 updated_at 有效、一条为 0
+        exec(
+            &conn,
+            "INSERT INTO settings (key, value, updated_at) VALUES ('a.legacy','xx',10)",
+            &[],
+        )
+        .unwrap();
+        exec(
+            &conn,
+            "INSERT INTO settings (key, value, updated_at) VALUES ('b.legacy','yyy',0)",
+            &[],
+        )
+        .unwrap();
+        // 上下文：一条早于阈值、一条不早
+        sp_ctx_insert_impl(&conn, "c1", 50, None, None, None, None).unwrap();
+        sp_ctx_insert_impl(&conn, "c1", 500, None, None, None, None).unwrap();
+        // 实体：低提及且久未出现 vs 高提及
+        sp_entity_upsert_impl(
+            &conn,
+            &json!({"id":"n1","character_id":"c1","name":"旧","mention_count":1,"last_seen":10}),
+        )
+        .unwrap();
+        sp_entity_upsert_impl(
+            &conn,
+            &json!({"id":"n2","character_id":"c1","name":"热","mention_count":9,"last_seen":10}),
+        )
+        .unwrap();
+
+        let rep = sp_zombie_report_impl(&conn, 100, 100).unwrap();
+        assert_eq!(rep["legacyCount"], json!(2));
+        assert_eq!(
+            rep["legacyOldest"],
+            json!(10),
+            "只统计 updated_at > 0 的最小值"
+        );
+        assert_eq!(rep["episodeCount"], json!(1), "started_at < 100 的只有一条");
+        assert_eq!(
+            rep["entityCount"],
+            json!(1),
+            "last_seen < 100 且 mention_count < 3 的只有一条"
+        );
+        assert_eq!(rep["bytes"], json!(5), "\"xx\"(2) + \"yyy\"(3)");
+
+        // 非 force：只删 updated_at ∈ (0, threshold)
+        assert_eq!(
+            sp_zombie_cleanup_legacy_impl(&conn, 20, false, 10).unwrap(),
+            1
+        );
+        assert_eq!(sp_settings_get_impl(&conn, "a.legacy").unwrap(), None);
+        assert_eq!(
+            sp_settings_get_impl(&conn, "b.legacy").unwrap().as_deref(),
+            Some("yyy"),
+            "updated_at = 0 的记录不该被非 force 删除"
+        );
+        // force：无条件删（受 limit 约束）
+        assert_eq!(
+            sp_zombie_cleanup_legacy_impl(&conn, 20, true, 10).unwrap(),
+            1
+        );
+        assert_eq!(sp_settings_get_impl(&conn, "b.legacy").unwrap(), None);
+
+        assert_eq!(sp_zombie_cleanup_episodes_impl(&conn, 100, 10).unwrap(), 1);
+        assert_eq!(sp_ctx_list_impl(&conn, "c1", 0, None).unwrap().len(), 1);
+        assert_eq!(sp_zombie_cleanup_entities_impl(&conn, 100, 10).unwrap(), 1);
+        assert_eq!(sp_entity_list_impl(&conn, "c1").unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_schema_version_impl_record_applied_history() {
+        let conn = mem_conn();
+        assert_eq!(sp_schema_version_current_impl(&conn).unwrap(), 0);
+        assert!(!sp_schema_version_applied_impl(&conn, 1).unwrap());
+
+        sp_schema_version_record_impl(&conn, 1, "建表", "abc123").unwrap();
+        sp_schema_version_record_impl(&conn, 3, "加列", "def456").unwrap();
+        // ON CONFLICT(version) DO NOTHING：重复记录既不报错也不覆盖
+        sp_schema_version_record_impl(&conn, 1, "重复", "zzz").unwrap();
+
+        assert_eq!(
+            sp_schema_version_current_impl(&conn).unwrap(),
+            3,
+            "取 MAX(version)"
+        );
+        assert!(sp_schema_version_applied_impl(&conn, 1).unwrap());
+        assert!(!sp_schema_version_applied_impl(&conn, 2).unwrap());
+
+        let hist = sp_schema_version_history_impl(&conn).unwrap();
+        assert_eq!(hist.len(), 2);
+        assert_eq!(hist[0]["version"], json!(1));
+        assert_eq!(
+            hist[0]["description"],
+            json!("建表"),
+            "DO NOTHING 不该覆盖已有记录"
+        );
+        assert_eq!(hist[1]["version"], json!(3));
+    }
+
+    #[test]
+    fn test_schema_failure_log_impl() {
+        let conn = mem_conn();
+        assert!(sp_schema_unresolved_impl(&conn).unwrap().is_empty());
+
+        sp_schema_log_failure_impl(&conn, 7, "语法错误", Some("ALTER TABLE x ADD y")).unwrap();
+        sp_schema_log_failure_impl(&conn, 8, "无 SQL", None).unwrap();
+
+        let open = sp_schema_unresolved_impl(&conn).unwrap();
+        assert_eq!(open.len(), 2);
+        let id7 = open.iter().find(|r| r["version"] == json!(7)).unwrap()["id"]
+            .as_i64()
+            .unwrap();
+        assert_eq!(
+            open.iter().find(|r| r["version"] == json!(8)).unwrap()["sql_statement"],
+            json!(null),
+            "sql_statement 为 None 时应落 NULL"
+        );
+
+        sp_schema_resolve_failure_impl(&conn, id7, 999).unwrap();
+        let open = sp_schema_unresolved_impl(&conn).unwrap();
+        assert_eq!(open.len(), 1, "已解决的不再出现在 unresolved 里");
+        assert_eq!(open[0]["version"], json!(8));
+    }
+
+    #[test]
+    fn test_dirty_upsert_idempotent_and_resolve() {
+        let conn = mem_conn();
+        sp_dirty_upsert_impl(&conn, "orphan", "inventory::i1", "{}", 100).unwrap();
+        assert_eq!(sp_dirty_list_impl(&conn).unwrap().len(), 1);
+
+        // 同 kind+target_id 且未解决 → 更新时间戳与 payload，不新增
+        sp_dirty_upsert_impl(&conn, "orphan", "inventory::i1", "{\"v\":2}", 200).unwrap();
+        let rows = sp_dirty_list_impl(&conn).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["detected_at"], json!(200));
+        assert_eq!(rows[0]["payload"], json!("{\"v\":2}"));
+        let id = rows[0]["id"].as_i64().unwrap();
+
+        sp_dirty_resolve_impl(&conn, id, 300).unwrap();
+        assert_eq!(
+            sp_dirty_list_impl(&conn).unwrap()[0]["resolved_at"],
+            json!(300)
+        );
+        // 已解决的记录不再被 upsert 命中 → 新增一条
+        sp_dirty_upsert_impl(&conn, "orphan", "inventory::i1", "{}", 400).unwrap();
+        assert_eq!(sp_dirty_list_impl(&conn).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_dirty_resolve_table_and_cleanup() {
+        let conn = mem_conn();
+        sp_dirty_upsert_impl(&conn, "k", "inventory::a", "{}", 10).unwrap();
+        sp_dirty_upsert_impl(&conn, "k", "inventory::b", "{}", 20).unwrap();
+        sp_dirty_upsert_impl(&conn, "k", "memories::c", "{}", 30).unwrap();
+
+        // 按 `${table}::%` 前缀批量解决
+        assert_eq!(
+            sp_dirty_resolve_table_impl(&conn, "inventory", 500).unwrap(),
+            2
+        );
+        let rows = sp_dirty_list_impl(&conn).unwrap();
+        assert_eq!(
+            rows.iter()
+                .filter(|r| r["resolved_at"] == json!(500))
+                .count(),
+            2
+        );
+        assert_eq!(
+            rows.iter()
+                .filter(|r| r["resolved_at"] == json!(null))
+                .count(),
+            1,
+            "别的表不受影响"
+        );
+
+        // 清理「已解决且 resolved_at < threshold」
+        assert_eq!(sp_dirty_cleanup_impl(&conn, 600).unwrap(), 2);
+        assert_eq!(sp_dirty_list_impl(&conn).unwrap().len(), 1);
+        assert_eq!(
+            sp_dirty_cleanup_impl(&conn, 100).unwrap(),
+            0,
+            "阈值早于 resolved_at 不删"
+        );
+    }
+
+    #[test]
+    fn test_dirty_scan_impl_detects_multiple_kinds() {
+        let conn = mem_conn();
+        // 干净库不该报任何 issue
+        assert!(sp_dirty_scan_impl(&conn).unwrap().is_empty());
+
+        sp_char_save_stats_impl(&conn, "c_ok", "{}").unwrap();
+        sp_char_save_stats_impl(&conn, "c_bad", "not-json").unwrap();
+
+        sp_mem_add_impl(&conn, "c_ok", "episodic", "正常", Some(50)).unwrap();
+        sp_mem_add_impl(&conn, "c_ok", "episodic", "越界", Some(150)).unwrap();
+        sp_mem_add_impl(&conn, "c_ok", "bogus_type", "非法类型", Some(50)).unwrap();
+        sp_mem_add_impl(&conn, "c_ok", "episodic", "孤儿角色", Some(50)).unwrap();
+        // 造孤儿记忆（memories 无外键）+ 重复 memory_id
+        exec(
+            &conn,
+            "UPDATE memories SET character_id = 'ghost' WHERE content = '孤儿角色'",
+            &[],
+        )
+        .unwrap();
+        exec(
+            &conn,
+            "UPDATE memories SET memory_id = 'dup' WHERE content IN ('正常','越界')",
+            &[],
+        )
+        .unwrap();
+
+        // 负数库存（inventory 有外键，角色必须真实存在）
+        sp_inventory_save_impl(
+            &conn,
+            &json!({"id":"i1","item_id":"fish","quantity":-5,"character_id":"c_ok"}),
+        )
+        .unwrap();
+
+        // 级联删除残留：commitments 引用不存在的角色
+        sp_commitments_insert_impl(&conn, "ghost", "残留", "assistant", None, None, None).unwrap();
+
+        let issues = sp_dirty_scan_impl(&conn).unwrap();
+        let has = |table: &str, data_type: &str| {
+            issues
+                .iter()
+                .any(|i| i["table"] == json!(table) && i["dataType"] == json!(data_type))
+        };
+        assert!(
+            has("characters", "DATA_TYPE_MISMATCH"),
+            "stats 非 JSON 未检出"
+        );
+        assert!(has("memories", "ORPHAN_REFERENCE"), "孤儿记忆未检出");
+        assert!(
+            has("inventory", "BUSINESS_RULE_VIOLATION"),
+            "负数库存未检出"
+        );
+        assert!(
+            has("memories", "BUSINESS_RULE_VIOLATION"),
+            "importance 超界 / type 非法未检出"
+        );
+        assert!(has("memories", "DUPLICATE_ENTRY"), "memory_id 重复未检出");
+        assert!(
+            has("commitments", "INCONSISTENT_STATE"),
+            "级联删除残留未检出"
+        );
+        // 每条 issue 都必须带 detectedAt 时间戳
+        assert!(issues
+            .iter()
+            .all(|i| i["detectedAt"].as_i64().unwrap_or(0) > 0));
     }
 }

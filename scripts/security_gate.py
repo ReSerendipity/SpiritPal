@@ -18,13 +18,23 @@ dependency-vuln-scan job 每次 push / PR 都会运行，但三个审计步骤�
 ------------------------------------
 npm_critical=0 / npm_high=0：历史高点（gh-pages 经 pixi-live2d-display 引入、
 protobufjs）已由上游修复，2026-09-20 按棘轮约定回写收紧到实测值 0。
-cargo_vulns=1：Cargo.lock 681 个 package 中 1 个命中——
-  RUSTSEC-2026-0235 / rkyv 0.7.46。它**不进构建图、不会被编译**：
-    cargo tree --workspace --target all -e normal,build,dev   # rkyv 出现 0 次
-  链路 tauri-plugin-log → byte-unit 5.2.5 → rust_decimal 1.42.1 之下没有 rkyv
-  （rust_decimal 的 rkyv feature 未启用）。Cargo.lock 会记录可选依赖，而
-  cargo-audit 逐行扫 lockfile，于是报出一个不在构建图中的 crate。
-  这不是「接受风险」，是度量口径差异 —— 别把它当已评估过的可容忍漏洞。
+cargo_vulns=4（2026-10-17 由 7 收紧；沿革 1 → 7（#132 接受）→ 4（zip 升级））：
+  Cargo.lock 约 700 个 package 中 4 个命中，分两类：
+
+  (a) RUSTSEC-2026-0235 / rkyv 0.7.46 ×1 —— 与 1 时代同一项，**度量口径差异**
+      而非已评估风险：它不进构建图、不会被编译
+      （cargo tree --workspace --target all -e normal,build,dev 出现 0 次；
+      tauri-plugin-log → byte-unit 5.2.5 → rust_decimal 1.42.1 链路未启用
+      rust_decimal 的 rkyv feature）。Cargo.lock 记录可选依赖而 cargo-audit
+      逐行扫 lockfile，于是报出一个不在构建图中的 crate。
+
+  (b) RUSTSEC-2026-0367/0368/0369 / zip 4.6.1 ×3 —— tauri-plugin-updater 2.11.0
+      的传递依赖。补丁线 >=9.0.0，但 updater 稳定版仍钉 zip 4.x，[patch] 强钉 9
+      会违反其约束直接编译失败；本仓无法单方面修复，只能等上游跟进。
+      **直接依赖 zip 已于 2026-10-17 从 0.6.6 升到 9.0.4**（同类三条通告的直接
+      依赖部分已消除，7→4 中的 -3 即来自此）；重评条件：tauri-plugin-updater
+      发布不依赖 zip 4.x 的新版，或本仓弃用 updater 插件。
+
 基线入库后，**新增**任何高危漏洞都会让 CI 变红。
 
 用法

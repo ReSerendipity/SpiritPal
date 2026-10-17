@@ -528,3 +528,91 @@ mod tests {
         let _ = fs::remove_dir(&tmp_dir);
     }
 }
+
+/// 文件级 I/O 辅助函数测试（不依赖 AppHandle）
+#[cfg(test)]
+mod io_tests {
+    use super::*;
+
+    fn tmp_dir(tag: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("sp-encdb-{}-{}", tag, std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn test_cleanup_wal_files_removes_wal_and_shm() {
+        let dir = tmp_dir("wal");
+        let db = dir.join("spiritpal.db");
+        std::fs::write(&db, b"main").unwrap();
+        let wal = db.with_extension("db-wal");
+        let shm = db.with_extension("db-shm");
+        std::fs::write(&wal, b"wal").unwrap();
+        std::fs::write(&shm, b"shm").unwrap();
+
+        cleanup_wal_files(&db);
+        assert!(!wal.exists(), "-wal 可能含明文，必须删除");
+        assert!(!shm.exists(), "-shm 必须删除");
+        assert!(db.exists(), "主库文件不能被误删");
+
+        // 幂等：文件已不存在时再次调用不 panic
+        cleanup_wal_files(&db);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_atomic_write_creates_then_overwrites() {
+        let dir = tmp_dir("atomic");
+        let target = dir.join("spiritpal.db.enc");
+
+        atomic_write(&target, b"v1").unwrap();
+        assert_eq!(std::fs::read(&target).unwrap(), b"v1");
+
+        // 覆盖写：长度变化也要完整替换（rename 语义）
+        atomic_write(&target, b"v2-longer-content").unwrap();
+        assert_eq!(std::fs::read(&target).unwrap(), b"v2-longer-content");
+
+        // 临时文件必须已被 rename 掉，不残留
+        assert!(!target.with_extension("tmp").exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_atomic_write_reports_missing_parent() {
+        let dir = tmp_dir("atomic-miss");
+        let target = dir.join("no-such-dir").join("x.enc");
+        let e = atomic_write(&target, b"x").unwrap_err();
+        assert!(e.contains("写入临时文件失败"), "实际报错: {e}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_remove_file_with_retry_success_then_missing() {
+        let dir = tmp_dir("retry");
+        let f = dir.join("a.txt");
+        std::fs::write(&f, b"x").unwrap();
+
+        remove_file_with_retry(&f, 3).unwrap();
+        assert!(!f.exists());
+
+        // 文件已不存在 → NotFound 不属于 PermissionDenied，直接返回 Err 而非傻等重试
+        let e = remove_file_with_retry(&f, 3).unwrap_err();
+        assert!(e.contains("删除文件失败"), "实际报错: {e}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_backup_filename_shape() {
+        let name = backup_filename();
+        assert!(name.starts_with("spiritpal-backup-"), "实际: {name}");
+        assert!(name.ends_with(".db.enc"), "实际: {name}");
+        let ts = name
+            .trim_start_matches("spiritpal-backup-")
+            .trim_end_matches(".db.enc");
+        let secs: u64 = ts
+            .parse()
+            .unwrap_or_else(|_| panic!("时间戳应为数字: {ts}"));
+        assert!(secs > 1_600_000_000, "应为秒级 unix 时间戳: {secs}");
+    }
+}

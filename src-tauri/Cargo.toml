@@ -58,7 +58,10 @@ jni = "0.21"
 pbkdf2 = "0.12"
 hmac = "0.12"
 # .petmod 压缩包导入 — zip 解压
-zip = "0.6"
+# 9.0.4：RUSTSEC-2026-0367/0368/0369 三条通告的补丁线均为 >=9.0.0（2026-10-17 升级，
+# Better Harness 批次 item4 方案 A 的直接依赖部分；zip 4.6.1 仍经 tauri-plugin-updater
+# 2.11.0 传递入图，属上游约束，见 .ci/security_baseline.json 注释）
+zip = "9.0.4"
 # 文件系统操作 — 模组目录扫描
 tauri-plugin-fs = "2"
 # 文件选择对话框 — .petmod 文件导入
