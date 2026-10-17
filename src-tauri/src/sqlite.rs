@@ -1935,22 +1935,44 @@ pub async fn sp_commitments_insert(
     repeat: Option<String>,
 ) -> Result<i64, String> {
     with_conn(app, move |conn| {
-        let now = chrono::Utc::now().timestamp_millis();
-        exec(
+        sp_commitments_insert_impl(
             conn,
-            "INSERT INTO commitments (character_id, content, actor, due_at, status, source_memory_id, created_at, follow_up_count, repeat)
-             VALUES (?1, ?2, ?3, ?4, 'open', ?5, ?6, 0, ?7)",
-            &[
-                sq(&character_id), sq(&content), sq(&actor),
-                due_at.map(sqi).unwrap_or_else(sqn),
-                source_memory_id.map(sqi).unwrap_or_else(sqn),
-                sqi(now),
-                repeat.as_deref().map(sq).unwrap_or_else(sqn),
-            ],
-        )?;
-        Ok(scalar(conn, "SELECT last_insert_rowid()", &[])?.unwrap_or(0))
+            &character_id,
+            &content,
+            &actor,
+            due_at,
+            source_memory_id,
+            repeat.as_deref(),
+        )
     })
     .await
+}
+
+fn sp_commitments_insert_impl(
+    conn: &Connection,
+    character_id: &str,
+    content: &str,
+    actor: &str,
+    due_at: Option<i64>,
+    source_memory_id: Option<i64>,
+    repeat: Option<&str>,
+) -> Result<i64, String> {
+    let now = chrono::Utc::now().timestamp_millis();
+    exec(
+        conn,
+        "INSERT INTO commitments (character_id, content, actor, due_at, status, source_memory_id, created_at, follow_up_count, repeat)
+         VALUES (?1, ?2, ?3, ?4, 'open', ?5, ?6, 0, ?7)",
+        &[
+            sq(character_id),
+            sq(content),
+            sq(actor),
+            due_at.map(sqi).unwrap_or_else(sqn),
+            source_memory_id.map(sqi).unwrap_or_else(sqn),
+            sqi(now),
+            repeat.map(sq).unwrap_or_else(sqn),
+        ],
+    )?;
+    Ok(scalar(conn, "SELECT last_insert_rowid()", &[])?.unwrap_or(0))
 }
 
 #[tauri::command]
@@ -1959,13 +1981,20 @@ pub async fn sp_commitments_list(
     character_id: String,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM commitments WHERE character_id = ?1 AND status = 'open' ORDER BY due_at ASC",
-            &[sq(&character_id)],
-        )
+        sp_commitments_list_impl(conn, &character_id)
     })
     .await
+}
+
+fn sp_commitments_list_impl(
+    conn: &Connection,
+    character_id: &str,
+) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM commitments WHERE character_id = ?1 AND status = 'open' ORDER BY due_at ASC",
+        &[sq(character_id)],
+    )
 }
 
 #[tauri::command]
@@ -1976,13 +2005,22 @@ pub async fn sp_commitments_due(
     end: i64,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM commitments WHERE character_id = ?1 AND status = 'open' AND due_at >= ?2 AND due_at < ?3 ORDER BY due_at ASC",
-            &[sq(&character_id), sqi(start), sqi(end)],
-        )
+        sp_commitments_due_impl(conn, &character_id, start, end)
     })
     .await
+}
+
+fn sp_commitments_due_impl(
+    conn: &Connection,
+    character_id: &str,
+    start: i64,
+    end: i64,
+) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM commitments WHERE character_id = ?1 AND status = 'open' AND due_at >= ?2 AND due_at < ?3 ORDER BY due_at ASC",
+        &[sq(character_id), sqi(start), sqi(end)],
+    )
 }
 
 #[tauri::command]
@@ -1993,13 +2031,22 @@ pub async fn sp_commitments_overdue(
     before: i64,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM commitments WHERE character_id = ?1 AND status = 'open' AND due_at < ?2 AND due_at > ?3 ORDER BY due_at ASC",
-            &[sq(&character_id), sqi(now), sqi(before)],
-        )
+        sp_commitments_overdue_impl(conn, &character_id, now, before)
     })
     .await
+}
+
+fn sp_commitments_overdue_impl(
+    conn: &Connection,
+    character_id: &str,
+    now: i64,
+    before: i64,
+) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM commitments WHERE character_id = ?1 AND status = 'open' AND due_at < ?2 AND due_at > ?3 ORDER BY due_at ASC",
+        &[sq(character_id), sqi(now), sqi(before)],
+    )
 }
 
 /// 约定状态白名单（防字段/状态注入）
@@ -2012,30 +2059,38 @@ pub async fn sp_commitments_set_status(
     status: String,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        if !COMMITMENT_STATUS_UPDATABLE.contains(&status.as_str()) {
-            return Err(format!("非法约定状态: {status}"));
-        }
-        exec(
-            conn,
-            "UPDATE commitments SET status = ?1 WHERE id = ?2",
-            &[sq(&status), sqi(id)],
-        )?;
-        Ok(())
+        sp_commitments_set_status_impl(conn, id, &status)
     })
     .await
+}
+
+fn sp_commitments_set_status_impl(conn: &Connection, id: i64, status: &str) -> Result<(), String> {
+    if !COMMITMENT_STATUS_UPDATABLE.contains(&status) {
+        return Err(format!("非法约定状态: {status}"));
+    }
+    exec(
+        conn,
+        "UPDATE commitments SET status = ?1 WHERE id = ?2",
+        &[sq(status), sqi(id)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_commitments_increment_follow_up(app: AppHandle, id: i64) -> Result<(), String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "UPDATE commitments SET follow_up_count = follow_up_count + 1 WHERE id = ?1",
-            &[sqi(id)],
-        )?;
-        Ok(())
+        sp_commitments_increment_follow_up_impl(conn, id)
     })
     .await
+}
+
+fn sp_commitments_increment_follow_up_impl(conn: &Connection, id: i64) -> Result<(), String> {
+    exec(
+        conn,
+        "UPDATE commitments SET follow_up_count = follow_up_count + 1 WHERE id = ?1",
+        &[sqi(id)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -2045,13 +2100,21 @@ pub async fn sp_commitments_auto_lapse(
     threshold: i64,
 ) -> Result<usize, String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "UPDATE commitments SET status = 'lapsed' WHERE character_id = ?1 AND status = 'open' AND due_at < ?2",
-            &[sq(&character_id), sqi(threshold)],
-        )
+        sp_commitments_auto_lapse_impl(conn, &character_id, threshold)
     })
     .await
+}
+
+fn sp_commitments_auto_lapse_impl(
+    conn: &Connection,
+    character_id: &str,
+    threshold: i64,
+) -> Result<usize, String> {
+    exec(
+        conn,
+        "UPDATE commitments SET status = 'lapsed' WHERE character_id = ?1 AND status = 'open' AND due_at < ?2",
+        &[sq(character_id), sqi(threshold)],
+    )
 }
 
 #[tauri::command]
@@ -2060,13 +2123,20 @@ pub async fn sp_commitments_recurring_done(
     character_id: String,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM commitments WHERE character_id = ?1 AND status IN ('fulfilled','lapsed') AND repeat IS NOT NULL AND repeat != 'null'",
-            &[sq(&character_id)],
-        )
+        sp_commitments_recurring_done_impl(conn, &character_id)
     })
     .await
+}
+
+fn sp_commitments_recurring_done_impl(
+    conn: &Connection,
+    character_id: &str,
+) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM commitments WHERE character_id = ?1 AND status IN ('fulfilled','lapsed') AND repeat IS NOT NULL AND repeat != 'null'",
+        &[sq(character_id)],
+    )
 }
 
 #[tauri::command]
@@ -2077,13 +2147,22 @@ pub async fn sp_commitments_open_recent(
     since: i64,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT id FROM commitments WHERE character_id = ?1 AND content = ?2 AND status = 'open' AND created_at > ?3",
-            &[sq(&character_id), sq(&content), sqi(since)],
-        )
+        sp_commitments_open_recent_impl(conn, &character_id, &content, since)
     })
     .await
+}
+
+fn sp_commitments_open_recent_impl(
+    conn: &Connection,
+    character_id: &str,
+    content: &str,
+    since: i64,
+) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT id FROM commitments WHERE character_id = ?1 AND content = ?2 AND status = 'open' AND created_at > ?3",
+        &[sq(character_id), sq(content), sqi(since)],
+    )
 }
 
 // ============ context_episodes（contextEpisodeManager） ============
@@ -2099,34 +2178,56 @@ pub async fn sp_ctx_insert(
     music: Option<String>,
 ) -> Result<i64, String> {
     with_conn(app, move |conn| {
-        exec(
+        sp_ctx_insert_impl(
             conn,
-            "INSERT INTO context_episodes (character_id, started_at, work_state, weather, idle_minutes, music)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            &[
-                sq(&character_id), sqi(started_at),
-                work_state.as_deref().map(sq).unwrap_or_else(sqn),
-                weather.as_deref().map(sq).unwrap_or_else(sqn),
-                idle_minutes.map(sqi).unwrap_or_else(sqn),
-                music.as_deref().map(sq).unwrap_or_else(sqn),
-            ],
-        )?;
-        Ok(scalar(conn, "SELECT last_insert_rowid()", &[])?.unwrap_or(0))
+            &character_id,
+            started_at,
+            work_state.as_deref(),
+            weather.as_deref(),
+            idle_minutes,
+            music.as_deref(),
+        )
     })
     .await
 }
 
+fn sp_ctx_insert_impl(
+    conn: &Connection,
+    character_id: &str,
+    started_at: i64,
+    work_state: Option<&str>,
+    weather: Option<&str>,
+    idle_minutes: Option<i64>,
+    music: Option<&str>,
+) -> Result<i64, String> {
+    exec(
+        conn,
+        "INSERT INTO context_episodes (character_id, started_at, work_state, weather, idle_minutes, music)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        &[
+            sq(character_id),
+            sqi(started_at),
+            work_state.map(sq).unwrap_or_else(sqn),
+            weather.map(sq).unwrap_or_else(sqn),
+            idle_minutes.map(sqi).unwrap_or_else(sqn),
+            music.map(sq).unwrap_or_else(sqn),
+        ],
+    )?;
+    Ok(scalar(conn, "SELECT last_insert_rowid()", &[])?.unwrap_or(0))
+}
+
 #[tauri::command]
 pub async fn sp_ctx_close(app: AppHandle, id: i64, ended_at: i64) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "UPDATE context_episodes SET ended_at = ?1 WHERE id = ?2",
-            &[sqi(ended_at), sqi(id)],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_ctx_close_impl(conn, id, ended_at)).await
+}
+
+fn sp_ctx_close_impl(conn: &Connection, id: i64, ended_at: i64) -> Result<(), String> {
+    exec(
+        conn,
+        "UPDATE context_episodes SET ended_at = ?1 WHERE id = ?2",
+        &[sqi(ended_at), sqi(id)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -2137,20 +2238,29 @@ pub async fn sp_ctx_list(
     end: Option<i64>,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        match end {
-            Some(e) => json_rows(
-                conn,
-                "SELECT * FROM context_episodes WHERE character_id = ?1 AND started_at >= ?2 AND started_at < ?3 ORDER BY started_at ASC",
-                &[sq(&character_id), sqi(start), sqi(e)],
-            ),
-            None => json_rows(
-                conn,
-                "SELECT * FROM context_episodes WHERE character_id = ?1 AND started_at >= ?2 ORDER BY started_at ASC",
-                &[sq(&character_id), sqi(start)],
-            ),
-        }
+        sp_ctx_list_impl(conn, &character_id, start, end)
     })
     .await
+}
+
+fn sp_ctx_list_impl(
+    conn: &Connection,
+    character_id: &str,
+    start: i64,
+    end: Option<i64>,
+) -> Result<Vec<JsonValue>, String> {
+    match end {
+        Some(e) => json_rows(
+            conn,
+            "SELECT * FROM context_episodes WHERE character_id = ?1 AND started_at >= ?2 AND started_at < ?3 ORDER BY started_at ASC",
+            &[sq(character_id), sqi(start), sqi(e)],
+        ),
+        None => json_rows(
+            conn,
+            "SELECT * FROM context_episodes WHERE character_id = ?1 AND started_at >= ?2 ORDER BY started_at ASC",
+            &[sq(character_id), sqi(start)],
+        ),
+    }
 }
 
 // ============ entityGraph（memory_entities / memory_entity_edges） ============
@@ -2166,62 +2276,87 @@ pub async fn sp_entitygraph_upsert_node(
     embedding_b64: Option<String>,
 ) -> Result<String, String> {
     with_conn(app, move |conn| {
-        let existing = json_rows(
+        sp_entitygraph_upsert_node_impl(
             conn,
-            "SELECT id, memory_ids FROM memory_entities WHERE name = ?1 AND type = ?2",
-            &[sq(&name), sq(&node_type)],
-        )?;
-        if let Some(row) = existing.first() {
-            let id = row.get("id").and_then(JsonValue::as_str).map(String::from).ok_or("缺 id")?;
-            let memory_ids: Vec<String> = row
-                .get("memory_ids")
-                .and_then(JsonValue::as_str)
-                .and_then(|s| serde_json::from_str::<Vec<String>>(s).ok())
-                .unwrap_or_default();
-            if !memory_ids.contains(&memory_id) {
-                let mut ids = memory_ids;
-                ids.push(memory_id.clone());
-                let payload = serde_json::to_string(&ids).unwrap_or_else(|_| "[]".to_string());
-                match embedding_b64 {
-                    Some(eb) => {
-                        exec(
-                            conn,
-                            "UPDATE memory_entities SET memory_ids = ?1, embedding = ?2 WHERE id = ?3",
-                            &[sq(&payload), sq(&eb), sq(&id)],
-                        )?;
-                    }
-                    None => {
-                        exec(
-                            conn,
-                            "UPDATE memory_entities SET memory_ids = ?1 WHERE id = ?2",
-                            &[sq(&payload), sq(&id)],
-                        )?;
-                    }
-                }
-            }
-            Ok(id)
-        } else {
-            let payload = serde_json::to_string(&vec![memory_id.clone()]).unwrap_or_else(|_| "[]".to_string());
+            &name,
+            &node_type,
+            &memory_id,
+            &candidate_id,
+            created_at,
+            embedding_b64.as_deref(),
+        )
+    })
+    .await
+}
+
+fn sp_entitygraph_upsert_node_impl(
+    conn: &Connection,
+    name: &str,
+    node_type: &str,
+    memory_id: &str,
+    candidate_id: &str,
+    created_at: i64,
+    embedding_b64: Option<&str>,
+) -> Result<String, String> {
+    let existing = json_rows(
+        conn,
+        "SELECT id, memory_ids FROM memory_entities WHERE name = ?1 AND type = ?2",
+        &[sq(name), sq(node_type)],
+    )?;
+    if let Some(row) = existing.first() {
+        let id = row
+            .get("id")
+            .and_then(JsonValue::as_str)
+            .map(String::from)
+            .ok_or("缺 id")?;
+        let memory_ids: Vec<String> = row
+            .get("memory_ids")
+            .and_then(JsonValue::as_str)
+            .and_then(|s| serde_json::from_str::<Vec<String>>(s).ok())
+            .unwrap_or_default();
+        if !memory_ids.iter().any(|m| m == memory_id) {
+            let mut ids = memory_ids;
+            ids.push(memory_id.to_string());
+            let payload = serde_json::to_string(&ids).unwrap_or_else(|_| "[]".to_string());
             match embedding_b64 {
                 Some(eb) => {
                     exec(
                         conn,
-                        "INSERT INTO memory_entities (id, name, type, memory_ids, embedding, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                        &[sq(&candidate_id), sq(&name), sq(&node_type), sq(&payload), sq(&eb), sqi(created_at)],
+                        "UPDATE memory_entities SET memory_ids = ?1, embedding = ?2 WHERE id = ?3",
+                        &[sq(&payload), sq(eb), sq(&id)],
                     )?;
                 }
                 None => {
                     exec(
                         conn,
-                        "INSERT INTO memory_entities (id, name, type, memory_ids, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-                        &[sq(&candidate_id), sq(&name), sq(&node_type), sq(&payload), sqi(created_at)],
+                        "UPDATE memory_entities SET memory_ids = ?1 WHERE id = ?2",
+                        &[sq(&payload), sq(&id)],
                     )?;
                 }
             }
-            Ok(candidate_id)
         }
-    })
-    .await
+        Ok(id)
+    } else {
+        let payload = serde_json::to_string(&vec![memory_id.to_string()])
+            .unwrap_or_else(|_| "[]".to_string());
+        match embedding_b64 {
+            Some(eb) => {
+                exec(
+                    conn,
+                    "INSERT INTO memory_entities (id, name, type, memory_ids, embedding, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    &[sq(candidate_id), sq(name), sq(node_type), sq(&payload), sq(eb), sqi(created_at)],
+                )?;
+            }
+            None => {
+                exec(
+                    conn,
+                    "INSERT INTO memory_entities (id, name, type, memory_ids, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+                    &[sq(candidate_id), sq(name), sq(node_type), sq(&payload), sqi(created_at)],
+                )?;
+            }
+        }
+        Ok(candidate_id.to_string())
+    }
 }
 
 #[tauri::command]
@@ -2233,29 +2368,43 @@ pub async fn sp_entitygraph_upsert_edge(
     created_at: i64,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        let existing = json_rows(
-            conn,
-            "SELECT id FROM memory_entity_edges WHERE entity_a = ?1 AND entity_b = ?2",
-            &[sq(&entity_a), sq(&entity_b)],
-        )?;
-        if let Some(row) = existing.first() {
-            let id = row.get("id").and_then(JsonValue::as_str).map(String::from).ok_or("缺 id")?;
-            exec(
-                conn,
-                "UPDATE memory_entity_edges SET cooccur_count = cooccur_count + 1, weight = weight + ?1 WHERE id = ?2",
-                &[sqf(weight_increment), sq(&id)],
-            )?;
-        } else {
-            let id = format!("edge-{created_at}");
-            exec(
-                conn,
-                "INSERT INTO memory_entity_edges (id, entity_a, entity_b, weight, cooccur_count, created_at) VALUES (?1, ?2, ?3, ?4, 1, ?5)",
-                &[sq(&id), sq(&entity_a), sq(&entity_b), sqf(weight_increment), sqi(created_at)],
-            )?;
-        }
-        Ok(())
+        sp_entitygraph_upsert_edge_impl(conn, &entity_a, &entity_b, weight_increment, created_at)
     })
     .await
+}
+
+fn sp_entitygraph_upsert_edge_impl(
+    conn: &Connection,
+    entity_a: &str,
+    entity_b: &str,
+    weight_increment: f64,
+    created_at: i64,
+) -> Result<(), String> {
+    let existing = json_rows(
+        conn,
+        "SELECT id FROM memory_entity_edges WHERE entity_a = ?1 AND entity_b = ?2",
+        &[sq(entity_a), sq(entity_b)],
+    )?;
+    if let Some(row) = existing.first() {
+        let id = row
+            .get("id")
+            .and_then(JsonValue::as_str)
+            .map(String::from)
+            .ok_or("缺 id")?;
+        exec(
+            conn,
+            "UPDATE memory_entity_edges SET cooccur_count = cooccur_count + 1, weight = weight + ?1 WHERE id = ?2",
+            &[sqf(weight_increment), sq(&id)],
+        )?;
+    } else {
+        let id = format!("edge-{created_at}");
+        exec(
+            conn,
+            "INSERT INTO memory_entity_edges (id, entity_a, entity_b, weight, cooccur_count, created_at) VALUES (?1, ?2, ?3, ?4, 1, ?5)",
+            &[sq(&id), sq(entity_a), sq(entity_b), sqf(weight_increment), sqi(created_at)],
+        )?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -2264,19 +2413,26 @@ pub async fn sp_entitygraph_find_by_names(
     names: Vec<String>,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        if names.is_empty() {
-            return Ok(vec![]);
-        }
-        let n = names.len();
-        let ph: Vec<String> = (1..=n).map(|i| format!("?{i}")).collect();
-        let sql = format!(
-            "SELECT id, name, type, memory_ids FROM memory_entities WHERE name IN ({})",
-            ph.join(",")
-        );
-        let params: Vec<SqValue> = names.into_iter().map(|t| sq(&t)).collect();
-        json_rows(conn, &sql, &params)
+        sp_entitygraph_find_by_names_impl(conn, &names)
     })
     .await
+}
+
+fn sp_entitygraph_find_by_names_impl(
+    conn: &Connection,
+    names: &[String],
+) -> Result<Vec<JsonValue>, String> {
+    if names.is_empty() {
+        return Ok(vec![]);
+    }
+    let n = names.len();
+    let ph: Vec<String> = (1..=n).map(|i| format!("?{i}")).collect();
+    let sql = format!(
+        "SELECT id, name, type, memory_ids FROM memory_entities WHERE name IN ({})",
+        ph.join(",")
+    );
+    let params: Vec<SqValue> = names.iter().map(|t| sq(t)).collect();
+    json_rows(conn, &sql, &params)
 }
 
 #[tauri::command]
@@ -2285,26 +2441,49 @@ pub async fn sp_entitygraph_neighbors(
     entity_name: String,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        let entity_id: Option<String> = scalar(conn, "SELECT id FROM memory_entities WHERE name = ?1", &[sq(&entity_name)])?;
-        let Some(entity_id) = entity_id else { return Ok(vec![]); };
-        let edge_rows = json_rows(
-            conn,
-            "SELECT entity_a, entity_b, weight FROM memory_entity_edges WHERE entity_a = ?1 OR entity_b = ?1",
-            &[sq(&entity_id)],
-        )?;
-        let mut out = Vec::new();
-        for e in edge_rows {
-            let a = e.get("entity_a").and_then(JsonValue::as_str).unwrap_or("");
-            let b = e.get("entity_b").and_then(JsonValue::as_str).unwrap_or("");
-            let neighbor_id = if a == entity_id.as_str() { b.to_string() } else { a.to_string() };
-            let name: Option<String> = scalar(conn, "SELECT name FROM memory_entities WHERE id = ?1", &[sq(&neighbor_id)])?;
-            if let Some(nm) = name {
-                out.push(json!({ "neighbor": nm, "weight": e.get("weight").cloned().unwrap_or(json!(1.0)) }));
-            }
-        }
-        Ok(out)
+        sp_entitygraph_neighbors_impl(conn, &entity_name)
     })
     .await
+}
+
+fn sp_entitygraph_neighbors_impl(
+    conn: &Connection,
+    entity_name: &str,
+) -> Result<Vec<JsonValue>, String> {
+    let entity_id: Option<String> = scalar(
+        conn,
+        "SELECT id FROM memory_entities WHERE name = ?1",
+        &[sq(entity_name)],
+    )?;
+    let Some(entity_id) = entity_id else {
+        return Ok(vec![]);
+    };
+    let edge_rows = json_rows(
+        conn,
+        "SELECT entity_a, entity_b, weight FROM memory_entity_edges WHERE entity_a = ?1 OR entity_b = ?1",
+        &[sq(&entity_id)],
+    )?;
+    let mut out = Vec::new();
+    for e in edge_rows {
+        let a = e.get("entity_a").and_then(JsonValue::as_str).unwrap_or("");
+        let b = e.get("entity_b").and_then(JsonValue::as_str).unwrap_or("");
+        let neighbor_id = if a == entity_id.as_str() {
+            b.to_string()
+        } else {
+            a.to_string()
+        };
+        let name: Option<String> = scalar(
+            conn,
+            "SELECT name FROM memory_entities WHERE id = ?1",
+            &[sq(&neighbor_id)],
+        )?;
+        if let Some(nm) = name {
+            out.push(
+                json!({ "neighbor": nm, "weight": e.get("weight").cloned().unwrap_or(json!(1.0)) }),
+            );
+        }
+    }
+    Ok(out)
 }
 
 // ============ zombie 数据清理（zombieDataCleanup） ============
@@ -3269,5 +3448,205 @@ mod tests {
         assert!(sp_mem_list_impl(&conn, "c1", None).unwrap().is_empty());
         // 清空不存在的角色同样幂等
         sp_mem_clear_impl(&conn, "c1").unwrap();
+    }
+
+    // ===== 第二批：commitments / context_episodes / entityGraph =====
+
+    #[test]
+    fn test_commitments_insert_list_and_status() {
+        let conn = mem_conn();
+        let id = sp_commitments_insert_impl(
+            &conn,
+            "c1",
+            "给主人买猫粮",
+            "assistant",
+            Some(1000),
+            None,
+            None,
+        )
+        .unwrap();
+        assert!(id > 0);
+
+        let open = sp_commitments_list_impl(&conn, "c1").unwrap();
+        assert_eq!(open.len(), 1);
+        assert_eq!(open[0]["status"], json!("open"));
+        assert_eq!(open[0]["follow_up_count"], json!(0));
+
+        // 状态白名单：非法值拒绝，合法值生效
+        assert!(sp_commitments_set_status_impl(&conn, id, "bogus").is_err());
+        sp_commitments_set_status_impl(&conn, id, "fulfilled").unwrap();
+        assert!(sp_commitments_list_impl(&conn, "c1").unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_commitments_due_and_overdue_windows() {
+        let conn = mem_conn();
+        let _early =
+            sp_commitments_insert_impl(&conn, "c1", "a", "assistant", Some(500), None, None)
+                .unwrap();
+        let mid = sp_commitments_insert_impl(&conn, "c1", "b", "assistant", Some(1500), None, None)
+            .unwrap();
+        let _late =
+            sp_commitments_insert_impl(&conn, "c1", "c", "assistant", Some(2500), None, None)
+                .unwrap();
+
+        // due 是半开区间 [start, end)
+        let due = sp_commitments_due_impl(&conn, "c1", 1000, 2000).unwrap();
+        assert_eq!(due.len(), 1);
+        assert_eq!(due[0]["id"], json!(mid));
+
+        // overdue 是 (before, now)
+        let overdue = sp_commitments_overdue_impl(&conn, "c1", 2000, 100).unwrap();
+        assert_eq!(overdue.len(), 2);
+    }
+
+    #[test]
+    fn test_commitments_follow_up_and_auto_lapse() {
+        let conn = mem_conn();
+        let id = sp_commitments_insert_impl(&conn, "c1", "x", "assistant", Some(100), None, None)
+            .unwrap();
+        sp_commitments_increment_follow_up_impl(&conn, id).unwrap();
+        sp_commitments_increment_follow_up_impl(&conn, id).unwrap();
+        let rows = sp_commitments_list_impl(&conn, "c1").unwrap();
+        assert_eq!(rows[0]["follow_up_count"], json!(2));
+
+        // 过期自动失效，返回受影响行数
+        assert_eq!(sp_commitments_auto_lapse_impl(&conn, "c1", 200).unwrap(), 1);
+        assert!(sp_commitments_list_impl(&conn, "c1").unwrap().is_empty());
+        // 已 lapsed 的不再被重复计入
+        assert_eq!(sp_commitments_auto_lapse_impl(&conn, "c1", 200).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_commitments_recurring_done_and_open_recent() {
+        let conn = mem_conn();
+        let recurring = sp_commitments_insert_impl(
+            &conn,
+            "c1",
+            "每天喂猫",
+            "assistant",
+            Some(10),
+            None,
+            Some("daily"),
+        )
+        .unwrap();
+        let plain =
+            sp_commitments_insert_impl(&conn, "c1", "一次性", "assistant", Some(10), None, None)
+                .unwrap();
+
+        // open 状态下不算「已完成」
+        assert!(sp_commitments_recurring_done_impl(&conn, "c1")
+            .unwrap()
+            .is_empty());
+        sp_commitments_set_status_impl(&conn, recurring, "fulfilled").unwrap();
+        sp_commitments_set_status_impl(&conn, plain, "fulfilled").unwrap();
+        let done = sp_commitments_recurring_done_impl(&conn, "c1").unwrap();
+        assert_eq!(done.len(), 1, "只有带 repeat 的约定才算 recurring");
+        assert_eq!(done[0]["id"], json!(recurring));
+
+        // open_recent：只返回 open 且 created_at > since 的同名约定
+        assert!(sp_commitments_open_recent_impl(&conn, "c1", "每天喂猫", 0)
+            .unwrap()
+            .is_empty());
+        let new_id = sp_commitments_insert_impl(
+            &conn,
+            "c1",
+            "每天喂猫",
+            "assistant",
+            None,
+            None,
+            Some("daily"),
+        )
+        .unwrap();
+        let recent = sp_commitments_open_recent_impl(&conn, "c1", "每天喂猫", 0).unwrap();
+        assert_eq!(recent.len(), 1);
+        assert_eq!(recent[0]["id"], json!(new_id));
+    }
+
+    #[test]
+    fn test_ctx_insert_close_and_list() {
+        let conn = mem_conn();
+        let a = sp_ctx_insert_impl(
+            &conn,
+            "c1",
+            100,
+            Some("coding"),
+            Some("sunny"),
+            Some(5),
+            Some("lofi"),
+        )
+        .unwrap();
+        let _b = sp_ctx_insert_impl(&conn, "c1", 300, None, None, None, None).unwrap();
+        let _other = sp_ctx_insert_impl(&conn, "c2", 200, None, None, None, None).unwrap();
+
+        // 无 end：只按起点过滤
+        assert_eq!(sp_ctx_list_impl(&conn, "c1", 0, None).unwrap().len(), 2);
+        // 有 end：半开区间，且角色隔离
+        let window = sp_ctx_list_impl(&conn, "c1", 0, Some(200)).unwrap();
+        assert_eq!(window.len(), 1);
+        assert_eq!(window[0]["id"], json!(a));
+        assert_eq!(window[0]["work_state"], json!("coding"));
+
+        sp_ctx_close_impl(&conn, a, 150).unwrap();
+        let closed = sp_ctx_list_impl(&conn, "c1", 0, Some(200)).unwrap();
+        assert_eq!(closed[0]["ended_at"], json!(150));
+    }
+
+    #[test]
+    fn test_entitygraph_node_upsert_and_find() {
+        let conn = mem_conn();
+        let id1 = sp_entitygraph_upsert_node_impl(&conn, "小橘", "cat", "m1", "ent-1", 100, None)
+            .unwrap();
+        assert_eq!(id1, "ent-1");
+
+        // 同 name+type 复用节点 id，追加 memory_ids
+        let id2 =
+            sp_entitygraph_upsert_node_impl(&conn, "小橘", "cat", "m2", "ent-2", 100, Some("EMB="))
+                .unwrap();
+        assert_eq!(id2, "ent-1");
+        // 重复 memory_id 不重复追加
+        let id3 = sp_entitygraph_upsert_node_impl(&conn, "小橘", "cat", "m2", "ent-3", 100, None)
+            .unwrap();
+        assert_eq!(id3, "ent-1");
+
+        let rows = sp_entitygraph_find_by_names_impl(&conn, &["小橘".to_string()]).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["memory_ids"], json!("[\"m1\",\"m2\"]"));
+
+        // 空名单直接返回空集（不拼 SQL）；未命中同样空集
+        assert!(sp_entitygraph_find_by_names_impl(&conn, &[])
+            .unwrap()
+            .is_empty());
+        assert!(
+            sp_entitygraph_find_by_names_impl(&conn, &["不存在".to_string()])
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn test_entitygraph_edges_and_neighbors() {
+        let conn = mem_conn();
+        let a = sp_entitygraph_upsert_node_impl(&conn, "小橘", "cat", "m1", "ent-a", 100, None)
+            .unwrap();
+        let b = sp_entitygraph_upsert_node_impl(&conn, "猫粮", "object", "m1", "ent-b", 100, None)
+            .unwrap();
+
+        // 首条边 INSERT，重复边 UPDATE（权重累加 + 共现次数 +1）
+        sp_entitygraph_upsert_edge_impl(&conn, &a, &b, 1.5, 500).unwrap();
+        sp_entitygraph_upsert_edge_impl(&conn, &a, &b, 0.5, 600).unwrap();
+
+        let nbrs = sp_entitygraph_neighbors_impl(&conn, "小橘").unwrap();
+        assert_eq!(nbrs.len(), 1);
+        assert_eq!(nbrs[0]["neighbor"], json!("猫粮"));
+        assert_eq!(nbrs[0]["weight"], json!(2.0));
+
+        // 反向同样可达（entity_a / entity_b 都参与匹配）
+        let rev = sp_entitygraph_neighbors_impl(&conn, "猫粮").unwrap();
+        assert_eq!(rev[0]["neighbor"], json!("小橘"));
+
+        assert!(sp_entitygraph_neighbors_impl(&conn, "不存在")
+            .unwrap()
+            .is_empty());
     }
 }

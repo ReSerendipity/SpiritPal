@@ -323,7 +323,7 @@ jobs:
         run: cargo install cargo-tarpaulin --locked
 
       - name: Run cargo test with coverage
-        # 阈值：**2026-10-17 口径修正后棘轮到 23.5**（实测 24.06%，856/3558 行）。
+        # 阈值：**2026-10-17 棘轮到 28.0**（实测 28.52%，1026/3597 行）。
         #
         # 沿革与根因（依据：run 38935574591 的 tarpaulin 逐文件明细表）：
         # - 2026-09-08 首次真实测量 **21.49%**（当时分母不含 vendored 代码）；
@@ -337,14 +337,19 @@ jobs:
         #   `#[cfg(mobile)]` 代码在 host 上根本不编译，`ondevice/*` 只贡献 95 行分母（63 行已覆盖）。
         #   项目自身 `src/**` 实测 **24.49%**（856/3495），从未低于 21.49% 基线。
         #
-        # 本次修正：`--exclude-files` 排除 vendored 的 `patches/**`（第三方代码不该进本项目分母）。
-        # 排除后实测 **24.06%**（856/3558），故阈值由 9.9 上调至 **23.5**（留 0.56 点余量防抖）。
-        # 棘轮约定：只升不降 —— 后续每批补测后按 CI 实测继续上调。
+        # 口径修正：#130 用 `--exclude-files` 排除 vendored 的 `patches/**`
+        # （第三方代码不该进本项目分母）→ 实测 24.06%（856/3558），阈值 9.9 → 23.5。
+        #
+        # 棘轮沿革（每批 sqlite 命令层可测化后按实测上调，只升不降）：
+        # - #131 settings/characters/memories（14 命令）：sqlite 83/962 → 143/965，总 **25.92%**（923/3561）
+        # - #133 commitments/ctx/entityGraph（16 命令）：sqlite 143/965 → 246/1001，总 **28.52%**（1026/3597）
+        # 本次由 23.5 上调至 **28.0**（留 0.52 点余量防抖）。
+        #
         # tarpaulin 无 branch 阈值参数（--fail-under-branches 直接报错），branches 维度以报告人工跟踪。
         run: |
           cargo tarpaulin --workspace --out lcov --output-dir coverage/ \
             --exclude-files 'patches/*' 'patches/**' \
-            --fail-under 23.5 -- --test-threads=2
+            --fail-under 28.0 -- --test-threads=2
 
       - name: Run cargo fmt check
         run: cargo fmt --check
