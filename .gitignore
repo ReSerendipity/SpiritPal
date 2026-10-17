@@ -120,6 +120,9 @@ android-sdk/
 *.keystore
 
 # R-05: Tauri Updater private key (DO NOT COMMIT)
+# 目录本身也忽略：docs/project/AI_DEV_SOPS.md:106 把这个目录名当作事实路径写进公开层，
+# 只忽略文件时干净检出里它不存在 → spec-refs 门禁（必需检查 layout）判 PHANTOM（2026-10-17 实测）。
+src-tauri/keys/
 src-tauri/keys/*.key
 src-tauri/keys/*.key.pub
 
