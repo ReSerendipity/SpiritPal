@@ -363,4 +363,59 @@ mod tests {
         assert!(b >= a);
         assert!(b > 1_000_000_000, "unix 毫秒应当在合理范围");
     }
+
+    #[test]
+    fn test_key_to_string_letters_and_digits() {
+        assert_eq!(key_to_string(rdev::Key::KeyA), "A");
+        assert_eq!(key_to_string(rdev::Key::KeyM), "M");
+        assert_eq!(key_to_string(rdev::Key::KeyZ), "Z");
+        assert_eq!(key_to_string(rdev::Key::Num0), "0");
+        assert_eq!(key_to_string(rdev::Key::Num5), "5");
+        assert_eq!(key_to_string(rdev::Key::Num9), "9");
+    }
+
+    #[test]
+    fn test_key_to_string_named_and_modifier_keys() {
+        assert_eq!(key_to_string(rdev::Key::Space), "Space");
+        assert_eq!(key_to_string(rdev::Key::Return), "Enter");
+        assert_eq!(key_to_string(rdev::Key::Escape), "Escape");
+        assert_eq!(key_to_string(rdev::Key::Backspace), "Backspace");
+        assert_eq!(key_to_string(rdev::Key::Tab), "Tab");
+        // 左右修饰键合并为同一个可读名
+        assert_eq!(key_to_string(rdev::Key::ShiftLeft), "Shift");
+        assert_eq!(key_to_string(rdev::Key::ShiftRight), "Shift");
+        assert_eq!(key_to_string(rdev::Key::ControlLeft), "Ctrl");
+        assert_eq!(key_to_string(rdev::Key::ControlRight), "Ctrl");
+        assert_eq!(key_to_string(rdev::Key::Alt), "Alt");
+        assert_eq!(key_to_string(rdev::Key::MetaLeft), "Meta");
+        assert_eq!(key_to_string(rdev::Key::MetaRight), "Meta");
+        // fork 版本方向键叫 *Arrow（不是 Up/Down/Left/Right）
+        assert_eq!(key_to_string(rdev::Key::UpArrow), "Up");
+        assert_eq!(key_to_string(rdev::Key::DownArrow), "Down");
+        assert_eq!(key_to_string(rdev::Key::LeftArrow), "Left");
+        assert_eq!(key_to_string(rdev::Key::RightArrow), "Right");
+    }
+
+    #[test]
+    fn test_key_to_string_function_keys() {
+        assert_eq!(key_to_string(rdev::Key::F1), "F1");
+        assert_eq!(key_to_string(rdev::Key::F6), "F6");
+        assert_eq!(key_to_string(rdev::Key::F12), "F12");
+    }
+
+    #[test]
+    fn test_key_to_string_unlisted_falls_back_to_unknown() {
+        // 映射表只覆盖常用键，其余一律 "Unknown"（F13 不在 match 列表里）
+        assert_eq!(key_to_string(rdev::Key::F13), "Unknown");
+        assert_eq!(key_to_string(rdev::Key::Home), "Unknown");
+    }
+
+    #[test]
+    fn test_button_to_string_all_variants() {
+        assert_eq!(button_to_string(rdev::Button::Left), "left");
+        assert_eq!(button_to_string(rdev::Button::Right), "right");
+        assert_eq!(button_to_string(rdev::Button::Middle), "middle");
+        // 未知按键（多键鼠标的侧键等）统一归到 other
+        assert_eq!(button_to_string(rdev::Button::Unknown(42)), "other");
+    }
 }
