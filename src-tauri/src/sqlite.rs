@@ -2590,32 +2590,62 @@ pub async fn sp_zombie_report(
     entity_threshold: i64,
 ) -> Result<JsonValue, String> {
     with_conn(app, move |conn| {
-        let legacy = json_rows(
-            conn,
-            "SELECT COUNT(*) AS count, MIN(CASE WHEN updated_at > 0 THEN updated_at END) AS oldest FROM settings WHERE key LIKE '%.legacy'",
-            &[],
-        )?;
-        let legacy_count: i64 = legacy.first().and_then(|r| r.get("count").and_then(JsonValue::as_i64)).unwrap_or(0);
-        let legacy_oldest: Option<i64> = legacy
-            .first()
-            .and_then(|r| r.get("oldest").and_then(JsonValue::as_i64))
-            .filter(|v| *v > 0);
-        let episode_count: i64 = scalar(conn, "SELECT COUNT(*) FROM context_episodes WHERE started_at < ?1", &[sqi(context_threshold)])?.unwrap_or(0);
-        let entity_count: i64 = scalar(conn, "SELECT COUNT(*) FROM entity_nodes WHERE last_seen < ?1 AND mention_count < 3", &[sqi(entity_threshold)])?.unwrap_or(0);
-        let bytes_rows = json_rows(conn, "SELECT value FROM settings WHERE key LIKE '%.legacy'", &[])?;
-        let bytes: usize = bytes_rows
-            .iter()
-            .map(|r| r.get("value").and_then(JsonValue::as_str).map(|s| s.len()).unwrap_or(0))
-            .sum();
-        Ok(json!({
-            "legacyCount": legacy_count,
-            "legacyOldest": legacy_oldest,
-            "episodeCount": episode_count,
-            "entityCount": entity_count,
-            "bytes": bytes,
-        }))
+        sp_zombie_report_impl(conn, context_threshold, entity_threshold)
     })
     .await
+}
+
+fn sp_zombie_report_impl(
+    conn: &Connection,
+    context_threshold: i64,
+    entity_threshold: i64,
+) -> Result<JsonValue, String> {
+    let legacy = json_rows(
+        conn,
+        "SELECT COUNT(*) AS count, MIN(CASE WHEN updated_at > 0 THEN updated_at END) AS oldest FROM settings WHERE key LIKE '%.legacy'",
+        &[],
+    )?;
+    let legacy_count: i64 = legacy
+        .first()
+        .and_then(|r| r.get("count").and_then(JsonValue::as_i64))
+        .unwrap_or(0);
+    let legacy_oldest: Option<i64> = legacy
+        .first()
+        .and_then(|r| r.get("oldest").and_then(JsonValue::as_i64))
+        .filter(|v| *v > 0);
+    let episode_count: i64 = scalar(
+        conn,
+        "SELECT COUNT(*) FROM context_episodes WHERE started_at < ?1",
+        &[sqi(context_threshold)],
+    )?
+    .unwrap_or(0);
+    let entity_count: i64 = scalar(
+        conn,
+        "SELECT COUNT(*) FROM entity_nodes WHERE last_seen < ?1 AND mention_count < 3",
+        &[sqi(entity_threshold)],
+    )?
+    .unwrap_or(0);
+    let bytes_rows = json_rows(
+        conn,
+        "SELECT value FROM settings WHERE key LIKE '%.legacy'",
+        &[],
+    )?;
+    let bytes: usize = bytes_rows
+        .iter()
+        .map(|r| {
+            r.get("value")
+                .and_then(JsonValue::as_str)
+                .map(|s| s.len())
+                .unwrap_or(0)
+        })
+        .sum();
+    Ok(json!({
+        "legacyCount": legacy_count,
+        "legacyOldest": legacy_oldest,
+        "episodeCount": episode_count,
+        "entityCount": entity_count,
+        "bytes": bytes,
+    }))
 }
 
 #[tauri::command]
@@ -2626,21 +2656,30 @@ pub async fn sp_zombie_cleanup_legacy(
     limit: i64,
 ) -> Result<usize, String> {
     with_conn(app, move |conn| {
-        if force {
-            exec(
-                conn,
-                "DELETE FROM settings WHERE key LIKE '%.legacy' AND key IN (SELECT key FROM settings WHERE key LIKE '%.legacy' LIMIT ?1)",
-                &[sqi(limit)],
-            )
-        } else {
-            exec(
-                conn,
-                "DELETE FROM settings WHERE key LIKE '%.legacy' AND updated_at > 0 AND updated_at < ?1 AND key IN (SELECT key FROM settings WHERE key LIKE '%.legacy' AND updated_at > 0 AND updated_at < ?1 LIMIT ?2)",
-                &[sqi(threshold), sqi(limit)],
-            )
-        }
+        sp_zombie_cleanup_legacy_impl(conn, threshold, force, limit)
     })
     .await
+}
+
+fn sp_zombie_cleanup_legacy_impl(
+    conn: &Connection,
+    threshold: i64,
+    force: bool,
+    limit: i64,
+) -> Result<usize, String> {
+    if force {
+        exec(
+            conn,
+            "DELETE FROM settings WHERE key LIKE '%.legacy' AND key IN (SELECT key FROM settings WHERE key LIKE '%.legacy' LIMIT ?1)",
+            &[sqi(limit)],
+        )
+    } else {
+        exec(
+            conn,
+            "DELETE FROM settings WHERE key LIKE '%.legacy' AND updated_at > 0 AND updated_at < ?1 AND key IN (SELECT key FROM settings WHERE key LIKE '%.legacy' AND updated_at > 0 AND updated_at < ?1 LIMIT ?2)",
+            &[sqi(threshold), sqi(limit)],
+        )
+    }
 }
 
 #[tauri::command]
@@ -2650,13 +2689,21 @@ pub async fn sp_zombie_cleanup_episodes(
     limit: i64,
 ) -> Result<usize, String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM context_episodes WHERE id IN (SELECT id FROM context_episodes WHERE started_at < ?1 LIMIT ?2)",
-            &[sqi(threshold), sqi(limit)],
-        )
+        sp_zombie_cleanup_episodes_impl(conn, threshold, limit)
     })
     .await
+}
+
+fn sp_zombie_cleanup_episodes_impl(
+    conn: &Connection,
+    threshold: i64,
+    limit: i64,
+) -> Result<usize, String> {
+    exec(
+        conn,
+        "DELETE FROM context_episodes WHERE id IN (SELECT id FROM context_episodes WHERE started_at < ?1 LIMIT ?2)",
+        &[sqi(threshold), sqi(limit)],
+    )
 }
 
 #[tauri::command]
@@ -2666,37 +2713,58 @@ pub async fn sp_zombie_cleanup_entities(
     limit: i64,
 ) -> Result<usize, String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM entity_nodes WHERE id IN (SELECT id FROM entity_nodes WHERE last_seen < ?1 AND mention_count < 3 LIMIT ?2)",
-            &[sqi(threshold), sqi(limit)],
-        )
+        sp_zombie_cleanup_entities_impl(conn, threshold, limit)
     })
     .await
+}
+
+fn sp_zombie_cleanup_entities_impl(
+    conn: &Connection,
+    threshold: i64,
+    limit: i64,
+) -> Result<usize, String> {
+    exec(
+        conn,
+        "DELETE FROM entity_nodes WHERE id IN (SELECT id FROM entity_nodes WHERE last_seen < ?1 AND mention_count < 3 LIMIT ?2)",
+        &[sqi(threshold), sqi(limit)],
+    )
 }
 
 // ============ schemaRunner（迁移标记 + 只读校验） ============
 
 #[tauri::command]
 pub async fn sp_schema_version_current(app: AppHandle) -> Result<i64, String> {
-    with_conn(app, |conn| {
-        Ok(scalar::<i64>(conn, "SELECT MAX(version) FROM schema_versions", &[])?.unwrap_or(0))
-    })
-    .await
+    with_conn(app, |conn| sp_schema_version_current_impl(conn)).await
+}
+
+fn sp_schema_version_current_impl(conn: &Connection) -> Result<i64, String> {
+    // ⚠️ 必须 COALESCE：空表时 `MAX(version)` 返回的是 **NULL 值**（一行一列），
+    // 而不是「没有行」——`scalar::<i64>` 会在 NULL 上 FromSql 失败并报
+    // 「Invalid column type Null」，`.unwrap_or(0)` 兜不住。全新库上会直接报错。
+    Ok(scalar::<i64>(
+        conn,
+        "SELECT COALESCE(MAX(version), 0) FROM schema_versions",
+        &[],
+    )?
+    .unwrap_or(0))
 }
 
 #[tauri::command]
 pub async fn sp_schema_version_applied(app: AppHandle, version: i64) -> Result<bool, String> {
     with_conn(app, move |conn| {
-        Ok(scalar::<i64>(
-            conn,
-            "SELECT COUNT(*) FROM schema_versions WHERE version = ?1",
-            &[sqi(version)],
-        )?
-        .unwrap_or(0)
-            > 0)
+        sp_schema_version_applied_impl(conn, version)
     })
     .await
+}
+
+fn sp_schema_version_applied_impl(conn: &Connection, version: i64) -> Result<bool, String> {
+    Ok(scalar::<i64>(
+        conn,
+        "SELECT COUNT(*) FROM schema_versions WHERE version = ?1",
+        &[sqi(version)],
+    )?
+    .unwrap_or(0)
+        > 0)
 }
 
 #[tauri::command]
@@ -2707,23 +2775,37 @@ pub async fn sp_schema_version_record(
     sql_checksum: String,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        let now = chrono::Utc::now().timestamp_millis();
-        exec(
-            conn,
-            "INSERT INTO schema_versions (version, description, applied_at, sql_checksum) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(version) DO NOTHING",
-            &[sqi(version), sq(&description), sqi(now), sq(&sql_checksum)],
-        )?;
-        Ok(())
+        sp_schema_version_record_impl(conn, version, &description, &sql_checksum)
     })
     .await
 }
 
+fn sp_schema_version_record_impl(
+    conn: &Connection,
+    version: i64,
+    description: &str,
+    sql_checksum: &str,
+) -> Result<(), String> {
+    let now = chrono::Utc::now().timestamp_millis();
+    exec(
+        conn,
+        "INSERT INTO schema_versions (version, description, applied_at, sql_checksum) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(version) DO NOTHING",
+        &[sqi(version), sq(description), sqi(now), sq(sql_checksum)],
+    )?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn sp_schema_version_history(app: AppHandle) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, |conn| {
-        json_rows(conn, "SELECT version, description, applied_at, sql_checksum FROM schema_versions ORDER BY version ASC", &[])
-    })
-    .await
+    with_conn(app, |conn| sp_schema_version_history_impl(conn)).await
+}
+
+fn sp_schema_version_history_impl(conn: &Connection) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT version, description, applied_at, sql_checksum FROM schema_versions ORDER BY version ASC",
+        &[],
+    )
 }
 
 #[tauri::command]
@@ -2734,15 +2816,29 @@ pub async fn sp_schema_log_failure(
     sql_statement: Option<String>,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        let now = chrono::Utc::now().timestamp_millis();
-        exec(
-            conn,
-            "INSERT INTO schema_migration_log (version, attempted_at, error_message, sql_statement) VALUES (?1, ?2, ?3, ?4)",
-            &[sqi(version), sqi(now), sq(&error_message), sql_statement.as_deref().map(sq).unwrap_or_else(sqn)],
-        )?;
-        Ok(())
+        sp_schema_log_failure_impl(conn, version, &error_message, sql_statement.as_deref())
     })
     .await
+}
+
+fn sp_schema_log_failure_impl(
+    conn: &Connection,
+    version: i64,
+    error_message: &str,
+    sql_statement: Option<&str>,
+) -> Result<(), String> {
+    let now = chrono::Utc::now().timestamp_millis();
+    exec(
+        conn,
+        "INSERT INTO schema_migration_log (version, attempted_at, error_message, sql_statement) VALUES (?1, ?2, ?3, ?4)",
+        &[
+            sqi(version),
+            sqi(now),
+            sq(error_message),
+            sql_statement.map(sq).unwrap_or_else(sqn),
+        ],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -2752,26 +2848,35 @@ pub async fn sp_schema_resolve_failure(
     resolved_at: i64,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "UPDATE schema_migration_log SET resolved = 1, resolved_at = ?1 WHERE id = ?2",
-            &[sqi(resolved_at), sqi(log_id)],
-        )?;
-        Ok(())
+        sp_schema_resolve_failure_impl(conn, log_id, resolved_at)
     })
     .await
 }
 
+fn sp_schema_resolve_failure_impl(
+    conn: &Connection,
+    log_id: i64,
+    resolved_at: i64,
+) -> Result<(), String> {
+    exec(
+        conn,
+        "UPDATE schema_migration_log SET resolved = 1, resolved_at = ?1 WHERE id = ?2",
+        &[sqi(resolved_at), sqi(log_id)],
+    )?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn sp_schema_unresolved(app: AppHandle) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM schema_migration_log WHERE resolved = 0 ORDER BY attempted_at DESC",
-            &[],
-        )
-    })
-    .await
+    with_conn(app, |conn| sp_schema_unresolved_impl(conn)).await
+}
+
+fn sp_schema_unresolved_impl(conn: &Connection) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM schema_migration_log WHERE resolved = 0 ORDER BY attempted_at DESC",
+        &[],
+    )
 }
 
 // ============ dirty_data_registry（dirtyDataTracker） ============
@@ -2779,12 +2884,15 @@ pub async fn sp_schema_unresolved(app: AppHandle) -> Result<Vec<JsonValue>, Stri
 /// 运行全部脏数据检测并返回归一化 issues（检测逻辑集中在 Rust，静态 SQL）
 #[tauri::command]
 pub async fn sp_dirty_scan(app: AppHandle) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, move |conn| {
-        let now = chrono::Utc::now().timestamp_millis();
-        let mut issues: Vec<JsonValue> = Vec::new();
+    with_conn(app, move |conn| sp_dirty_scan_impl(conn)).await
+}
 
-        // 1. inventory 孤引用
-        for r in json_rows(
+fn sp_dirty_scan_impl(conn: &Connection) -> Result<Vec<JsonValue>, String> {
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut issues: Vec<JsonValue> = Vec::new();
+
+    // 1. inventory 孤引用
+    for r in json_rows(
             conn,
             "SELECT i.id, i.character_id FROM inventory i LEFT JOIN characters c ON i.character_id = c.id WHERE i.character_id IS NOT NULL AND c.id IS NULL",
             &[],
@@ -2794,8 +2902,8 @@ pub async fn sp_dirty_scan(app: AppHandle) -> Result<Vec<JsonValue>, String> {
             issues.push(json!({"table": "inventory", "column": "character_id", "rowId": id, "dataType": "ORPHAN_REFERENCE", "severity": "medium", "description": format!("背包物品引用的角色 {cid} 不存在"), "detectedAt": now}));
         }
 
-        // 2. memories 孤引用
-        for r in json_rows(
+    // 2. memories 孤引用
+    for r in json_rows(
             conn,
             "SELECT m.id, m.character_id FROM memories m LEFT JOIN characters c ON m.character_id = c.id WHERE c.id IS NULL",
             &[],
@@ -2805,55 +2913,73 @@ pub async fn sp_dirty_scan(app: AppHandle) -> Result<Vec<JsonValue>, String> {
             issues.push(json!({"table": "memories", "column": "character_id", "rowId": id, "dataType": "ORPHAN_REFERENCE", "severity": "medium", "description": format!("记忆引用角色 {cid} 不存在"), "detectedAt": now}));
         }
 
-        // 3. characters.stats 非 JSON
-        for r in json_rows(conn, "SELECT id, stats FROM characters", &[])? {
+    // 3. characters.stats 非 JSON
+    for r in json_rows(conn, "SELECT id, stats FROM characters", &[])? {
+        let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
+        let stats = r.get("stats").and_then(JsonValue::as_str).unwrap_or("");
+        if serde_json::from_str::<JsonValue>(stats).is_err() {
+            let detail = stats.chars().take(100).collect::<String>();
+            issues.push(json!({"table": "characters", "column": "stats", "rowId": id, "dataType": "DATA_TYPE_MISMATCH", "severity": "high", "description": format!("角色 {id} 的 stats 字段不是有效 JSON"), "details": detail, "detectedAt": now}));
+        }
+    }
+
+    // 4. inventory.quantity 负数
+    for r in json_rows(
+        conn,
+        "SELECT id, item_id, quantity FROM inventory WHERE quantity < 0",
+        &[],
+    )? {
+        let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
+        let item = r.get("item_id").and_then(JsonValue::as_str).unwrap_or("");
+        let qty = r.get("quantity").and_then(JsonValue::as_i64).unwrap_or(0);
+        issues.push(json!({"table": "inventory", "column": "quantity", "rowId": id, "dataType": "BUSINESS_RULE_VIOLATION", "severity": "medium", "description": format!("背包物品 {item} 数量为负数 ({qty})"), "detectedAt": now}));
+    }
+
+    // 5. memories.importance 超界
+    for r in json_rows(
+        conn,
+        "SELECT id, importance FROM memories WHERE importance < 0 OR importance > 100",
+        &[],
+    )? {
+        let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
+        let imp = r.get("importance").and_then(JsonValue::as_i64).unwrap_or(0);
+        issues.push(json!({"table": "memories", "column": "importance", "rowId": id, "dataType": "BUSINESS_RULE_VIOLATION", "severity": "low", "description": format!("记忆 {id} 的重要性值为 {imp}（有效范围 0-100）"), "detectedAt": now}));
+    }
+
+    // 6. memories.type 非法枚举
+    let allowed_types: &[&str] = &[
+        "episodic",
+        "semantic",
+        "procedural",
+        "emotional",
+        "preference",
+        "fear",
+        "dream",
+        "event",
+        "skill",
+    ];
+    {
+        let ph: Vec<String> = (1..=allowed_types.len()).map(|i| format!("?{i}")).collect();
+        let sql = format!(
+            "SELECT id, type FROM memories WHERE type NOT IN ({})",
+            ph.join(",")
+        );
+        let params: Vec<SqValue> = allowed_types.iter().map(|t| sq(t)).collect();
+        for r in json_rows(conn, &sql, &params)? {
             let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
-            let stats = r.get("stats").and_then(JsonValue::as_str).unwrap_or("");
-            if serde_json::from_str::<JsonValue>(stats).is_err() {
-                let detail = stats.chars().take(100).collect::<String>();
-                issues.push(json!({"table": "characters", "column": "stats", "rowId": id, "dataType": "DATA_TYPE_MISMATCH", "severity": "high", "description": format!("角色 {id} 的 stats 字段不是有效 JSON"), "details": detail, "detectedAt": now}));
-            }
+            let t = r.get("type").and_then(JsonValue::as_str).unwrap_or("");
+            issues.push(json!({"table": "memories", "column": "type", "rowId": id, "dataType": "BUSINESS_RULE_VIOLATION", "severity": "low", "description": format!("记忆 {id} 的类型 \"{t}\" 不在允许范围内"), "detectedAt": now}));
         }
+    }
 
-        // 4. inventory.quantity 负数
-        for r in json_rows(conn, "SELECT id, item_id, quantity FROM inventory WHERE quantity < 0", &[])? {
-            let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
-            let item = r.get("item_id").and_then(JsonValue::as_str).unwrap_or("");
-            let qty = r.get("quantity").and_then(JsonValue::as_i64).unwrap_or(0);
-            issues.push(json!({"table": "inventory", "column": "quantity", "rowId": id, "dataType": "BUSINESS_RULE_VIOLATION", "severity": "medium", "description": format!("背包物品 {item} 数量为负数 ({qty})"), "detectedAt": now}));
-        }
+    // 7. characters.stats NULL（NOT NULL 违反）
+    for r in json_rows(conn, "SELECT id FROM characters WHERE stats IS NULL", &[])? {
+        let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
+        issues.push(json!({"table": "characters", "column": "stats", "rowId": id, "dataType": "CONSTRAINT_VIOLATION", "severity": "high", "description": format!("角色 {id} 的 stats 字段违反 NOT NULL 约束"), "detectedAt": now}));
+    }
 
-        // 5. memories.importance 超界
-        for r in json_rows(conn, "SELECT id, importance FROM memories WHERE importance < 0 OR importance > 100", &[])? {
-            let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
-            let imp = r.get("importance").and_then(JsonValue::as_i64).unwrap_or(0);
-            issues.push(json!({"table": "memories", "column": "importance", "rowId": id, "dataType": "BUSINESS_RULE_VIOLATION", "severity": "low", "description": format!("记忆 {id} 的重要性值为 {imp}（有效范围 0-100）"), "detectedAt": now}));
-        }
-
-        // 6. memories.type 非法枚举
-        let allowed_types: &[&str] = &[
-            "episodic", "semantic", "procedural", "emotional",
-            "preference", "fear", "dream", "event", "skill",
-        ];
-        {
-            let ph: Vec<String> = (1..=allowed_types.len()).map(|i| format!("?{i}")).collect();
-            let sql = format!("SELECT id, type FROM memories WHERE type NOT IN ({})", ph.join(","));
-            let params: Vec<SqValue> = allowed_types.iter().map(|t| sq(t)).collect();
-            for r in json_rows(conn, &sql, &params)? {
-                let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
-                let t = r.get("type").and_then(JsonValue::as_str).unwrap_or("");
-                issues.push(json!({"table": "memories", "column": "type", "rowId": id, "dataType": "BUSINESS_RULE_VIOLATION", "severity": "low", "description": format!("记忆 {id} 的类型 \"{t}\" 不在允许范围内"), "detectedAt": now}));
-            }
-        }
-
-        // 7. characters.stats NULL（NOT NULL 违反）
-        for r in json_rows(conn, "SELECT id FROM characters WHERE stats IS NULL", &[])? {
-            let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
-            issues.push(json!({"table": "characters", "column": "stats", "rowId": id, "dataType": "CONSTRAINT_VIOLATION", "severity": "high", "description": format!("角色 {id} 的 stats 字段违反 NOT NULL 约束"), "detectedAt": now}));
-        }
-
-        // 8. memory_id 重复
-        for r in json_rows(
+    // 8. memory_id 重复
+    for r in json_rows(
             conn,
             "SELECT character_id, memory_id, COUNT(*) AS cnt FROM memories WHERE memory_id IS NOT NULL GROUP BY character_id, memory_id HAVING COUNT(*) > 1 LIMIT 50",
             &[],
@@ -2864,23 +2990,26 @@ pub async fn sp_dirty_scan(app: AppHandle) -> Result<Vec<JsonValue>, String> {
             issues.push(json!({"table": "memories", "column": "memory_id", "rowId": mid, "dataType": "DUPLICATE_ENTRY", "severity": "medium", "description": format!("角色 {cid} 的记忆 memory_id={mid} 重复出现 {cnt} 次"), "detectedAt": now}));
         }
 
-        // 9. 级联删除残留（表名来自编译期常量白名单）
-        let remnant_tables: &[&str] = &[
-            "memory_summaries", "memory_state", "commitments", "context_episodes", "owner_facts", "entity_nodes",
-        ];
-        for t in remnant_tables {
-            let sql = format!(
+    // 9. 级联删除残留（表名来自编译期常量白名单）
+    let remnant_tables: &[&str] = &[
+        "memory_summaries",
+        "memory_state",
+        "commitments",
+        "context_episodes",
+        "owner_facts",
+        "entity_nodes",
+    ];
+    for t in remnant_tables {
+        let sql = format!(
                 "SELECT t.rowid AS id FROM \"{t}\" t LEFT JOIN characters c ON t.character_id = c.id WHERE t.character_id IS NOT NULL AND c.id IS NULL LIMIT 50"
             );
-            for r in json_rows(conn, &sql, &[])? {
-                let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
-                issues.push(json!({"table": *t, "column": "character_id", "rowId": id, "dataType": "INCONSISTENT_STATE", "severity": "medium", "description": format!("表 {t} 残留引用已删除角色（行 id={id}）"), "detectedAt": now}));
-            }
+        for r in json_rows(conn, &sql, &[])? {
+            let id = r.get("id").cloned().unwrap_or(JsonValue::Null);
+            issues.push(json!({"table": *t, "column": "character_id", "rowId": id, "dataType": "INCONSISTENT_STATE", "severity": "medium", "description": format!("表 {t} 残留引用已删除角色（行 id={id}）"), "detectedAt": now}));
         }
+    }
 
-        Ok(issues)
-    })
-    .await
+    Ok(issues)
 }
 
 /// 写入脏数据问题（幂等：同 kind+target_id 的未解决记录更新时间戳）
@@ -2893,43 +3022,57 @@ pub async fn sp_dirty_upsert(
     detected_at: i64,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        let existing: Option<i64> = scalar(
-            conn,
-            "SELECT id FROM dirty_data_registry WHERE kind = ?1 AND target_id = ?2 AND resolved_at IS NULL LIMIT 1",
-            &[sq(&kind), sq(&target_id)],
-        )?;
-        match existing {
-            Some(id) => {
-                exec(
-                    conn,
-                    "UPDATE dirty_data_registry SET detected_at = ?1, payload = ?2 WHERE id = ?3",
-                    &[sqi(detected_at), sq(&payload), sqi(id)],
-                )?;
-            }
-            None => {
-                exec(
-                    conn,
-                    "INSERT INTO dirty_data_registry (kind, target_id, payload, detected_at) VALUES (?1, ?2, ?3, ?4)",
-                    &[sq(&kind), sq(&target_id), sq(&payload), sqi(detected_at)],
-                )?;
-            }
-        }
-        Ok(())
+        sp_dirty_upsert_impl(conn, &kind, &target_id, &payload, detected_at)
     })
     .await
+}
+
+fn sp_dirty_upsert_impl(
+    conn: &Connection,
+    kind: &str,
+    target_id: &str,
+    payload: &str,
+    detected_at: i64,
+) -> Result<(), String> {
+    let existing: Option<i64> = scalar(
+        conn,
+        "SELECT id FROM dirty_data_registry WHERE kind = ?1 AND target_id = ?2 AND resolved_at IS NULL LIMIT 1",
+        &[sq(kind), sq(target_id)],
+    )?;
+    match existing {
+        Some(id) => {
+            exec(
+                conn,
+                "UPDATE dirty_data_registry SET detected_at = ?1, payload = ?2 WHERE id = ?3",
+                &[sqi(detected_at), sq(payload), sqi(id)],
+            )?;
+        }
+        None => {
+            exec(
+                conn,
+                "INSERT INTO dirty_data_registry (kind, target_id, payload, detected_at) VALUES (?1, ?2, ?3, ?4)",
+                &[sq(kind), sq(target_id), sq(payload), sqi(detected_at)],
+            )?;
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_dirty_resolve(app: AppHandle, id: i64, resolved_at: i64) -> Result<(), String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "UPDATE dirty_data_registry SET resolved_at = ?1 WHERE id = ?2",
-            &[sqi(resolved_at), sqi(id)],
-        )?;
-        Ok(())
+        sp_dirty_resolve_impl(conn, id, resolved_at)
     })
     .await
+}
+
+fn sp_dirty_resolve_impl(conn: &Connection, id: i64, resolved_at: i64) -> Result<(), String> {
+    exec(
+        conn,
+        "UPDATE dirty_data_registry SET resolved_at = ?1 WHERE id = ?2",
+        &[sqi(resolved_at), sqi(id)],
+    )?;
+    Ok(())
 }
 
 /// 按表批量解决（target_id 前缀 `${table}::%`；pattern 为参数绑定）
@@ -2940,34 +3083,48 @@ pub async fn sp_dirty_resolve_table(
     resolved_at: i64,
 ) -> Result<usize, String> {
     with_conn(app, move |conn| {
-        let prefix = format!("{table}::%");
-        exec(
-            conn,
-            "UPDATE dirty_data_registry SET resolved_at = ?1 WHERE resolved_at IS NULL AND target_id LIKE ?2",
-            &[sqi(resolved_at), sq(&prefix)],
-        )
+        sp_dirty_resolve_table_impl(conn, &table, resolved_at)
     })
     .await
+}
+
+fn sp_dirty_resolve_table_impl(
+    conn: &Connection,
+    table: &str,
+    resolved_at: i64,
+) -> Result<usize, String> {
+    let prefix = format!("{table}::%");
+    exec(
+        conn,
+        "UPDATE dirty_data_registry SET resolved_at = ?1 WHERE resolved_at IS NULL AND target_id LIKE ?2",
+        &[sqi(resolved_at), sq(&prefix)],
+    )
 }
 
 #[tauri::command]
 pub async fn sp_dirty_list(app: AppHandle) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, |conn| {
-        json_rows(conn, "SELECT id, kind, target_id, payload, detected_at, resolved_at FROM dirty_data_registry ORDER BY detected_at DESC", &[])
-    })
-    .await
+    with_conn(app, |conn| sp_dirty_list_impl(conn)).await
+}
+
+fn sp_dirty_list_impl(conn: &Connection) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT id, kind, target_id, payload, detected_at, resolved_at FROM dirty_data_registry ORDER BY detected_at DESC",
+        &[],
+    )
 }
 
 #[tauri::command]
 pub async fn sp_dirty_cleanup(app: AppHandle, threshold: i64) -> Result<usize, String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM dirty_data_registry WHERE resolved_at IS NOT NULL AND resolved_at < ?1",
-            &[sqi(threshold)],
-        )
-    })
-    .await
+    with_conn(app, move |conn| sp_dirty_cleanup_impl(conn, threshold)).await
+}
+
+fn sp_dirty_cleanup_impl(conn: &Connection, threshold: i64) -> Result<usize, String> {
+    exec(
+        conn,
+        "DELETE FROM dirty_data_registry WHERE resolved_at IS NOT NULL AND resolved_at < ?1",
+        &[sqi(threshold)],
+    )
 }
 
 /// 批量嵌入项（serde camelCase 与前端参数对齐）
@@ -4181,5 +4338,260 @@ mod tests {
             sp_settings_get_impl(&conn, "other:b").unwrap().as_deref(),
             Some("2")
         );
+    }
+
+    // ===== 第五批：zombie / schemaRunner / dirty_data_registry =====
+
+    #[test]
+    fn test_zombie_report_and_cleanup_impl() {
+        let conn = mem_conn();
+        // 两条 legacy 设置：一条 updated_at 有效、一条为 0
+        exec(
+            &conn,
+            "INSERT INTO settings (key, value, updated_at) VALUES ('a.legacy','xx',10)",
+            &[],
+        )
+        .unwrap();
+        exec(
+            &conn,
+            "INSERT INTO settings (key, value, updated_at) VALUES ('b.legacy','yyy',0)",
+            &[],
+        )
+        .unwrap();
+        // 上下文：一条早于阈值、一条不早
+        sp_ctx_insert_impl(&conn, "c1", 50, None, None, None, None).unwrap();
+        sp_ctx_insert_impl(&conn, "c1", 500, None, None, None, None).unwrap();
+        // 实体：低提及且久未出现 vs 高提及
+        sp_entity_upsert_impl(
+            &conn,
+            &json!({"id":"n1","character_id":"c1","name":"旧","mention_count":1,"last_seen":10}),
+        )
+        .unwrap();
+        sp_entity_upsert_impl(
+            &conn,
+            &json!({"id":"n2","character_id":"c1","name":"热","mention_count":9,"last_seen":10}),
+        )
+        .unwrap();
+
+        let rep = sp_zombie_report_impl(&conn, 100, 100).unwrap();
+        assert_eq!(rep["legacyCount"], json!(2));
+        assert_eq!(
+            rep["legacyOldest"],
+            json!(10),
+            "只统计 updated_at > 0 的最小值"
+        );
+        assert_eq!(rep["episodeCount"], json!(1), "started_at < 100 的只有一条");
+        assert_eq!(
+            rep["entityCount"],
+            json!(1),
+            "last_seen < 100 且 mention_count < 3 的只有一条"
+        );
+        assert_eq!(rep["bytes"], json!(5), "\"xx\"(2) + \"yyy\"(3)");
+
+        // 非 force：只删 updated_at ∈ (0, threshold)
+        assert_eq!(
+            sp_zombie_cleanup_legacy_impl(&conn, 20, false, 10).unwrap(),
+            1
+        );
+        assert_eq!(sp_settings_get_impl(&conn, "a.legacy").unwrap(), None);
+        assert_eq!(
+            sp_settings_get_impl(&conn, "b.legacy").unwrap().as_deref(),
+            Some("yyy"),
+            "updated_at = 0 的记录不该被非 force 删除"
+        );
+        // force：无条件删（受 limit 约束）
+        assert_eq!(
+            sp_zombie_cleanup_legacy_impl(&conn, 20, true, 10).unwrap(),
+            1
+        );
+        assert_eq!(sp_settings_get_impl(&conn, "b.legacy").unwrap(), None);
+
+        assert_eq!(sp_zombie_cleanup_episodes_impl(&conn, 100, 10).unwrap(), 1);
+        assert_eq!(sp_ctx_list_impl(&conn, "c1", 0, None).unwrap().len(), 1);
+        assert_eq!(sp_zombie_cleanup_entities_impl(&conn, 100, 10).unwrap(), 1);
+        assert_eq!(sp_entity_list_impl(&conn, "c1").unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_schema_version_impl_record_applied_history() {
+        let conn = mem_conn();
+        assert_eq!(sp_schema_version_current_impl(&conn).unwrap(), 0);
+        assert!(!sp_schema_version_applied_impl(&conn, 1).unwrap());
+
+        sp_schema_version_record_impl(&conn, 1, "建表", "abc123").unwrap();
+        sp_schema_version_record_impl(&conn, 3, "加列", "def456").unwrap();
+        // ON CONFLICT(version) DO NOTHING：重复记录既不报错也不覆盖
+        sp_schema_version_record_impl(&conn, 1, "重复", "zzz").unwrap();
+
+        assert_eq!(
+            sp_schema_version_current_impl(&conn).unwrap(),
+            3,
+            "取 MAX(version)"
+        );
+        assert!(sp_schema_version_applied_impl(&conn, 1).unwrap());
+        assert!(!sp_schema_version_applied_impl(&conn, 2).unwrap());
+
+        let hist = sp_schema_version_history_impl(&conn).unwrap();
+        assert_eq!(hist.len(), 2);
+        assert_eq!(hist[0]["version"], json!(1));
+        assert_eq!(
+            hist[0]["description"],
+            json!("建表"),
+            "DO NOTHING 不该覆盖已有记录"
+        );
+        assert_eq!(hist[1]["version"], json!(3));
+    }
+
+    #[test]
+    fn test_schema_failure_log_impl() {
+        let conn = mem_conn();
+        assert!(sp_schema_unresolved_impl(&conn).unwrap().is_empty());
+
+        sp_schema_log_failure_impl(&conn, 7, "语法错误", Some("ALTER TABLE x ADD y")).unwrap();
+        sp_schema_log_failure_impl(&conn, 8, "无 SQL", None).unwrap();
+
+        let open = sp_schema_unresolved_impl(&conn).unwrap();
+        assert_eq!(open.len(), 2);
+        let id7 = open.iter().find(|r| r["version"] == json!(7)).unwrap()["id"]
+            .as_i64()
+            .unwrap();
+        assert_eq!(
+            open.iter().find(|r| r["version"] == json!(8)).unwrap()["sql_statement"],
+            json!(null),
+            "sql_statement 为 None 时应落 NULL"
+        );
+
+        sp_schema_resolve_failure_impl(&conn, id7, 999).unwrap();
+        let open = sp_schema_unresolved_impl(&conn).unwrap();
+        assert_eq!(open.len(), 1, "已解决的不再出现在 unresolved 里");
+        assert_eq!(open[0]["version"], json!(8));
+    }
+
+    #[test]
+    fn test_dirty_upsert_idempotent_and_resolve() {
+        let conn = mem_conn();
+        sp_dirty_upsert_impl(&conn, "orphan", "inventory::i1", "{}", 100).unwrap();
+        assert_eq!(sp_dirty_list_impl(&conn).unwrap().len(), 1);
+
+        // 同 kind+target_id 且未解决 → 更新时间戳与 payload，不新增
+        sp_dirty_upsert_impl(&conn, "orphan", "inventory::i1", "{\"v\":2}", 200).unwrap();
+        let rows = sp_dirty_list_impl(&conn).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["detected_at"], json!(200));
+        assert_eq!(rows[0]["payload"], json!("{\"v\":2}"));
+        let id = rows[0]["id"].as_i64().unwrap();
+
+        sp_dirty_resolve_impl(&conn, id, 300).unwrap();
+        assert_eq!(
+            sp_dirty_list_impl(&conn).unwrap()[0]["resolved_at"],
+            json!(300)
+        );
+        // 已解决的记录不再被 upsert 命中 → 新增一条
+        sp_dirty_upsert_impl(&conn, "orphan", "inventory::i1", "{}", 400).unwrap();
+        assert_eq!(sp_dirty_list_impl(&conn).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_dirty_resolve_table_and_cleanup() {
+        let conn = mem_conn();
+        sp_dirty_upsert_impl(&conn, "k", "inventory::a", "{}", 10).unwrap();
+        sp_dirty_upsert_impl(&conn, "k", "inventory::b", "{}", 20).unwrap();
+        sp_dirty_upsert_impl(&conn, "k", "memories::c", "{}", 30).unwrap();
+
+        // 按 `${table}::%` 前缀批量解决
+        assert_eq!(
+            sp_dirty_resolve_table_impl(&conn, "inventory", 500).unwrap(),
+            2
+        );
+        let rows = sp_dirty_list_impl(&conn).unwrap();
+        assert_eq!(
+            rows.iter()
+                .filter(|r| r["resolved_at"] == json!(500))
+                .count(),
+            2
+        );
+        assert_eq!(
+            rows.iter()
+                .filter(|r| r["resolved_at"] == json!(null))
+                .count(),
+            1,
+            "别的表不受影响"
+        );
+
+        // 清理「已解决且 resolved_at < threshold」
+        assert_eq!(sp_dirty_cleanup_impl(&conn, 600).unwrap(), 2);
+        assert_eq!(sp_dirty_list_impl(&conn).unwrap().len(), 1);
+        assert_eq!(
+            sp_dirty_cleanup_impl(&conn, 100).unwrap(),
+            0,
+            "阈值早于 resolved_at 不删"
+        );
+    }
+
+    #[test]
+    fn test_dirty_scan_impl_detects_multiple_kinds() {
+        let conn = mem_conn();
+        // 干净库不该报任何 issue
+        assert!(sp_dirty_scan_impl(&conn).unwrap().is_empty());
+
+        sp_char_save_stats_impl(&conn, "c_ok", "{}").unwrap();
+        sp_char_save_stats_impl(&conn, "c_bad", "not-json").unwrap();
+
+        sp_mem_add_impl(&conn, "c_ok", "episodic", "正常", Some(50)).unwrap();
+        sp_mem_add_impl(&conn, "c_ok", "episodic", "越界", Some(150)).unwrap();
+        sp_mem_add_impl(&conn, "c_ok", "bogus_type", "非法类型", Some(50)).unwrap();
+        sp_mem_add_impl(&conn, "c_ok", "episodic", "孤儿角色", Some(50)).unwrap();
+        // 造孤儿记忆（memories 无外键）+ 重复 memory_id
+        exec(
+            &conn,
+            "UPDATE memories SET character_id = 'ghost' WHERE content = '孤儿角色'",
+            &[],
+        )
+        .unwrap();
+        exec(
+            &conn,
+            "UPDATE memories SET memory_id = 'dup' WHERE content IN ('正常','越界')",
+            &[],
+        )
+        .unwrap();
+
+        // 负数库存（inventory 有外键，角色必须真实存在）
+        sp_inventory_save_impl(
+            &conn,
+            &json!({"id":"i1","item_id":"fish","quantity":-5,"character_id":"c_ok"}),
+        )
+        .unwrap();
+
+        // 级联删除残留：commitments 引用不存在的角色
+        sp_commitments_insert_impl(&conn, "ghost", "残留", "assistant", None, None, None).unwrap();
+
+        let issues = sp_dirty_scan_impl(&conn).unwrap();
+        let has = |table: &str, data_type: &str| {
+            issues
+                .iter()
+                .any(|i| i["table"] == json!(table) && i["dataType"] == json!(data_type))
+        };
+        assert!(
+            has("characters", "DATA_TYPE_MISMATCH"),
+            "stats 非 JSON 未检出"
+        );
+        assert!(has("memories", "ORPHAN_REFERENCE"), "孤儿记忆未检出");
+        assert!(
+            has("inventory", "BUSINESS_RULE_VIOLATION"),
+            "负数库存未检出"
+        );
+        assert!(
+            has("memories", "BUSINESS_RULE_VIOLATION"),
+            "importance 超界 / type 非法未检出"
+        );
+        assert!(has("memories", "DUPLICATE_ENTRY"), "memory_id 重复未检出");
+        assert!(
+            has("commitments", "INCONSISTENT_STATE"),
+            "级联删除残留未检出"
+        );
+        // 每条 issue 都必须带 detectedAt 时间戳
+        assert!(issues
+            .iter()
+            .all(|i| i["detectedAt"].as_i64().unwrap_or(0) > 0));
     }
 }
