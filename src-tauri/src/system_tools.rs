@@ -1141,6 +1141,81 @@ mod tests {
         let ok = resolve_command("netstat -ano").unwrap();
         assert_eq!(ok.rest, vec!["-ano"]);
     }
+
+    // ===== execute_command_core：真实拉起进程（平台相关命令按 cfg 选）=====
+
+    /// 本平台上确实存在可执行文件的白名单命令
+    #[cfg(windows)]
+    const RUNNABLE_CMD: &str = "hostname";
+    #[cfg(not(windows))]
+    const RUNNABLE_CMD: &str = "pwd";
+
+    /// 本平台映射表里「可执行文件不存在」的命令（用于覆盖 spawn 失败分支）
+    #[cfg(windows)]
+    const MISSING_EXE_CMD: &str = "pwd"; // /bin/pwd 在 Windows 上不存在
+    #[cfg(not(windows))]
+    const MISSING_EXE_CMD: &str = "tasklist"; // tasklist.exe 在 Unix 上不存在
+
+    #[test]
+    fn test_execute_command_core_runs_allowlisted_command() {
+        let out = tauri::async_runtime::block_on(execute_command_core(RUNNABLE_CMD.to_string()))
+            .expect("白名单命令应能执行");
+        assert!(!out.trim().is_empty(), "应有 stdout 输出");
+        assert!(
+            !out.contains("[stderr]"),
+            "正常命令不该带 stderr 前缀: {out}"
+        );
+    }
+
+    #[test]
+    fn test_execute_command_core_rejects_non_allowlisted() {
+        let e = tauri::async_runtime::block_on(execute_command_core("rm -rf /".to_string()))
+            .unwrap_err();
+        assert!(e.contains("白名单"), "实际报错: {e}");
+    }
+
+    #[test]
+    fn test_execute_command_core_rejects_metachars() {
+        // 元字符兜底在真正 spawn 之前就拦下（不会碰到进程创建）
+        let e =
+            tauri::async_runtime::block_on(execute_command_core("tasklist | del x".to_string()))
+                .unwrap_err();
+        assert!(e.contains("元字符"), "实际报错: {e}");
+    }
+
+    #[test]
+    fn test_execute_command_core_reports_spawn_failure() {
+        let e = tauri::async_runtime::block_on(execute_command_core(MISSING_EXE_CMD.to_string()))
+            .unwrap_err();
+        assert!(e.contains("启动命令失败"), "实际报错: {e}");
+    }
+
+    /// 非零退出码分支：用 /bin/ls 传一个不存在的选项（仅 Unix 可构造）
+    #[cfg(unix)]
+    #[test]
+    fn test_execute_command_core_reports_nonzero_exit() {
+        let e = tauri::async_runtime::block_on(execute_command_core(
+            "ls --definitely-not-a-flag".to_string(),
+        ))
+        .unwrap_err();
+        assert!(e.contains("命令退出码"), "实际报错: {e}");
+        assert!(e.contains("[stderr]"), "非零退出应带 stderr 内容: {e}");
+    }
+
+    #[test]
+    fn test_get_running_processes_core_platform_behavior() {
+        let r = tauri::async_runtime::block_on(get_running_processes_core());
+        #[cfg(windows)]
+        {
+            let list = r.expect("Windows 上应能取到进程快照");
+            assert!(!list.is_empty(), "进程列表不该为空");
+        }
+        #[cfg(not(windows))]
+        {
+            // 非 Windows 平台必须返回明确 Err，而不是静默空集
+            assert!(r.is_err(), "非 Windows 平台应返回不支持的 Err");
+        }
+    }
 }
 
 // ============ P0-2：Agent 文件读写工具（read_file / write_file / list_directory）============
