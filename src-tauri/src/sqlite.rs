@@ -679,40 +679,48 @@ pub async fn sp_db_migrate(app: AppHandle) -> Result<bool, String> {
 
 // ---- settings ----
 
+// 命令层与逻辑层的分层约定（D-1 可测化）：
+// `sp_*` 只负责「拿到连接」（`with_conn` 需要 `AppHandle`，而 Tauri 把命令签名钉死为
+// `AppHandle<Wry>`，测试里构造不出来），真正的 SQL 逻辑放在 `*_impl(conn, …)` 里，
+// 由单元测试用内存库直接调用。改逻辑只改 impl，wrapper 保持一行转发。
+
 #[tauri::command]
 pub async fn sp_settings_get(app: AppHandle, key: String) -> Result<Option<String>, String> {
-    with_conn(app, move |conn| {
-        scalar(
-            conn,
-            "SELECT value FROM settings WHERE key = ?1",
-            &[sq(&key)],
-        )
-    })
-    .await
+    with_conn(app, move |conn| sp_settings_get_impl(conn, &key)).await
+}
+
+fn sp_settings_get_impl(conn: &Connection, key: &str) -> Result<Option<String>, String> {
+    scalar(
+        conn,
+        "SELECT value FROM settings WHERE key = ?1",
+        &[sq(key)],
+    )
 }
 
 #[tauri::command]
 pub async fn sp_settings_set(app: AppHandle, key: String, value: String) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        let now = chrono::Utc::now().timestamp_millis();
-        exec(
-            conn,
-            "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, ?3)
-             ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = ?3",
-            &[sq(&key), sq(&value), sqi(now)],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_settings_set_impl(conn, &key, &value)).await
+}
+
+fn sp_settings_set_impl(conn: &Connection, key: &str, value: &str) -> Result<(), String> {
+    let now = chrono::Utc::now().timestamp_millis();
+    exec(
+        conn,
+        "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, ?3)
+         ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = ?3",
+        &[sq(key), sq(value), sqi(now)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_settings_remove(app: AppHandle, key: String) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(conn, "DELETE FROM settings WHERE key = ?1", &[sq(&key)])?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_settings_remove_impl(conn, &key)).await
+}
+
+fn sp_settings_remove_impl(conn: &Connection, key: &str) -> Result<(), String> {
+    exec(conn, "DELETE FROM settings WHERE key = ?1", &[sq(key)])?;
+    Ok(())
 }
 
 // ---- characters ----
@@ -722,14 +730,15 @@ pub async fn sp_char_get_stats(
     app: AppHandle,
     character_id: String,
 ) -> Result<Option<String>, String> {
-    with_conn(app, move |conn| {
-        scalar(
-            conn,
-            "SELECT stats FROM characters WHERE id = ?1",
-            &[sq(&character_id)],
-        )
-    })
-    .await
+    with_conn(app, move |conn| sp_char_get_stats_impl(conn, &character_id)).await
+}
+
+fn sp_char_get_stats_impl(conn: &Connection, character_id: &str) -> Result<Option<String>, String> {
+    scalar(
+        conn,
+        "SELECT stats FROM characters WHERE id = ?1",
+        &[sq(character_id)],
+    )
 }
 
 #[tauri::command]
@@ -739,24 +748,33 @@ pub async fn sp_char_save_stats(
     stats: String,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        let now = chrono::Utc::now().timestamp_millis();
-        exec(
-            conn,
-            "INSERT INTO characters (id, stats, updated_at) VALUES (?1, ?2, ?3)
-             ON CONFLICT(id) DO UPDATE SET stats = ?2, updated_at = ?3",
-            &[sq(&character_id), sq(&stats), sqi(now)],
-        )?;
-        Ok(())
+        sp_char_save_stats_impl(conn, &character_id, &stats)
     })
     .await
 }
 
+fn sp_char_save_stats_impl(
+    conn: &Connection,
+    character_id: &str,
+    stats: &str,
+) -> Result<(), String> {
+    let now = chrono::Utc::now().timestamp_millis();
+    exec(
+        conn,
+        "INSERT INTO characters (id, stats, updated_at) VALUES (?1, ?2, ?3)
+         ON CONFLICT(id) DO UPDATE SET stats = ?2, updated_at = ?3",
+        &[sq(character_id), sq(stats), sqi(now)],
+    )?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn sp_char_list(app: AppHandle) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, move |conn| {
-        json_rows(conn, "SELECT id, stats, updated_at FROM characters", &[])
-    })
-    .await
+    with_conn(app, move |conn| sp_char_list_impl(conn)).await
+}
+
+fn sp_char_list_impl(conn: &Connection) -> Result<Vec<JsonValue>, String> {
+    json_rows(conn, "SELECT id, stats, updated_at FROM characters", &[])
 }
 
 // ---- memories ----
@@ -770,17 +788,33 @@ pub async fn sp_mem_add(
     importance: Option<i64>,
 ) -> Result<i64, String> {
     with_conn(app, move |conn| {
-        let now = chrono::Utc::now().timestamp_millis();
-        let imp = json_or(importance, 50);
-        exec(
-            conn,
-            "INSERT INTO memories (character_id, type, content, importance, created_at, last_accessed)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
-            &[sq(&character_id), sq(&memory_type), sq(&content), sqi(imp), sqi(now)],
-        )?;
-        Ok(scalar(conn, "SELECT last_insert_rowid()", &[])?.unwrap_or(0))
+        sp_mem_add_impl(conn, &character_id, &memory_type, &content, importance)
     })
     .await
+}
+
+fn sp_mem_add_impl(
+    conn: &Connection,
+    character_id: &str,
+    memory_type: &str,
+    content: &str,
+    importance: Option<i64>,
+) -> Result<i64, String> {
+    let now = chrono::Utc::now().timestamp_millis();
+    let imp = json_or(importance, 50);
+    exec(
+        conn,
+        "INSERT INTO memories (character_id, type, content, importance, created_at, last_accessed)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+        &[
+            sq(character_id),
+            sq(memory_type),
+            sq(content),
+            sqi(imp),
+            sqi(now),
+        ],
+    )?;
+    Ok(scalar(conn, "SELECT last_insert_rowid()", &[])?.unwrap_or(0))
 }
 
 #[tauri::command]
@@ -790,14 +824,22 @@ pub async fn sp_mem_save_embedding(
     embedding_b64: String,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "UPDATE memories SET embedding = ?1 WHERE id = ?2",
-            &[sq(&embedding_b64), sqi(memory_id)],
-        )?;
-        Ok(())
+        sp_mem_save_embedding_impl(conn, memory_id, &embedding_b64)
     })
     .await
+}
+
+fn sp_mem_save_embedding_impl(
+    conn: &Connection,
+    memory_id: i64,
+    embedding_b64: &str,
+) -> Result<(), String> {
+    exec(
+        conn,
+        "UPDATE memories SET embedding = ?1 WHERE id = ?2",
+        &[sq(embedding_b64), sqi(memory_id)],
+    )?;
+    Ok(())
 }
 
 /// 批量保存嵌入（单事务）
@@ -810,37 +852,45 @@ pub async fn sp_mem_save_embeddings_batch(
         return Ok(());
     }
     with_conn(app, move |conn| {
-        let tx = conn
-            .transaction()
-            .map_err(|e| format!("开启事务失败: {e}"))?;
-        for it in &items {
-            tx.execute(
-                "UPDATE memories SET embedding = ?1 WHERE id = ?2",
-                params_from_iter([
-                    SqValue::Text(it.embedding_b64.clone()),
-                    SqValue::Integer(it.memory_id),
-                ]),
-            )
-            .map_err(|e| format!("批量嵌入写入失败: {e}"))?;
-        }
-        tx.commit().map_err(|e| format!("提交事务失败: {e}"))?;
-        Ok(())
+        sp_mem_save_embeddings_batch_impl(conn, &items)
     })
     .await
 }
 
+fn sp_mem_save_embeddings_batch_impl(
+    conn: &mut Connection,
+    items: &[EmbedItem],
+) -> Result<(), String> {
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("开启事务失败: {e}"))?;
+    for it in items {
+        tx.execute(
+            "UPDATE memories SET embedding = ?1 WHERE id = ?2",
+            params_from_iter([
+                SqValue::Text(it.embedding_b64.clone()),
+                SqValue::Integer(it.memory_id),
+            ]),
+        )
+        .map_err(|e| format!("批量嵌入写入失败: {e}"))?;
+    }
+    tx.commit().map_err(|e| format!("提交事务失败: {e}"))?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn sp_mem_touch(app: AppHandle, memory_id: i64) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        let now = chrono::Utc::now().timestamp_millis();
-        exec(
-            conn,
-            "UPDATE memories SET last_accessed = ?1 WHERE id = ?2",
-            &[sqi(now), sqi(memory_id)],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_mem_touch_impl(conn, memory_id)).await
+}
+
+fn sp_mem_touch_impl(conn: &Connection, memory_id: i64) -> Result<(), String> {
+    let now = chrono::Utc::now().timestamp_millis();
+    exec(
+        conn,
+        "UPDATE memories SET last_accessed = ?1 WHERE id = ?2",
+        &[sqi(now), sqi(memory_id)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -851,22 +901,31 @@ pub async fn sp_mem_get_embeddings(
     memory_type: Option<String>,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        let lim = json_or(limit, 1000);
-        json_rows(
-            conn,
-            "SELECT id, embedding FROM memories
-             WHERE embedding IS NOT NULL
-               AND (?1 IS NULL OR character_id = ?1)
-               AND (?2 IS NULL OR type = ?2)
-             ORDER BY created_at DESC LIMIT ?3",
-            &[
-                character_id.map(|s| sq(&s)).unwrap_or(sqn()),
-                memory_type.map(|s| sq(&s)).unwrap_or(sqn()),
-                sqi(lim),
-            ],
-        )
+        sp_mem_get_embeddings_impl(conn, character_id.as_deref(), limit, memory_type.as_deref())
     })
     .await
+}
+
+fn sp_mem_get_embeddings_impl(
+    conn: &Connection,
+    character_id: Option<&str>,
+    limit: Option<i64>,
+    memory_type: Option<&str>,
+) -> Result<Vec<JsonValue>, String> {
+    let lim = json_or(limit, 1000);
+    json_rows(
+        conn,
+        "SELECT id, embedding FROM memories
+         WHERE embedding IS NOT NULL
+           AND (?1 IS NULL OR character_id = ?1)
+           AND (?2 IS NULL OR type = ?2)
+         ORDER BY created_at DESC LIMIT ?3",
+        &[
+            character_id.map(sq).unwrap_or(sqn()),
+            memory_type.map(sq).unwrap_or(sqn()),
+            sqi(lim),
+        ],
+    )
 }
 
 #[tauri::command]
@@ -876,44 +935,51 @@ pub async fn sp_mem_list(
     memory_type: Option<String>,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM memories
-             WHERE character_id = ?1 AND (?2 IS NULL OR type = ?2)
-             ORDER BY created_at DESC",
-            &[
-                sq(&character_id),
-                memory_type.map(|s| sq(&s)).unwrap_or(sqn()),
-            ],
-        )
+        sp_mem_list_impl(conn, &character_id, memory_type.as_deref())
     })
     .await
+}
+
+fn sp_mem_list_impl(
+    conn: &Connection,
+    character_id: &str,
+    memory_type: Option<&str>,
+) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM memories
+         WHERE character_id = ?1 AND (?2 IS NULL OR type = ?2)
+         ORDER BY created_at DESC",
+        &[sq(character_id), memory_type.map(sq).unwrap_or(sqn())],
+    )
 }
 
 #[tauri::command]
 pub async fn sp_mem_delete(app: AppHandle, memory_id: i64) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM memories WHERE id = ?1",
-            &[sqi(memory_id)],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_mem_delete_impl(conn, memory_id)).await
+}
+
+fn sp_mem_delete_impl(conn: &Connection, memory_id: i64) -> Result<(), String> {
+    exec(
+        conn,
+        "DELETE FROM memories WHERE id = ?1",
+        &[sqi(memory_id)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_mem_clear(app: AppHandle, character_id: String) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM memories WHERE character_id = ?1",
-            &[sq(&character_id)],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_mem_clear_impl(conn, &character_id)).await
+}
+
+fn sp_mem_clear_impl(conn: &Connection, character_id: &str) -> Result<(), String> {
+    exec(
+        conn,
+        "DELETE FROM memories WHERE character_id = ?1",
+        &[sq(character_id)],
+    )?;
+    Ok(())
 }
 
 /// 插入完整记忆行，返回 rowid（字段白名单，无字符串拼 SQL）
@@ -3024,5 +3090,184 @@ mod tests {
         // 取 Text 列但声明 i64 → FromSql 失败，应走错误路径而非 panic
         let e = scalar::<i64>(&conn, "SELECT 'not-a-number'", &[]).unwrap_err();
         assert!(e.contains("标量查询失败"), "实际报错: {e}");
+    }
+
+    // ===== 命令层 impl（D-1 可测化：`sp_*` 只转发，逻辑在 `*_impl`）=====
+
+    #[test]
+    fn test_settings_impl_upsert_and_remove() {
+        let conn = mem_conn();
+        assert_eq!(sp_settings_get_impl(&conn, "k").unwrap(), None);
+        sp_settings_set_impl(&conn, "k", "v1").unwrap();
+        assert_eq!(
+            sp_settings_get_impl(&conn, "k").unwrap().as_deref(),
+            Some("v1")
+        );
+        // 同键二次写入走 ON CONFLICT(key) DO UPDATE 分支
+        sp_settings_set_impl(&conn, "k", "v2").unwrap();
+        assert_eq!(
+            sp_settings_get_impl(&conn, "k").unwrap().as_deref(),
+            Some("v2")
+        );
+        sp_settings_remove_impl(&conn, "k").unwrap();
+        assert_eq!(sp_settings_get_impl(&conn, "k").unwrap(), None);
+        // 删除不存在的键应静默成功（幂等）
+        sp_settings_remove_impl(&conn, "k").unwrap();
+    }
+
+    #[test]
+    fn test_char_stats_impl_roundtrip() {
+        let conn = mem_conn();
+        assert_eq!(sp_char_get_stats_impl(&conn, "c1").unwrap(), None);
+        sp_char_save_stats_impl(&conn, "c1", r#"{"hp":10}"#).unwrap();
+        assert_eq!(
+            sp_char_get_stats_impl(&conn, "c1").unwrap().as_deref(),
+            Some(r#"{"hp":10}"#)
+        );
+        // 同 id 二次写入走 upsert
+        sp_char_save_stats_impl(&conn, "c1", r#"{"hp":20}"#).unwrap();
+        let rows = sp_char_list_impl(&conn).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], json!("c1"));
+        assert_eq!(rows[0]["stats"], json!(r#"{"hp":20}"#));
+        assert!(rows[0]["updated_at"].as_i64().unwrap() > 0);
+    }
+
+    #[test]
+    fn test_mem_add_impl_default_and_explicit_importance() {
+        let conn = mem_conn();
+        let a = sp_mem_add_impl(&conn, "c1", "episodic", "记得喂食", None).unwrap();
+        let b = sp_mem_add_impl(&conn, "c1", "long_term", "生日是三月", Some(90)).unwrap();
+        assert!(a > 0 && b > a, "rowid 应递增: {a} / {b}");
+
+        let rows = sp_mem_list_impl(&conn, "c1", None).unwrap();
+        assert_eq!(rows.len(), 2);
+        let importance: std::collections::HashMap<i64, i64> = rows
+            .iter()
+            .map(|r| (r["id"].as_i64().unwrap(), r["importance"].as_i64().unwrap()))
+            .collect();
+        assert_eq!(importance[&a], 50, "缺省 importance 应为 50");
+        assert_eq!(importance[&b], 90);
+    }
+
+    #[test]
+    fn test_mem_list_impl_type_filter_and_isolation() {
+        let conn = mem_conn();
+        sp_mem_add_impl(&conn, "c1", "episodic", "a", None).unwrap();
+        sp_mem_add_impl(&conn, "c1", "long_term", "b", None).unwrap();
+        sp_mem_add_impl(&conn, "c2", "episodic", "c", None).unwrap();
+
+        assert_eq!(sp_mem_list_impl(&conn, "c1", None).unwrap().len(), 2);
+        let only_long = sp_mem_list_impl(&conn, "c1", Some("long_term")).unwrap();
+        assert_eq!(only_long.len(), 1);
+        assert_eq!(only_long[0]["content"], json!("b"));
+        // 类型不存在 → 空集（不是报错）
+        assert!(sp_mem_list_impl(&conn, "c1", Some("nope"))
+            .unwrap()
+            .is_empty());
+        // 角色隔离
+        assert_eq!(sp_mem_list_impl(&conn, "c2", None).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_mem_embeddings_impl_filters_and_limit() {
+        let conn = mem_conn();
+        let a = sp_mem_add_impl(&conn, "c1", "episodic", "a", None).unwrap();
+        let _b = sp_mem_add_impl(&conn, "c1", "long_term", "b", None).unwrap();
+        let c = sp_mem_add_impl(&conn, "c2", "episodic", "c", None).unwrap();
+
+        // 全部无嵌入 → 空集
+        assert!(sp_mem_get_embeddings_impl(&conn, None, None, None)
+            .unwrap()
+            .is_empty());
+
+        sp_mem_save_embedding_impl(&conn, a, "AAA=").unwrap();
+        sp_mem_save_embedding_impl(&conn, c, "CCC=").unwrap();
+
+        assert_eq!(
+            sp_mem_get_embeddings_impl(&conn, None, None, None)
+                .unwrap()
+                .len(),
+            2
+        );
+        let c1 = sp_mem_get_embeddings_impl(&conn, Some("c1"), None, None).unwrap();
+        assert_eq!(c1.len(), 1);
+        assert_eq!(c1[0]["embedding"], json!("AAA="));
+        // c1 的 long_term 行没有嵌入 → 空集
+        assert!(
+            sp_mem_get_embeddings_impl(&conn, Some("c1"), None, Some("long_term"))
+                .unwrap()
+                .is_empty()
+        );
+        // limit 生效
+        assert_eq!(
+            sp_mem_get_embeddings_impl(&conn, None, Some(1), None)
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn test_mem_save_embeddings_batch_impl() {
+        let mut conn = mem_conn();
+        let a = sp_mem_add_impl(&conn, "c1", "episodic", "a", None).unwrap();
+        let b = sp_mem_add_impl(&conn, "c1", "episodic", "b", None).unwrap();
+
+        // 空批次：不开启事务、直接返回
+        sp_mem_save_embeddings_batch_impl(&mut conn, &[]).unwrap();
+        assert!(sp_mem_get_embeddings_impl(&conn, Some("c1"), None, None)
+            .unwrap()
+            .is_empty());
+
+        let items = vec![
+            EmbedItem {
+                memory_id: a,
+                embedding_b64: "QQ==".to_string(),
+            },
+            EmbedItem {
+                memory_id: b,
+                embedding_b64: "Qg==".to_string(),
+            },
+        ];
+        sp_mem_save_embeddings_batch_impl(&mut conn, &items).unwrap();
+        assert_eq!(
+            sp_mem_get_embeddings_impl(&conn, Some("c1"), None, None)
+                .unwrap()
+                .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn test_mem_touch_delete_clear_impl() {
+        let conn = mem_conn();
+        let a = sp_mem_add_impl(&conn, "c1", "episodic", "a", None).unwrap();
+        let b = sp_mem_add_impl(&conn, "c1", "episodic", "b", None).unwrap();
+
+        let read_accessed = |id: i64| -> i64 {
+            scalar(
+                &conn,
+                "SELECT last_accessed FROM memories WHERE id = ?1",
+                &[sqi(id)],
+            )
+            .unwrap()
+            .unwrap()
+        };
+        let before = read_accessed(a);
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        sp_mem_touch_impl(&conn, a).unwrap();
+        assert!(
+            read_accessed(a) >= before,
+            "touch 后 last_accessed 不应回退"
+        );
+
+        sp_mem_delete_impl(&conn, b).unwrap();
+        assert_eq!(sp_mem_list_impl(&conn, "c1", None).unwrap().len(), 1);
+
+        sp_mem_clear_impl(&conn, "c1").unwrap();
+        assert!(sp_mem_list_impl(&conn, "c1", None).unwrap().is_empty());
+        // 清空不存在的角色同样幂等
+        sp_mem_clear_impl(&conn, "c1").unwrap();
     }
 }
