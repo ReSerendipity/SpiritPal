@@ -1296,13 +1296,20 @@ pub async fn sp_owner_facts_list(
     character_id: String,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM owner_facts WHERE character_id = ?1 ORDER BY confidence DESC, updated_at DESC",
-            &[sq(&character_id)],
-        )
+        sp_owner_facts_list_impl(conn, &character_id)
     })
     .await
+}
+
+fn sp_owner_facts_list_impl(
+    conn: &Connection,
+    character_id: &str,
+) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM owner_facts WHERE character_id = ?1 ORDER BY confidence DESC, updated_at DESC",
+        &[sq(character_id)],
+    )
 }
 
 #[tauri::command]
@@ -1312,17 +1319,25 @@ pub async fn sp_owner_facts_as_of(
     as_of_time: i64,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM owner_facts
-             WHERE character_id = ?1
-               AND (valid_at IS NULL OR valid_at <= ?2)
-               AND (invalid_at IS NULL OR invalid_at > ?2)
-             ORDER BY confidence DESC, updated_at DESC",
-            &[sq(&character_id), sqi(as_of_time)],
-        )
+        sp_owner_facts_as_of_impl(conn, &character_id, as_of_time)
     })
     .await
+}
+
+fn sp_owner_facts_as_of_impl(
+    conn: &Connection,
+    character_id: &str,
+    as_of_time: i64,
+) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM owner_facts
+         WHERE character_id = ?1
+           AND (valid_at IS NULL OR valid_at <= ?2)
+           AND (invalid_at IS NULL OR invalid_at > ?2)
+         ORDER BY confidence DESC, updated_at DESC",
+        &[sq(character_id), sqi(as_of_time)],
+    )
 }
 
 #[tauri::command]
@@ -1331,59 +1346,67 @@ pub async fn sp_owner_facts_history(
     character_id: String,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM owner_facts
-             WHERE character_id = ?1 AND invalid_at IS NOT NULL
-             ORDER BY invalid_at DESC",
-            &[sq(&character_id)],
-        )
+        sp_owner_facts_history_impl(conn, &character_id)
     })
     .await
 }
 
+fn sp_owner_facts_history_impl(
+    conn: &Connection,
+    character_id: &str,
+) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM owner_facts
+         WHERE character_id = ?1 AND invalid_at IS NOT NULL
+         ORDER BY invalid_at DESC",
+        &[sq(character_id)],
+    )
+}
+
 #[tauri::command]
 pub async fn sp_owner_facts_upsert(app: AppHandle, row: JsonValue) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        let character_id = gs(&row, "character_id").ok_or("缺少 character_id")?;
-        let fact_key = gs(&row, "fact_key").ok_or("缺少 fact_key")?;
-        let now = chrono::Utc::now().timestamp_millis();
-        // P1-5: 同 key 有效旧值先标记失效（被取代）
-        let old_id: Option<i64> = scalar(
-            conn,
-            "SELECT id FROM owner_facts
-             WHERE character_id = ?1 AND fact_key = ?2 AND (invalid_at IS NULL OR invalid_at > ?3)
-             LIMIT 1",
-            &[sq(&character_id), sq(&fact_key), sqi(now)],
-        )?;
-        if let Some(old_id) = old_id {
-            exec(
-                conn,
-                "UPDATE owner_facts SET invalid_at = ?1, superseded_by = ?2 WHERE id = ?3",
-                &[sqi(now), sqi(gi(&row, "id").unwrap_or(0)), sqi(old_id)],
-            )?;
-        }
+    with_conn(app, move |conn| sp_owner_facts_upsert_impl(conn, &row)).await
+}
+
+fn sp_owner_facts_upsert_impl(conn: &Connection, row: &JsonValue) -> Result<(), String> {
+    let character_id = gs(row, "character_id").ok_or("缺少 character_id")?;
+    let fact_key = gs(row, "fact_key").ok_or("缺少 fact_key")?;
+    let now = chrono::Utc::now().timestamp_millis();
+    // P1-5: 同 key 有效旧值先标记失效（被取代）
+    let old_id: Option<i64> = scalar(
+        conn,
+        "SELECT id FROM owner_facts
+         WHERE character_id = ?1 AND fact_key = ?2 AND (invalid_at IS NULL OR invalid_at > ?3)
+         LIMIT 1",
+        &[sq(&character_id), sq(&fact_key), sqi(now)],
+    )?;
+    if let Some(old_id) = old_id {
         exec(
             conn,
-            "INSERT INTO owner_facts (character_id, fact_id, fact_key, fact_value, source_memory_id, confidence, updated_at, user_provided, valid_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
-             ON CONFLICT(character_id, fact_key) DO UPDATE SET
-               fact_value = ?4, source_memory_id = ?5, confidence = ?6, updated_at = ?7, user_provided = ?8, valid_at = ?9",
-            &[
-                sq(&character_id),
-                sq(&gs(&row, "fact_id").unwrap_or_default()),
-                sq(&fact_key),
-                sq(&gs(&row, "fact_value").unwrap_or_default()),
-                gs(&row, "source_memory_id").map(|s| sq(&s)).unwrap_or(sqn()),
-                sqf(gf(&row, "confidence").unwrap_or(0.5)),
-                sqi(gi(&row, "updated_at").unwrap_or(now)),
-                sqi(gi(&row, "user_provided").unwrap_or(0)),
-                sqi(now),
-            ],
+            "UPDATE owner_facts SET invalid_at = ?1, superseded_by = ?2 WHERE id = ?3",
+            &[sqi(now), sqi(gi(row, "id").unwrap_or(0)), sqi(old_id)],
         )?;
-        Ok(())
-    })
-    .await
+    }
+    exec(
+        conn,
+        "INSERT INTO owner_facts (character_id, fact_id, fact_key, fact_value, source_memory_id, confidence, updated_at, user_provided, valid_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+         ON CONFLICT(character_id, fact_key) DO UPDATE SET
+           fact_value = ?4, source_memory_id = ?5, confidence = ?6, updated_at = ?7, user_provided = ?8, valid_at = ?9",
+        &[
+            sq(&character_id),
+            sq(&gs(row, "fact_id").unwrap_or_default()),
+            sq(&fact_key),
+            sq(&gs(row, "fact_value").unwrap_or_default()),
+            gs(row, "source_memory_id").map(|s| sq(&s)).unwrap_or(sqn()),
+            sqf(gf(row, "confidence").unwrap_or(0.5)),
+            sqi(gi(row, "updated_at").unwrap_or(now)),
+            sqi(gi(row, "user_provided").unwrap_or(0)),
+            sqi(now),
+        ],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1393,27 +1416,39 @@ pub async fn sp_owner_facts_delete(
     fact_key: String,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM owner_facts WHERE character_id = ?1 AND fact_key = ?2",
-            &[sq(&character_id), sq(&fact_key)],
-        )?;
-        Ok(())
+        sp_owner_facts_delete_impl(conn, &character_id, &fact_key)
     })
     .await
+}
+
+fn sp_owner_facts_delete_impl(
+    conn: &Connection,
+    character_id: &str,
+    fact_key: &str,
+) -> Result<(), String> {
+    exec(
+        conn,
+        "DELETE FROM owner_facts WHERE character_id = ?1 AND fact_key = ?2",
+        &[sq(character_id), sq(fact_key)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_owner_facts_clear(app: AppHandle, character_id: String) -> Result<(), String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM owner_facts WHERE character_id = ?1",
-            &[sq(&character_id)],
-        )?;
-        Ok(())
+        sp_owner_facts_clear_impl(conn, &character_id)
     })
     .await
+}
+
+fn sp_owner_facts_clear_impl(conn: &Connection, character_id: &str) -> Result<(), String> {
+    exec(
+        conn,
+        "DELETE FROM owner_facts WHERE character_id = ?1",
+        &[sq(character_id)],
+    )?;
+    Ok(())
 }
 
 // ---- memory_semantic_facts ----
@@ -1423,14 +1458,15 @@ pub async fn sp_sem_facts_list(
     app: AppHandle,
     character_id: String,
 ) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM memory_semantic_facts WHERE character_id = ?1 ORDER BY importance DESC, updated_at DESC",
-            &[sq(&character_id)],
-        )
-    })
-    .await
+    with_conn(app, move |conn| sp_sem_facts_list_impl(conn, &character_id)).await
+}
+
+fn sp_sem_facts_list_impl(conn: &Connection, character_id: &str) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM memory_semantic_facts WHERE character_id = ?1 ORDER BY importance DESC, updated_at DESC",
+        &[sq(character_id)],
+    )
 }
 
 #[tauri::command]
@@ -1440,50 +1476,59 @@ pub async fn sp_sem_facts_by_key(
     fact_key: String,
 ) -> Result<Option<JsonValue>, String> {
     with_conn(app, move |conn| {
-        Ok(json_rows(
-            conn,
-            "SELECT * FROM memory_semantic_facts
-             WHERE character_id = ?1 AND fact_key = ?2 ORDER BY importance DESC LIMIT 1",
-            &[sq(&character_id), sq(&fact_key)],
-        )?
-        .into_iter()
-        .next())
+        sp_sem_facts_by_key_impl(conn, &character_id, &fact_key)
     })
     .await
 }
 
+fn sp_sem_facts_by_key_impl(
+    conn: &Connection,
+    character_id: &str,
+    fact_key: &str,
+) -> Result<Option<JsonValue>, String> {
+    Ok(json_rows(
+        conn,
+        "SELECT * FROM memory_semantic_facts
+         WHERE character_id = ?1 AND fact_key = ?2 ORDER BY importance DESC LIMIT 1",
+        &[sq(character_id), sq(fact_key)],
+    )?
+    .into_iter()
+    .next())
+}
+
 #[tauri::command]
 pub async fn sp_sem_facts_upsert(app: AppHandle, row: JsonValue) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        let character_id = gs(&row, "character_id").ok_or("缺少 character_id")?;
-        let fact_key = gs(&row, "fact_key").ok_or("缺少 fact_key")?;
-        let fact_value = gs(&row, "fact_value").unwrap_or_default();
-        let source_ids = match row.get("source_memory_ids") {
-            Some(JsonValue::Array(arr)) => json!(arr).to_string(),
-            Some(JsonValue::String(s)) => s.clone(),
-            _ => "[]".to_string(),
-        };
-        let now = chrono::Utc::now().timestamp_millis();
-        exec(
-            conn,
-            "INSERT INTO memory_semantic_facts (character_id, fact_key, fact_value, source_memory_ids, importance, created_at, updated_at, is_autobiographical)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-             ON CONFLICT(character_id, fact_key) DO UPDATE SET
-               fact_value = ?3, source_memory_ids = ?4, importance = ?5, updated_at = ?7, is_autobiographical = ?8",
-            &[
-                sq(&character_id),
-                sq(&fact_key),
-                sq(&fact_value),
-                sq(&source_ids),
-                sqi(gi(&row, "importance").unwrap_or(50)),
-                sqi(gi(&row, "created_at").unwrap_or(now)),
-                sqi(gi(&row, "updated_at").unwrap_or(now)),
-                sqi(gi(&row, "is_autobiographical").unwrap_or(0)),
-            ],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_sem_facts_upsert_impl(conn, &row)).await
+}
+
+fn sp_sem_facts_upsert_impl(conn: &Connection, row: &JsonValue) -> Result<(), String> {
+    let character_id = gs(row, "character_id").ok_or("缺少 character_id")?;
+    let fact_key = gs(row, "fact_key").ok_or("缺少 fact_key")?;
+    let fact_value = gs(row, "fact_value").unwrap_or_default();
+    let source_ids = match row.get("source_memory_ids") {
+        Some(JsonValue::Array(arr)) => json!(arr).to_string(),
+        Some(JsonValue::String(s)) => s.clone(),
+        _ => "[]".to_string(),
+    };
+    let now = chrono::Utc::now().timestamp_millis();
+    exec(
+        conn,
+        "INSERT INTO memory_semantic_facts (character_id, fact_key, fact_value, source_memory_ids, importance, created_at, updated_at, is_autobiographical)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+         ON CONFLICT(character_id, fact_key) DO UPDATE SET
+           fact_value = ?3, source_memory_ids = ?4, importance = ?5, updated_at = ?7, is_autobiographical = ?8",
+        &[
+            sq(&character_id),
+            sq(&fact_key),
+            sq(&fact_value),
+            sq(&source_ids),
+            sqi(gi(row, "importance").unwrap_or(50)),
+            sqi(gi(row, "created_at").unwrap_or(now)),
+            sqi(gi(row, "updated_at").unwrap_or(now)),
+            sqi(gi(row, "is_autobiographical").unwrap_or(0)),
+        ],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1493,40 +1538,56 @@ pub async fn sp_sem_facts_delete(
     fact_key: String,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM memory_semantic_facts WHERE character_id = ?1 AND fact_key = ?2",
-            &[sq(&character_id), sq(&fact_key)],
-        )?;
-        Ok(())
+        sp_sem_facts_delete_impl(conn, &character_id, &fact_key)
     })
     .await
+}
+
+fn sp_sem_facts_delete_impl(
+    conn: &Connection,
+    character_id: &str,
+    fact_key: &str,
+) -> Result<(), String> {
+    exec(
+        conn,
+        "DELETE FROM memory_semantic_facts WHERE character_id = ?1 AND fact_key = ?2",
+        &[sq(character_id), sq(fact_key)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_sem_facts_clear(app: AppHandle, character_id: String) -> Result<(), String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM memory_semantic_facts WHERE character_id = ?1",
-            &[sq(&character_id)],
-        )?;
-        Ok(())
+        sp_sem_facts_clear_impl(conn, &character_id)
     })
     .await
+}
+
+fn sp_sem_facts_clear_impl(conn: &Connection, character_id: &str) -> Result<(), String> {
+    exec(
+        conn,
+        "DELETE FROM memory_semantic_facts WHERE character_id = ?1",
+        &[sq(character_id)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_sem_facts_count(app: AppHandle, character_id: String) -> Result<i64, String> {
     with_conn(app, move |conn| {
-        Ok(scalar(
-            conn,
-            "SELECT COUNT(*) FROM memory_semantic_facts WHERE character_id = ?1",
-            &[sq(&character_id)],
-        )?
-        .unwrap_or(0))
+        sp_sem_facts_count_impl(conn, &character_id)
     })
     .await
+}
+
+fn sp_sem_facts_count_impl(conn: &Connection, character_id: &str) -> Result<i64, String> {
+    Ok(scalar(
+        conn,
+        "SELECT COUNT(*) FROM memory_semantic_facts WHERE character_id = ?1",
+        &[sq(character_id)],
+    )?
+    .unwrap_or(0))
 }
 
 // ---- pet_experiences / visual_memories / entity_nodes ----
@@ -1536,49 +1597,52 @@ pub async fn sp_pet_exp_list(
     app: AppHandle,
     character_id: String,
 ) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM pet_experiences WHERE character_id = ?1 ORDER BY timestamp ASC",
-            &[sq(&character_id)],
-        )
-    })
-    .await
+    with_conn(app, move |conn| sp_pet_exp_list_impl(conn, &character_id)).await
+}
+
+fn sp_pet_exp_list_impl(conn: &Connection, character_id: &str) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM pet_experiences WHERE character_id = ?1 ORDER BY timestamp ASC",
+        &[sq(character_id)],
+    )
 }
 
 #[tauri::command]
 pub async fn sp_pet_exp_insert(app: AppHandle, row: JsonValue) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "INSERT INTO pet_experiences (id, character_id, type, description, timestamp, sentiment, intensity)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            &[
-                sq(&gs(&row, "id").ok_or("缺少 id")?),
-                sq(&gs(&row, "character_id").ok_or("缺少 character_id")?),
-                sq(&gs(&row, "type").unwrap_or_default()),
-                sq(&gs(&row, "description").unwrap_or_default()),
-                sqi(gi(&row, "timestamp").unwrap_or(0)),
-                sq(&gs(&row, "sentiment").unwrap_or_else(|| "neutral".to_string())),
-                sqf(gf(&row, "intensity").unwrap_or(0.5)),
-            ],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_pet_exp_insert_impl(conn, &row)).await
+}
+
+fn sp_pet_exp_insert_impl(conn: &Connection, row: &JsonValue) -> Result<(), String> {
+    exec(
+        conn,
+        "INSERT INTO pet_experiences (id, character_id, type, description, timestamp, sentiment, intensity)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        &[
+            sq(&gs(row, "id").ok_or("缺少 id")?),
+            sq(&gs(row, "character_id").ok_or("缺少 character_id")?),
+            sq(&gs(row, "type").unwrap_or_default()),
+            sq(&gs(row, "description").unwrap_or_default()),
+            sqi(gi(row, "timestamp").unwrap_or(0)),
+            sq(&gs(row, "sentiment").unwrap_or_else(|| "neutral".to_string())),
+            sqf(gf(row, "intensity").unwrap_or(0.5)),
+        ],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_pet_exp_clear(app: AppHandle, character_id: String) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM pet_experiences WHERE character_id = ?1",
-            &[sq(&character_id)],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_pet_exp_clear_impl(conn, &character_id)).await
+}
+
+fn sp_pet_exp_clear_impl(conn: &Connection, character_id: &str) -> Result<(), String> {
+    exec(
+        conn,
+        "DELETE FROM pet_experiences WHERE character_id = ?1",
+        &[sq(character_id)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1586,50 +1650,53 @@ pub async fn sp_visual_list(
     app: AppHandle,
     character_id: String,
 ) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM visual_memories WHERE character_id = ?1 ORDER BY timestamp ASC",
-            &[sq(&character_id)],
-        )
-    })
-    .await
+    with_conn(app, move |conn| sp_visual_list_impl(conn, &character_id)).await
+}
+
+fn sp_visual_list_impl(conn: &Connection, character_id: &str) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM visual_memories WHERE character_id = ?1 ORDER BY timestamp ASC",
+        &[sq(character_id)],
+    )
 }
 
 #[tauri::command]
 pub async fn sp_visual_insert(app: AppHandle, row: JsonValue) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "INSERT INTO visual_memories (id, character_id, type, description, image_path, timestamp, sentiment, related_memory_id)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            &[
-                sq(&gs(&row, "id").ok_or("缺少 id")?),
-                sq(&gs(&row, "character_id").ok_or("缺少 character_id")?),
-                sq(&gs(&row, "type").unwrap_or_default()),
-                sq(&gs(&row, "description").unwrap_or_default()),
-                gs(&row, "image_path").map(|s| sq(&s)).unwrap_or(sqn()),
-                sqi(gi(&row, "timestamp").unwrap_or(0)),
-                sq(&gs(&row, "sentiment").unwrap_or_else(|| "neutral".to_string())),
-                gs(&row, "related_memory_id").map(|s| sq(&s)).unwrap_or(sqn()),
-            ],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_visual_insert_impl(conn, &row)).await
+}
+
+fn sp_visual_insert_impl(conn: &Connection, row: &JsonValue) -> Result<(), String> {
+    exec(
+        conn,
+        "INSERT INTO visual_memories (id, character_id, type, description, image_path, timestamp, sentiment, related_memory_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        &[
+            sq(&gs(row, "id").ok_or("缺少 id")?),
+            sq(&gs(row, "character_id").ok_or("缺少 character_id")?),
+            sq(&gs(row, "type").unwrap_or_default()),
+            sq(&gs(row, "description").unwrap_or_default()),
+            gs(row, "image_path").map(|s| sq(&s)).unwrap_or(sqn()),
+            sqi(gi(row, "timestamp").unwrap_or(0)),
+            sq(&gs(row, "sentiment").unwrap_or_else(|| "neutral".to_string())),
+            gs(row, "related_memory_id").map(|s| sq(&s)).unwrap_or(sqn()),
+        ],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_visual_clear(app: AppHandle, character_id: String) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM visual_memories WHERE character_id = ?1",
-            &[sq(&character_id)],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_visual_clear_impl(conn, &character_id)).await
+}
+
+fn sp_visual_clear_impl(conn: &Connection, character_id: &str) -> Result<(), String> {
+    exec(
+        conn,
+        "DELETE FROM visual_memories WHERE character_id = ?1",
+        &[sq(character_id)],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1637,52 +1704,55 @@ pub async fn sp_entity_list(
     app: AppHandle,
     character_id: String,
 ) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM entity_nodes WHERE character_id = ?1 ORDER BY mention_count DESC",
-            &[sq(&character_id)],
-        )
-    })
-    .await
+    with_conn(app, move |conn| sp_entity_list_impl(conn, &character_id)).await
+}
+
+fn sp_entity_list_impl(conn: &Connection, character_id: &str) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM entity_nodes WHERE character_id = ?1 ORDER BY mention_count DESC",
+        &[sq(character_id)],
+    )
 }
 
 #[tauri::command]
 pub async fn sp_entity_upsert(app: AppHandle, row: JsonValue) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "INSERT INTO entity_nodes (id, character_id, name, type, linked_memory_ids, mention_count, first_seen, last_seen)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-             ON CONFLICT(character_id, name) DO UPDATE SET
-               linked_memory_ids = ?5, mention_count = ?6, last_seen = ?8",
-            &[
-                sq(&gs(&row, "id").ok_or("缺少 id")?),
-                sq(&gs(&row, "character_id").ok_or("缺少 character_id")?),
-                sq(&gs(&row, "name").ok_or("缺少 name")?),
-                sq(&gs(&row, "type").unwrap_or_default()),
-                sq(&gs(&row, "linked_memory_ids").unwrap_or_else(|| "[]".to_string())),
-                sqi(gi(&row, "mention_count").unwrap_or(0)),
-                sqi(gi(&row, "first_seen").unwrap_or(0)),
-                sqi(gi(&row, "last_seen").unwrap_or(0)),
-            ],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_entity_upsert_impl(conn, &row)).await
+}
+
+fn sp_entity_upsert_impl(conn: &Connection, row: &JsonValue) -> Result<(), String> {
+    exec(
+        conn,
+        "INSERT INTO entity_nodes (id, character_id, name, type, linked_memory_ids, mention_count, first_seen, last_seen)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+         ON CONFLICT(character_id, name) DO UPDATE SET
+           linked_memory_ids = ?5, mention_count = ?6, last_seen = ?8",
+        &[
+            sq(&gs(row, "id").ok_or("缺少 id")?),
+            sq(&gs(row, "character_id").ok_or("缺少 character_id")?),
+            sq(&gs(row, "name").ok_or("缺少 name")?),
+            sq(&gs(row, "type").unwrap_or_default()),
+            sq(&gs(row, "linked_memory_ids").unwrap_or_else(|| "[]".to_string())),
+            sqi(gi(row, "mention_count").unwrap_or(0)),
+            sqi(gi(row, "first_seen").unwrap_or(0)),
+            sqi(gi(row, "last_seen").unwrap_or(0)),
+        ],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_entity_clear(app: AppHandle, character_id: String) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "DELETE FROM entity_nodes WHERE character_id = ?1",
-            &[sq(&character_id)],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_entity_clear_impl(conn, &character_id)).await
+}
+
+fn sp_entity_clear_impl(conn: &Connection, character_id: &str) -> Result<(), String> {
+    exec(
+        conn,
+        "DELETE FROM entity_nodes WHERE character_id = ?1",
+        &[sq(character_id)],
+    )?;
+    Ok(())
 }
 
 // ---- mods / inventory / schedules ----
@@ -3648,5 +3718,248 @@ mod tests {
         assert!(sp_entitygraph_neighbors_impl(&conn, "不存在")
             .unwrap()
             .is_empty());
+    }
+
+    // ===== 第三批：owner_facts / memory_semantic_facts / pet_exp / visual / entity_nodes =====
+
+    #[test]
+    fn test_owner_facts_as_of_window_and_history() {
+        let conn = mem_conn();
+        for (key, val, id) in [("a", "A", 1), ("b", "B", 2), ("c", "C", 3)] {
+            sp_owner_facts_upsert_impl(
+                &conn,
+                &json!({"character_id":"c1","fact_key":key,"fact_value":val,"id":id}),
+            )
+            .unwrap();
+        }
+        // 手工构造时间窗：b 在 [100,200) 内有效；c 在 [10,50) 内有效；a 保持 valid_at=now 且无失效
+        exec(
+            &conn,
+            "UPDATE owner_facts SET valid_at = 100, invalid_at = 200 WHERE fact_key = 'b'",
+            &[],
+        )
+        .unwrap();
+        exec(
+            &conn,
+            "UPDATE owner_facts SET valid_at = 10, invalid_at = 50 WHERE fact_key = 'c'",
+            &[],
+        )
+        .unwrap();
+
+        let keys_at = |t: i64| -> Vec<String> {
+            sp_owner_facts_as_of_impl(&conn, "c1", t)
+                .unwrap()
+                .iter()
+                .filter_map(|r| r["fact_key"].as_str().map(String::from))
+                .collect()
+        };
+        assert!(keys_at(150).contains(&"b".to_string()), "150 落在 b 的窗内");
+        assert!(
+            !keys_at(150).contains(&"c".to_string()),
+            "150 已超出 c 的窗"
+        );
+        assert!(keys_at(20).contains(&"c".to_string()), "20 落在 c 的窗内");
+        assert!(
+            !keys_at(20).contains(&"b".to_string()),
+            "20 早于 b 的 valid_at"
+        );
+        // a 的 valid_at = now（毫秒时间戳），两个查询点都早于它 → 均不可见
+        assert!(!keys_at(150).contains(&"a".to_string()));
+
+        // history 只收 invalid_at 非空的（b、c）
+        let hist = sp_owner_facts_history_impl(&conn, "c1").unwrap();
+        assert_eq!(hist.len(), 2);
+        // 全量 list 不筛时间窗
+        assert_eq!(sp_owner_facts_list_impl(&conn, "c1").unwrap().len(), 3);
+
+        // delete / clear
+        sp_owner_facts_delete_impl(&conn, "c1", "a").unwrap();
+        assert_eq!(sp_owner_facts_list_impl(&conn, "c1").unwrap().len(), 2);
+        sp_owner_facts_clear_impl(&conn, "c1").unwrap();
+        assert!(sp_owner_facts_list_impl(&conn, "c1").unwrap().is_empty());
+    }
+
+    /// ⚠️ 该用例记录的是**当前实现的真实行为**，不是期望行为。
+    ///
+    /// 表上有 `CREATE UNIQUE INDEX idx_owner_facts_char_key ON owner_facts(character_id, fact_key)`，
+    /// 于是 `sp_owner_facts_upsert_impl` 里「同 key 有效旧值先标记失效」的 UPDATE 与随后的
+    /// `ON CONFLICT(character_id, fact_key) DO UPDATE` 作用在**同一行**：
+    /// 结果是该行被写上 invalid_at，新值覆盖旧值 —— 版本化设计（invalid_at / superseded_by /
+    /// history 查询）与唯一索引互相矛盾，同 key 二次 upsert 后该事实在 `as_of(now)` 里不可见。
+    /// 这里只断言「分支确实执行了」，不把该行为固化成期望值；修复需单开 issue。
+    #[test]
+    fn test_owner_facts_impl_supersede_marks_row_invalid() {
+        let conn = mem_conn();
+        sp_owner_facts_upsert_impl(
+            &conn,
+            &json!({"character_id":"c1","fact_key":"city","fact_value":"杭州","id":1}),
+        )
+        .unwrap();
+        sp_owner_facts_upsert_impl(
+            &conn,
+            &json!({"character_id":"c1","fact_key":"city","fact_value":"上海","id":2}),
+        )
+        .unwrap();
+
+        let rows = sp_owner_facts_list_impl(&conn, "c1").unwrap();
+        assert_eq!(rows.len(), 1, "唯一索引决定同 key 只有一行");
+        assert_eq!(
+            rows[0]["fact_value"],
+            json!("上海"),
+            "ON CONFLICT 覆盖为新值"
+        );
+        assert!(
+            rows[0]["invalid_at"].is_number(),
+            "supersede 分支确实把该行标记为失效"
+        );
+        assert_eq!(rows[0]["superseded_by"], json!(2));
+    }
+
+    #[test]
+    fn test_sem_facts_impl_upsert_count_and_source_ids() {
+        let conn = mem_conn();
+        assert_eq!(sp_sem_facts_count_impl(&conn, "c1").unwrap(), 0);
+
+        // source_memory_ids 三种形态：数组 / 字符串 / 缺失
+        sp_sem_facts_upsert_impl(
+            &conn,
+            &json!({"character_id":"c1","fact_key":"likes","fact_value":"猫",
+                    "importance":80,"source_memory_ids":["m1","m2"]}),
+        )
+        .unwrap();
+        sp_sem_facts_upsert_impl(
+            &conn,
+            &json!({"character_id":"c1","fact_key":"dislikes","fact_value":"雨",
+                    "source_memory_ids":"[\"m9\"]"}),
+        )
+        .unwrap();
+        sp_sem_facts_upsert_impl(
+            &conn,
+            &json!({"character_id":"c1","fact_key":"x","fact_value":"y"}),
+        )
+        .unwrap();
+        assert_eq!(sp_sem_facts_count_impl(&conn, "c1").unwrap(), 3);
+
+        let by_key = |k: &str| sp_sem_facts_by_key_impl(&conn, "c1", k).unwrap();
+        assert_eq!(
+            by_key("likes").unwrap()["source_memory_ids"],
+            json!("[\"m1\",\"m2\"]")
+        );
+        assert_eq!(
+            by_key("dislikes").unwrap()["source_memory_ids"],
+            json!("[\"m9\"]")
+        );
+        assert_eq!(by_key("x").unwrap()["source_memory_ids"], json!("[]"));
+        assert_eq!(by_key("x").unwrap()["importance"], json!(50), "缺省 50");
+
+        // 同 key 二次 upsert → ON CONFLICT 更新，不新增行
+        sp_sem_facts_upsert_impl(
+            &conn,
+            &json!({"character_id":"c1","fact_key":"likes","fact_value":"狗","importance":90}),
+        )
+        .unwrap();
+        assert_eq!(sp_sem_facts_count_impl(&conn, "c1").unwrap(), 3);
+        assert_eq!(by_key("likes").unwrap()["fact_value"], json!("狗"));
+        // 未命中 → None
+        assert!(by_key("nope").is_none());
+        // list 按 importance DESC，likes(90) 居首
+        let list = sp_sem_facts_list_impl(&conn, "c1").unwrap();
+        assert_eq!(list.len(), 3);
+        assert_eq!(list[0]["fact_key"], json!("likes"));
+
+        sp_sem_facts_delete_impl(&conn, "c1", "likes").unwrap();
+        assert_eq!(sp_sem_facts_count_impl(&conn, "c1").unwrap(), 2);
+        sp_sem_facts_clear_impl(&conn, "c1").unwrap();
+        assert_eq!(sp_sem_facts_count_impl(&conn, "c1").unwrap(), 0);
+    }
+
+    #[test]
+    fn test_pet_exp_impl_insert_defaults_and_clear() {
+        let conn = mem_conn();
+        sp_pet_exp_insert_impl(
+            &conn,
+            &json!({"id":"e1","character_id":"c1","type":"play","description":"玩球",
+                    "timestamp":100,"sentiment":"happy","intensity":0.9}),
+        )
+        .unwrap();
+        // 只给必填 → 其余走缺省
+        sp_pet_exp_insert_impl(
+            &conn,
+            &json!({"id":"e2","character_id":"c1","type":"eat","timestamp":50}),
+        )
+        .unwrap();
+
+        let rows = sp_pet_exp_list_impl(&conn, "c1").unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0]["id"], json!("e2"), "按 timestamp ASC");
+        assert_eq!(rows[0]["sentiment"], json!("neutral"));
+        assert_eq!(rows[0]["intensity"], json!(0.5));
+        assert_eq!(rows[1]["sentiment"], json!("happy"));
+
+        // 缺 id → Err（必填校验）
+        assert!(sp_pet_exp_insert_impl(&conn, &json!({"character_id":"c1"})).is_err());
+
+        sp_pet_exp_clear_impl(&conn, "c1").unwrap();
+        assert!(sp_pet_exp_list_impl(&conn, "c1").unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_visual_impl_insert_nullable_fields() {
+        let conn = mem_conn();
+        sp_visual_insert_impl(
+            &conn,
+            &json!({"id":"v1","character_id":"c1","type":"scene","description":"夕阳",
+                    "image_path":"/tmp/a.png","timestamp":10,"related_memory_id":"m1"}),
+        )
+        .unwrap();
+        // image_path / related_memory_id 缺失 → NULL
+        sp_visual_insert_impl(
+            &conn,
+            &json!({"id":"v2","character_id":"c1","type":"scene","timestamp":20}),
+        )
+        .unwrap();
+
+        let rows = sp_visual_list_impl(&conn, "c1").unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0]["image_path"], json!("/tmp/a.png"));
+        assert_eq!(rows[0]["related_memory_id"], json!("m1"));
+        assert_eq!(rows[1]["image_path"], json!(null));
+        assert_eq!(rows[1]["sentiment"], json!("neutral"));
+
+        assert!(sp_visual_insert_impl(&conn, &json!({"character_id":"c1"})).is_err());
+
+        sp_visual_clear_impl(&conn, "c1").unwrap();
+        assert!(sp_visual_list_impl(&conn, "c1").unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_entity_nodes_impl_upsert_conflict_and_clear() {
+        let conn = mem_conn();
+        sp_entity_upsert_impl(
+            &conn,
+            &json!({"id":"n1","character_id":"c1","name":"小橘","type":"cat",
+                    "linked_memory_ids":"[\"m1\"]","mention_count":3,"first_seen":10,"last_seen":20}),
+        )
+        .unwrap();
+        // 同 (character_id, name) → ON CONFLICT 只更新 linked/mention/last_seen
+        sp_entity_upsert_impl(
+            &conn,
+            &json!({"id":"n2","character_id":"c1","name":"小橘","type":"cat",
+                    "linked_memory_ids":"[\"m1\",\"m2\"]","mention_count":5,"first_seen":10,"last_seen":30}),
+        )
+        .unwrap();
+
+        let rows = sp_entity_list_impl(&conn, "c1").unwrap();
+        assert_eq!(rows.len(), 1, "同角色同名只保留一行");
+        assert_eq!(rows[0]["id"], json!("n1"), "id 不被 ON CONFLICT 覆盖");
+        assert_eq!(rows[0]["mention_count"], json!(5));
+        assert_eq!(rows[0]["last_seen"], json!(30));
+        assert_eq!(rows[0]["linked_memory_ids"], json!("[\"m1\",\"m2\"]"));
+
+        // 缺 name → Err
+        assert!(sp_entity_upsert_impl(&conn, &json!({"id":"n3","character_id":"c1"})).is_err());
+
+        sp_entity_clear_impl(&conn, "c1").unwrap();
+        assert!(sp_entity_list_impl(&conn, "c1").unwrap().is_empty());
     }
 }
