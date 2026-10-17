@@ -43,3 +43,26 @@
 ## 5. 前端工程四项「未能判断」项（前端 P1，批次六取证）
 
 见 `docs/execution/` 批次六取证报告（Props Drilling / 过度封装 / 无效重渲染 / 无限循环），按交接单要求只取证登记、不顺手重构。
+
+## 6. 依赖安全棘轮基线：cargo_vulns 7 → 4（2026-10-17，zip 直接依赖升级）
+
+**背景**：RUSTSEC-2026-0367/0368/0369（zip 提取类三条通告，2026-10-09 发布）把
+cargo_vulns 从 1 推到 7，`#132` 按「上游无补丁且本仓不可达」整体接受为 7。
+本轮（Better Harness 批次 item4 方案 A 的直接依赖部分）复核发现该结论可收紧：
+
+- **直接依赖 zip 0.6.6 → 9.0.4**：三条通告的补丁线均为 `>=9.0.0`，直接依赖可升。
+  迁移面仅 `src-tauri/src/petmod.rs` 两处类型注解（zip 9.x 的 `FileOptions` 带
+  生命周期参数，用 `SimpleFileOptions` 别名钉住）；读写 API（`ZipArchive::new` /
+  `by_index` / `enclosed_name` / `is_dir` / `ZipWriter::start_file` /
+  `CompressionMethod`）在 9.x 全部保留。`cargo check` 通过；`cargo test`
+  286 passed（唯一失败 `embedded_assets_match_sri_manifest` 为本地 dist 哈希
+  漂移的既有项，stash 对照证实与本次无关；CI 用占位 dist 跑，main 上该 job 绿）。
+  `cargo audit`（RustSec DB 最新）：**7 → 4**。
+- **剩余 4 条无法单方面修复**：rkyv 0.7.46 ×1（度量口径差异，不进构建图）+
+  zip 4.6.1 ×3（`tauri-plugin-updater` 2.11.0 传递依赖；`[patch]` 强钉 9 会违反
+  其约束直接编译失败）。重评条件：updater 发布不依赖 zip 4.x 的新版，或本仓弃用
+  updater 插件；rkyv 项待其进入构建图再评估。
+
+**动作**：`scripts/security_gate.py --update-baseline` 回写 `.ci/security_baseline.json`
+cargo_vulns 7 → 4（棘轮「只降不升」：本次为下降后的自动收紧；未来任何上升仍会
+判红）。基线构成与依据同步写入 `security_gate.py` docstring「当前基线说明」。

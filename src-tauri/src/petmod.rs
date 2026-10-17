@@ -30,7 +30,7 @@
 use std::fs;
 use std::io::{Cursor, Read, Write};
 use std::path::Path;
-use zip::write::FileOptions;
+use zip::write::{FileOptions, SimpleFileOptions};
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
 use tauri::Manager;
@@ -579,7 +579,9 @@ pub async fn pack_petmod(
             } else {
                 CompressionMethod::Stored
             };
-            let options = FileOptions::default()
+            // zip 9.x 的 FileOptions 带生命周期参数，builder 链无法自行推导，
+            // 用 SimpleFileOptions 别名钉住具体类型（语义与 0.6 的 FileOptions 一致）。
+            let options: SimpleFileOptions = FileOptions::default()
                 .compression_method(method)
                 .unix_permissions(0o644);
 
@@ -1159,8 +1161,9 @@ mod tests {
         let mut buf = Vec::new();
         {
             let mut zip = zip::ZipWriter::new(std::io::Cursor::new(&mut buf));
-            zip.start_file("test.txt", zip::write::FileOptions::default())
-                .unwrap();
+            // zip 9.x：start_file 的 name 类型参数需显式钉住（与导出路径同一处适配）
+            let opts: SimpleFileOptions = zip::write::FileOptions::default();
+            zip.start_file("test.txt", opts).unwrap();
             zip.write_all(b"hello").unwrap();
             zip.finish().unwrap();
         }

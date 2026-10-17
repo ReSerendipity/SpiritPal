@@ -18,26 +18,23 @@ dependency-vuln-scan job 每次 push / PR 都会运行，但三个审计步骤�
 ------------------------------------
 npm_critical=0 / npm_high=0：历史高点（gh-pages 经 pixi-live2d-display 引入、
 protobufjs）已由上游修复，2026-09-20 按棘轮约定回写收紧到实测值 0。
-cargo_vulns=7（2026-10-17 人工复核后回写；原值 1）：
-  RustSec 库于 2026-10-17 新增 3 条 zip 提取类公告（RUSTSEC-2026-0367/0368/0369，
-  均只作用于 `ZipArchive::extract()`），同时命中树内两个 zip 版本
-  （0.6.6 直接依赖 / 4.6.1 经 tauri-plugin-updater），叠加原有的 rkyv 幻影条目 = 7 条。
-  **七条的 patched_versions 全为空** —— 上游尚无修复版，升依赖修不掉
-  （zip 0.6 升到 4.x 后仍剩 3 条），故只能回写基线。逐条复核结论：
+cargo_vulns=4（2026-10-17 由 7 收紧；沿革 1 → 7（#132 接受）→ 4（zip 升级））：
+  Cargo.lock 约 700 个 package 中 4 个命中，分两类：
 
-  * RUSTSEC-2026-0235 / rkyv 0.7.46 —— **幻影条目，不进构建图、不编译**：
-      cargo tree -i rkyv            # 无输出（rust_decimal 的 rkyv feature 未启用）
-    Cargo.lock 记录可选依赖、cargo-audit 逐行扫 lockfile，属度量口径差异；
-  * RUSTSEC-2026-0367/0368/0369 / zip 0.6.6 —— **本仓不可达**：
-    三条的共同前提是调用 `ZipArchive::extract()`（SUID/SGID 保留、符号链接逃逸、
-    经符号链接写权限）。而 `src/petmod.rs::extract_zip_to()` 是手写逐条目解压 ——
-    `enclosed_name()` 挡 zip-slip，`File::create` + `io::copy` 写普通文件，
-    **从不调用 extract()、不设 Unix 权限、不创建符号链接**；
-  * 同三条 / zip 4.6.1 —— 传递依赖（tauri-plugin-updater），走上游代码路径；
-    更新包需本仓私钥签名后才下发，攻击面限于已签名包。
+  (a) RUSTSEC-2026-0235 / rkyv 0.7.46 ×1 —— 与 1 时代同一项，**度量口径差异**
+      而非已评估风险：它不进构建图、不会被编译
+      （cargo tree --workspace --target all -e normal,build,dev 出现 0 次；
+      tauri-plugin-log → byte-unit 5.2.5 → rust_decimal 1.42.1 链路未启用
+      rust_decimal 的 rkyv feature）。Cargo.lock 记录可选依赖而 cargo-audit
+      逐行扫 lockfile，于是报出一个不在构建图中的 crate。
 
-  结论：这是「上游无补丁 + 本仓不可达」的组合，**不是**「接受了 7 个可利用漏洞」。
-  上游发布修复版后必须立刻升级，并把基线降回实测值（棘轮只降不升的方向不变）。
+  (b) RUSTSEC-2026-0367/0368/0369 / zip 4.6.1 ×3 —— tauri-plugin-updater 2.11.0
+      的传递依赖。补丁线 >=9.0.0，但 updater 稳定版仍钉 zip 4.x，[patch] 强钉 9
+      会违反其约束直接编译失败；本仓无法单方面修复，只能等上游跟进。
+      **直接依赖 zip 已于 2026-10-17 从 0.6.6 升到 9.0.4**（同类三条通告的直接
+      依赖部分已消除，7→4 中的 -3 即来自此）；重评条件：tauri-plugin-updater
+      发布不依赖 zip 4.x 的新版，或本仓弃用 updater 插件。
+
 基线入库后，**新增**任何高危漏洞都会让 CI 变红。
 
 用法
