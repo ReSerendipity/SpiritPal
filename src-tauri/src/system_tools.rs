@@ -21,7 +21,8 @@
 //! - Windows-only 命令在非 Windows 平台返回明确 Err（而非静默失败）
 //!
 //! # GDI 截屏 unsafe 说明
-//! 按 AGENTS.md 约定：必须用 unsafe 时集中隔离、逐函数注释安全依据。
+//! 本仓约定（本模块自述即为口径来源，不依赖任何未随仓库分发的文档）：必须用 unsafe 时
+//! 集中隔离、逐函数注释安全依据。
 //! `capture_region` 是本模块唯一 unsafe 块（GDI/COM API 本质是 unsafe FFI）。
 
 use std::io::Read;
