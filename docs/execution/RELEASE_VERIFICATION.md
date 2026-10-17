@@ -90,3 +90,29 @@ curl -sI https://raw.githubusercontent.com/ReSerendipity/SpiritPal/main/updates.
 
 发布前在 N 卡机器跑上述项并记录结果；任一项超阈值需修复后才可发版（T-08 门禁的本地等价物）。
 实测记录已由 AI 于 2026-09-11 在本机完成（结果 JSON 存 perf/results/，按 .gitignore 不入库）。
+
+## 五、标签命名约定：发布标签 vs 检查点标签（2026-10-17 立，Better Harness finding `checkpoint-tags-share-the-release-tag-namespace`）
+
+**为什么需要这一节**：`.github/workflows/release.yml`、`sbom.yml`、`verify-release-version.yml` 都以
+`on.push.tags: 'v*'` 为触发条件。而本仓在用的**协议检查点标签**恰好也是 `v` 前缀，两个命名空间相撞。
+
+实测取证（2026-10-17，全部只读）：
+
+| 事实 | 数值 |
+| --- | --- |
+| 本地标签总数 | 19 |
+| 其中匹配 `v*` | 14 —— 除 `v0.1.0` 外全为检查点：`v29-p1-1` … `v29-p1-12`、`v29-wb-start`（13 枚） |
+| 检查点标签与 main 的关系 | `git merge-base --is-ancestor v29-p1-1 origin/main` → **非祖先**；`git branch -a --contains` 只命中 `salvage/other-agent-frontend-p1` |
+| 远端 `refs/tags` 实有 | 6 枚：`v0.1.0` + 5 枚 `rollback/*`（`rollback/after-p0-20260910` 等）——**13 枚 `v29-*` 从未推送**，该坑尚未踩到 |
+| 远端 releases | 仅 `v0.1.0` |
+
+**约定（自本日起）**：
+
+1. **发布标签** = `v<package.json 的 version>`，必须与之逐字一致（第 4 处版本真相）。
+2. **协议检查点 / 回滚锚一类非发版标签一律使用不匹配 `v*` 的前缀**。仓内已有现成先例：`rollback/*`（5 枚已在远端）；新增检查点建议用 `checkpoint/*`，例如 `checkpoint/p1-6`。
+3. 机器拦截已就位：`release.yml` 的 `Verify release tag matches package version` 步骤在**任何 release 创建/上传动作之前**判定「tag == v<package.json version>」，不一致即 `exit 1`。它与独立的 `verify-release-version.yml` 同口径——后者是独立 workflow，跨 workflow 无法 `needs` 阻断发布，所以发布链自证一次。
+
+**明确未采纳的两个方案与理由**（避免下一个人重新踩）：
+
+- 不改三个 workflow 的 `on.push.tags` 匹配式：收紧模式有可能连带挡住未来真正的发版标签形态，属更大的面。
+- 不重写本地那 13 枚 `v29-*` 标签：它们是历史检查点证据（承载 `salvage/*` 分支上的提交），改名/删除会破坏既有证据链；而它们从未进入远端，不构成现实风险。
