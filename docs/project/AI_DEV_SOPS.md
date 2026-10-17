@@ -20,12 +20,12 @@
 **适用条件**：前端需要访问 Rust 端才能做的操作（加密写库、改系统托盘、写文件）
 
 **步骤**：
-1. `src-tauri/src/types.rs` 加入参 + 出参 struct：
+1. 入参 + 出参 struct（注：2026-10-17 源码核实原写法 src-tauri/src/types.rs 已不存在；现无集中类型模块，struct 与各命令同文件就地定义，如 `src-tauri/src/petmod.rs` 的 `ImportPetmodResult` 与 `src-tauri/src/commands/window.rs` 的窗口命令）：
    ```rust
    #[derive(Debug, Serialize, Deserialize)]
    pub struct HugResult { pub mood_delta: i32, pub new_total: i32 }
    ```
-2. `src-tauri/src/commands/pet.rs` 写函数：
+2. 写 `#[tauri::command]` 函数（注：2026-10-17 源码核实 src-tauri/src/commands/pet.rs 已不存在；`src-tauri/src/commands/` 现仅有 `mod.rs` 与 `window.rs`，宠物/模组类命令按模块就近放在 `src-tauri/src/petmod.rs`、`src-tauri/src/sqlite.rs` 等文件内）：
    ```rust
    #[tauri::command]
    pub async fn cmd_pet_hug(app: tauri::AppHandle, pet_id: &str, strength: u8) -> Result<HugResult, String> {
@@ -36,7 +36,7 @@
    }
    ```
 3. `src-tauri/src/lib.rs` 的 `Builder::default().invoke_handler(tauri::generate_handler![...])` 里 **把新函数名加进去**（不加的话前端 invoke 会报「command not found」，调试半小时的经典坑）
-4. 前端 `src/lib/ipcTypes.ts` 加常量 + 类型：（注：2026-09-12 源码核实该文件已不存在，IPC 契约现由 `src/**/ipcContract.test.ts` 守护，无独立 types 文件）
+4. 前端 src/lib/ipcTypes.ts（历史路径）加常量 + 类型：（注：2026-09-12 源码核实该文件已不存在，IPC 契约现由 `src/**/ipcContract.test.ts` 守护，无独立 types 文件）
    ```ts
    export const CMD_PET_HUG = "spiritpal:pet_hug" as const
    export interface HugResult { mood_delta: number; new_total: number }
@@ -46,7 +46,7 @@
 7. **最后一步**（见 §7.1 Build After Code Changes）：`pnpm build` → 产物复制到 `artifacts/` → 手动点一下验证「撸猫」按钮真的加了好感度。
 
 #### SOP-2: 新增一个 Zustand Store（如新增 achievementStore：成就系统）
-1. 新建 `src/stores/achievementStore.ts`：
+1. 成就系统落点（注：2026-10-17 源码核实原写法 src/stores/achievementStore.ts 不存在；实际由 `src/lib/nurture/achievementSystem.ts` 承载，UI 见 `src/components/AchievementPanel.tsx` 与 `src/mobile/MobileAchievementView.tsx`）：
    ```ts
    import { create } from "zustand"
    import { persist, createJSONStorage } from "zustand/middleware"
@@ -74,7 +74,7 @@
      )
    )
    ```
-2. `src/lib/data/types.ts` 加 `AchievementDef` / `UnlockedAchievement` 类型定义（同步改 `src-tauri/src/types.rs` 如果 Rust 端也要读）
+2. `src/lib/data/types.ts` 加 `AchievementDef` / `UnlockedAchievement` 类型定义（如需 Rust 侧读取：注：2026-10-17 源码核实 src-tauri/src/types.rs 已不存在，Rust 端类型随命令就地定义）
 3. Vitest 测试：4 个最小用例（初始空、unlock 加、重复 unlock 幂等、reset 清空）
 4. 如果 store 里字段要参与 Rust 端 backup/restore 流程 → 同步改 `commands/backup.rs` 的 schema。
 
@@ -85,14 +85,14 @@
 1. 把新的 Live2D 模型文件（`.model3.json` + `.moc3` + 贴图 + 动作 motion3.json）放到 `public/assets/live2d/<model>/` 目录（例：`miko`）
 2. `src/lib/data/types.ts` 的 `PetSpecies` enum 加 `miko: "fox"` 变体（同步 Rust `types.rs`）
 3. `src/stores/petStore.ts` 初始化 `availablePets` 数组里加一条 `{ id: "miko-001", species: "fox", name: "Miko", modelPath: "/assets/live2d/<model>/<model>.model3.json" }`（路径与步骤 1 实际放置的模型目录一致）
-4. `src/lib/petBehaviorEngine.ts` 的 FSM 表里加一条 fox 物种的专属动作映射（注：2026-09-12 源码核实该文件名已不存在，行为引擎现位于 `src/lib/ai/behaviorEngine.ts`）（fox 兴奋时触发 `motion("jump")` 而不是 `motion("wag_tail")`，dog 才 wag tail）
+4. src/lib/petBehaviorEngine.ts（历史文件名）的 FSM 表里加一条 fox 物种的专属动作映射（注：2026-09-12 源码核实该文件名已不存在，行为引擎现位于 `src/lib/ai/behaviorEngine.ts`）（fox 兴奋时触发 `motion("jump")` 而不是 `motion("wag_tail")`，dog 才 wag tail）
 5. **测试**：pnpm dev → 启动后设置里选 Miko → 手动验证：Idle 动画循环正常、点她触发 tap motion、表情切换正常（happy/sad）
 6. 性能验证：打开「性能统计面板」(devtools)，确保 Miko FPS 稳定 30 且 30 分钟不泄漏内存（`pnpm test:perf` 单独跑）
 7. 翻译补充：每种语言的 `pet_window.default_name_miko` key 补上（「Miko / 美子 / ミコ」等）→ 跑 `pnpm i18n:check`
 
 #### SOP-4: 新增一项设置
 1. `src/lib/data/types.ts` 的 `Settings` interface 加字段（例：`pet_autostart_on_login: boolean` = 开机自启开关）
-2. Rust 端 `src-tauri/src/types.rs` 的 Settings struct 同步加
+2. Rust 端同步（注：2026-10-17 源码核实 Rust 端已无 Settings struct、也不存在 src-tauri/src/types.rs；设置以键值形式经 `src-tauri/src/sqlite.rs` 的 `sp_settings_get` / `sp_settings_set` 持久化，单一来源在前端 `src/stores/settingsStore.ts`）
 3. `src/stores/settingsStore.ts` 的 default 初始值 + 加 `setPetAutostartOnLogin(v: boolean)` action
 4. 前端 `components/settings/GeneralSettings.tsx` 加 UI（Switch / Dropdown），UI 必须走 SpiritPal UI Kit（`BrandSwitch` 组件，不许原生 `<input type=checkbox>`）
 5. **如果涉及 OS 能力**（如开机自启 = 写 Windows Registry / macOS LaunchAgents）→ 同步写一个 Rust command `cmd_settings_set_autostart(enabled: bool)`，action 内部调这个 command 而不是直接 localStorage

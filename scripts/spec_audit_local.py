@@ -50,6 +50,11 @@ ASSERTIVE_PREFIXES = (
 GOVERNANCE_DOCS = (
     "AGENTS.md", "README.md", ".github/SECURITY.md",
     ".github/PULL_REQUEST_TEMPLATE.md", ".githooks/README.md",
+    # 2026-10-17 扩集（Better Harness finding local-governance-layer-refs-dangling / P3）：
+    # 公开层典型 AI 开发 SOP 内联代码里写的仓库路径同样是「事实声明」，此前从不被审计，
+    # 结果 5 条 phantom（src-tauri/src/types.rs、commands/pet.rs、src/stores/achievementStore.ts 等）
+    # 长期无人点名。扩集前已按「源码核实」惯例把它们补正到位。
+    "docs/project/AI_DEV_SOPS.md",
 )
 
 # Tier A extraction: only lines that really execute something. Without the
