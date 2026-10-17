@@ -18,13 +18,26 @@ dependency-vuln-scan job 每次 push / PR 都会运行，但三个审计步骤�
 ------------------------------------
 npm_critical=0 / npm_high=0：历史高点（gh-pages 经 pixi-live2d-display 引入、
 protobufjs）已由上游修复，2026-09-20 按棘轮约定回写收紧到实测值 0。
-cargo_vulns=1：Cargo.lock 681 个 package 中 1 个命中——
-  RUSTSEC-2026-0235 / rkyv 0.7.46。它**不进构建图、不会被编译**：
-    cargo tree --workspace --target all -e normal,build,dev   # rkyv 出现 0 次
-  链路 tauri-plugin-log → byte-unit 5.2.5 → rust_decimal 1.42.1 之下没有 rkyv
-  （rust_decimal 的 rkyv feature 未启用）。Cargo.lock 会记录可选依赖，而
-  cargo-audit 逐行扫 lockfile，于是报出一个不在构建图中的 crate。
-  这不是「接受风险」，是度量口径差异 —— 别把它当已评估过的可容忍漏洞。
+cargo_vulns=7（2026-10-17 人工复核后回写；原值 1）：
+  RustSec 库于 2026-10-17 新增 3 条 zip 提取类公告（RUSTSEC-2026-0367/0368/0369，
+  均只作用于 `ZipArchive::extract()`），同时命中树内两个 zip 版本
+  （0.6.6 直接依赖 / 4.6.1 经 tauri-plugin-updater），叠加原有的 rkyv 幻影条目 = 7 条。
+  **七条的 patched_versions 全为空** —— 上游尚无修复版，升依赖修不掉
+  （zip 0.6 升到 4.x 后仍剩 3 条），故只能回写基线。逐条复核结论：
+
+  * RUSTSEC-2026-0235 / rkyv 0.7.46 —— **幻影条目，不进构建图、不编译**：
+      cargo tree -i rkyv            # 无输出（rust_decimal 的 rkyv feature 未启用）
+    Cargo.lock 记录可选依赖、cargo-audit 逐行扫 lockfile，属度量口径差异；
+  * RUSTSEC-2026-0367/0368/0369 / zip 0.6.6 —— **本仓不可达**：
+    三条的共同前提是调用 `ZipArchive::extract()`（SUID/SGID 保留、符号链接逃逸、
+    经符号链接写权限）。而 `src/petmod.rs::extract_zip_to()` 是手写逐条目解压 ——
+    `enclosed_name()` 挡 zip-slip，`File::create` + `io::copy` 写普通文件，
+    **从不调用 extract()、不设 Unix 权限、不创建符号链接**；
+  * 同三条 / zip 4.6.1 —— 传递依赖（tauri-plugin-updater），走上游代码路径；
+    更新包需本仓私钥签名后才下发，攻击面限于已签名包。
+
+  结论：这是「上游无补丁 + 本仓不可达」的组合，**不是**「接受了 7 个可利用漏洞」。
+  上游发布修复版后必须立刻升级，并把基线降回实测值（棘轮只降不升的方向不变）。
 基线入库后，**新增**任何高危漏洞都会让 CI 变红。
 
 用法
