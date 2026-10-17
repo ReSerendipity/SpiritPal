@@ -1759,76 +1759,87 @@ fn sp_entity_clear_impl(conn: &Connection, character_id: &str) -> Result<(), Str
 
 #[tauri::command]
 pub async fn sp_mods_save(app: AppHandle, row: JsonValue) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        let now = chrono::Utc::now().timestamp_millis();
-        exec(
-            conn,
-            "INSERT INTO mods (id, name, version, config, enabled, installed_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-             ON CONFLICT(id) DO UPDATE SET name = ?2, version = ?3, config = ?4, enabled = ?5",
-            &[
-                sq(&gs(&row, "id").ok_or("缺少 id")?),
-                sq(&gs(&row, "name").ok_or("缺少 name")?),
-                gs(&row, "version").map(|s| sq(&s)).unwrap_or(sqn()),
-                sq(&gs(&row, "config").unwrap_or_else(|| "{}".to_string())),
-                sqi(if gbool(&row, "enabled").unwrap_or(true) {
-                    1
-                } else {
-                    0
-                }),
-                sqi(gi(&row, "installed_at").unwrap_or(now)),
-            ],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_mods_save_impl(conn, &row)).await
+}
+
+fn sp_mods_save_impl(conn: &Connection, row: &JsonValue) -> Result<(), String> {
+    let now = chrono::Utc::now().timestamp_millis();
+    exec(
+        conn,
+        "INSERT INTO mods (id, name, version, config, enabled, installed_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+         ON CONFLICT(id) DO UPDATE SET name = ?2, version = ?3, config = ?4, enabled = ?5",
+        &[
+            sq(&gs(row, "id").ok_or("缺少 id")?),
+            sq(&gs(row, "name").ok_or("缺少 name")?),
+            gs(row, "version").map(|s| sq(&s)).unwrap_or(sqn()),
+            sq(&gs(row, "config").unwrap_or_else(|| "{}".to_string())),
+            sqi(if gbool(row, "enabled").unwrap_or(true) {
+                1
+            } else {
+                0
+            }),
+            sqi(gi(row, "installed_at").unwrap_or(now)),
+        ],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_mods_list(app: AppHandle) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, |conn| json_rows(conn, "SELECT * FROM mods", &[])).await
+    with_conn(app, |conn| sp_mods_list_impl(conn)).await
+}
+
+fn sp_mods_list_impl(conn: &Connection) -> Result<Vec<JsonValue>, String> {
+    json_rows(conn, "SELECT * FROM mods", &[])
 }
 
 #[tauri::command]
 pub async fn sp_mods_delete(app: AppHandle, id: String) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(conn, "DELETE FROM mods WHERE id = ?1", &[sq(&id)])?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_mods_delete_impl(conn, &id)).await
+}
+
+fn sp_mods_delete_impl(conn: &Connection, id: &str) -> Result<(), String> {
+    exec(conn, "DELETE FROM mods WHERE id = ?1", &[sq(id)])?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_mods_set_enabled(app: AppHandle, id: String, enabled: bool) -> Result<(), String> {
     with_conn(app, move |conn| {
-        exec(
-            conn,
-            "UPDATE mods SET enabled = ?1 WHERE id = ?2",
-            &[sqi(if enabled { 1 } else { 0 }), sq(&id)],
-        )?;
-        Ok(())
+        sp_mods_set_enabled_impl(conn, &id, enabled)
     })
     .await
 }
 
+fn sp_mods_set_enabled_impl(conn: &Connection, id: &str, enabled: bool) -> Result<(), String> {
+    exec(
+        conn,
+        "UPDATE mods SET enabled = ?1 WHERE id = ?2",
+        &[sqi(if enabled { 1 } else { 0 }), sq(id)],
+    )?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn sp_inventory_save(app: AppHandle, item: JsonValue) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "INSERT INTO inventory (id, item_id, quantity, character_id)
-             VALUES (?1, ?2, ?3, ?4)
-             ON CONFLICT(id) DO UPDATE SET item_id = ?2, quantity = ?3, character_id = ?4",
-            &[
-                sq(&gs(&item, "id").ok_or("缺少 id")?),
-                sq(&gs(&item, "item_id").ok_or("缺少 item_id")?),
-                sqi(gi(&item, "quantity").unwrap_or(1)),
-                gs(&item, "character_id").map(|s| sq(&s)).unwrap_or(sqn()),
-            ],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_inventory_save_impl(conn, &item)).await
+}
+
+fn sp_inventory_save_impl(conn: &Connection, item: &JsonValue) -> Result<(), String> {
+    exec(
+        conn,
+        "INSERT INTO inventory (id, item_id, quantity, character_id)
+         VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(id) DO UPDATE SET item_id = ?2, quantity = ?3, character_id = ?4",
+        &[
+            sq(&gs(item, "id").ok_or("缺少 id")?),
+            sq(&gs(item, "item_id").ok_or("缺少 item_id")?),
+            sqi(gi(item, "quantity").unwrap_or(1)),
+            gs(item, "character_id").map(|s| sq(&s)).unwrap_or(sqn()),
+        ],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1837,56 +1848,66 @@ pub async fn sp_inventory_list(
     character_id: Option<String>,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        json_rows(
-            conn,
-            "SELECT * FROM inventory WHERE (?1 IS NULL OR character_id = ?1 OR character_id IS NULL)",
-            &[character_id.map(|s| sq(&s)).unwrap_or(sqn())],
-        )
+        sp_inventory_list_impl(conn, character_id.as_deref())
     })
     .await
+}
+
+fn sp_inventory_list_impl(
+    conn: &Connection,
+    character_id: Option<&str>,
+) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT * FROM inventory WHERE (?1 IS NULL OR character_id = ?1 OR character_id IS NULL)",
+        &[character_id.map(sq).unwrap_or(sqn())],
+    )
 }
 
 #[tauri::command]
 pub async fn sp_schedules_save(app: AppHandle, schedule: JsonValue) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(
-            conn,
-            "INSERT INTO schedules (id, title, time, repeat, completed)
-             VALUES (?1, ?2, ?3, ?4, ?5)
-             ON CONFLICT(id) DO UPDATE SET title = ?2, time = ?3, repeat = ?4, completed = ?5",
-            &[
-                sq(&gs(&schedule, "id").ok_or("缺少 id")?),
-                sq(&gs(&schedule, "title").ok_or("缺少 title")?),
-                sqi(gi(&schedule, "time").unwrap_or(0)),
-                gs(&schedule, "repeat").map(|s| sq(&s)).unwrap_or(sqn()),
-                sqi(if gbool(&schedule, "completed").unwrap_or(false) {
-                    1
-                } else {
-                    0
-                }),
-            ],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_schedules_save_impl(conn, &schedule)).await
+}
+
+fn sp_schedules_save_impl(conn: &Connection, schedule: &JsonValue) -> Result<(), String> {
+    exec(
+        conn,
+        "INSERT INTO schedules (id, title, time, repeat, completed)
+         VALUES (?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(id) DO UPDATE SET title = ?2, time = ?3, repeat = ?4, completed = ?5",
+        &[
+            sq(&gs(schedule, "id").ok_or("缺少 id")?),
+            sq(&gs(schedule, "title").ok_or("缺少 title")?),
+            sqi(gi(schedule, "time").unwrap_or(0)),
+            gs(schedule, "repeat").map(|s| sq(&s)).unwrap_or(sqn()),
+            sqi(if gbool(schedule, "completed").unwrap_or(false) {
+                1
+            } else {
+                0
+            }),
+        ],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn sp_schedules_list(app: AppHandle) -> Result<Vec<JsonValue>, String> {
-    with_conn(app, move |conn| {
-        json_rows(conn, "SELECT * FROM schedules ORDER BY time ASC", &[])
-    })
-    .await
+    with_conn(app, move |conn| sp_schedules_list_impl(conn)).await
+}
+
+fn sp_schedules_list_impl(conn: &Connection) -> Result<Vec<JsonValue>, String> {
+    json_rows(conn, "SELECT * FROM schedules ORDER BY time ASC", &[])
 }
 
 /// 删除指定日程（P3-1 收尾：scheduleManager.removeEvent 镜像删除，避免 DB 残留行复活）
 #[tauri::command]
 pub async fn sp_schedules_delete(app: AppHandle, id: String) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        exec(conn, "DELETE FROM schedules WHERE id = ?1", &[sq(&id)])?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_schedules_delete_impl(conn, &id)).await
+}
+
+fn sp_schedules_delete_impl(conn: &Connection, id: &str) -> Result<(), String> {
+    exec(conn, "DELETE FROM schedules WHERE id = ?1", &[sq(id)])?;
+    Ok(())
 }
 
 // ============ 健康检查 / 完整性 / 快照（healthCheck / dbBackup） ============
@@ -1894,22 +1915,23 @@ pub async fn sp_schedules_delete(app: AppHandle, id: String) -> Result<(), Strin
 /// PRAGMA integrity_check 全量行（健康检查 / 启动完整性探针）
 #[tauri::command]
 pub async fn sp_db_integrity(app: AppHandle) -> Result<Vec<String>, String> {
-    with_conn(app, move |conn| {
-        let rows = json_rows(
-            conn,
-            "SELECT integrity_check FROM pragma_integrity_check",
-            &[],
-        )?;
-        Ok(rows
-            .iter()
-            .filter_map(|r| {
-                r.get("integrity_check")
-                    .and_then(JsonValue::as_str)
-                    .map(String::from)
-            })
-            .collect())
-    })
-    .await
+    with_conn(app, move |conn| sp_db_integrity_impl(conn)).await
+}
+
+fn sp_db_integrity_impl(conn: &Connection) -> Result<Vec<String>, String> {
+    let rows = json_rows(
+        conn,
+        "SELECT integrity_check FROM pragma_integrity_check",
+        &[],
+    )?;
+    Ok(rows
+        .iter()
+        .filter_map(|r| {
+            r.get("integrity_check")
+                .and_then(JsonValue::as_str)
+                .map(String::from)
+        })
+        .collect())
 }
 
 /// 表级全量快照（dbBackup.exportDatabaseSnapshot；表名来自编译期白名单）
@@ -1933,23 +1955,24 @@ const SNAPSHOT_TABLES: &[&str] = &[
 
 #[tauri::command]
 pub async fn sp_db_snapshot(app: AppHandle) -> Result<Map<String, JsonValue>, String> {
-    with_conn(app, move |conn| {
-        let mut out = Map::new();
-        for t in SNAPSHOT_TABLES {
-            // t 来自编译期常量白名单 → 无注入
-            let sql = format!("SELECT * FROM \"{t}\"");
-            match json_rows(conn, &sql, &[]) {
-                Ok(rows) => {
-                    out.insert(t.to_string(), JsonValue::Array(rows));
-                }
-                Err(_) => {
-                    out.insert(t.to_string(), JsonValue::Array(vec![]));
-                }
+    with_conn(app, move |conn| sp_db_snapshot_impl(conn)).await
+}
+
+fn sp_db_snapshot_impl(conn: &Connection) -> Result<Map<String, JsonValue>, String> {
+    let mut out = Map::new();
+    for t in SNAPSHOT_TABLES {
+        // t 来自编译期常量白名单 → 无注入
+        let sql = format!("SELECT * FROM \"{t}\"");
+        match json_rows(conn, &sql, &[]) {
+            Ok(rows) => {
+                out.insert(t.to_string(), JsonValue::Array(rows));
+            }
+            Err(_) => {
+                out.insert(t.to_string(), JsonValue::Array(vec![]));
             }
         }
-        Ok(out)
-    })
-    .await
+    }
+    Ok(out)
 }
 
 // ============ settings 通用（memoryMigrator / zombieDataCleanup） ============
@@ -1957,39 +1980,41 @@ pub async fn sp_db_snapshot(app: AppHandle) -> Result<Map<String, JsonValue>, St
 /// 按 LIKE 模式返回 settings 键列表（pattern 为参数，非拼接）
 #[tauri::command]
 pub async fn sp_settings_keys(app: AppHandle, pattern: String) -> Result<Vec<String>, String> {
-    with_conn(app, move |conn| {
-        let rows = json_rows(
-            conn,
-            "SELECT key FROM settings WHERE key LIKE ?1 ORDER BY key ASC",
-            &[sq(&pattern)],
-        )?;
-        Ok(rows
-            .iter()
-            .filter_map(|r| r.get("key").and_then(JsonValue::as_str).map(String::from))
-            .collect())
-    })
-    .await
+    with_conn(app, move |conn| sp_settings_keys_impl(conn, &pattern)).await
+}
+
+fn sp_settings_keys_impl(conn: &Connection, pattern: &str) -> Result<Vec<String>, String> {
+    let rows = json_rows(
+        conn,
+        "SELECT key FROM settings WHERE key LIKE ?1 ORDER BY key ASC",
+        &[sq(pattern)],
+    )?;
+    Ok(rows
+        .iter()
+        .filter_map(|r| r.get("key").and_then(JsonValue::as_str).map(String::from))
+        .collect())
 }
 
 // ============ 全量清空（dataManager.resetAll，GDPR） ============
 
 #[tauri::command]
 pub async fn sp_db_purge(app: AppHandle) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        let _ = exec(conn, "DELETE FROM memories", &[]);
-        let _ = exec(conn, "DELETE FROM commitments", &[]);
-        let _ = exec(conn, "DELETE FROM context_episodes", &[]);
-        let _ = exec(
-            conn,
-            "DELETE FROM settings WHERE key LIKE 'spiritpal:%'",
-            &[],
-        );
-        let _ = exec(conn, "DELETE FROM schedules", &[]);
-        let _ = exec(conn, "DELETE FROM memory_entity_edges", &[]);
-        let _ = exec(conn, "DELETE FROM memory_entities", &[]);
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_db_purge_impl(conn)).await
+}
+
+fn sp_db_purge_impl(conn: &Connection) -> Result<(), String> {
+    let _ = exec(conn, "DELETE FROM memories", &[]);
+    let _ = exec(conn, "DELETE FROM commitments", &[]);
+    let _ = exec(conn, "DELETE FROM context_episodes", &[]);
+    let _ = exec(
+        conn,
+        "DELETE FROM settings WHERE key LIKE 'spiritpal:%'",
+        &[],
+    );
+    let _ = exec(conn, "DELETE FROM schedules", &[]);
+    let _ = exec(conn, "DELETE FROM memory_entity_edges", &[]);
+    let _ = exec(conn, "DELETE FROM memory_entities", &[]);
+    Ok(())
 }
 
 // ============ commitments（commitmentTracker） ============
@@ -3961,5 +3986,200 @@ mod tests {
 
         sp_entity_clear_impl(&conn, "c1").unwrap();
         assert!(sp_entity_list_impl(&conn, "c1").unwrap().is_empty());
+    }
+
+    // ===== 第四批：mods / inventory / schedules / 完整性 / 快照 / purge =====
+
+    fn row_by_id<'a>(rows: &'a [JsonValue], id: &str) -> &'a JsonValue {
+        rows.iter()
+            .find(|r| r["id"] == json!(id))
+            .unwrap_or_else(|| panic!("未找到 id={id} 的行"))
+    }
+
+    #[test]
+    fn test_mods_impl_save_upsert_enable_delete() {
+        let conn = mem_conn();
+        sp_mods_save_impl(&conn, &json!({"id":"m1","name":"猫咪语音包"})).unwrap();
+        sp_mods_save_impl(
+            &conn,
+            &json!({"id":"m2","name":"天气插件","version":"1.2","enabled":false}),
+        )
+        .unwrap();
+
+        let rows = sp_mods_list_impl(&conn).unwrap();
+        assert_eq!(rows.len(), 2);
+        // 缺省：config="{}"、enabled=1、version=NULL
+        assert_eq!(row_by_id(&rows, "m1")["config"], json!("{}"));
+        assert_eq!(row_by_id(&rows, "m1")["enabled"], json!(1));
+        assert_eq!(row_by_id(&rows, "m1")["version"], json!(null));
+        assert_eq!(row_by_id(&rows, "m2")["enabled"], json!(0));
+
+        // upsert：覆盖 name/version/config/enabled，但 installed_at 不在更新列里
+        let installed_at = row_by_id(&rows, "m1")["installed_at"].clone();
+        sp_mods_save_impl(
+            &conn,
+            &json!({"id":"m1","name":"改名","config":"{\"k\":1}","enabled":false}),
+        )
+        .unwrap();
+        let rows = sp_mods_list_impl(&conn).unwrap();
+        assert_eq!(rows.len(), 2, "同 id 不新增行");
+        assert_eq!(row_by_id(&rows, "m1")["name"], json!("改名"));
+        assert_eq!(row_by_id(&rows, "m1")["config"], json!("{\"k\":1}"));
+        assert_eq!(row_by_id(&rows, "m1")["enabled"], json!(0));
+        assert_eq!(
+            row_by_id(&rows, "m1")["installed_at"],
+            installed_at,
+            "installed_at 不在 ON CONFLICT 更新列里"
+        );
+
+        sp_mods_set_enabled_impl(&conn, "m1", true).unwrap();
+        let rows = sp_mods_list_impl(&conn).unwrap();
+        assert_eq!(row_by_id(&rows, "m1")["enabled"], json!(1));
+
+        // 必填校验
+        assert!(sp_mods_save_impl(&conn, &json!({"name":"缺 id"})).is_err());
+        assert!(sp_mods_save_impl(&conn, &json!({"id":"x"})).is_err());
+
+        sp_mods_delete_impl(&conn, "m2").unwrap();
+        assert_eq!(sp_mods_list_impl(&conn).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_inventory_impl_save_and_scope_filter() {
+        let conn = mem_conn();
+        // inventory.character_id 有 FK → characters(id)，先建角色
+        sp_char_save_stats_impl(&conn, "c1", "{}").unwrap();
+        sp_char_save_stats_impl(&conn, "c2", "{}").unwrap();
+        sp_inventory_save_impl(
+            &conn,
+            &json!({"id":"i1","item_id":"fish","quantity":3,"character_id":"c1"}),
+        )
+        .unwrap();
+        // quantity 缺省 1、character_id 缺省 NULL（全局物品）
+        sp_inventory_save_impl(&conn, &json!({"id":"i2","item_id":"ball"})).unwrap();
+        sp_inventory_save_impl(
+            &conn,
+            &json!({"id":"i3","item_id":"milk","character_id":"c2"}),
+        )
+        .unwrap();
+
+        assert_eq!(sp_inventory_list_impl(&conn, None).unwrap().len(), 3);
+        // 按角色：自己的 + 全局（character_id IS NULL）
+        let c1 = sp_inventory_list_impl(&conn, Some("c1")).unwrap();
+        assert_eq!(c1.len(), 2, "应含本角色物品与全局物品");
+        assert!(c1.iter().any(|r| r["id"] == json!("i2")));
+        assert!(!c1.iter().any(|r| r["id"] == json!("i3")));
+
+        // upsert 覆盖数量
+        sp_inventory_save_impl(
+            &conn,
+            &json!({"id":"i1","item_id":"fish","quantity":9,"character_id":"c1"}),
+        )
+        .unwrap();
+        let all = sp_inventory_list_impl(&conn, None).unwrap();
+        assert_eq!(all.len(), 3, "同 id 不新增行");
+        assert_eq!(row_by_id(&all, "i1")["quantity"], json!(9));
+        assert_eq!(row_by_id(&all, "i2")["quantity"], json!(1), "缺省 1");
+
+        assert!(sp_inventory_save_impl(&conn, &json!({"id":"i4"})).is_err());
+    }
+
+    #[test]
+    fn test_schedules_impl_save_list_delete() {
+        let conn = mem_conn();
+        sp_schedules_save_impl(&conn, &json!({"id":"s1","title":"喂猫","time":200})).unwrap();
+        sp_schedules_save_impl(
+            &conn,
+            &json!({"id":"s2","title":"铲屎","time":100,"repeat":"daily"}),
+        )
+        .unwrap();
+
+        let rows = sp_schedules_list_impl(&conn).unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0]["id"], json!("s2"), "按 time ASC");
+        assert_eq!(rows[0]["repeat"], json!("daily"));
+        assert_eq!(rows[1]["repeat"], json!(null));
+        assert_eq!(rows[1]["completed"], json!(0), "缺省 false");
+
+        sp_schedules_save_impl(
+            &conn,
+            &json!({"id":"s1","title":"喂猫(改)","time":300,"completed":true}),
+        )
+        .unwrap();
+        let rows = sp_schedules_list_impl(&conn).unwrap();
+        assert_eq!(rows.len(), 2, "同 id 不新增行");
+        assert_eq!(row_by_id(&rows, "s1")["title"], json!("喂猫(改)"));
+        assert_eq!(row_by_id(&rows, "s1")["completed"], json!(1));
+
+        assert!(sp_schedules_save_impl(&conn, &json!({"id":"s3"})).is_err());
+
+        sp_schedules_delete_impl(&conn, "s1").unwrap();
+        assert_eq!(sp_schedules_list_impl(&conn).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_db_integrity_and_snapshot_impl() {
+        let conn = mem_conn();
+        assert_eq!(
+            sp_db_integrity_impl(&conn).unwrap(),
+            vec!["ok".to_string()],
+            "内存库 integrity_check 应为 ok"
+        );
+
+        let snap = sp_db_snapshot_impl(&conn).unwrap();
+        assert_eq!(snap.len(), SNAPSHOT_TABLES.len(), "快照应覆盖全部白名单表");
+        for t in SNAPSHOT_TABLES {
+            assert!(snap.contains_key(*t), "快照缺表: {t}");
+            assert!(snap[*t].is_array(), "表 {t} 的快照应为数组");
+        }
+
+        // 有数据时快照带行
+        sp_settings_set_impl(&conn, "k", "v").unwrap();
+        let snap = sp_db_snapshot_impl(&conn).unwrap();
+        assert_eq!(snap["settings"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_settings_keys_impl_like_pattern() {
+        let conn = mem_conn();
+        for k in ["spiritpal:a", "spiritpal:b", "other:c"] {
+            sp_settings_set_impl(&conn, k, "v").unwrap();
+        }
+        assert_eq!(
+            sp_settings_keys_impl(&conn, "spiritpal:%").unwrap(),
+            vec!["spiritpal:a".to_string(), "spiritpal:b".to_string()],
+            "应按 key ASC 且只命中前缀"
+        );
+        assert!(sp_settings_keys_impl(&conn, "none:%").unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_db_purge_impl_clears_selected_tables_only() {
+        let conn = mem_conn();
+        sp_mem_add_impl(&conn, "c1", "episodic", "a", None).unwrap();
+        sp_commitments_insert_impl(&conn, "c1", "x", "assistant", None, None, None).unwrap();
+        sp_ctx_insert_impl(&conn, "c1", 1, None, None, None, None).unwrap();
+        sp_schedules_save_impl(&conn, &json!({"id":"s1","title":"t"})).unwrap();
+        sp_settings_set_impl(&conn, "spiritpal:a", "1").unwrap();
+        sp_settings_set_impl(&conn, "other:b", "2").unwrap();
+        sp_entitygraph_upsert_node_impl(&conn, "小橘", "cat", "m1", "ent-1", 100, None).unwrap();
+
+        sp_db_purge_impl(&conn).unwrap();
+
+        assert!(sp_mem_list_impl(&conn, "c1", None).unwrap().is_empty());
+        assert!(sp_commitments_list_impl(&conn, "c1").unwrap().is_empty());
+        assert!(sp_ctx_list_impl(&conn, "c1", 0, None).unwrap().is_empty());
+        assert!(sp_schedules_list_impl(&conn).unwrap().is_empty());
+        assert!(
+            sp_entitygraph_find_by_names_impl(&conn, &["小橘".to_string()])
+                .unwrap()
+                .is_empty()
+        );
+        // settings 只清 spiritpal: 前缀，别的前缀必须保留
+        assert_eq!(sp_settings_get_impl(&conn, "spiritpal:a").unwrap(), None);
+        assert_eq!(
+            sp_settings_get_impl(&conn, "other:b").unwrap().as_deref(),
+            Some("2")
+        );
     }
 }
