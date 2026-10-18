@@ -254,3 +254,17 @@ pub fn setup_desktop_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
 
     Ok(())
 }
+
+#[cfg(all(test, desktop))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_setup_environment_sets_webkit_flag() {
+        setup_environment();
+        assert_eq!(
+            std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").as_deref(),
+            Ok("1")
+        );
+    }
+}
