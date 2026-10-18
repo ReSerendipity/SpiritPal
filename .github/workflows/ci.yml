@@ -323,7 +323,7 @@ jobs:
         run: cargo install cargo-tarpaulin --locked
 
       - name: Run cargo test with coverage
-        # 阈值：**2026-10-18 棘轮到 45.1**（实测 45.61%，1626/3565 行）。
+        # 阈值：**2026-10-18 棘轮到 45.7**（实测 46.23%，1648/3565 行）。
         #
         # 沿革与根因（依据：run 38935574591 的 tarpaulin 逐文件明细表）：
         # - 2026-09-08 首次真实测量 **21.49%**（当时分母不含 vendored 代码）；
@@ -357,13 +357,15 @@ jobs:
         #   win32 0/37 → 11/37、mcp-server 0/63 → 48/64，总 **44.18%**（1575/3565）
         # - #144 错误路径（连接管理/解密畸形输入/监听停止/日志闸门）：sqlite 542/1008 → 560/1008、
         #   crypto 171/193 → 187/193、device 37/116 → 44/116、log_level 17/54 → 22/54，总 **45.61%**（1626/3565）
-        # 本次由 43.7 上调至 **45.1**（留 0.51 点余量防抖）。
+        # - #145 设备分档/工具探测/上传分类/非 UTF-8 解密：magic_check 29/31 → **31/31（满覆盖）**、
+        #   asset_pipeline 46/60 → 58/60、ondevice/mod 0/10 → 8/10，总 **46.23%**（1648/3565）
+        # 本次由 45.1 上调至 **45.7**（留 0.53 点余量防抖）。
         #
         # tarpaulin 无 branch 阈值参数（--fail-under-branches 直接报错），branches 维度以报告人工跟踪。
         run: |
           cargo tarpaulin --workspace --out lcov --output-dir coverage/ \
             --exclude-files 'patches/*' 'patches/**' 'src/generated/*' \
-            --fail-under 45.1 -- --test-threads=2
+            --fail-under 45.7 -- --test-threads=2
 
       - name: Run cargo fmt check
         run: cargo fmt --check
