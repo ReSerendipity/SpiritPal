@@ -1478,4 +1478,55 @@ mod p0_2_tests {
         assert!(resolve_path("/nonexistent/definitely/missing").is_err());
         assert!(resolve_path("/etc/hosts").is_err());
     }
+
+    // ============ 解析函数的成功 / 边界分支（此前只覆盖了 Err 路径）============
+
+    #[test]
+    fn test_resolve_path_accepts_normal_dir() {
+        // 正常目录必须放行，且返回的是 canonicalize 后的绝对路径
+        let tmp = std::env::temp_dir();
+        let resolved = resolve_path(tmp.to_str().unwrap()).expect("临时目录应可读");
+        assert!(resolved.is_absolute(), "应返回绝对路径: {:?}", resolved);
+        assert_eq!(
+            resolved,
+            std::fs::canonicalize(&tmp).expect("临时目录可 canonicalize")
+        );
+    }
+
+    #[test]
+    fn test_resolve_write_target_rejects_degenerate_paths() {
+        // 无文件名（"/" 的 parent 为 None）与空路径都要给明确报错，而不是 panic
+        let no_parent = resolve_write_target("/").unwrap_err();
+        assert!(no_parent.contains("父目录"), "实际报错: {no_parent}");
+
+        let empty = resolve_write_target("").unwrap_err();
+        assert!(
+            empty.contains("文件名") || empty.contains("父目录"),
+            "空路径应报缺文件名/父目录，实际: {empty}"
+        );
+    }
+
+    #[test]
+    fn test_resolve_command_rejects_unknown_and_removed_builtins() {
+        // 完全不在白名单里的命令：报错必须带上允许清单，前端才能提示可用命令
+        let unknown = resolve_command("totally-not-a-real-command")
+            .err()
+            .expect("白名单外命令必须被拒绝");
+        assert!(unknown.contains("不在只读白名单内"), "实际报错: {unknown}");
+        assert!(
+            unknown.contains("tasklist"),
+            "报错应列出允许命令: {unknown}"
+        );
+
+        // 历史 shell 内置命令（dir/type/echo…）同样不在白名单内，必须一律被拒。
+        // 注：`REMOVED_SHELL_BUILTINS` 的独立分支在当前 CMD_MAP 下不可达
+        // （两个集合无交集，白名单查找先返回 Err），属防御性死代码，
+        // 需另开 PR 决定删除还是合并到白名单校验里；此处只钉住对外「拒绝」行为。
+        for removed in ["dir", "type", "echo", "ver", "cat", "ps"] {
+            let e = resolve_command(removed)
+                .err()
+                .unwrap_or_else(|| panic!("{removed} 必须被拒绝"));
+            assert!(e.contains("不在只读白名单内"), "{removed} 实际报错: {e}");
+        }
+    }
 }
