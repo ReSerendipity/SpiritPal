@@ -1287,4 +1287,89 @@ mod tests {
             tauri::async_runtime::block_on(decrypt_data_chunked(ct, "pw".to_string())).unwrap();
         assert_eq!(pt, plain);
     }
+
+    // ============ 解密入口的错误分支（畸形 / 被篡改输入）============
+
+    /// 按 ENC1 旧格式手搓一份密文（nonce || ct+tag），base64 后加前缀
+    fn enc1_body(pwd: &str, plaintext: &[u8]) -> String {
+        let key = derive_aes_key(pwd);
+        let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key));
+        let mut nonce_bytes = [0u8; NONCE_LEN];
+        getrandom::getrandom(&mut nonce_bytes).unwrap();
+        let ciphertext = cipher
+            .encrypt(Nonce::from_slice(&nonce_bytes), plaintext)
+            .unwrap();
+        let mut combined = nonce_bytes.to_vec();
+        combined.extend_from_slice(&ciphertext);
+        format!(
+            "{}{}",
+            obfstr::obfstr!("ENC1:"),
+            general_purpose::STANDARD.encode(&combined)
+        )
+    }
+
+    #[test]
+    fn test_command_decrypt_rejects_malformed_inputs() {
+        const PWD: &str = "right-password";
+
+        // ① 非 base64 → 解码失败
+        assert!(tauri::async_runtime::block_on(decrypt_data(
+            "ENC1:!!!".to_string(),
+            PWD.to_string(),
+        ))
+        .is_err());
+
+        // ② base64 合法但长度不足 → 长度校验
+        assert!(tauri::async_runtime::block_on(decrypt_data(
+            format!("ENC1:{}", general_purpose::STANDARD.encode(b"too-short")),
+            PWD.to_string(),
+        ))
+        .is_err());
+
+        // ③ 结构完整但密码不对（用**别的**密码加密）→ 认证解密失败，不能返回明文
+        let forged = enc1_body("another-password", b"secret");
+        let e = tauri::async_runtime::block_on(decrypt_data(forged, PWD.to_string())).unwrap_err();
+        assert!(!e.contains("secret"), "错误信息不应泄漏明文: {e}");
+
+        // ④ 无任何已知前缀 → 明文输入必须被拒绝
+        let e = tauri::async_runtime::block_on(decrypt_data(
+            "just-plain-text".to_string(),
+            PWD.to_string(),
+        ))
+        .unwrap_err();
+        assert!(!e.is_empty());
+    }
+
+    #[test]
+    fn test_decrypt_chunked_internal_rejects_truncated_blobs() {
+        // ① 头都不够（salt + count 需要 36 字节）
+        let short = format!("ENC3:{}", general_purpose::STANDARD.encode([0u8; 10]));
+        assert!(decrypt_chunked_internal("pw", &short)
+            .unwrap_err()
+            .contains("长度不足"));
+
+        // ② 头够但 count=1 却没有任何块数据
+        let mut blob = [0u8; 32].to_vec();
+        blob.extend_from_slice(&1u32.to_le_bytes());
+        let no_chunk = format!("ENC3:{}", general_purpose::STANDARD.encode(&blob));
+        assert!(decrypt_chunked_internal("pw", &no_chunk)
+            .unwrap_err()
+            .contains("不完整"));
+
+        // ③ count=0 → 数量非法（不能进循环）
+        let mut blob = [0u8; 32].to_vec();
+        blob.extend_from_slice(&0u32.to_le_bytes());
+        let zero = format!("ENC3:{}", general_purpose::STANDARD.encode(&blob));
+        assert!(decrypt_chunked_internal("pw", &zero)
+            .unwrap_err()
+            .contains("数量非法"));
+
+        // ④ count 超大（超过分块上限）→ 拒绝，避免按 count 预分配天量内存
+        let mut blob = [0u8; 32].to_vec();
+        blob.extend_from_slice(&u32::MAX.to_le_bytes());
+        let huge = format!("ENC3:{}", general_purpose::STANDARD.encode(&blob));
+        assert!(decrypt_chunked_internal("pw", &huge)
+            .unwrap_err()
+            .contains("数量非法"));
+    }
 }

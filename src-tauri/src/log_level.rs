@@ -170,4 +170,25 @@ mod tests {
             assert_eq!(parse_level(level_name(l)), Some(l));
         }
     }
+
+    #[test]
+    fn test_apply_level_updates_global_gate_and_state() {
+        // 闸门 + 当前值必须同步生效（release 构建不输出调试日志靠的就是这个闸门）
+        apply_level(log::LevelFilter::Off);
+        assert_eq!(
+            CURRENT_LEVEL.lock().unwrap().clone(),
+            Some(log::LevelFilter::Off)
+        );
+        assert_eq!(log::max_level(), log::LevelFilter::Off);
+
+        apply_level(log::LevelFilter::Debug);
+        assert_eq!(
+            CURRENT_LEVEL.lock().unwrap().clone(),
+            Some(log::LevelFilter::Debug)
+        );
+        assert_eq!(log::max_level(), log::LevelFilter::Debug);
+
+        // 恢复默认，避免影响同进程其他测试的日志输出
+        apply_level(log::LevelFilter::Info);
+    }
 }
