@@ -323,7 +323,7 @@ jobs:
         run: cargo install cargo-tarpaulin --locked
 
       - name: Run cargo test with coverage
-        # 阈值：**2026-10-18 棘轮到 41.0**（实测 41.48%，1495/3604 行）。
+        # 阈值：**2026-10-18 棘轮到 41.4**（实测 41.95%，1495/3564 行）。
         #
         # 沿革与根因（依据：run 38935574591 的 tarpaulin 逐文件明细表）：
         # - 2026-09-08 首次真实测量 **21.49%**（当时分母不含 vendored 代码）；
@@ -337,8 +337,11 @@ jobs:
         #   `#[cfg(mobile)]` 代码在 host 上根本不编译，`ondevice/*` 只贡献 95 行分母（63 行已覆盖）。
         #   项目自身 `src/**` 实测 **24.49%**（856/3495），从未低于 21.49% 基线。
         #
-        # 口径修正：#130 用 `--exclude-files` 排除 vendored 的 `patches/**`
-        # （第三方代码不该进本项目分母）→ 实测 24.06%（856/3558），阈值 9.9 → 23.5。
+        # 口径修正（两轮，排除的都是「不该进本项目分母的代码」）：
+        # - #130 排除 vendored 的 `patches/**`（第三方副本 5046 行 0 覆盖）→ 实测 24.06%；
+        # - #141 排除 `src/generated/*`：`generated/sri_hashes.rs` 由 `scripts/obfuscate-and-sri.mjs`
+        #   在**构建期生成**后检入仓库，是纯数据表（40 行 SRI_HASHES 字面量），
+        #   没有任何可执行分支，永远不可能被覆盖。
         #
         # 棘轮沿革（每批 sqlite 命令层可测化后按实测上调，只升不降）：
         # - #131 settings/characters/memories（14 命令）：sqlite 83/962 → 143/965，总 **25.92%**（923/3561）
@@ -349,13 +352,14 @@ jobs:
         # - #137 device 键鼠映射 + encrypted_db 文件 I/O：device 6/116 → 37/116、encrypted_db 4/169 → 23/169，总 **38.10%**（1373/3604）
         # - #138 system_tools 命令执行核心：system_tools 85/285 → 128/285，总 **39.26%**（1415/3604）
         # - #140 crypto 命令包装层 + setup 环境变量：crypto 97/193 → 171/193、setup 0/95 → 3/95，总 **41.48%**（1495/3604）
-        # 本次由 38.8 上调至 **41.0**（留 0.48 点余量防抖）。
+        # - #141 排除生成代码 src/generated/*（40 行）：分母 3604 → 3564，总 **41.95%**（1495/3564）
+        # 本次由 41.0 上调至 **41.4**（留 0.55 点余量防抖）。
         #
         # tarpaulin 无 branch 阈值参数（--fail-under-branches 直接报错），branches 维度以报告人工跟踪。
         run: |
           cargo tarpaulin --workspace --out lcov --output-dir coverage/ \
-            --exclude-files 'patches/*' 'patches/**' \
-            --fail-under 41.0 -- --test-threads=2
+            --exclude-files 'patches/*' 'patches/**' 'src/generated/*' \
+            --fail-under 41.4 -- --test-threads=2
 
       - name: Run cargo fmt check
         run: cargo fmt --check
