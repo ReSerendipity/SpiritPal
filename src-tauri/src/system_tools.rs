@@ -240,6 +240,20 @@ fn search_recursive(
 ///
 /// # Returns
 /// 相对 `path` 的文件路径列表（`/` 分隔，最多 [`SEARCH_MAX_RESULTS`] 条）
+/// `search_files` 的可测核心：canonicalize 解析根目录（D-4 防逃逸）→ 递归匹配。
+fn search_files_core(path: &str, pattern: &str) -> Result<Vec<String>, String> {
+    // D-4: canonicalize 解析符号链接/相对路径，且以解析后路径为遍历基准，
+    // 防止通过 .. / 符号链接逃逸出用户指定目录
+    let root = std::fs::canonicalize(path)
+        .map_err(|e| format!("路径无效（无法解析）: {}: {}", path, e))?;
+    if !root.is_dir() {
+        return Err(format!("目录不存在: {}", root.display()));
+    }
+    let mut results = Vec::new();
+    search_recursive(&root, &root, pattern, &mut results)?;
+    Ok(results)
+}
+
 #[tauri::command]
 pub async fn search_files(
     window: tauri::Window,
@@ -251,20 +265,9 @@ pub async fn search_files(
     if pattern.trim().is_empty() {
         return Err("搜索模式不能为空".to_string());
     }
-    tauri::async_runtime::spawn_blocking(move || {
-        // D-4: canonicalize 解析符号链接/相对路径，且以解析后路径为遍历基准，
-        // 防止通过 .. / 符号链接逃逸出用户指定目录
-        let root = std::fs::canonicalize(&path)
-            .map_err(|e| format!("路径无效（无法解析）: {}: {}", path, e))?;
-        if !root.is_dir() {
-            return Err(format!("目录不存在: {}", root.display()));
-        }
-        let mut results = Vec::new();
-        search_recursive(&root, &root, pattern.trim(), &mut results)?;
-        Ok(results)
-    })
-    .await
-    .map_err(|e| format!("搜索任务执行失败: {}", e))?
+    tauri::async_runtime::spawn_blocking(move || search_files_core(&path, pattern.trim()))
+        .await
+        .map_err(|e| format!("搜索任务执行失败: {}", e))?
 }
 
 /// 截断文本到上限字节数（附加省略标记）
@@ -1282,6 +1285,32 @@ fn resolve_write_target(path: &str) -> Result<std::path::PathBuf, String> {
     Ok(target)
 }
 
+/// `read_file` 的可测核心：路径解析 → 大小/二进制校验 → 读取。
+///
+/// [REFACTOR] 与命令层分离（GOTCHAS #198 模式）：命令层只剩窗口门禁 + `spawn_blocking`，
+/// 本函数不碰 tauri 运行时，可用临时文件直接覆盖「正常 / 超大 / 二进制 / 非文件」四类分支。
+fn read_file_core(path: &str) -> Result<String, String> {
+    let real = resolve_path(path)?;
+    if !real.is_file() {
+        return Err(format!("不是文件: {}", real.display()));
+    }
+    let meta = std::fs::metadata(&real).map_err(|e| format!("读取文件元信息失败: {}", e))?;
+    if meta.len() > READ_FILE_MAX_BYTES as u64 {
+        return Err(format!(
+            "文件过大（>{:.1}MB），拒绝读取: {}",
+            READ_FILE_MAX_BYTES as f64 / (1024.0 * 1024.0),
+            real.display()
+        ));
+    }
+    std::fs::read_to_string(&real).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::InvalidData {
+            format!("二进制文件不支持文本读取: {}", real.display())
+        } else {
+            format!("读取文件失败: {}", e)
+        }
+    })
+}
+
 /// 读取文件文本内容（Agent 工具：`read_file`）
 ///
 /// 前端调用：`invoke('read_file', { path: string })`
@@ -1294,30 +1323,9 @@ fn resolve_write_target(path: &str) -> Result<std::path::PathBuf, String> {
 #[tauri::command]
 pub async fn read_file(window: tauri::Window, path: String) -> Result<String, String> {
     crate::window_gate::require_window(&window, crate::window_gate::AGENT_WINDOWS)?;
-    tauri::async_runtime::spawn_blocking(move || {
-        let real = resolve_path(&path)?;
-        if !real.is_file() {
-            return Err(format!("不是文件: {}", real.display()));
-        }
-        let meta = std::fs::metadata(&real).map_err(|e| format!("读取文件元信息失败: {}", e))?;
-        if meta.len() > READ_FILE_MAX_BYTES as u64 {
-            return Err(format!(
-                "文件过大（>{:.1}MB），拒绝读取: {}",
-                READ_FILE_MAX_BYTES as f64 / (1024.0 * 1024.0),
-                real.display()
-            ));
-        }
-        let text = std::fs::read_to_string(&real).map_err(|e| {
-            if e.kind() == std::io::ErrorKind::InvalidData {
-                format!("二进制文件不支持文本读取: {}", real.display())
-            } else {
-                format!("读取文件失败: {}", e)
-            }
-        })?;
-        Ok(text)
-    })
-    .await
-    .map_err(|e| format!("读取任务执行失败: {}", e))?
+    tauri::async_runtime::spawn_blocking(move || read_file_core(&path))
+        .await
+        .map_err(|e| format!("读取任务执行失败: {}", e))?
 }
 
 /// 目录条目信息（`list_directory` 返回）
@@ -1326,6 +1334,29 @@ pub struct DirEntryInfo {
     pub name: String,
     pub is_dir: bool,
     pub size: u64,
+}
+
+/// `list_directory` 的可测核心：路径解析 → 目录校验 → 条目枚举（上限截断）。
+fn list_directory_core(path: Option<&str>) -> Result<Vec<DirEntryInfo>, String> {
+    let dir_str = path.unwrap_or(".");
+    let real = resolve_path(dir_str)?;
+    if !real.is_dir() {
+        return Err(format!("不是目录: {}", real.display()));
+    }
+    let entries =
+        std::fs::read_dir(&real).map_err(|e| format!("读取目录失败 {}: {}", real.display(), e))?;
+    let mut out = Vec::new();
+    for entry in entries.flatten().take(LIST_DIR_MAX_ENTRIES) {
+        let meta = entry
+            .metadata()
+            .map_err(|e| format!("读取条目元信息失败: {}", e))?;
+        out.push(DirEntryInfo {
+            name: entry.file_name().to_string_lossy().into_owned(),
+            is_dir: meta.is_dir(),
+            size: if meta.is_file() { meta.len() } else { 0 },
+        });
+    }
+    Ok(out)
 }
 
 /// 列出目录条目（Agent 工具：`list_directory`）
@@ -1341,29 +1372,20 @@ pub async fn list_directory(
     path: Option<String>,
 ) -> Result<Vec<DirEntryInfo>, String> {
     crate::window_gate::require_window(&window, crate::window_gate::AGENT_WINDOWS)?;
-    tauri::async_runtime::spawn_blocking(move || {
-        let dir_str = path.unwrap_or_else(|| ".".to_string());
-        let real = resolve_path(&dir_str)?;
-        if !real.is_dir() {
-            return Err(format!("不是目录: {}", real.display()));
-        }
-        let entries = std::fs::read_dir(&real)
-            .map_err(|e| format!("读取目录失败 {}: {}", real.display(), e))?;
-        let mut out = Vec::new();
-        for entry in entries.flatten().take(LIST_DIR_MAX_ENTRIES) {
-            let meta = entry
-                .metadata()
-                .map_err(|e| format!("读取条目元信息失败: {}", e))?;
-            out.push(DirEntryInfo {
-                name: entry.file_name().to_string_lossy().into_owned(),
-                is_dir: meta.is_dir(),
-                size: if meta.is_file() { meta.len() } else { 0 },
-            });
-        }
-        Ok(out)
-    })
-    .await
-    .map_err(|e| format!("列目录任务执行失败: {}", e))?
+    tauri::async_runtime::spawn_blocking(move || list_directory_core(path.as_deref()))
+        .await
+        .map_err(|e| format!("列目录任务执行失败: {}", e))?
+}
+
+/// `write_file` 的可测核心：落盘 + 生成结果文案（审计与门禁留在命令层）。
+fn write_file_core(target: &Path, content: &str) -> Result<String, String> {
+    std::fs::write(target, content.as_bytes())
+        .map_err(|e| format!("写入文件失败 {}: {}", target.display(), e))?;
+    Ok(format!(
+        "已写入 {}（{} 字节）",
+        target.display(),
+        content.len()
+    ))
 }
 
 /// 写入文件文本内容（Agent 工具：`write_file`，高风险操作）
@@ -1408,18 +1430,9 @@ pub async fn write_file(
 
     // 审计需要目标路径展示；转成 String 避免 PathBuf 移动语义问题
     let target_display = target.to_string_lossy().into_owned();
-    let display_in_closure = target_display.clone();
-    let result = tauri::async_runtime::spawn_blocking(move || {
-        std::fs::write(&target, content.as_bytes())
-            .map_err(|e| format!("写入文件失败 {}: {}", target.display(), e))?;
-        Ok::<String, String>(format!(
-            "已写入 {}（{} 字节）",
-            display_in_closure,
-            content.len()
-        ))
-    })
-    .await
-    .map_err(|e| format!("写入任务执行失败: {}", e))?;
+    let result = tauri::async_runtime::spawn_blocking(move || write_file_core(&target, &content))
+        .await
+        .map_err(|e| format!("写入任务执行失败: {}", e))?;
 
     // P1-07 风格：高危写操作的签发 / 拒绝均写安全审计日志
     let (event_type, outcome) = match &result {
@@ -1528,5 +1541,123 @@ mod p0_2_tests {
                 .unwrap_or_else(|| panic!("{removed} 必须被拒绝"));
             assert!(e.contains("不在只读白名单内"), "{removed} 实际报错: {e}");
         }
+    }
+
+    // ============ Agent 文件工具的 core（窗口门禁之后的主体逻辑）============
+
+    /// 独立临时目录（pid + tag，互不干扰；不引 tempfile 依赖）
+    fn tmp_dir(tag: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("sp-tools-{}-{}", tag, std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn test_read_file_core_text_ok() {
+        let dir = tmp_dir("read-ok");
+        let f = dir.join("note.txt");
+        std::fs::write(&f, "小满今天很乖").unwrap();
+
+        let text = read_file_core(f.to_str().unwrap()).expect("普通文本文件应可读");
+        assert_eq!(text, "小满今天很乖");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_read_file_core_rejects_dir_and_binary() {
+        let dir = tmp_dir("read-bad");
+        // 目录不是文件
+        let e = read_file_core(dir.to_str().unwrap()).unwrap_err();
+        assert!(e.contains("不是文件"), "实际报错: {e}");
+
+        // 非 UTF-8 字节 → 明确报「二进制不支持」，而不是笼统 IO 错误
+        let bin = dir.join("blob.bin");
+        std::fs::write(&bin, [0xFF_u8, 0xFE, 0x00, 0x01]).unwrap();
+        let e = read_file_core(bin.to_str().unwrap()).unwrap_err();
+        assert!(e.contains("二进制文件不支持文本读取"), "实际报错: {e}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_read_file_core_rejects_oversized() {
+        let dir = tmp_dir("read-big");
+        let big = dir.join("big.txt");
+        // 上限 1MB，写 1MB + 1 字节
+        std::fs::write(&big, vec![b'a'; READ_FILE_MAX_BYTES + 1]).unwrap();
+        let e = read_file_core(big.to_str().unwrap()).unwrap_err();
+        assert!(e.contains("文件过大"), "实际报错: {e}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_list_directory_core_entries_and_size() {
+        let dir = tmp_dir("ls");
+        std::fs::create_dir_all(dir.join("sub")).unwrap();
+        std::fs::write(dir.join("a.txt"), "12345").unwrap();
+
+        let entries = list_directory_core(Some(dir.to_str().unwrap())).expect("目录应可列出");
+        let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
+        assert!(names.contains(&"sub"), "实际条目: {names:?}");
+        assert!(names.contains(&"a.txt"), "实际条目: {names:?}");
+
+        let sub = entries.iter().find(|e| e.name == "sub").unwrap();
+        assert!(sub.is_dir);
+        assert_eq!(sub.size, 0, "目录的 size 恒为 0（不递归统计）");
+
+        let file = entries.iter().find(|e| e.name == "a.txt").unwrap();
+        assert!(!file.is_dir);
+        assert_eq!(file.size, 5, "文件 size 应为字节数");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_list_directory_core_rejects_file_path() {
+        let dir = tmp_dir("ls-bad");
+        let f = dir.join("not-a-dir.txt");
+        std::fs::write(&f, "x").unwrap();
+        let e = list_directory_core(Some(f.to_str().unwrap()))
+            .err()
+            .expect("文件路径应被拒绝");
+        assert!(e.contains("不是目录"), "实际报错: {e}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_list_directory_core_none_defaults_to_cwd() {
+        // path=None → 回落到 "."（前端不传 path 时的既有语义）
+        let entries = list_directory_core(None).expect("当前工作目录应可列出");
+        assert!(!entries.is_empty(), "仓库根目录不应为空");
+    }
+
+    #[test]
+    fn test_search_files_core_matches_and_rejects_missing_root() {
+        let dir = tmp_dir("search");
+        std::fs::write(dir.join("hit.txt"), "x").unwrap();
+        std::fs::write(dir.join("skip.md"), "x").unwrap();
+
+        let hits = search_files_core(dir.to_str().unwrap(), "*.txt").expect("搜索应成功");
+        assert_eq!(hits, vec!["hit.txt".to_string()]);
+
+        // 根目录不存在 → 报「路径无效（无法解析）」，不 panic
+        let missing = dir.join("nope");
+        let e = search_files_core(missing.to_str().unwrap(), "*.txt").unwrap_err();
+        assert!(e.contains("路径无效"), "实际报错: {e}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_write_file_core_writes_and_reports_bytes() {
+        let dir = tmp_dir("write");
+        let target = dir.join("out.txt");
+        let msg = write_file_core(&target, "hello 世界").expect("写入应成功");
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), "hello 世界");
+        // 文案里的字节数是 UTF-8 字节数（"hello " 6 + 中文 6）
+        assert!(msg.contains("12 字节"), "实际文案: {msg}");
+
+        // 父目录不存在 → Err 且带目标路径，便于前端提示
+        let e = write_file_core(&dir.join("no-such-dir").join("x.txt"), "x").unwrap_err();
+        assert!(e.contains("写入文件失败"), "实际报错: {e}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

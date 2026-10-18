@@ -187,7 +187,18 @@ pub fn export_diagnostics(app: tauri::AppHandle) -> Result<ExportDiagnosticsResu
         .path()
         .app_log_dir()
         .map_err(|e| format!("获取日志目录失败: {}", e))?;
+    export_diagnostics_at(&data_dir, &log_dir, &app.package_info().version.to_string())
+}
 
+/// `export_diagnostics` 的可测核心：给定数据/日志目录即可完成收集、复制与清单落盘。
+///
+/// [REFACTOR] 与命令层分离（GOTCHAS #198 模式）：命令层只负责从 `AppHandle` 解析目录，
+/// 本函数不碰 tauri 运行时，可用临时目录覆盖「缺失源文件 / 崩溃日志通配 / 清单生成」。
+fn export_diagnostics_at(
+    data_dir: &Path,
+    log_dir: &Path,
+    app_version: &str,
+) -> Result<ExportDiagnosticsResult, String> {
     let ts = chrono::Utc::now().format("%Y%m%d_%H%M%S");
     let out_dir = data_dir.join("exports").join(format!("diagnostics_{}", ts));
     std::fs::create_dir_all(&out_dir).map_err(|e| format!("创建导出目录失败: {}", e))?;
@@ -209,7 +220,7 @@ pub fn export_diagnostics(app: tauri::AppHandle) -> Result<ExportDiagnosticsResu
         ),
     ];
     // 崩溃日志（匹配当前及历史 crash_*.log）
-    if let Ok(entries) = std::fs::read_dir(&log_dir) {
+    if let Ok(entries) = std::fs::read_dir(log_dir) {
         for e in entries.flatten() {
             let name = e.file_name().to_string_lossy().into_owned();
             if (name.starts_with("crash_") && name.ends_with(".log"))
@@ -234,7 +245,7 @@ pub fn export_diagnostics(app: tauri::AppHandle) -> Result<ExportDiagnosticsResu
     let manifest = json!({
         "exportedAt": chrono::Utc::now().to_rfc3339(),
         "appVersion": {
-            "version": app.package_info().version.to_string(),
+            "version": app_version,
         },
         "files": files,
     });
@@ -313,5 +324,93 @@ mod tests {
         assert_eq!(count, 2);
         assert_eq!(ts, Some(1_000_000));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // ============ 诊断导出（路径版核心，命令层只负责解析目录）============
+
+    fn tmp_root(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("sp-diag-{}-{}", tag, std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn test_export_diagnostics_collects_logs_and_crash_files() {
+        let root = tmp_root("full");
+        let data_dir = root.join("data");
+        let log_dir = root.join("logs");
+        std::fs::create_dir_all(&data_dir).unwrap();
+        std::fs::create_dir_all(&log_dir).unwrap();
+
+        std::fs::write(log_dir.join("spiritpal.log"), "main log").unwrap();
+        std::fs::write(log_dir.join("crash_20260101_010101.log"), "boom").unwrap();
+        std::fs::write(log_dir.join("unrelated.txt"), "skip me").unwrap();
+        std::fs::write(data_dir.join("spiritpal_audit.log"), "audit").unwrap();
+        std::fs::write(data_dir.join("log-level.json"), "{}").unwrap();
+
+        let res = export_diagnostics_at(&data_dir, &log_dir, "9.9.9").expect("导出应成功");
+
+        // 四个固定候选里命中的三个 + 通配到的崩溃日志 + manifest
+        assert!(
+            res.files.contains(&"spiritpal.log".to_string()),
+            "{:?}",
+            res.files
+        );
+        assert!(
+            res.files.contains(&"spiritpal_audit.log".to_string()),
+            "{:?}",
+            res.files
+        );
+        assert!(
+            res.files.contains(&"log-level.json".to_string()),
+            "{:?}",
+            res.files
+        );
+        assert!(
+            res.files.contains(&"crash_20260101_010101.log".to_string()),
+            "crash_*.log 必须被通配收集: {:?}",
+            res.files
+        );
+        assert!(
+            !res.files.contains(&"unrelated.txt".to_string()),
+            "非崩溃日志不应被收集: {:?}",
+            res.files
+        );
+        assert_eq!(res.files.last().unwrap(), "manifest.json");
+
+        // 落盘校验：目录存在、文件真的被复制、清单里带版本号
+        let out = PathBuf::from(&res.path);
+        assert!(out.is_dir(), "导出目录应存在: {}", res.path);
+        assert_eq!(
+            std::fs::read_to_string(out.join("spiritpal.log")).unwrap(),
+            "main log"
+        );
+        let manifest: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(out.join("manifest.json")).unwrap())
+                .expect("manifest 必须是合法 JSON");
+        assert_eq!(manifest["appVersion"]["version"], "9.9.9");
+        assert!(manifest["exportedAt"]
+            .as_str()
+            .unwrap_or_default()
+            .contains('T'));
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn test_export_diagnostics_empty_dirs_only_manifest() {
+        // 源文件全缺失时不应报错：仍生成目录 + 只有 manifest
+        let root = tmp_root("empty");
+        let data_dir = root.join("data");
+        let log_dir = root.join("logs");
+        std::fs::create_dir_all(&data_dir).unwrap();
+        std::fs::create_dir_all(&log_dir).unwrap();
+
+        let res = export_diagnostics_at(&data_dir, &log_dir, "0.1.0").expect("空目录也应导出成功");
+        assert_eq!(res.files, vec!["manifest.json".to_string()]);
+        assert!(PathBuf::from(&res.path).join("manifest.json").is_file());
+
+        let _ = std::fs::remove_dir_all(&root);
     }
 }
