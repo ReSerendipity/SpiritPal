@@ -364,13 +364,16 @@ jobs:
         # - #148 纯函数补测（键位映射全表 / 十六进制色解析 / 原子写入失败分支 / 路径解析）：
         #   device 44/116 → **83/116**、commands/window 30/109 → 37/109、encrypted_db 23/169 → 29/169、
         #   sqlite 560/1008 → 563/1008、system_tools 128/285 → 129/285，总 **47.93%**（1710/3568）
-        # 本次由 45.7 上调至 **47.4**（留 0.53 点余量防抖）。
+        # - #150 Agent 文件工具抽 *_core（read_file / list_directory / search_files / write_file /
+        #   export_diagnostics）：system_tools 129/285 → **168/286**、diagnostics 15/102 → **48/103**，
+        #   总 **49.92%**（1782/3570）
+        # 本次由 47.4 上调至 **49.4**（留 0.52 点余量防抖）。
         #
         # tarpaulin 无 branch 阈值参数（--fail-under-branches 直接报错），branches 维度以报告人工跟踪。
         run: |
           cargo tarpaulin --workspace --out lcov --output-dir coverage/ \
             --exclude-files 'patches/*' 'patches/**' 'src/generated/*' \
-            --fail-under 47.4 -- --test-threads=2
+            --fail-under 49.4 -- --test-threads=2
 
       - name: Run cargo fmt check
         run: cargo fmt --check
