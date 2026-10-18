@@ -1338,6 +1338,13 @@ mod tests {
         ))
         .unwrap_err();
         assert!(!e.is_empty());
+
+        // ⑤ 解密成功但结果不是合法 UTF-8 → 必须 Err，不能把二进制塞进 String
+        let bin = enc1_body(PWD, &[0xFF, 0xFE, 0xFD]);
+        assert!(
+            tauri::async_runtime::block_on(decrypt_data(bin, PWD.to_string())).is_err(),
+            "非 UTF-8 明文应被拒绝"
+        );
     }
 
     #[test]

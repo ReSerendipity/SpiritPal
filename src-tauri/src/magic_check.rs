@@ -190,4 +190,13 @@ mod tests {
         );
         assert_eq!(detect_file_kind(&fake_png()), None);
     }
+
+    #[test]
+    fn file_kind_as_str_covers_every_variant() {
+        // 这四个字符串会原样回到前端，是上传分类的契约，逐个别名钉住
+        assert_eq!(FileKind::Image.as_str(), "image");
+        assert_eq!(FileKind::Audio.as_str(), "audio");
+        assert_eq!(FileKind::Video.as_str(), "video");
+        assert_eq!(FileKind::Archive.as_str(), "archive");
+    }
 }

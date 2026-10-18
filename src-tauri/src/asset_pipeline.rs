@@ -334,4 +334,25 @@ mod tests {
     fn test_extract_version_empty() {
         assert_eq!(extract_version("", "python"), "");
     }
+
+    #[test]
+    fn test_detect_tool_missing_binary_returns_no_version() {
+        // 二进制不在 PATH → (false, "")，且 version 必须是空串（不能拿上次结果糊弄）
+        let (found, version) = detect_tool("spiritpal-no-such-binary-xyz", "--version");
+        assert!(!found, "不存在的二进制不该被判定为可用");
+        assert!(version.is_empty(), "探测失败时版本号应为空: {version}");
+    }
+
+    #[test]
+    fn test_detect_asset_tools_flags_consistent_with_versions() {
+        // 环境相关（不同 runner 装了 python / ffmpeg 与否），但有一个不变式：
+        // 探测不到的工具，版本号必须为空。实测数值不作断言，避免环境漂移。
+        let r = detect_asset_tools();
+        if !r.python {
+            assert!(r.python_version.is_empty(), "python 探测失败却有版本号");
+        }
+        if !r.ffmpeg {
+            assert!(r.ffmpeg_version.is_empty(), "ffmpeg 探测失败却有版本号");
+        }
+    }
 }

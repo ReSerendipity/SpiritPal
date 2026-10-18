@@ -87,3 +87,32 @@ pub(crate) fn mobile_total_ram_gb() -> Option<f64> {
     let kb: f64 = line.split_whitespace().nth(1)?.parse().ok()?;
     Some(kb / 1024.0 / 1024.0)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 桌面端固定档位：Ollama 承担本地推理，能力默认充足（T2）
+    #[cfg(desktop)]
+    #[test]
+    fn test_detect_device_tier_desktop_is_t2() {
+        // saver 开/关都应得到同一档位（桌面不看省电模式）
+        for saver in [false, true] {
+            let r = detect_device_tier(saver);
+            assert_eq!(r.tier, "T2", "桌面端应为 T2（saver={saver}）");
+            assert!(r.llm_allowed, "T2 必须允许本地 LLM");
+            assert!(r.note.contains("desktop"), "说明应标明桌面语义: {}", r.note);
+        }
+    }
+
+    /// 反序列化形状契约：前端 onDeviceTiers.ts 依赖这三个字段
+    #[test]
+    fn test_device_tier_result_shape_is_stable() {
+        let r = detect_device_tier(false);
+        let json = serde_json::to_value(&r).unwrap();
+        assert!(json.get("tier").is_some(), "缺 tier 字段");
+        assert!(json.get("llm_allowed").is_some(), "缺 llm_allowed 字段");
+        assert!(json.get("note").is_some(), "缺 note 字段");
+        assert!(["T0", "T1", "T2"].contains(&json["tier"].as_str().unwrap()));
+    }
+}
