@@ -63,7 +63,13 @@ fn ipv4_ranges() -> Vec<(u32, u32, &'static str)> {
 fn is_private_ipv4(ip: &str) -> Option<&'static str> {
     let mut parts = Vec::new();
     for seg in ip.split('.') {
-        parts.push(seg.parse::<u64>().ok()?);
+        let v = seg.parse::<u64>().ok()?;
+        // 段值必须 ≤255：否则 `v << 24` 会在 `as u32` 截断后落进错误网段
+        // （例：999→0x3E7，999<<24 截断成 224.0.0.0 段被误判为组播）
+        if v > 255 {
+            return None;
+        }
+        parts.push(v);
     }
     if parts.len() != 4 {
         return None;
@@ -229,6 +235,168 @@ pub async fn http_proxy(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn url(u: &str) -> reqwest::Url {
+        reqwest::Url::parse(u).unwrap()
+    }
+
+    // ============ is_private_ipv4：IPv4 段判定 ============
+
+    #[test]
+    fn test_is_private_ipv4_hits_every_range_with_label() {
+        // (地址, 期望 label) —— 逐段钉住，label 会进前端错误提示
+        let cases = [
+            ("127.0.0.1", "回环地址"),
+            ("10.1.2.3", "A类私有"),
+            ("172.16.5.5", "B类私有"),
+            ("172.31.255.255", "B类私有"),
+            ("192.168.1.1", "C类私有"),
+            ("169.254.169.254", "链路本地"), // 云元数据地址
+            ("0.0.0.0", "当前网络"),
+            ("100.64.1.1", "CGNAT"),
+            ("198.18.0.1", "基准测试"),
+            ("224.0.0.1", "组播地址"),
+            ("240.0.0.1", "保留地址"),
+            ("255.255.255.255", "保留地址"),
+        ];
+        for (ip, label) in cases {
+            assert_eq!(is_private_ipv4(ip), Some(label), "IP {ip} 应命中 {label}");
+        }
+    }
+
+    #[test]
+    fn test_is_private_ipv4_lets_public_through() {
+        for ip in ["8.8.8.8", "1.1.1.1", "203.0.113.10", "114.114.114.114"] {
+            assert_eq!(is_private_ipv4(ip), None, "公网 IP {ip} 应放行");
+        }
+    }
+
+    #[test]
+    fn test_is_private_ipv4_range_boundaries() {
+        // B 类私有的上下边界与边界外一格
+        assert_eq!(is_private_ipv4("172.15.255.255"), None);
+        assert_eq!(is_private_ipv4("172.16.0.0"), Some("B类私有"));
+        assert_eq!(is_private_ipv4("172.31.255.255"), Some("B类私有"));
+        assert_eq!(is_private_ipv4("172.32.0.0"), None);
+        // 链路本地只到 169.254，169.253/169.255 不在段内
+        assert_eq!(is_private_ipv4("169.253.0.1"), None);
+        assert_eq!(is_private_ipv4("169.255.0.1"), None);
+        // 网关同段边界的 0 / 255 结尾
+        assert_eq!(is_private_ipv4("10.0.0.0"), Some("A类私有"));
+        assert_eq!(is_private_ipv4("10.255.255.255"), Some("A类私有"));
+    }
+
+    #[test]
+    fn test_is_private_ipv4_rejects_malformed() {
+        // 域名 / 段数不对 / 非数字段 / 超范围段 → 一律 None（不能 panic）
+        assert_eq!(is_private_ipv4("example.com"), None);
+        assert_eq!(is_private_ipv4("1.2.3"), None);
+        assert_eq!(is_private_ipv4("1.2.3.4.5"), None);
+        // 超范围段（>255）：u64→u32 截断后会误落进组播段，必须显式挡掉
+        assert_eq!(is_private_ipv4("999.1.1.1"), None);
+        assert_eq!(is_private_ipv4("256.1.1.1"), None);
+        assert_eq!(is_private_ipv4("1.1.1.999"), None);
+        assert_eq!(is_private_ipv4("a.b.c.d"), None);
+        assert_eq!(is_private_ipv4(""), None);
+    }
+
+    // ============ is_loopback_host：回环放行 ============
+
+    #[test]
+    fn test_is_loopback_host_accepts_local_endpoints() {
+        for h in [
+            "localhost",
+            "LocalHost",
+            "LOCALHOST",
+            "0.0.0.0",
+            "::1",
+            "[::1]",
+            "127.0.0.1",
+            "127.8.8.8",
+        ] {
+            assert!(is_loopback_host(h), "本地端点 {h} 应放行");
+        }
+    }
+
+    #[test]
+    fn test_is_loopback_host_rejects_private_non_loopback() {
+        // 私网 ≠ 回环：用户配 Ollama 给的是 localhost，不是 192.168.x.x
+        for h in [
+            "192.168.1.5",
+            "10.0.0.5",
+            "169.254.169.254",
+            "example.com",
+            "",
+        ] {
+            assert!(!is_loopback_host(h), "非回环本地地址 {h} 不应放行");
+        }
+    }
+
+    // ============ validate_target：命令前的四层校验 ============
+
+    #[test]
+    fn test_validate_target_allows_normal_requests() {
+        assert!(validate_target("GET", &url("http://example.com/v1/x")).is_ok());
+        assert!(validate_target("POST", &url("https://api.example.com")).is_ok());
+        // 方法大小写不敏感（HTTP 方法本身大小写敏感，但白名单比对做了归一化）
+        assert!(validate_target("get", &url("https://example.com")).is_ok());
+        // 非标准但非敏感端口允许
+        assert!(validate_target("POST", &url("https://example.com:8443/x")).is_ok());
+    }
+
+    #[test]
+    fn test_validate_target_rejects_bad_methods_and_schemes() {
+        for m in ["TRACE", "CONNECT", "FOOBAR"] {
+            assert!(
+                validate_target(m, &url("http://example.com")).is_err(),
+                "方法 {m} 应被拒"
+            );
+        }
+        for u in [
+            "ftp://example.com/f",
+            "file:///etc/passwd",
+            "javascript:alert(1)",
+        ] {
+            assert!(validate_target("GET", &url(u)).is_err(), "协议 {u} 应被拒");
+        }
+    }
+
+    #[test]
+    fn test_validate_target_rejects_intranet_service_ports() {
+        // 每种内网服务端口都拒绝（错误文案含端口号，便于前端提示）
+        for p in [22u16, 25, 465, 587, 6379, 27017, 9200, 9300, 5432, 3306] {
+            let e = validate_target("GET", &url(&format!("http://example.com:{p}/"))).unwrap_err();
+            assert!(e.contains("端口"), "应说明端口被拒: {e}");
+        }
+    }
+
+    #[test]
+    fn test_validate_target_blocks_private_and_metadata_hosts() {
+        // SSRF 核心：私网段 / 链路本地（云元数据 169.254.169.254）必须拒绝
+        for h in [
+            "10.0.0.1",
+            "172.16.0.9",
+            "192.168.31.99",
+            "169.254.169.254", // 云厂商元数据端点， exploit 热点
+            "100.64.0.1",
+        ] {
+            let e =
+                validate_target("GET", &url(&format!("http://{h}/latest/meta-data/"))).unwrap_err();
+            assert!(e.contains("私有 IP"), "私网 {h} 应被拒: {e}");
+        }
+    }
+
+    #[test]
+    fn test_validate_target_allows_loopback_for_local_services() {
+        // 127/8 与 localhost 是回环而非私网 → 放行（Ollama / 本地服务）
+        assert!(validate_target("POST", &url("http://localhost:11434/api/generate")).is_ok());
+        assert!(validate_target("POST", &url("http://127.0.0.1:11434/api/generate")).is_ok());
+        assert!(validate_target("GET", &url("http://0.0.0.0:8080")).is_ok());
+    }
+
+    // 注：`host.is_empty()` 分支实际不可达 —— reqwest 的 URL 解析层（WHATWG 规范）
+    // 不会产出空主机（`Url::parse("http://")` 直接 Err）。该判断是对 parse 输出的
+    // 纵深防御，保留但不单列用例。
 
     #[test]
     fn loopback_allowed() {
