@@ -359,13 +359,18 @@ jobs:
         #   crypto 171/193 → 187/193、device 37/116 → 44/116、log_level 17/54 → 22/54，总 **45.61%**（1626/3565）
         # - #145 设备分档/工具探测/上传分类/非 UTF-8 解密：magic_check 29/31 → **31/31（满覆盖）**、
         #   asset_pipeline 46/60 → 58/60、ondevice/mod 0/10 → 8/10，总 **46.23%**（1648/3565）
-        # 本次由 45.1 上调至 **45.7**（留 0.53 点余量防抖）。
+        # - #147 HTTP 出口 SSRF 三层校验补测：http_proxy 50/91 → 52/91，总 **46.33%**（1653/3568）；
+        #   仅 +0.07 点，未上调阈值（余量仍 0.63）
+        # - #148 纯函数补测（键位映射全表 / 十六进制色解析 / 原子写入失败分支 / 路径解析）：
+        #   device 44/116 → **83/116**、commands/window 30/109 → 37/109、encrypted_db 23/169 → 29/169、
+        #   sqlite 560/1008 → 563/1008、system_tools 128/285 → 129/285，总 **47.93%**（1710/3568）
+        # 本次由 45.7 上调至 **47.4**（留 0.53 点余量防抖）。
         #
         # tarpaulin 无 branch 阈值参数（--fail-under-branches 直接报错），branches 维度以报告人工跟踪。
         run: |
           cargo tarpaulin --workspace --out lcov --output-dir coverage/ \
             --exclude-files 'patches/*' 'patches/**' 'src/generated/*' \
-            --fail-under 45.7 -- --test-threads=2
+            --fail-under 47.4 -- --test-threads=2
 
       - name: Run cargo fmt check
         run: cargo fmt --check
