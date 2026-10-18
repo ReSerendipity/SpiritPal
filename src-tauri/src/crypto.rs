@@ -1220,4 +1220,71 @@ mod tests {
         assert!(decrypt_chunked_internal("pw", "ENC2:abcd").is_err());
         assert!(decrypt_chunked_internal("pw", "plain").is_err());
     }
+
+    // ============ Tauri 命令包装层（带 spawn_blocking，需 async runtime）============
+
+    #[test]
+    fn test_command_compute_sha256_file() {
+        let dir = std::env::temp_dir().join(format!("sp-crypto-cmd-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("a.txt");
+        std::fs::write(&f, b"abc").unwrap();
+
+        let hex = tauri::async_runtime::block_on(compute_sha256(f.to_string_lossy().into_owned()))
+            .unwrap();
+        // "abc" 的 SHA-256 标准值
+        assert_eq!(
+            hex,
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+
+        // 文件不存在 → Err 且带可读原因
+        let missing = dir.join("nope.txt");
+        let e =
+            tauri::async_runtime::block_on(compute_sha256(missing.to_string_lossy().into_owned()))
+                .unwrap_err();
+        assert!(e.contains("无法打开文件"), "实际报错: {e}");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_command_encrypt_decrypt_roundtrip() {
+        let plain = "你好 SpiritPal ✦";
+        let ct =
+            tauri::async_runtime::block_on(encrypt_data(plain.to_string(), "pw-123".to_string()))
+                .unwrap();
+        assert!(
+            ct.starts_with("ENC2:"),
+            "实际前缀: {}",
+            &ct[..8.min(ct.len())]
+        );
+
+        let pt =
+            tauri::async_runtime::block_on(decrypt_data(ct.clone(), "pw-123".to_string())).unwrap();
+        assert_eq!(pt, plain);
+
+        // 错误密码 → Err（不能静默返回空串）
+        let e = tauri::async_runtime::block_on(decrypt_data(ct, "wrong".to_string())).unwrap_err();
+        assert!(!e.is_empty());
+    }
+
+    #[test]
+    fn test_command_chunked_roundtrip_multiblock() {
+        // 跨块（>1MB）验证 ENC3 分块路径的命令包装层
+        let plain = "喵".repeat(400_000);
+        let ct =
+            tauri::async_runtime::block_on(encrypt_data_chunked(plain.clone(), "pw".to_string()))
+                .unwrap();
+        assert!(
+            ct.starts_with("ENC3:"),
+            "实际前缀: {}",
+            &ct[..8.min(ct.len())]
+        );
+
+        let pt =
+            tauri::async_runtime::block_on(decrypt_data_chunked(ct, "pw".to_string())).unwrap();
+        assert_eq!(pt, plain);
+    }
 }
