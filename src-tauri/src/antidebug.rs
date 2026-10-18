@@ -257,3 +257,9 @@ pub fn startup_check(app: Option<&tauri::AppHandle>) -> bool {
         None => check_debugger(),
     }
 }
+
+// 注意：本文件**刻意没有**单测。
+// `cargo tarpaulin` 用 ptrace 采集覆盖率，Linux 实现读 `/proc/self/status` 的 TracerPid 会
+// 判成「正在被调试」→ `DEBUGGER_DETECTED` 被置位（全局静态，不会自动复位），
+// 进而让 crypto 的解密入口进入「安全模式」返回 Err，把无关用例打成红。
+// 任何调用 check_debugger() 的测试在覆盖率环境下都必然污染整个测试进程，故此处不补。

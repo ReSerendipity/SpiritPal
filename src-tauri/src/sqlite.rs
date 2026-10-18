@@ -4647,4 +4647,73 @@ mod tests {
         drop(conn);
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    // ===== 实体图 upsert 语义（insert → 追加 memory_id → 幂等去重）=====
+
+    #[test]
+    fn test_entitygraph_upsert_node_insert_then_append_then_idempotent() {
+        let conn = mem_conn();
+
+        // ① 首次：走 INSERT（带 embedding 分支）
+        let id1 = sp_entitygraph_upsert_node_impl(
+            &conn,
+            "小满",
+            "person",
+            "mem-1",
+            "ent-1",
+            1_700_000_000,
+            Some("ZW1iZWQ="),
+        )
+        .expect("首次 upsert 应成功");
+        assert_eq!(id1, "ent-1");
+
+        // ② 同名同类型再来一条：命中已有行，走 UPDATE 且不带 embedding
+        let id2 = sp_entitygraph_upsert_node_impl(
+            &conn,
+            "小满",
+            "person",
+            "mem-2",
+            "ent-2",
+            1_700_000_001,
+            None,
+        )
+        .expect("二次 upsert 应复用已有节点");
+        assert_eq!(id2, id1, "同一 (name, type) 必须复用同一 id，不能新建节点");
+
+        // ③ 同 memory_id 重复写入：memory_ids 不得出现重复项
+        let id3 = sp_entitygraph_upsert_node_impl(
+            &conn,
+            "小满",
+            "person",
+            "mem-2",
+            "ent-3",
+            1_700_000_002,
+            None,
+        )
+        .expect("幂等写入应成功");
+        assert_eq!(id3, id1);
+
+        let rows = json_rows(
+            &conn,
+            "SELECT memory_ids FROM memory_entities WHERE id = ?1",
+            &[sq("ent-1")],
+        )
+        .unwrap();
+        let ids: Vec<String> =
+            serde_json::from_str(gs(&rows[0], "memory_ids").unwrap().as_str()).unwrap();
+        assert_eq!(ids, vec!["mem-1".to_string(), "mem-2".to_string()]);
+
+        // ④ 不同类型同名字：视为另一个节点（type 参与唯一性判定）
+        let other = sp_entitygraph_upsert_node_impl(
+            &conn,
+            "小满",
+            "pet",
+            "mem-9",
+            "ent-9",
+            1_700_000_003,
+            None,
+        )
+        .expect("不同类型应可共存");
+        assert_eq!(other, "ent-9");
+    }
 }

@@ -410,6 +410,81 @@ mod tests {
         assert_eq!(key_to_string(rdev::Key::Home), "Unknown");
     }
 
+    /// 全表覆盖：漏映射一个键，前端就会收到 "Unknown"，该键的快捷键配置随之失效。
+    /// 逐个键断言而不是只抽样，避免 match 分支静默退化。
+    #[test]
+    fn test_key_to_string_full_mapping_table() {
+        let cases = [
+            (rdev::Key::KeyA, "A"),
+            (rdev::Key::KeyB, "B"),
+            (rdev::Key::KeyC, "C"),
+            (rdev::Key::KeyD, "D"),
+            (rdev::Key::KeyE, "E"),
+            (rdev::Key::KeyF, "F"),
+            (rdev::Key::KeyG, "G"),
+            (rdev::Key::KeyH, "H"),
+            (rdev::Key::KeyI, "I"),
+            (rdev::Key::KeyJ, "J"),
+            (rdev::Key::KeyK, "K"),
+            (rdev::Key::KeyL, "L"),
+            (rdev::Key::KeyM, "M"),
+            (rdev::Key::KeyN, "N"),
+            (rdev::Key::KeyO, "O"),
+            (rdev::Key::KeyP, "P"),
+            (rdev::Key::KeyQ, "Q"),
+            (rdev::Key::KeyR, "R"),
+            (rdev::Key::KeyS, "S"),
+            (rdev::Key::KeyT, "T"),
+            (rdev::Key::KeyU, "U"),
+            (rdev::Key::KeyV, "V"),
+            (rdev::Key::KeyW, "W"),
+            (rdev::Key::KeyX, "X"),
+            (rdev::Key::KeyY, "Y"),
+            (rdev::Key::KeyZ, "Z"),
+            (rdev::Key::Num0, "0"),
+            (rdev::Key::Num1, "1"),
+            (rdev::Key::Num2, "2"),
+            (rdev::Key::Num3, "3"),
+            (rdev::Key::Num4, "4"),
+            (rdev::Key::Num5, "5"),
+            (rdev::Key::Num6, "6"),
+            (rdev::Key::Num7, "7"),
+            (rdev::Key::Num8, "8"),
+            (rdev::Key::Num9, "9"),
+            (rdev::Key::Space, "Space"),
+            (rdev::Key::Return, "Enter"),
+            (rdev::Key::Escape, "Escape"),
+            (rdev::Key::Backspace, "Backspace"),
+            (rdev::Key::Tab, "Tab"),
+            (rdev::Key::ShiftLeft, "Shift"),
+            (rdev::Key::ShiftRight, "Shift"),
+            (rdev::Key::ControlLeft, "Ctrl"),
+            (rdev::Key::ControlRight, "Ctrl"),
+            (rdev::Key::Alt, "Alt"),
+            (rdev::Key::MetaLeft, "Meta"),
+            (rdev::Key::MetaRight, "Meta"),
+            (rdev::Key::UpArrow, "Up"),
+            (rdev::Key::DownArrow, "Down"),
+            (rdev::Key::LeftArrow, "Left"),
+            (rdev::Key::RightArrow, "Right"),
+            (rdev::Key::F1, "F1"),
+            (rdev::Key::F2, "F2"),
+            (rdev::Key::F3, "F3"),
+            (rdev::Key::F4, "F4"),
+            (rdev::Key::F5, "F5"),
+            (rdev::Key::F6, "F6"),
+            (rdev::Key::F7, "F7"),
+            (rdev::Key::F8, "F8"),
+            (rdev::Key::F9, "F9"),
+            (rdev::Key::F10, "F10"),
+            (rdev::Key::F11, "F11"),
+            (rdev::Key::F12, "F12"),
+        ];
+        for (key, expected) in cases {
+            assert_eq!(key_to_string(key), expected, "按键映射与预期不符");
+        }
+    }
+
     #[test]
     fn test_button_to_string_all_variants() {
         assert_eq!(button_to_string(rdev::Button::Left), "left");

@@ -615,4 +615,51 @@ mod io_tests {
             .unwrap_or_else(|_| panic!("时间戳应为数字: {ts}"));
         assert!(secs > 1_600_000_000, "应为秒级 unix 时间戳: {secs}");
     }
+
+    // ============ 原子写入的失败分支（rename 失败必须清掉临时文件）============
+
+    #[test]
+    fn test_atomic_write_rename_failure_cleans_tmp() {
+        let dir = tmp_dir("atomic-rename-fail");
+        // 目标位置先占成一个目录：rename(file → 已存在的目录) 必然失败
+        let target = dir.join("spiritpal.db");
+        std::fs::create_dir_all(&target).unwrap();
+
+        let err = atomic_write(&target, b"content").unwrap_err();
+        assert!(err.contains("原子重命名失败"), "实际报错: {err}");
+
+        // 失败分支的关键副作用：临时文件不能残留，否则下次写入会被脏数据干扰
+        let tmp = target.with_extension("tmp");
+        assert!(!tmp.exists(), "rename 失败后临时文件必须被清理: {:?}", tmp);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Windows 上文件锁释放有延迟，PermissionDenied 走重试分支；Unix 用只读目录复现同一错误类型。
+    /// 容器里以 root 运行时内核会无视目录权限（重试分支天然走不到），此时跳过断言。
+    #[cfg(unix)]
+    #[test]
+    fn test_remove_file_with_retry_permission_denied_branch() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tmp_dir("retry-perm");
+        let ro = dir.join("ro");
+        std::fs::create_dir_all(&ro).unwrap();
+        let victim = ro.join("locked.txt");
+        std::fs::write(&victim, b"x").unwrap();
+        std::fs::set_permissions(&ro, std::fs::Permissions::from_mode(0o500)).unwrap();
+
+        let result = remove_file_with_retry(&victim, 2);
+
+        // 先复原权限，否则清理阶段自己也会被拒
+        let _ = std::fs::set_permissions(&ro, std::fs::Permissions::from_mode(0o700));
+        let _ = std::fs::remove_dir_all(&dir);
+
+        if let Err(e) = result {
+            assert!(
+                e.contains("重试") && e.contains("仍无法删除"),
+                "重试耗尽后应报重试次数，实际: {e}"
+            );
+        }
+    }
 }

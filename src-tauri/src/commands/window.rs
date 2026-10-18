@@ -787,4 +787,43 @@ mod tests {
         );
         assert_eq!(super::validate_upload_magic(png, "png".into()), Ok(false));
     }
+
+    // ============ parse_hex_color 测试（窗口背景色解析） ============
+    // 纯字符串解析，无 tauri 运行时依赖。解析错误会静默变成黑色背景，
+    // 所以非法输入必须显式钉住行为（不 panic、退回全 0）。
+
+    #[test]
+    fn test_parse_hex_color_six_digits() {
+        let tauri::window::Color(r, g, b, a) = parse_hex_color("#FF8800");
+        assert_eq!((r, g, b, a), (255, 136, 0, 255));
+
+        let tauri::window::Color(r, g, b, a) = parse_hex_color("ff8800");
+        assert_eq!((r, g, b, a), (255, 136, 0, 255), "无 # 前缀也应可解析");
+
+        let tauri::window::Color(r, g, b, a) = parse_hex_color("#000000");
+        assert_eq!((r, g, b, a), (0, 0, 0, 255));
+
+        let tauri::window::Color(r, g, b, a) = parse_hex_color("#ffffff");
+        assert_eq!((r, g, b, a), (255, 255, 255, 255), "小写十六进制等价");
+    }
+
+    #[test]
+    fn test_parse_hex_color_truncates_beyond_six_digits() {
+        // 带 alpha 的 8 位写法：只取前 6 位，alpha 恒为 255
+        let tauri::window::Color(r, g, b, a) = parse_hex_color("#FF8800FF");
+        assert_eq!((r, g, b, a), (255, 136, 0, 255));
+    }
+
+    #[test]
+    fn test_parse_hex_color_short_and_invalid() {
+        // 不足 6 位不左补零，按实际位数解析："ABC" ⇒ 0x0ABC
+        let tauri::window::Color(r, g, b, a) = parse_hex_color("#ABC");
+        assert_eq!((r, g, b, a), (0, 0x0A, 0xBC, 255));
+
+        // 非法十六进制 / 空串 ⇒ 全 0（不 panic，静默退回黑色）
+        let tauri::window::Color(r, g, b, a) = parse_hex_color("#zzzzzz");
+        assert_eq!((r, g, b, a), (0, 0, 0, 255));
+        let tauri::window::Color(r, g, b, a) = parse_hex_color("");
+        assert_eq!((r, g, b, a), (0, 0, 0, 255));
+    }
 }
