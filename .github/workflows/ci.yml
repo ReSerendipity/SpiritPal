@@ -366,6 +366,20 @@ jobs:
       - name: Run cargo fmt check
         run: cargo fmt --check
 
+      - name: Upload Rust coverage artifacts
+        # 把 lcov + tarpaulin JSON 存成 artifact：本机无法跑 tarpaulin（不支持 Windows），
+        # 精确的「哪一行未覆盖」只能从 CI 取回来看。Codecov 上传因缺 token 一直是失败的
+        # （fail_ci_if_error: false），别指望它，artifacts 才是可靠来源。
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-coverage-report
+          path: |
+            ./src-tauri/coverage/lcov.info
+            ./src-tauri/target/tarpaulin/*.json
+          retention-days: 14
+          if-no-files-found: warn
+
       - name: Upload Rust coverage to Codecov
         if: always()
         uses: codecov/codecov-action@v7
