@@ -418,4 +418,21 @@ mod tests {
         // 未知按键（多键鼠标的侧键等）统一归到 other
         assert_eq!(button_to_string(rdev::Button::Unknown(42)), "other");
     }
+
+    #[test]
+    fn test_stop_device_listening_both_paths() {
+        // ① 未在监听 → 记警告并返回 Ok（不 panic、不当成错误）
+        assert!(stop_device_listening().is_ok());
+
+        // ② 监听中 → 标志被清掉
+        IS_LISTENING.store(true, Ordering::Release);
+        assert!(stop_device_listening().is_ok());
+        assert!(
+            !IS_LISTENING.load(Ordering::Acquire),
+            "停止后 IS_LISTENING 必须为 false，否则回调会继续处理事件"
+        );
+
+        // ③ 再次停止仍是 Ok（幂等，不报 "nothing to stop" 之外的错）
+        assert!(stop_device_listening().is_ok());
+    }
 }

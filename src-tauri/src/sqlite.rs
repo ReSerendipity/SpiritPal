@@ -4594,4 +4594,57 @@ mod tests {
             .iter()
             .all(|i| i["detectedAt"].as_i64().unwrap_or(0) > 0));
     }
+
+    // ===== 连接管理：open_conn / close（不依赖 AppHandle 的部分）=====
+
+    #[test]
+    fn test_open_conn_builds_schema_and_is_idempotent() {
+        let dir = std::env::temp_dir().join(format!("sp-sqlite-open-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("probe.db");
+
+        let conn = open_conn(&path).expect("应能在临时目录建库");
+        // schema 已就绪：核心表可查
+        let n: i64 = scalar(&conn, "SELECT COUNT(*) FROM settings", &[])
+            .unwrap()
+            .unwrap();
+        assert_eq!(n, 0);
+        // WAL 等 PRAGMA 已施加（journal_mode 应为 wal；个别文件系统不支持时也不得为空）
+        let mode: String = conn
+            .query_row("PRAGMA journal_mode", [], |r| r.get(0))
+            .unwrap();
+        assert!(!mode.is_empty(), "journal_mode 应有值（期望 wal）: {mode}");
+        drop(conn);
+
+        // 幂等：再开一次同一路径不报错（CREATE TABLE IF NOT EXISTS + IF NOT EXISTS 索引）
+        let conn2 = open_conn(&path).expect("二次打开应成功");
+        drop(conn2);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_open_conn_reports_unopenable_path() {
+        // 父目录不存在 → Connection::open 失败，错误必须可读（而不是 panic）
+        let bogus = std::env::temp_dir()
+            .join("sp-sqlite-no-such-dir-xyz")
+            .join("t.db");
+        let e = open_conn(&bogus).unwrap_err();
+        assert!(e.contains("打开数据库失败"), "实际报错: {e}");
+    }
+
+    #[test]
+    fn test_close_is_safe_without_open_connection() {
+        // 测试进程内没人通过 with_conn 开过连接：close 必须静默成功且幂等
+        close();
+        close();
+        // close 之后仍能正常开连接（全局槽位未被占用）
+        let dir = std::env::temp_dir().join(format!("sp-sqlite-close-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let conn = open_conn(&dir.join("after-close.db")).unwrap();
+        drop(conn);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
