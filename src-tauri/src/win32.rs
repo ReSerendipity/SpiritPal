@@ -667,3 +667,42 @@ pub fn start_topmost_keepalive(hwnd: HWND, running: std::sync::Arc<std::sync::at
 pub fn start_topmost_keepalive() {
     // no-op: 非 Windows 平台不需要置顶保活
 }
+
+// ============ 跨平台统一接口的契约测试 ============
+
+#[cfg(test)]
+mod platform_api_tests {
+    use super::*;
+
+    /// 三个 re-export 接口在所有平台都必须可调用，且返回量在合理范围
+    /// （CI 无 GUI、无 xdotool/xprintidle 时走降级分支：0 / 空串 / false）
+    #[test]
+    fn test_platform_api_callable_and_sane() {
+        let idle = get_idle_ms();
+        assert!(idle < 7 * 24 * 3600 * 1000, "空闲毫秒应在合理范围: {idle}");
+        let (title, process) = get_active_window_info();
+        assert!(title.len() < 4096, "标题过长: {}", title.len());
+        assert!(process.len() < 4096, "进程名过长: {}", process.len());
+        // 有标题时就该有进程名（两个都来自同一个活跃窗口）
+        if !title.is_empty() {
+            assert!(!process.is_empty(), "拿到标题却拿不到进程名");
+        }
+    }
+
+    /// Linux v1 明确降级：未实现 Wayland/X11 全屏探测
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_linux_fullscreen_detection_is_documented_noop() {
+        assert!(
+            !is_foreground_fullscreen(),
+            "Linux v1 应恒为 false（文档化降级）"
+        );
+    }
+
+    /// 非 Windows 平台的置顶保活是 no-op：不得 panic
+    #[cfg(not(windows))]
+    #[test]
+    fn test_topmost_keepalive_noop_on_non_windows() {
+        start_topmost_keepalive();
+    }
+}

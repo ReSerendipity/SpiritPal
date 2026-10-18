@@ -202,3 +202,98 @@ mod tests {
         assert!(!mcp_respond_core(id, "x".to_string()));
     }
 }
+
+#[cfg(test)]
+mod mcp_server_api_tests {
+    use std::io::{Read as _, Write as _};
+
+    /// 本地回环往返一次：客户端发请求，服务端跑一次 `handle_connection*`，返回原始响应
+    fn roundtrip(request: &str, token: Option<&str>) -> String {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind 回环端口");
+        let addr = listener.local_addr().unwrap();
+        let req = request.to_string();
+
+        let client = std::thread::spawn(move || {
+            let mut s = std::net::TcpStream::connect(addr).unwrap();
+            s.write_all(req.as_bytes()).unwrap();
+            let mut resp = String::new();
+            s.read_to_string(&mut resp).unwrap();
+            resp
+        });
+
+        let (stream, _) = listener.accept().unwrap();
+        let handler = |tool: &str, args: &serde_json::Value| {
+            format!("{{\"tool\":\"{tool}\",\"args\":{args}}}")
+        };
+        match token {
+            Some(t) => spiritpal_mcp::handle_connection_auth(stream, t, &handler).unwrap(),
+            None => spiritpal_mcp::handle_connection(stream, &handler).unwrap(),
+        }
+        client.join().unwrap()
+    }
+
+    fn post(body: &str, bearer: Option<&str>) -> String {
+        let mut req = String::from("POST /mcp/call HTTP/1.1\r\nHost: localhost\r\n");
+        if let Some(t) = bearer {
+            req.push_str(&format!("Authorization: Bearer {t}\r\n"));
+        }
+        req.push_str("\r\n");
+        req.push_str(body);
+        req
+    }
+
+    #[test]
+    fn test_parse_mcp_call_body_variants() {
+        // 合法请求：tool + arguments
+        let (tool, args) =
+            spiritpal_mcp::parse_mcp_call_body(r#"{"tool":"read_file","arguments":{"path":"a"}}"#)
+                .unwrap();
+        assert_eq!(tool, "read_file");
+        assert_eq!(args["path"], serde_json::json!("a"));
+
+        // 缺 arguments → 默认空对象
+        let (tool, args) =
+            spiritpal_mcp::parse_mcp_call_body(r#"{"tool":"list_directory"}"#).unwrap();
+        assert_eq!(tool, "list_directory");
+        assert_eq!(args, serde_json::json!({}));
+
+        // 缺 tool / 非 JSON → Err（外部 Agent 的畸形请求不能进 handler）
+        assert!(spiritpal_mcp::parse_mcp_call_body(r#"{"arguments":{}}"#).is_err());
+        assert!(spiritpal_mcp::parse_mcp_call_body("nonsense").is_err());
+    }
+
+    #[test]
+    fn test_handle_connection_forwards_to_handler() {
+        let resp = roundtrip(
+            &post(
+                r#"{"tool":"get_status","arguments":{"verbose":true}}"#,
+                None,
+            ),
+            None,
+        );
+        assert!(resp.starts_with("HTTP/1.1 200 OK"), "实际响应: {resp}");
+        assert!(resp.contains("Content-Type: application/json"));
+        assert!(resp.contains("\"tool\":\"get_status\""), "handler 应被调用");
+        assert!(resp.contains("\"verbose\":true"));
+
+        // 坏请求体 → JSON error 而不是连接崩掉
+        let bad = roundtrip(&post("nonsense", None), None);
+        assert!(bad.starts_with("HTTP/1.1 200 OK"));
+        assert!(bad.contains("\"error\""), "实际响应: {bad}");
+    }
+
+    #[test]
+    fn test_handle_connection_auth_gates_on_bearer_token() {
+        let body = r#"{"tool":"t","arguments":{}}"#;
+
+        // 正确 token → 正常转发
+        let ok = roundtrip(&post(body, Some("secret")), Some("secret"));
+        assert!(ok.contains("\"tool\":\"t\""), "实际响应: {ok}");
+
+        // 缺失 / 错误 token → 一律 unauthorized，不进 handler
+        let missing = roundtrip(&post(body, None), Some("secret"));
+        assert!(missing.contains("unauthorized"), "实际响应: {missing}");
+        let wrong = roundtrip(&post(body, Some("nope")), Some("secret"));
+        assert!(wrong.contains("unauthorized"), "实际响应: {wrong}");
+    }
+}

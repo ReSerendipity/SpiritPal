@@ -1196,4 +1196,81 @@ mod tests {
         let result = read_petmod_bytes("/nonexistent/path/file.petmod");
         assert!(result.is_err());
     }
+
+    // ============ scan_mods_directory 测试（唯一不依赖 AppHandle 的命令入口）============
+
+    /// 造一个模组目录：含 pet_conf.json 的算模组，其余一律跳过
+    fn scaffold_mods_dir(tag: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("sp-petmod-scan-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn test_scan_mods_directory_reports_valid_mods_only() {
+        let dir = scaffold_mods_dir("valid");
+        // ① 完整模组
+        let a = dir.join("cat-pack");
+        std::fs::create_dir_all(&a).unwrap();
+        std::fs::write(
+            a.join("pet_conf.json"),
+            r#"{"id":"mod_cat","name":"猫咪语音包"}"#,
+        )
+        .unwrap();
+        // ② 有 pet_conf.json 但 JSON 损坏 → 跳过
+        let b = dir.join("broken");
+        std::fs::create_dir_all(&b).unwrap();
+        std::fs::write(b.join("pet_conf.json"), "{ not json").unwrap();
+        // ③ 没有 pet_conf.json → 跳过
+        let c = dir.join("no-conf");
+        std::fs::create_dir_all(&c).unwrap();
+        // ④ 普通文件（非目录）→ 跳过
+        std::fs::write(dir.join("readme.txt"), "hello").unwrap();
+        // ⑤ 有 pet_conf.json 但 id 为空 → 跳过
+        let e = dir.join("empty-id");
+        std::fs::create_dir_all(&e).unwrap();
+        std::fs::write(e.join("pet_conf.json"), r#"{"name":"无名"}"#).unwrap();
+        // ⑥ 深层子目录不该被递归扫进来
+        std::fs::create_dir_all(c.join("nested")).unwrap();
+        std::fs::write(
+            c.join("nested/pet_conf.json"),
+            r#"{"id":"mod_nested","name":"深层"}"#,
+        )
+        .unwrap();
+
+        let result =
+            tauri::async_runtime::block_on(scan_mods_directory(dir.to_string_lossy().into_owned()))
+                .unwrap();
+        assert_eq!(result.mods.len(), 1, "只有 ① 应被识别为模组");
+        assert_eq!(result.mods[0].id, "mod_cat");
+        assert_eq!(result.mods[0].name, "猫咪语音包");
+        assert!(
+            result.mods[0].path.ends_with("cat-pack"),
+            "path 应为模组目录: {}",
+            result.mods[0].path
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_scan_mods_directory_empty_and_missing() {
+        // 空目录 → 0 个模组（不是 Err）
+        let dir = scaffold_mods_dir("empty");
+        let result =
+            tauri::async_runtime::block_on(scan_mods_directory(dir.to_string_lossy().into_owned()))
+                .unwrap();
+        assert!(result.mods.is_empty());
+
+        // 目录不存在 → Err 且带可读原因
+        let missing = dir.join("no-such-dir");
+        let e = tauri::async_runtime::block_on(scan_mods_directory(
+            missing.to_string_lossy().into_owned(),
+        ))
+        .unwrap_err();
+        assert!(e.contains("读取目录失败"), "实际报错: {e}");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
