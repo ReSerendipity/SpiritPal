@@ -367,13 +367,15 @@ jobs:
         # - #150 Agent 文件工具抽 *_core（read_file / list_directory / search_files / write_file /
         #   export_diagnostics）：system_tools 129/285 → **168/286**、diagnostics 15/102 → **48/103**，
         #   总 **49.92%**（1782/3570）
-        # 本次由 47.4 上调至 **49.4**（留 0.52 点余量防抖）。
+        # - #152 记忆表读写抽 *_impl（insert_row / update_row / by_tier / state_upsert / clear_all）：
+        #   sqlite 563/1008 → **665/1008**，总 **52.75%**（1883/3570）
+        # 本次由 49.4 上调至 **52.3**（留 0.45 点余量防抖）。
         #
         # tarpaulin 无 branch 阈值参数（--fail-under-branches 直接报错），branches 维度以报告人工跟踪。
         run: |
           cargo tarpaulin --workspace --out lcov --output-dir coverage/ \
             --exclude-files 'patches/*' 'patches/**' 'src/generated/*' \
-            --fail-under 49.4 -- --test-threads=2
+            --fail-under 52.3 -- --test-threads=2
 
       - name: Run cargo fmt check
         run: cargo fmt --check
