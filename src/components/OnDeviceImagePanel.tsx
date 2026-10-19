@@ -14,7 +14,7 @@
  *    LLM 对话会排队；且 12GB 设备上二者不可能同时常驻。UI 在加载前给出该提示。
  *
  * ⚠️ 模型权重为 **Qwen Research License（研究 / 非商用）** 且不随包分发，需用户自取。
- *    见 THIRD_PARTY_NOTICES.md 与 COMPLIANCE_CHECKLIST.md §8。
+ *    见 docs/THIRD_PARTY_NOTICES.md 与 docs/COMPLIANCE_CHECKLIST.md §8。
  *
  * @module components/OnDeviceImagePanel
  */

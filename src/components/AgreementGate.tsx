@@ -48,7 +48,7 @@ export function AgreementGate({ onAccept }: AgreementGateProps) {
           继续使用即表示你已阅读并同意
           <a
             className="text-tangerine-deep underline underline-offset-2"
-            href={'https://github.com/ReSerendipity/SpiritPal/blob/main/USER_AGREEMENT.md'}
+            href={'https://github.com/ReSerendipity/SpiritPal/blob/main/docs/USER_AGREEMENT.md'}
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -57,7 +57,7 @@ export function AgreementGate({ onAccept }: AgreementGateProps) {
           与
           <a
             className="text-tangerine-deep underline underline-offset-2"
-            href={'https://github.com/ReSerendipity/SpiritPal/blob/main/PRIVACY_POLICY.md'}
+            href={'https://github.com/ReSerendipity/SpiritPal/blob/main/docs/PRIVACY_POLICY.md'}
             target="_blank"
             rel="noopener noreferrer"
           >

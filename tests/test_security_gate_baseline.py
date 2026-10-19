@@ -1,6 +1,6 @@
 """security_gate.py 基线读取路径的最小冒烟测试。
 
-背景：SECURITY_MATRIX.md 把 `scripts/security_gate.py` 的棘轮基线列为依赖漏洞
+背景：docs/SECURITY_MATRIX.md 把 `scripts/security_gate.py` 的棘轮基线列为依赖漏洞
 门禁，但 `load_baseline()`（"基线能否读到、结构是否合法"这条判定路径）此前
 无任何测试触达——基线文件被误删、键名被改、JSON 被写坏时只能等到 CI 跑到门禁
 才发现。本文件补最基础的冒烟覆盖：真实基线可读、返回三项受门禁指标、且缺失时

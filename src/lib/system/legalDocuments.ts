@@ -79,7 +79,7 @@ export const TERMS_OF_SERVICE = `# SpiritPal 用户协议（User Agreement）
 
 1.1 项目代码适用 [Apache License 2.0](https://github.com/ReSerendipity/SpiritPal/blob/main/LICENSE)，可自由使用、修改、再分发（保留版权声明与 LICENSE 副本）。
 
-1.2 **第三方组件许可独立**：Live2D Cubism Core 为专有软件，需用户自行从 Live2D 官网下载安装；模型/角色文件属创作者作品，由用户自备，使用前请确认授权（见 [COMPLIANCE_CHECKLIST.md](https://github.com/ReSerendipity/SpiritPal/blob/main/COMPLIANCE_CHECKLIST.md) §2）。
+1.2 **第三方组件许可独立**：Live2D Cubism Core 为专有软件，需用户自行从 Live2D 官网下载安装；模型/角色文件属创作者作品，由用户自备，使用前请确认授权（见 [COMPLIANCE_CHECKLIST.md](https://github.com/ReSerendipity/SpiritPal/blob/main/docs/COMPLIANCE_CHECKLIST.md) §2）。
 
 ## 2. 合法使用承诺
 
@@ -93,7 +93,7 @@ export const TERMS_OF_SERVICE = `# SpiritPal 用户协议（User Agreement）
 
 ## 3. 本地数据与隐私
 
-3.1 宠物数据、记忆、配置默认存储于设备本地，不上传任何服务器（详见 [PRIVACY_POLICY.md](https://github.com/ReSerendipity/SpiritPal/blob/main/PRIVACY_POLICY.md)）。
+3.1 宠物数据、记忆、配置默认存储于设备本地，不上传任何服务器（详见 [PRIVACY_POLICY.md](https://github.com/ReSerendipity/SpiritPal/blob/main/docs/PRIVACY_POLICY.md)）。
 
 3.2 若您选择第三方 LLM 服务商，对话内容将发送至对应服务商，受其隐私政策约束；请勿提交敏感个人信息。
 

@@ -33,7 +33,7 @@ gitleaks.toml @ReSerendipity
 
 # 安全策略、审查流程与 CI 定义
 SECURITY.md @ReSerendipity
-SECURITY_MATRIX.md @ReSerendipity
+docs/SECURITY_MATRIX.md @ReSerendipity
 docs/SECURITY_AUDIT_SpiritPal.md @ReSerendipity
 .github/workflows/ @ReSerendipity
 .github/CODEOWNERS @ReSerendipity

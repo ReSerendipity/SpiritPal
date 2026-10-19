@@ -1,6 +1,6 @@
 //! Q3: 崩溃本地留存与诊断导出（本地优先零崩溃上报的补偿方案）
 //!
-//! # 三层可观测（全部数据不出设备，符合 PRIVACY_POLICY.md「本地存储」承诺）
+//! # 三层可观测（全部数据不出设备，符合 docs/PRIVACY_POLICY.md「本地存储」承诺）
 //! 1. **panic hook**：Rust 侧 panic（含 WebView 线程 panic）落盘到
 //!    `{log_dir}/crash_YYYYMMDD_HHMMSS.log`，无需网络即可留存崩溃现场；
 //! 2. **export_diagnostics 命令**：把主日志 + 审计日志 + 崩溃日志 + 级别配置
