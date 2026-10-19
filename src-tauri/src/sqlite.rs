@@ -984,65 +984,70 @@ fn sp_mem_clear_impl(conn: &Connection, character_id: &str) -> Result<(), String
 
 /// 插入完整记忆行，返回 rowid（字段白名单，无字符串拼 SQL）
 #[tauri::command]
+/// 插入一条记忆（`sp_mem_insert_row` 的可测核心）。
+///
+/// [REFACTOR] 与命令层分离（GOTCHAS #198 模式）：`with_conn` 只负责取连接，
+/// 字段取值与默认值逻辑集中在这里，可用内存库直接覆盖。
+fn sp_mem_insert_row_impl(conn: &Connection, row: &JsonValue) -> Result<i64, String> {
+    let character_id = gs(row, "character_id").ok_or("缺少 character_id")?;
+    let memory_type = gs(row, "type").ok_or("缺少 type")?;
+    let content = gs(row, "content").ok_or("缺少 content")?;
+    let importance = gi(row, "importance").unwrap_or(50);
+    let created_at = gi(row, "created_at").unwrap_or_else(|| chrono::Utc::now().timestamp_millis());
+    let last_accessed = gi(row, "last_accessed").unwrap_or(created_at);
+    let memory_id = gs(row, "memory_id").unwrap_or_default();
+    let assistant = gs(row, "assistant").unwrap_or_default();
+    let category = gs(row, "category").unwrap_or_else(|| "日常".to_string());
+    let tags = gs(row, "tags").unwrap_or_else(|| "[]".to_string());
+    let emotional_intensity = gf(row, "emotional_intensity").unwrap_or(0.0);
+    let emotional_valence = gf(row, "emotional_valence").unwrap_or(0.0);
+    let emotional_arousal = gf(row, "emotional_arousal").unwrap_or(0.3);
+    let strength = gf(row, "strength").unwrap_or(1.0);
+    let decay_factor = gf(row, "decay_factor").unwrap_or(1.0);
+    let access_count = gi(row, "access_count").unwrap_or(0);
+    let source_kind = gs(row, "source_kind").unwrap_or_else(|| "exchange".to_string());
+    let fact_text = gs(row, "fact_text").unwrap_or_default();
+    let is_autobiographical = gi(row, "is_autobiographical").unwrap_or(0);
+    let tier = gs(row, "tier").unwrap_or_else(|| "episodic".to_string());
+    exec(
+        conn,
+        "INSERT INTO memories (
+           character_id, type, content, importance, created_at, last_accessed,
+           memory_id, assistant, category, tags,
+           emotional_intensity, emotional_valence, emotional_arousal,
+           strength, decay_factor, access_count,
+           source_kind, fact_text, is_autobiographical, tier
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
+                   ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
+        &[
+            sq(&character_id),
+            sq(&memory_type),
+            sq(&content),
+            sqi(importance),
+            sqi(created_at),
+            sqi(last_accessed),
+            sq(&memory_id),
+            sq(&assistant),
+            sq(&category),
+            sq(&tags),
+            sqf(emotional_intensity),
+            sqf(emotional_valence),
+            sqf(emotional_arousal),
+            sqf(strength),
+            sqf(decay_factor),
+            sqi(access_count),
+            sq(&source_kind),
+            sq(&fact_text),
+            sqi(is_autobiographical),
+            sq(&tier),
+        ],
+    )?;
+    Ok(scalar(conn, "SELECT last_insert_rowid()", &[])?.unwrap_or(0))
+}
+
+#[tauri::command]
 pub async fn sp_mem_insert_row(app: AppHandle, row: JsonValue) -> Result<i64, String> {
-    with_conn(app, move |conn| {
-        let character_id = gs(&row, "character_id").ok_or("缺少 character_id")?;
-        let memory_type = gs(&row, "type").ok_or("缺少 type")?;
-        let content = gs(&row, "content").ok_or("缺少 content")?;
-        let importance = gi(&row, "importance").unwrap_or(50);
-        let created_at =
-            gi(&row, "created_at").unwrap_or_else(|| chrono::Utc::now().timestamp_millis());
-        let last_accessed = gi(&row, "last_accessed").unwrap_or(created_at);
-        let memory_id = gs(&row, "memory_id").unwrap_or_default();
-        let assistant = gs(&row, "assistant").unwrap_or_default();
-        let category = gs(&row, "category").unwrap_or_else(|| "日常".to_string());
-        let tags = gs(&row, "tags").unwrap_or_else(|| "[]".to_string());
-        let emotional_intensity = gf(&row, "emotional_intensity").unwrap_or(0.0);
-        let emotional_valence = gf(&row, "emotional_valence").unwrap_or(0.0);
-        let emotional_arousal = gf(&row, "emotional_arousal").unwrap_or(0.3);
-        let strength = gf(&row, "strength").unwrap_or(1.0);
-        let decay_factor = gf(&row, "decay_factor").unwrap_or(1.0);
-        let access_count = gi(&row, "access_count").unwrap_or(0);
-        let source_kind = gs(&row, "source_kind").unwrap_or_else(|| "exchange".to_string());
-        let fact_text = gs(&row, "fact_text").unwrap_or_default();
-        let is_autobiographical = gi(&row, "is_autobiographical").unwrap_or(0);
-        let tier = gs(&row, "tier").unwrap_or_else(|| "episodic".to_string());
-        exec(
-            conn,
-            "INSERT INTO memories (
-               character_id, type, content, importance, created_at, last_accessed,
-               memory_id, assistant, category, tags,
-               emotional_intensity, emotional_valence, emotional_arousal,
-               strength, decay_factor, access_count,
-               source_kind, fact_text, is_autobiographical, tier
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
-                       ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
-            &[
-                sq(&character_id),
-                sq(&memory_type),
-                sq(&content),
-                sqi(importance),
-                sqi(created_at),
-                sqi(last_accessed),
-                sq(&memory_id),
-                sq(&assistant),
-                sq(&category),
-                sq(&tags),
-                sqf(emotional_intensity),
-                sqf(emotional_valence),
-                sqf(emotional_arousal),
-                sqf(strength),
-                sqf(decay_factor),
-                sqi(access_count),
-                sq(&source_kind),
-                sq(&fact_text),
-                sqi(is_autobiographical),
-                sq(&tier),
-            ],
-        )?;
-        Ok(scalar(conn, "SELECT last_insert_rowid()", &[])?.unwrap_or(0))
-    })
-    .await
+    with_conn(app, move |conn| sp_mem_insert_row_impl(conn, &row)).await
 }
 
 /// 可更新列白名单（防字段名注入）
@@ -1070,46 +1075,87 @@ const MEMORY_UPDATABLE: &[&str] = &[
 ];
 
 #[tauri::command]
+/// 按白名单动态拼 SET 更新记忆（`sp_mem_update_row` 的可测核心）。
+///
+/// 非白名单字段静默忽略（防 id / character_id 被改写）；无有效字段时是 no-op。
+fn sp_mem_update_row_impl(
+    conn: &Connection,
+    memory_id: i64,
+    fields: &JsonValue,
+) -> Result<(), String> {
+    let obj = fields.as_object().ok_or("fields 应为对象")?;
+    let mut sets: Vec<String> = Vec::new();
+    let mut params: Vec<SqValue> = Vec::new();
+    for (k, v) in obj {
+        if !MEMORY_UPDATABLE.contains(&k.as_str()) {
+            continue; // 非白名单字段忽略（不允许更新 id/character_id）
+        }
+        let val = match v {
+            JsonValue::Null => sqn(),
+            JsonValue::String(s) => sq(s),
+            JsonValue::Number(n) => n
+                .as_i64()
+                .map(sqi)
+                .unwrap_or_else(|| sqf(n.as_f64().unwrap_or(0.0))),
+            JsonValue::Bool(b) => sqi(if *b { 1 } else { 0 }),
+            _ => continue,
+        };
+        sets.push(format!("{k} = ?{}", sets.len() + 1));
+        params.push(val);
+    }
+    if sets.is_empty() {
+        return Ok(());
+    }
+    params.push(sqi(memory_id));
+    let sql = format!(
+        "UPDATE memories SET {} WHERE id = ?{}",
+        sets.join(", "),
+        sets.len() + 1
+    );
+    // sets 全部来自编译期白名单，{k} 恒为常量 → 无注入
+    exec(conn, &sql, &params)?;
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn sp_mem_update_row(
     app: AppHandle,
     memory_id: i64,
     fields: JsonValue,
 ) -> Result<(), String> {
     with_conn(app, move |conn| {
-        let obj = fields.as_object().ok_or("fields 应为对象")?;
-        let mut sets: Vec<String> = Vec::new();
-        let mut params: Vec<SqValue> = Vec::new();
-        for (k, v) in obj {
-            if !MEMORY_UPDATABLE.contains(&k.as_str()) {
-                continue; // 非白名单字段忽略（不允许更新 id/character_id）
-            }
-            let val = match v {
-                JsonValue::Null => sqn(),
-                JsonValue::String(s) => sq(s),
-                JsonValue::Number(n) => n
-                    .as_i64()
-                    .map(sqi)
-                    .unwrap_or_else(|| sqf(n.as_f64().unwrap_or(0.0))),
-                JsonValue::Bool(b) => sqi(if *b { 1 } else { 0 }),
-                _ => continue,
-            };
-            sets.push(format!("{k} = ?{}", sets.len() + 1));
-            params.push(val);
-        }
-        if sets.is_empty() {
-            return Ok(());
-        }
-        params.push(sqi(memory_id));
-        let sql = format!(
-            "UPDATE memories SET {} WHERE id = ?{}",
-            sets.join(", "),
-            sets.len() + 1
-        );
-        // sets 全部来自编译期白名单，{k} 恒为常量 → 无注入
-        exec(conn, &sql, &params)?;
-        Ok(())
+        sp_mem_update_row_impl(conn, memory_id, &fields)
     })
     .await
+}
+
+#[tauri::command]
+/// 按 tier 过滤查询记忆（`sp_mem_by_tier` 的可测核心）。
+///
+/// `tiers` 为空或 None 时退化为「该角色全部记忆」；占位符按数量动态拼接。
+fn sp_mem_by_tier_impl(
+    conn: &Connection,
+    character_id: &str,
+    tiers: Option<&[String]>,
+) -> Result<Vec<JsonValue>, String> {
+    match tiers {
+        Some(tiers) if !tiers.is_empty() => {
+            let n = tiers.len();
+            let ph: Vec<String> = (2..=n + 1).map(|i| format!("?{i}")).collect();
+            let sql = format!(
+                "SELECT * FROM memories WHERE character_id = ?1 AND tier IN ({}) ORDER BY created_at ASC",
+                ph.join(",")
+            );
+            let mut params: Vec<SqValue> = vec![sq(character_id)];
+            params.extend(tiers.iter().map(|t| sq(t)));
+            json_rows(conn, &sql, &params)
+        }
+        _ => json_rows(
+            conn,
+            "SELECT * FROM memories WHERE character_id = ?1 ORDER BY created_at ASC",
+            &[sq(character_id)],
+        ),
+    }
 }
 
 #[tauri::command]
@@ -1119,24 +1165,7 @@ pub async fn sp_mem_by_tier(
     tiers: Option<Vec<String>>,
 ) -> Result<Vec<JsonValue>, String> {
     with_conn(app, move |conn| {
-        match tiers {
-            Some(tiers) if !tiers.is_empty() => {
-                let n = tiers.len();
-                let ph: Vec<String> = (2..=n + 1).map(|i| format!("?{i}")).collect();
-                let sql = format!(
-                    "SELECT * FROM memories WHERE character_id = ?1 AND tier IN ({}) ORDER BY created_at ASC",
-                    ph.join(",")
-                );
-                let mut params: Vec<SqValue> = vec![sq(&character_id)];
-                params.extend(tiers.into_iter().map(|t| sq(&t)));
-                json_rows(conn, &sql, &params)
-            }
-            _ => json_rows(
-                conn,
-                "SELECT * FROM memories WHERE character_id = ?1 ORDER BY created_at ASC",
-                &[sq(&character_id)],
-            ),
-        }
+        sp_mem_by_tier_impl(conn, &character_id, tiers.as_deref())
     })
     .await
 }
@@ -1223,35 +1252,44 @@ pub async fn sp_mem_state_get(
 }
 
 #[tauri::command]
+/// 记忆状态 upsert（`sp_mem_state_upsert` 的可测核心）。
+///
+/// `last_chat_date` 缺失时写入 NULL（而不是空串），其余 JSON 字段按原样存文本。
+fn sp_mem_state_upsert_impl(conn: &Connection, state: &JsonValue) -> Result<(), String> {
+    let character_id = gs(state, "character_id").ok_or("缺少 character_id")?;
+    let last_chat_date = state
+        .get("last_chat_date")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    let trigger_log = gs(state, "trigger_log").unwrap_or_else(|| "[]".to_string());
+    let ignore_count = gs(state, "ignore_count").unwrap_or_else(|| "{}".to_string());
+    let last_periodic_fire_date =
+        gs(state, "last_periodic_fire_date").unwrap_or_else(|| "{}".to_string());
+    let injected_at = gs(state, "injected_at").unwrap_or_else(|| "{}".to_string());
+    let llm_reassessed_ids = gs(state, "llm_reassessed_ids").unwrap_or_else(|| "[]".to_string());
+    exec(
+        conn,
+        "INSERT INTO memory_state (character_id, last_chat_date, trigger_log, ignore_count, last_periodic_fire_date, injected_at, llm_reassessed_ids)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+         ON CONFLICT(character_id) DO UPDATE SET
+           last_chat_date = ?2, trigger_log = ?3, ignore_count = ?4,
+           last_periodic_fire_date = ?5, injected_at = ?6, llm_reassessed_ids = ?7",
+        &[
+            sq(&character_id),
+            last_chat_date.map(|s| sq(&s)).unwrap_or(sqn()),
+            sq(&trigger_log),
+            sq(&ignore_count),
+            sq(&last_periodic_fire_date),
+            sq(&injected_at),
+            sq(&llm_reassessed_ids),
+        ],
+    )?;
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn sp_mem_state_upsert(app: AppHandle, state: JsonValue) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        let character_id = gs(&state, "character_id").ok_or("缺少 character_id")?;
-        let last_chat_date = state.get("last_chat_date").and_then(|v| v.as_str()).map(String::from);
-        let trigger_log = gs(&state, "trigger_log").unwrap_or_else(|| "[]".to_string());
-        let ignore_count = gs(&state, "ignore_count").unwrap_or_else(|| "{}".to_string());
-        let last_periodic_fire_date = gs(&state, "last_periodic_fire_date").unwrap_or_else(|| "{}".to_string());
-        let injected_at = gs(&state, "injected_at").unwrap_or_else(|| "{}".to_string());
-        let llm_reassessed_ids = gs(&state, "llm_reassessed_ids").unwrap_or_else(|| "[]".to_string());
-        exec(
-            conn,
-            "INSERT INTO memory_state (character_id, last_chat_date, trigger_log, ignore_count, last_periodic_fire_date, injected_at, llm_reassessed_ids)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-             ON CONFLICT(character_id) DO UPDATE SET
-               last_chat_date = ?2, trigger_log = ?3, ignore_count = ?4,
-               last_periodic_fire_date = ?5, injected_at = ?6, llm_reassessed_ids = ?7",
-            &[
-                sq(&character_id),
-                last_chat_date.map(|s| sq(&s)).unwrap_or(sqn()),
-                sq(&trigger_log),
-                sq(&ignore_count),
-                sq(&last_periodic_fire_date),
-                sq(&injected_at),
-                sq(&llm_reassessed_ids),
-            ],
-        )?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_mem_state_upsert_impl(conn, &state)).await
 }
 
 #[tauri::command]
@@ -1268,24 +1306,31 @@ pub async fn sp_mem_state_delete(app: AppHandle, character_id: String) -> Result
 }
 
 #[tauri::command]
+/// 清空某角色的全部记忆数据（`sp_mem_clear_all` 的可测核心）。
+///
+/// 四张表在**同一事务**内删除：任一失败则整体回滚，不会留下半清空状态。
+fn sp_mem_clear_all_impl(conn: &mut Connection, character_id: &str) -> Result<(), String> {
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("开启事务失败: {e}"))?;
+    for sql in [
+        "DELETE FROM memories WHERE character_id = ?1",
+        "DELETE FROM memory_summaries WHERE character_id = ?1",
+        "DELETE FROM memory_state WHERE character_id = ?1",
+        "DELETE FROM memory_semantic_facts WHERE character_id = ?1",
+    ] {
+        tx.execute(
+            sql,
+            params_from_iter([SqValue::Text(character_id.to_string())]),
+        )
+        .map_err(|e| format!("清空记忆失败: {e}"))?;
+    }
+    tx.commit().map_err(|e| format!("提交事务失败: {e}"))
+}
+
+#[tauri::command]
 pub async fn sp_mem_clear_all(app: AppHandle, character_id: String) -> Result<(), String> {
-    with_conn(app, move |conn| {
-        let tx = conn
-            .transaction()
-            .map_err(|e| format!("开启事务失败: {e}"))?;
-        for sql in [
-            "DELETE FROM memories WHERE character_id = ?1",
-            "DELETE FROM memory_summaries WHERE character_id = ?1",
-            "DELETE FROM memory_state WHERE character_id = ?1",
-            "DELETE FROM memory_semantic_facts WHERE character_id = ?1",
-        ] {
-            tx.execute(sql, params_from_iter([SqValue::Text(character_id.clone())]))
-                .map_err(|e| format!("清空记忆失败: {e}"))?;
-        }
-        tx.commit().map_err(|e| format!("提交事务失败: {e}"))?;
-        Ok(())
-    })
-    .await
+    with_conn(app, move |conn| sp_mem_clear_all_impl(conn, &character_id)).await
 }
 
 // ---- owner_facts ----
@@ -4715,5 +4760,244 @@ mod tests {
         )
         .expect("不同类型应可共存");
         assert_eq!(other, "ent-9");
+    }
+
+    // ===== 记忆表读写核心（原内联闭包抽 *_impl 后直测）=====
+
+    /// 最小可用记忆行（只给必填字段，其余走默认值）
+    fn mem_row(character_id: &str, content: &str) -> JsonValue {
+        json!({ "character_id": character_id, "type": "exchange", "content": content })
+    }
+
+    #[test]
+    fn test_mem_insert_row_applies_defaults_and_returns_id() {
+        let conn = mem_conn();
+        let id =
+            sp_mem_insert_row_impl(&conn, &mem_row("char-a", "今天很开心")).expect("插入应成功");
+        assert!(id > 0, "应返回自增主键，实际: {id}");
+
+        let rows = json_rows(&conn, "SELECT * FROM memories WHERE id = ?1", &[sqi(id)]).unwrap();
+        assert_eq!(rows.len(), 1);
+        let r = &rows[0];
+        // 默认值必须逐项钉住：前端不传时依赖这些兜底
+        assert_eq!(gi(r, "importance"), Some(50));
+        assert_eq!(gs(r, "category").as_deref(), Some("日常"));
+        assert_eq!(gs(r, "tier").as_deref(), Some("episodic"));
+        assert_eq!(gs(r, "source_kind").as_deref(), Some("exchange"));
+        assert_eq!(gs(r, "tags").as_deref(), Some("[]"));
+        assert_eq!(gi(r, "access_count"), Some(0));
+        assert_eq!(gi(r, "is_autobiographical"), Some(0));
+        assert_eq!(gf(r, "emotional_arousal"), Some(0.3));
+        assert_eq!(gf(r, "strength"), Some(1.0));
+        // last_accessed 未给时应跟随 created_at
+        assert_eq!(gi(r, "last_accessed"), gi(r, "created_at"));
+    }
+
+    #[test]
+    fn test_mem_insert_row_requires_core_fields() {
+        let conn = mem_conn();
+        let e = sp_mem_insert_row_impl(&conn, &json!({ "type": "exchange", "content": "x" }))
+            .unwrap_err();
+        assert!(e.contains("缺少 character_id"), "实际: {e}");
+
+        let e = sp_mem_insert_row_impl(&conn, &json!({ "character_id": "c", "content": "x" }))
+            .unwrap_err();
+        assert!(e.contains("缺少 type"), "实际: {e}");
+
+        let e = sp_mem_insert_row_impl(&conn, &json!({ "character_id": "c", "type": "exchange" }))
+            .unwrap_err();
+        assert!(e.contains("缺少 content"), "实际: {e}");
+    }
+
+    #[test]
+    fn test_mem_update_row_whitelist_and_type_mapping() {
+        let conn = mem_conn();
+        let id = sp_mem_insert_row_impl(&conn, &mem_row("char-a", "原文")).unwrap();
+
+        // 白名单字段：字符串 / 整数 / 布尔 / 浮点 各走一条映射分支
+        sp_mem_update_row_impl(
+            &conn,
+            id,
+            &json!({
+                "content": "改过",
+                "importance": 88,
+                "is_autobiographical": true,
+                "emotional_valence": -0.5,
+                "tier": "semantic",
+                "character_id": "hacker",   // 非白名单：必须被忽略
+                "id": 9999,                 // 非白名单：必须被忽略
+            }),
+        )
+        .expect("更新应成功");
+
+        let r = &json_rows(&conn, "SELECT * FROM memories WHERE id = ?1", &[sqi(id)]).unwrap()[0];
+        assert_eq!(gs(r, "content").as_deref(), Some("改过"));
+        assert_eq!(gi(r, "importance"), Some(88));
+        assert_eq!(gi(r, "is_autobiographical"), Some(1), "布尔应存为 1");
+        assert_eq!(gf(r, "emotional_valence"), Some(-0.5));
+        assert_eq!(gs(r, "tier").as_deref(), Some("semantic"));
+        assert_eq!(
+            gs(r, "character_id").as_deref(),
+            Some("char-a"),
+            "character_id 在白名单外，不得被改写"
+        );
+    }
+
+    #[test]
+    fn test_mem_update_row_noop_and_bad_shape() {
+        let conn = mem_conn();
+        let id = sp_mem_insert_row_impl(&conn, &mem_row("char-a", "原文")).unwrap();
+
+        // 空对象 / 全非白名单 → 直接 Ok，不生成空 SET 的非法 SQL
+        sp_mem_update_row_impl(&conn, id, &json!({})).expect("空更新应成功");
+        sp_mem_update_row_impl(&conn, id, &json!({ "character_id": "x" })).expect("全被忽略应成功");
+        let r = &json_rows(&conn, "SELECT * FROM memories WHERE id = ?1", &[sqi(id)]).unwrap()[0];
+        assert_eq!(
+            gs(r, "content").as_deref(),
+            Some("原文"),
+            "no-op 不应改动数据"
+        );
+
+        // 非对象入参 → 明确报错
+        let e = sp_mem_update_row_impl(&conn, id, &json!([1, 2])).unwrap_err();
+        assert!(e.contains("fields 应为对象"), "实际: {e}");
+    }
+
+    #[test]
+    fn test_mem_by_tier_filters_and_falls_back() {
+        let conn = mem_conn();
+        sp_mem_insert_row_impl(
+            &conn,
+            &json!({
+                "character_id": "char-a", "type": "exchange", "content": "情景", "tier": "episodic",
+                "created_at": 1, "last_accessed": 1,
+            }),
+        )
+        .unwrap();
+        sp_mem_insert_row_impl(
+            &conn,
+            &json!({
+                "character_id": "char-a", "type": "exchange", "content": "语义", "tier": "semantic",
+                "created_at": 2, "last_accessed": 2,
+            }),
+        )
+        .unwrap();
+        sp_mem_insert_row_impl(&conn, &json!({
+            "character_id": "char-b", "type": "exchange", "content": "别人的", "tier": "episodic",
+            "created_at": 3, "last_accessed": 3,
+        }))
+        .unwrap();
+
+        // 指定 tier → 只出该角色该层
+        let episodic =
+            sp_mem_by_tier_impl(&conn, "char-a", Some(&["episodic".to_string()])).unwrap();
+        assert_eq!(episodic.len(), 1);
+        assert_eq!(gs(&episodic[0], "content").as_deref(), Some("情景"));
+
+        // 多个 tier → 动态占位符拼接
+        let both = sp_mem_by_tier_impl(
+            &conn,
+            "char-a",
+            Some(&["episodic".to_string(), "semantic".to_string()]),
+        )
+        .unwrap();
+        assert_eq!(both.len(), 2, "两个 tier 应都命中");
+
+        // 空数组 / None → 退化为「该角色全部」
+        let all_empty = sp_mem_by_tier_impl(&conn, "char-a", Some(&[])).unwrap();
+        assert_eq!(all_empty.len(), 2, "空 tier 列表应退化为全部");
+        let all_none = sp_mem_by_tier_impl(&conn, "char-a", None).unwrap();
+        assert_eq!(all_none.len(), 2);
+        // 顺序按 created_at 升序
+        assert_eq!(gs(&all_none[0], "content").as_deref(), Some("情景"));
+        assert_eq!(gs(&all_none[1], "content").as_deref(), Some("语义"));
+    }
+
+    #[test]
+    fn test_mem_state_upsert_insert_then_update() {
+        let conn = mem_conn();
+        sp_mem_state_upsert_impl(
+            &conn,
+            &json!({ "character_id": "char-a", "last_chat_date": "2026-10-19" }),
+        )
+        .expect("首次 upsert 应插入");
+
+        let r = &json_rows(
+            &conn,
+            "SELECT * FROM memory_state WHERE character_id = ?1",
+            &[sq("char-a")],
+        )
+        .unwrap()[0];
+        assert_eq!(gs(r, "last_chat_date").as_deref(), Some("2026-10-19"));
+        assert_eq!(gs(r, "trigger_log").as_deref(), Some("[]"), "缺省应为 []");
+
+        // 二次 upsert：同角色只留一行，字段被覆盖
+        sp_mem_state_upsert_impl(
+            &conn,
+            &json!({ "character_id": "char-a", "trigger_log": "[{\"t\":1}]" }),
+        )
+        .expect("二次 upsert 应更新");
+
+        let rows = json_rows(&conn, "SELECT * FROM memory_state", &[]).unwrap();
+        assert_eq!(rows.len(), 1, "ON CONFLICT 应更新而非新增");
+        assert_eq!(gs(&rows[0], "trigger_log").as_deref(), Some("[{\"t\":1}]"));
+        assert_eq!(
+            gs(&rows[0], "last_chat_date"),
+            None,
+            "本次未传 last_chat_date → 按实现覆盖为 NULL"
+        );
+
+        // 缺 character_id → Err
+        let e = sp_mem_state_upsert_impl(&conn, &json!({})).unwrap_err();
+        assert!(e.contains("缺少 character_id"), "实际: {e}");
+    }
+
+    #[test]
+    fn test_mem_clear_all_scoped_to_character() {
+        let mut conn = mem_conn();
+        sp_mem_insert_row_impl(&conn, &mem_row("char-a", "a1")).unwrap();
+        sp_mem_insert_row_impl(&conn, &mem_row("char-a", "a2")).unwrap();
+        sp_mem_insert_row_impl(&conn, &mem_row("char-b", "b1")).unwrap();
+        exec(
+            &conn,
+            "INSERT INTO memory_summaries (character_id, summary, updated_at) VALUES (?1, ?2, ?3)",
+            &[sq("char-a"), sq("摘要"), sqi(1)],
+        )
+        .unwrap();
+        sp_mem_state_upsert_impl(&conn, &json!({ "character_id": "char-a" })).unwrap();
+
+        sp_mem_clear_all_impl(&mut conn, "char-a").expect("清空应成功");
+
+        let count =
+            |sql: &str, cid: &str| -> i64 { scalar(&conn, sql, &[sq(cid)]).unwrap().unwrap_or(-1) };
+        assert_eq!(
+            count(
+                "SELECT COUNT(*) FROM memories WHERE character_id = ?1",
+                "char-a"
+            ),
+            0
+        );
+        assert_eq!(
+            count(
+                "SELECT COUNT(*) FROM memory_summaries WHERE character_id = ?1",
+                "char-a"
+            ),
+            0
+        );
+        assert_eq!(
+            count(
+                "SELECT COUNT(*) FROM memory_state WHERE character_id = ?1",
+                "char-a"
+            ),
+            0
+        );
+        // 其他角色必须原封不动
+        assert_eq!(
+            count(
+                "SELECT COUNT(*) FROM memories WHERE character_id = ?1",
+                "char-b"
+            ),
+            1
+        );
     }
 }
