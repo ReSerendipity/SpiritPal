@@ -67,9 +67,6 @@ Thumbs.db
 *.swo
 *~
 
-# SpiritPal 非核心执行文档（ondevice 调研/清单，不入库；白名单核心文档见 layout 门禁，必须入库）
-docs/execution/ondevice-*
-docs/execution/交接指导-GUI与后续项-20260911.md
 # 根目录贡献指南与组织级重复（README 已链接 org 版 Conventions + DCO），不入库
 CONTRIBUTING.md
 
@@ -129,7 +126,6 @@ src-tauri/keys/*.key.pub
 
 # 疑似 API 密钥轮换记录（sk-...==>sk-...），严禁入库；确认无效后删除该文件即可
 expressions.txt
-docs/repo_research/
 # 归档用：第三方仓库克隆（含各自 .git），不入库
 _devarchive/repo_research/
 
@@ -145,23 +141,8 @@ LOCAL_RULES.md
 # §13.1 仅本地容器：内部说明 / agent 上下文 / 实验记录 / 纯历史
 /local/
 
-# 跨项目治理文档（整理/核对报告，仅本地保留，2026-09-02）
-docs/六大项目文档整理与核对.md
-# 治理/分析文档（仅本地保留，不上远程）
-docs/repo-analysis/
-
 # 内部开发文档（仅本地保留，不上远程，2026-09-02）
 _devarchive/
-docs/FILEMAP.md
-docs/README.md
-docs/_devarchive/
-docs/plans/
-docs/project/*
-!docs/project/KNOWN_GOTCHAS.md
-!docs/project/AI_DEV_SOPS.md
-docs/reports/
-docs/analysis/
-docs/整理记录_20260823.md
 
 # 本地预检脚本（不入库）
 precheck.ps1
@@ -193,10 +174,8 @@ perf/results/perf-run-latest.json
 perf/results/perf-history.json
 perf/results/long-session-results/
 perf/results/penetration-test.json
-docs/agents/
 
 # --- 2026-09-06 目录整理补齐（方案 A：路径不动，仅排除）---
-docs/_devarchive/repo_research/
 .mypy_cache/
 pytest_tmp/
 .hypothesis/
