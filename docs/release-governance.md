@@ -63,9 +63,9 @@
 | SBOM（CycloneDX，`sbom-npm.json` / `sbom-npm.xml` / `src-tauri/*.cdx.json`） | **远端**（`.github/workflows/sbom.yml`，同样 `push: tags: 'v*'` 触发） | 随 draft Release 附带 | 依赖清单，供供应链核对 |
 
 - **标签不可变性**：产物由 tag `v<X.Y.Z>` 驱动，URL 固定到 `v<ver>`，**不以 floating `latest` 作发布基线**（本仓无 `latest` 引用，`updates.json` 中的下载 URL 均为版本化固定路径）。
-- **完整性口径**：防伪造由**桌面壳的 Tauri ed25519 更新器签名承担**（`*.sig`，minisign 格式；发布链已硬性校验其存在与格式）。
+- **完整性口径**：防伪造由**桌面壳的 Tauri ed25519 更新器签名承担**（`*.sig`，minisign 格式；发布链已硬性校验其存在与格式）；防传输损坏由 **`SHA256SUMS.txt`**（§10.1，release.yml 生成并挂载）承担。
 - **GPG 分离签名已撤**：本仓原 `gpg-signed-release.yml` **已删除，符合 2026-10-18 裁决**（PR #146 已合并，删除该 workflow）。当前工作流清单中不再存在该文件。
-- **现状差异（与 §10 公共条款的偏差，待收敛）**：本仓 Release 资产**未产出 `SHA256SUMS.txt`**（§10.1 要求 Release 资产须附之）。当前拼图完整性依赖 Tauri ed25519 签名 + 本地哈希复核（见 `docs/execution/RELEASE_VERIFICATION.md`，其中明确记录本仓 NSIS 属非可复现构建、本地与 CI 哈希必然不同，故以验签为准）。
+- **现状（2026-10-20 修复 PR 引入，合并后生效）**：`release.yml` 的 `publish-updates` job 在资产校验后生成并挂载 `SHA256SUMS.txt`（§10.1 要求，与 §10.6 已收敛 4 仓同口径），供下载侧核对防传输损坏。防伪造仍由 Tauri ed25519 更新器签名承担；本地哈希复核见 `docs/execution/RELEASE_VERIFICATION.md`（本仓 NSIS 属非可复现构建、本地与 CI 哈希必然不同，故以验签为准）。
 - **容器镜像条款不适用**：本仓无 `Dockerfile`、无 ghcr 推送，`.trivyignore.yaml` 不存在，`.github/workflows/` 中无任何 Trivy 扫描步骤——§10.3 / §10.4 的镜像 tag、Trivy 阻断、`provenance: true` / `sbom: true` 条款**对本仓不适用**。
 - 签名私钥按 §3 走私有 `<项目名>-KeyBackup` 模式保管，不入库。
 
@@ -106,7 +106,7 @@
 | 自动化方式 | `.github/workflows/` | **手动 tag（人工）**；无 release-please |
 | 发布 workflow 文件名 | `.github/workflows/` | `release.yml`（`push: tags: 'v*'`）、`verify-release-version.yml`、`sbom.yml` |
 | 产物形态与标签规则 | 构建 workflow | Tauri 桌面包：Windows NSIS `setup.exe`、Linux AppImage/deb；不可变，URL 绑定 `v<ver>`，无 `latest` |
-| 完整性手段 | Release 资产清单 | Tauri ed25519 更新器签名（`*.sig`）；**未产出 `SHA256SUMS.txt`（现状差异）** |
+| 完整性手段 | Release 资产清单 | Tauri ed25519 更新器签名（`*.sig`）；`SHA256SUMS.txt`（release.yml `publish-updates` 生成，2026-10-20 修复 PR 引入） |
 | 回滚判定阈值 | 运行手册 / 监控 | 待定（负责人 + 触发条件） |
 | 回滚后验证命令 | `docs/execution/RELEASE_VERIFICATION.md` | `gh release view` 资产核验 + `updates.json` 可达性复核 |
 | 技术栈 | `package.json` / `Cargo.toml` | Rust（Tauri v2）+ 前端（pnpm / Vite）+ Android |
