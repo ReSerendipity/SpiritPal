@@ -26,3 +26,8 @@ jobs:
   self-purify:
     name: 自净化检查（非阻塞）
     uses: ReSerendipity/.github/.github/workflows/self-purify.yml@main
+    with:
+      # 仓级豁免（2026-10-20）：docs/execution/ 为本仓公开层归档处——LOCAL_RULES.md 第 4 条
+      # （2026-10-17 更正）明确执行记录与证据截图归公开层并纳入版本控制，故不按「本地治理文档」判违规。
+      # 见 docs/execution/ 内 41 个已跟踪文件（8 篇 md + 30 张证据 png + 3 篇白名单内文档）。
+      extra_exempt_regex: '^docs/execution/'
