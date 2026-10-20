@@ -255,6 +255,23 @@ jobs:
           grep -q "untrusted comment" /tmp/sighead 2>/dev/null || { echo "::error::签名文件格式异常（非 minisign）"; exit 1; }
           echo "✓ 签名文件校验通过"
 
+      # §10.1 完整性要求：Release 资产须附 SHA256SUMS.txt（2026-10-20 修复 PR 补链，
+      # 与 §10.6 已收敛 4 仓同口径）。此时 tauri-action 已把三平台产物全部上传进 draft Release，
+      # 从 Release 下载全部资产生成校验清单并挂回，供下载侧核对防传输损坏。
+      - name: Generate SHA256SUMS.txt and attach to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ github.ref_name }}"
+          rm -rf /tmp/sp-sha256 && mkdir -p /tmp/sp-sha256
+          gh release download "$TAG" --dir /tmp/sp-sha256 --clobber
+          cd /tmp/sp-sha256
+          rm -f SHA256SUMS.txt        # 重跑发布链时覆盖旧清单自身，不重复累计
+          sha256sum * > SHA256SUMS.txt
+          gh release upload "$TAG" SHA256SUMS.txt --clobber
+          echo "✓ SHA256SUMS.txt 已挂载（$(wc -l < SHA256SUMS.txt) 项）"
+
       # 顺序修正（Better Harness finding: release-goes-public-before-updates-manifest-verified）：
       # 原顺序是 转公开 → 生成 updates.json → 校验内容 → 提交推送，而本 job 上方 :202 的注释写明
       # 「漏更新 updates.json = 用户永远检查不到新版本，故放发布链路上强制同步」。生成/校验任一步失败时
