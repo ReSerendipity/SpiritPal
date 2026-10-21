@@ -12,7 +12,7 @@
 
 1. **依赖年龄断层**。本仓运行时栈为 React 19 / Vite 7 / TS 5.6 / Tailwind 4 等最新大版本，但渲染层 `pixi.js` **停在 7.4.x**（PixiJS 8 已发布并完成渲染管线重构：WebGPU 支持 / 插件体系 / `Application` 生命周期均大幅变更），`pixi-live2d-display`（社区插件，负责把 Live2D Cubism 模型挂到 Pixi 场景）**长期停在 0.4.0**。
 2. **锁定的真实原因**：`pixi-live2d-display@0.4.0` 的 peer/运行时依赖**只兼容 Pixi 7 的 API 面**（`Application`、`Texture`、`Container` 等），升级 Pixi 8 会直接破坏 Live2D 渲染路径（Cubism 模型无法上屏）。这不是"拖延升级"，而是**被社区插件版本锁死的现实约束**。
-3. **商业分发的法律含义**：Live2D Cubism 为专有软件，`docs/LIVE2D_LICENSE_REMINDER.md` 明确：公开分发（哪怕免费）需向 Live2D 申请发行许可（个人/小规模可免费），商用超阈值需付费。本仓四种打包形态（NSIS / DMG / AppImage / deb）只要对外分发即触发申请义务；经核查 `public/live2dcubismcore.js` 为 **0KB 占位文件**（Cubism Core 未随应用分发，缺失时 `Live2DRenderer` 走 `onError` 降级到 `SpriteRenderer`），不额外触发"分发 Core SDK"条款，但项目内置的 Live2D 渲染代码仍属"使用 Live2D SDK"范畴。
+3. **商业分发的法律含义**：Live2D Cubism 为专有软件，`docs/LIVE2D_LICENSE_REMINDER.md` 明确：公开分发（哪怕免费）需向 Live2D 申请发行许可（个人/小规模可免费），商用超阈值需付费。本仓四种打包形态（NSIS / DMG / AppImage / deb）只要对外分发即触发申请义务；经核查 `public/live2dcubismcore.js` 为 **179 字节说明性占位文件**（仅含「从 Live2D 官网下载 SDK」的注释，非 SDK 本体——2026-10-21 订正：原记「0KB 占位文件」，实测 `wc -c` 为 179 字节；「不分发 Core」的结论不变）（Cubism Core 未随应用分发，缺失时 `Live2DRenderer` 走 `onError` 降级到 `SpriteRenderer`），不额外触发"分发 Core SDK"条款，但项目内置的 Live2D 渲染代码仍属"使用 Live2D SDK"范畴。
 
 # 评估的备选方案
 

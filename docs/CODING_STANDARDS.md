@@ -103,7 +103,7 @@ python scripts/check_no_hardcoded_paths.py --all    # 全库
 - `build_portable.bat` / `build_portable_diag.bat`：`call "C:\Program Files (x86)\Microsoft Visual Studio\18\...\vcvars64.bat"` 改为**探测式定位**（优先环境变量 `VCVARS64`，其次常见 VS BuildTools 版本路径）；`cd /d "C:\Users\Doro\SpiritPal"` 改为 `cd /d "%~dp0"`。
 - `src/fix_route_persistence.ps1`：`C:\Users\Doro\SpiritPal\src\App.tsx` 改为 `Join-Path $PSScriptRoot "App.tsx"`。
 - `scripts/_fetch_bili_comments_github.py` / `_fetch_bili_desc_github.py`：输出路径 `c:/Users/Doro/Multi-Tracker/...` 改为**脚本目录默认 + `BILI_RESULTS_OUT` 环境变量覆盖**。
-- `scripts/check_spec_refs.py`：docstring 中的本机路径说明改为通用表述；脚本本身已按仓库相对位置推导。⚠️ 2026-09-18（v2.70）修订：原「缺失时跳过（CI green）」降级语义**已废除**（fail-open，见 GOTCHAS #123）——现为三态退出码（0=审计已执行且通过 / 1=已执行且失败 / 2=未执行），CI 以 `--allow-unavailable` 显式标注不可用态。
+- `scripts/check_spec_refs.py`：docstring 中的本机路径说明改为通用表述；脚本本身已按仓库相对位置推导。⚠️ 2026-09-18（v2.70）修订：原「缺失时跳过（CI green）」降级语义**已废除**（fail-open，见 GOTCHAS #123）——现为三态退出码（0=审计已执行且通过 / 1=已执行且失败 / 2=未执行）。⚠️ 2026-10-14（第三轮）修订：`--allow-unavailable` 已从 `structure-guard.yml` 与 `docs-consistency.yml` 移除，CI 不再接受「未执行」当通过（见上文第三轮记录）。
 
 ## 6. 关联文档
 

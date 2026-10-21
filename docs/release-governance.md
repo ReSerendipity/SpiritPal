@@ -85,9 +85,11 @@
 
 ## 7. 发布前检查清单
 
+> **2026-10-21 订正**：覆盖率阈值原写作 `lines 46 / functions 42 / branches 38 / statements 45`，与 `vitest.config.ts` 实际生效值（2026-10-16 棘轮校准后的 lines 48 / functions 44 / branches 40 / statements 47，登记见 `docs/TECH_DEBT.md` §2）不符，已按配置更正。
+
 - [ ] 版本位全部同步（`package.json` / `src-tauri/Cargo.toml` / `src-tauri/tauri.conf.json`，见 §1；`node scripts/sync-version.mjs --check` 三处一致 ✓）
 - [ ] `CHANGELOG.md` 的 `[Unreleased]` 已改为 `[VERSION] - YYYY-MM-DD`
-- [ ] 测试 / 覆盖率门禁通过：`pnpm test:coverage`（vitest，阈值 lines 46 / functions 42 / branches 38 / statements 45）
+- [ ] 测试 / 覆盖率门禁通过：`pnpm test:coverage`（vitest，阈值 lines 48 / functions 44 / branches 40 / statements 47）
 - [ ] lint / format 全绿：`pnpm lint`（`tsc --noEmit` + `eslint src/`）、`pnpm format:check`
 - [ ] SRI 清单一致：`pnpm verify:sri`（`node scripts/obfuscate-and-sri.mjs --verify`）
 - [ ] tag 命名 `v<X.Y.Z>` 与 `package.json` 逐字符一致（发布链闸 1）

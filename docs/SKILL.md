@@ -10,7 +10,7 @@ description: "Harvest open-source repos from Bilibili video descriptions and com
 ## 何时调用
 
 - 用户要求「去 B 站找和 XX 项目类似的开源项目」
-- 要求更新 / 复扫 `docs/project/桌面宠物开源仓库清单.md` 之类的采集清单
+- 要求更新 / 复扫采集清单（⚠️ 2026-10-21 订正：原写的目标文档 `docs/project/桌面宠物开源仓库清单.md` 已随治理批次移出仓库、不再随仓库发布，恢复入库须由所有者决定）
 - 需要评估某技术主题在中文社区的开源生态分布
 
 ## 0. 铁律前置：先建冲突集，再谈发现
@@ -125,7 +125,7 @@ $rxRepo = [regex]'(?i)(?:https?://)?(?:www\.)?((?:github|gitee|gitlab)\.com|gitc
 
 ## 9. 入库输出规范
 
-追加进目标清单文档（本仓为 `docs/project/桌面宠物开源仓库清单.md`），沿用其既有表头，逐列给全：
+追加进目标清单文档（沿用其既有表头，逐列给全；⚠️ 2026-10-21 订正：原写法「本仓为 `docs/project/桌面宠物开源仓库清单.md`」，该清单已不在仓库内，详见下节「入库前必查」）：
 
 ```
 | 项目仓库 | 体量/栈 | 一句话介绍 | 来源视频 (BV号) | UP 主 | 发布日 | 提取位置 |
@@ -138,7 +138,7 @@ $rxRepo = [regex]'(?i)(?:https?://)?(?:www\.)?((?:github|gitee|gitlab)\.com|gitc
 
 ### 入库前必查：目标文档的 Git 跟踪状态
 
-清单类文档常落在被忽略的目录（本仓 `.gitignore` 有 `docs/project/*`，仅对少数文件用 `!` 开白名单）。写之前先确认：
+清单类文档常落在被忽略的目录（⚠️ 2026-10-21 订正：原写「本仓 `.gitignore` 有 `docs/project/*`，仅对少数文件用 `!` 开白名单」——该前提已过时：PR #156（`e9d2281`，2026-10-20，§12.1「docs/ 纯入库」）后 `docs/` 已无任何忽略规则，`docs/project/*` 忽略与 `!` 白名单均已不存在；「写入前先确认 Git 跟踪状态」的纪律仍然有效——仓库其他目录仍有忽略规则，如 `public/pets/`（`.gitignore:210`））。写之前先确认：
 
 ```bash
 git ls-files -- docs/project/<清单文件>.md   # 空 = 未被跟踪

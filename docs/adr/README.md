@@ -11,7 +11,7 @@
 | [0002](0002-upload-magic-check.md) | 上传文件魔数校验（Rust 签名表 + 前端接线） | Implemented | 2026-08-27 |
 | [0003](0003-memory-system-cognee-vs-memvid.md) | 记忆系统选型（cognee 为主 / memvid-rs 备选） | Proposed | 2026-09-03 |
 | [0004](0004-pixi-live2d-version-lock.md) | PixiJS 7 / pixi-live2d-display 0.4.0 版本锁定（Live2D 渲染栈约束 + 升级触发条件） | Superseded（2026-09-17 升级 pixi.js 8.20 + @jannchie 1.4） | 2026-09-04 |
-| [0005](../agents/ADR-0005-ondevice-llm.md) | 端侧 Qwen3.5 接入（embed 为目标 / companion 为已验证临时方案；本地层） | Accepted | 2026-09-15 |
+| 0005 | 端侧 Qwen3.5 接入（embed 为目标 / companion 为已验证临时方案） | Accepted（**本地层**文档 `docs/agents/ADR-0005-ondevice-llm.md`，未纳入版本控制，故此处按本地层纪律以纯文本提及、不做链接） | 2026-09-15 |
 
 ## 何时必须写 ADR（满足任一即写）
 

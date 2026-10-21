@@ -4,7 +4,7 @@
 
 | 角色 | 显示名 | 来源（仓库/作者） | 当前形态 | 权属与授权状态 | 待办 |
 |---|---|---|---|---|---|
-| doro | 多罗（内置） | github.com/MelanTech/Dororo（Godot 桌宠，`models/Doro/`，commit `c2050bd`；GPL-3.0） | **唯一内置**（`src/lib/data/characters.ts`），Live2D 真身 + 精灵图回退 | **作者已回复（MelanTech/Dororo#10，2026-09-16）**：模型经爱发电链接免费提供、允许二创（须遵原作者条款）；用项目代码须遵 GPL-3.0。精灵图回退 `spritesheet.webp` 实为 OC-Claw 仿品（与 doro-codex SHA256 一致，见 `public/pets/doro/ATTRIBUTION.md`） | ⚠️ 按原作者条款核对爱发电模型授权细则；仿品回退仅作 Core 缺失兜底 |
+| doro | 多罗（内置） | github.com/MelanTech/Dororo（Godot 桌宠，`models/Doro/`，commit `c2050bd`；GPL-3.0） | **唯一内置**（`src/lib/data/characters.ts`，`spriteAsset: /pets/doro/spritesheet.webp`，`spriteType: atlas`；**仓内无 Live2D 模型文件**，`*.model3.json` 不随包分发，探测不到即走精灵图） | **作者已回复（MelanTech/Dororo#10，2026-09-16）**：Live2D 模型经爱发电链接免费提供、允许二创（须遵原作者条款）；用项目代码须遵 GPL-3.0。`spritesheet.webp` 实为 OC-Claw 仿品（与 doro-codex SHA256 一致；原指向的 `public/pets/doro/ATTRIBUTION.md` 不在仓内，2026-10-21 订正时去除该死引用） | ⚠️ 按原作者条款核对爱发电模型授权细则；若日后改为随包分发其 Live2D 模型，须先完成授权核对 |
 | feibi | 菲比 | github.com/llors-chen/Feibi_desktop | **已出包**（2026-09-17）：素材从安装包移除，人设与获取指引存于 `character-packs/feibi/pet.json` 模板，用户自备素材导入 | 授权请求 llors-chen/Feibi_desktop#2（2026-09-16）**无回复** → 不再随包分发 | ⏳ 若日后获授权可恢复内置；模板 persona 字段已就绪 |
 | gugugaga | 咕咕嘎嘎 | **无可登记源头**（初始提交带入的本地 B 站梗视频剪辑；上游 IP 为《明日方舟：终末地》管理员企鹅化二创） | **已删除**（2026-09-17）：代码、素材、i18n 全部移除；同角色由**有来源**的 `xiang-qie` 社区包（rainnoon/oc-claw，MIT 声明）覆盖 | 待确认（无授权对象可询） | 若确认合法源头，可以社区包形式恢复 |
 

@@ -17,7 +17,7 @@ rendering backend:
 
 - Cubism Core (`live2dcubismcore.js`) is **NOT bundled** with the app or repository.
   Users download it from the official Live2D website and install it locally
-  (0-byte placeholder in the app; renderer falls back to sprite mode when absent).
+  (a 179-byte comment-only placeholder ships in the app; renderer falls back to sprite mode when absent).
 - The application code itself (Live2DRenderer / render adapters) uses the Cubism SDK
   and is publicly distributed as builds for Windows (NSIS), macOS (DMG) and Linux
   (AppImage/deb) — hence this Publication License application.
@@ -49,7 +49,7 @@ GitHub: https://github.com/ReSerendipity/SpiritPal）的开发者。应用以 Ta
 构建，集成 Live2D Cubism SDK for Web 作为**可选**渲染后端：
 
 - Cubism Core（live2dcubismcore.js）**不随应用或仓库分发**，由用户从官网自行下载安装
-  （应用内为 0 字节占位文件，缺失时渲染器降级为精灵图模式）；
+  （应用内为 179 字节说明性占位文件，仅含下载指引注释、非 SDK 本体；缺失时渲染器降级为精灵图模式）；
 - 应用自身代码（Live2DRenderer / 渲染适配层）使用 Cubism SDK，并以 Windows（NSIS）、
   macOS（DMG）、Linux（AppImage/deb）构建包公开发布——因此提交本发行许可申请；
 - 应用完全免费，无任何收入，由个人开发者以非营利性质维护。

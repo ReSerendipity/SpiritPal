@@ -1,4 +1,4 @@
-﻿# SpiritPal 安全矩阵
+# SpiritPal 安全矩阵
 
 > 本文档列出项目的安全控制措施，供安全审计和合规检查参考。
 
@@ -35,8 +35,10 @@
 
 | 控制项 | 实现方式 | 状态 |
 |---|---|---|
-| 签名发布 | gpg-signed-release（仅 SeedVR2） | ⚠️ 待推广 |
+| 签名发布 | Tauri **ed25519 更新器签名**（`*.sig`，minisign 格式，`updates.json` 内嵌 `platforms.*.signature` 与 Release `.sig` 逐字符一致）+ **`SHA256SUMS.txt`**（防传输损坏，§10.1） | ✅ |
 | 制品不可变 | Immutable Release Artifacts | ✅ |
 
+> **2026-10-21 订正**：原「签名发布 \| gpg-signed-release（仅 SeedVR2）\| ⚠️ 待推广」已失实——本仓 `gpg-signed-release.yml` **已删除**（2026-10-18 裁决，PR #146），`.github/workflows/` 实测无该文件；现行完整性口径为 ed25519 更新器签名 + `SHA256SUMS.txt`（见 `docs/release-governance.md` §4）。
+
 ---
-*最后更新：2026-09-20*
+*最后更新：2026-10-21*

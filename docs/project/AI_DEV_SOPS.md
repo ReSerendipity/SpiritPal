@@ -76,15 +76,15 @@
    ```
 2. `src/lib/data/types.ts` 加 `AchievementDef` / `UnlockedAchievement` 类型定义（如需 Rust 侧读取：注：2026-10-17 源码核实 src-tauri/src/types.rs 已不存在，Rust 端类型随命令就地定义）
 3. Vitest 测试：4 个最小用例（初始空、unlock 加、重复 unlock 幂等、reset 清空）
-4. 如果 store 里字段要参与 Rust 端 backup/restore 流程 → 同步改 `commands/backup.rs` 的 schema。
+4. 如果 store 里字段要参与 Rust 端 backup/restore 流程 → 同步改 backup 相关命令的 schema（注：2026-10-21 源码核实：原写法 `commands/backup.rs` 不存在——`src-tauri/src/commands/` 现仅有 `mod.rs` 与 `window.rs`；backup/restore 命令 `backup_db_at_rest` / `list_db_backups` / `restore_db_backup` / `delete_db_backup` / `encrypt_db_at_rest` / `decrypt_db_at_rest` 定义在 `src-tauri/src/encrypted_db.rs`，注册于 `src-tauri/src/lib.rs` 的 `generate_handler!`）。
 
 #### SOP-3: 新增一个宠物角色（例如新增 Miko 小狐狸 Live2D 模型）
 
-> ⚠️ 前置条件：本仓库不内置 Live2D 模型资产。需自行放置 `public/assets/live2d/<model>/<model>.model3.json`，否则本步骤无法执行。
+> ⚠️ 前置条件：本仓库不内置 Live2D 模型资产。需自行放置 `public/pets/<model>/<model>.model3.json`（运行时探测路径 `/pets/<id>/<id>.model3.json`，见 `src/hooks/pet/usePetLive2D.ts`；2026-10-21 订正：原写 `public/assets/live2d/<model>/`，该路径无任何代码消费），否则本步骤无法执行。
 
-1. 把新的 Live2D 模型文件（`.model3.json` + `.moc3` + 贴图 + 动作 motion3.json）放到 `public/assets/live2d/<model>/` 目录（例：`miko`）
-2. `src/lib/data/types.ts` 的 `PetSpecies` enum 加 `miko: "fox"` 变体（同步 Rust `types.rs`）
-3. `src/stores/petStore.ts` 初始化 `availablePets` 数组里加一条 `{ id: "miko-001", species: "fox", name: "Miko", modelPath: "/assets/live2d/<model>/<model>.model3.json" }`（路径与步骤 1 实际放置的模型目录一致）
+1. 把新的 Live2D 模型文件（`.model3.json` + `.moc3` + 贴图 + 动作 motion3.json）放到 `public/pets/<model>/` 目录（例：`miko`，即 `/pets/miko/miko.model3.json`）
+2. 角色档案落点（注：2026-10-21 源码核实：原写法「`src/lib/data/types.ts` 的 `PetSpecies` enum 加变体（同步 Rust `types.rs`）」两处均不存在——`src/lib/data/types.ts` 无 `PetSpecies` enum，`src-tauri/src/types.rs` 已移除）：新角色直接在 `src/lib/data/characters.ts` 定义 `CharacterProfile` 条目（`CharacterProfile` 真实字段见 `src/lib/data/types.ts:206`：id/name/displayName/source/…/spriteAsset/spriteType 等；Live2D 模型路径不写在档案里，由 `usePetLive2D` 按上条探测约定自动解析）
+3. `src/lib/data/characters.ts` 的内置角色数组加一条 `{ id: "miko", name: "Miko", displayName: "美子", spriteAsset: "/pets/miko/<兜底精灵>", spriteType: "atlas" }`（注：2026-10-21 源码核实：原写 `src/stores/petStore.ts` 的 `availablePets` 数组与 `species`/`modelPath` 字段均不存在；内置角色单一入口是 `characters.ts` 的 `CHARACTERS`，`CharacterProfile` 无 `species`/`modelPath` 字段，Live2D 模型路径由探测约定解析、不配置；`spriteAsset` 填 Cubism Core 缺失时的兜底精灵）
 4. src/lib/petBehaviorEngine.ts（历史文件名）的 FSM 表里加一条 fox 物种的专属动作映射（注：2026-09-12 源码核实该文件名已不存在，行为引擎现位于 `src/lib/ai/behaviorEngine.ts`）（fox 兴奋时触发 `motion("jump")` 而不是 `motion("wag_tail")`，dog 才 wag tail）
 5. **测试**：pnpm dev → 启动后设置里选 Miko → 手动验证：Idle 动画循环正常、点她触发 tap motion、表情切换正常（happy/sad）
 6. 性能验证：打开「性能统计面板」(devtools)，确保 Miko FPS 稳定 30 且 30 分钟不泄漏内存（`pnpm test:perf` 单独跑）
@@ -96,7 +96,7 @@
 3. `src/stores/settingsStore.ts` 的 default 初始值 + 加 `setPetAutostartOnLogin(v: boolean)` action
 4. 前端 `components/settings/GeneralSettings.tsx` 加 UI（Switch / Dropdown），UI 必须走 SpiritPal UI Kit（`BrandSwitch` 组件，不许原生 `<input type=checkbox>`）
 5. **如果涉及 OS 能力**（如开机自启 = 写 Windows Registry / macOS LaunchAgents）→ 同步写一个 Rust command `cmd_settings_set_autostart(enabled: bool)`，action 内部调这个 command 而不是直接 localStorage
-6. 备份/恢复：`commands/backup.rs` 的 settings 字段加新字段名，不然用户导出 JSON 再导入新字段就丢了
+6. 备份/恢复：backup schema 加新字段名（2026-10-21 订正：原写 `commands/backup.rs`，该文件不存在，实际在 `src-tauri/src/encrypted_db.rs`，见 SOP-2 步骤 4 注），不然用户导出 JSON 再导入新字段就丢了
 7. 翻译：每种语言 `settings.autostart_label` + `settings.autostart_hint` 补上 → `pnpm i18n:check`
 
 #### SOP-5: 增量更新发布链（updates.json + 签名密钥 + 配置，缺一即漏更新）

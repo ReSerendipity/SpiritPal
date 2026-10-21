@@ -25,6 +25,8 @@
 
 ## 4. 更新机制（发布前待办）
 
+> **2026-10-21 订正（2026-09-15 状态补记的重申）**：本节「发布前」①② 实际已完成——① commit `f9e0f43`（2026-09-10）已将 endpoints 修正为 `ReSerendipity/SpiritPal`（`src-tauri/tauri.conf.json` 实测为真）；② 签名密钥已随 v0.1.0 发布链接入（`TAURI_SIGNING_PRIVATE_KEY`，配对验证状态以 `docs/RELEASE_NOTES.md` 表行 2 的「接入未验证」为准）；③ 已由 v0.1.0（2026-09-10 发布）走完。当前状态以 §7 与 `docs/RELEASE_NOTES.md` 为准，本节保留作机制说明。
+
 - 采用 Tauri updater + GitHub Releases 静态托管，**无需自建服务器**；
 - 发布前：① 创建真实仓库并将 `tauri.conf.json` 的 updater 端点从占位域名改为真实地址；② 生成并离线保管签名私钥（私钥丢失=无法发更新，泄露=可注入恶意更新）；③ 发布时构建安装包 → 上传 Releases → 更新 `updates.json`（版本、URL、签名）；
 - 详见 `RELEASE_NOTES.md`。

@@ -5,7 +5,7 @@
 
 ## 项目主许可
 
-SpiritPal 项目代码采用 [Apache License 2.0](LICENSE)。
+SpiritPal 项目代码采用 [Apache License 2.0](../LICENSE)。
 Live2D Cubism Core 为专有软件、**不随包分发**（见 [COMPLIANCE_CHECKLIST.md](COMPLIANCE_CHECKLIST.md)）。
 
 ## 前端主要依赖（React / TypeScript，Vite + pnpm）
@@ -36,7 +36,7 @@ Live2D Cubism Core 为专有软件、**不随包分发**（见 [COMPLIANCE_CHECK
 |---|---|---|
 | Live2D Cubism Core | 专有（不随包分发） | 用户自装，见 COMPLIANCE_CHECKLIST §2 |
 | 宠物动画素材（webm/svg/png） | 项目自有或按来源仓库 | `public/pets/` |
-| Doro Live2D 模型（`public/pets/doro/`） | GPL-3.0（随源仓库 MelanTech/Dororo） | 2026-09-16 接入，入口 `doro.model3.json`；渲染需用户自装 Cubism Core；授权申请 MelanTech/Dororo#10 进行中 |
+| Doro 角色素材（`public/pets/doro/`：`spritesheet.webp` / `idle.gif` / `idle.svg`） | GPL-3.0（随源仓库 MelanTech/Dororo） | 2026-09-16 接入：随包的是**精灵图集**（`src/lib/data/characters.ts` 的 doro 档案，`spriteAsset: /pets/doro/spritesheet.webp`，`spriteType: atlas`）。**Live2D 模型（`*.model3.json`）未随包分发**——仓内不存在该文件（从未入库），运行时探测不到即回退精灵图；用户可依作者回复（MelanTech/Dororo#10，2026-09-16：经爱发电链接免费提供、允许二创）自行获取。渲染需用户自装 Cubism Core。授权状态：**作者已回复**（issue 仍为 OPEN），细节见 `CHARACTER_ATTRIBUTIONS.md` |
 | 中文字体/图标 | 以文件头与来源为准 | `public/`、`src/` 内资源 |
 
 ## 端侧图像（Qwen-Image-2.1，可选能力）

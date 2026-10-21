@@ -38,7 +38,9 @@
 
 ## 4. 架构漂移结论（P1②，核实后不予处置）
 
-报告称「ADR-0005 与增量 GOTCHAS 落在未入库目录」构成架构漂移。经核实 `AGENTS.md` 协议头：本仓实行**两级文档体系**——`AGENTS.md` 与 `docs/agents/` 属**本地层**（`.gitignore` 显式忽略、不入版本控制），`docs/adr/`、`docs/execution/`、`docs/project/` 等属**公开层**。ADR-0005 与增量 GOTCHAS 落在 `docs/agents/` 是**既定设计而非缺陷**；本地层另有 `scripts/snapshot_local_docs.py` 快照与异地镜像机制兜底。**结论：不强行把本地文档推入仓库，登记备查。**
+报告称「ADR-0005 与增量 GOTCHAS 落在未入库目录」构成架构漂移。经核实 `AGENTS.md` 协议头：本仓实行**两级文档体系**——`AGENTS.md` 与 `docs/agents/` 属**本地层**，`docs/adr/`、`docs/execution/`、`docs/project/` 等属**公开层**。ADR-0005 与增量 GOTCHAS 落在 `docs/agents/` 是**既定设计而非缺陷**；本地层另有 `scripts/snapshot_local_docs.py` 快照与异地镜像机制兜底。**结论：不强行把本地文档推入仓库，登记备查。**
+
+> **2026-10-21 订正（本地层保护状态已变）**：`docs/agents/` 此前由 `.gitignore` 的 `docs/agents/` 目录条目显式忽略；该规则已在治理批次 PR #156（`e9d2281`，2026-10-20，§12.1「docs/ 纯入库」收敛）中随全部 `docs/` 忽略规则一并移除。现状：`git check-ignore docs/agents/GOTCHAS.md` 无命中（rc=1）、`git status` 显示 `?? docs/agents/`，即**整目录 untracked 且未被忽略**；仅其中名为 `AGENTS.md` 的文件仍被 `.gitignore` 的通用 `AGENTS.md` 条目命中。规范目标位置为 `local/agents/**`（`AGENTS.md` §7/§13.1）。上文「`.gitignore` 显式忽略」的表述**已过时**，结论（本地层不入库、登记备查）不变；是否需要把 `docs/agents/**` 整体迁至 `local/agents/**` 以免误提交，仍属待决策项。
 
 ## 5. 前端工程四项「未能判断」项（前端 P1，批次六取证）
 
