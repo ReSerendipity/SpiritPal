@@ -9,7 +9,7 @@ SpiritPal Android 的端侧 LLM（on-device）依赖预编译原生库 libmnnllm
 （MNN Chat 的 JNI 桥，System.loadLibrary("mnnllmapp") 加载）。官方只以**编译进
 MNN Chat APK** 的形式分发（GitHub release 的 android zip 里是 libllm.so，不是我们要的
 libmnnllmapp.so），因此从官方 MNN Chat APK 解包是最稳的来源
-（见 docs/agents/GOTCHAS.md #71/#72、ADR-0005-ondevice-llm.md）。
+（见 local/agents/GOTCHAS.md #71/#72、ADR-0005-ondevice-llm.md）。
 
 ⚠️ 2026-10-13 起本脚本**不再**解包 libMNN.so
 --------------------------------------------

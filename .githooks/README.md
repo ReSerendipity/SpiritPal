@@ -54,7 +54,7 @@ git config core.hooksPath .githooks      # 或执行 ./.githooks/install.sh
 
 ## 本地层文档快照
 
-`AGENTS.md` 与 `docs/agents/` 是被 gitignore 的本地层文件（无版本库保护），由
+`AGENTS.md` 与 `local/agents/` 是被 gitignore 的本地层文件（无版本库保护），由
 `lib-snapshot.sh`（挂在 pre-commit / post-checkout / post-merge 上，尽力而为，
 失败不阻断 git 操作）调用 `scripts/snapshot_local_docs.py` 自动快照到
 `backups/agents-snapshots/`（该目录已被 gitignore，不改变两级文档设计）。

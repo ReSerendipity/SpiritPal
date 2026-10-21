@@ -74,7 +74,7 @@ MIN_JAR_BYTES = 10_000
 
 # ── libMNN.so 内存守卫改写（「低内存覆盖」）────────────────────────────────────
 #
-# 背景（见 docs/agents/GOTCHAS.md #174）：MNN 的 diffusion 模块在每阶段前做一次
+# 背景（见 local/agents/GOTCHAS.md #174）：MNN 的 diffusion 模块在每阶段前做一次
 # `availableMemoryMB()` 守卫，只用 **MemAvailable**（不含 swap）判断，不足即抛
 # `Out of memory before <阶段>: needs about N MB, only M MB available`。
 #

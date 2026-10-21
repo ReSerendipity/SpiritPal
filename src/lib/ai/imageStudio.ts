@@ -12,7 +12,7 @@
  *   在 12GB 设备上不可能共存 → 加载图像模型前应先 `ondevice_unload_model` 释放 LLM。
  *
  * @see src-tauri/src/ondevice/image.rs
- * @see docs/agents/ADR-0006-ondevice-image.md
+ * @see local/agents/ADR-0006-ondevice-image.md
  */
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'

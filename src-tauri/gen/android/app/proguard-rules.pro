@@ -34,7 +34,7 @@
 # ⚠️ AAR 自带 consumerProguardFiles 含完全相同的规则，但本仓**不把 AAR 作为 Gradle 依赖**
 #    （只解包其 .so 与 classes.jar，见 scripts/fetch_qwen_image_engine.py），
 #    故该规则不会自动应用，必须在此显式声明。
-# 清单登记见 scripts/verify_android_jni_keeps.py 的 REQUIRED；背景见 docs/agents/GOTCHAS.md。
+# 清单登记见 scripts/verify_android_jni_keeps.py 的 REQUIRED；背景见 local/agents/GOTCHAS.md。
 -keep class com.scsonic.qwenimage21.** { *; }
 
 # SpiritPal 自己的图像桥：Rust 经 JNI 调 loadModel / generate / release / missingFiles
@@ -76,7 +76,7 @@
   #   getCookies(String) 由 main_pipe.rs:464 调。触发路径为 wry 的
   #   WebViewMessage::ClearAllBrowsingData / ::GetCookies（tauri 侧对应
   #   clear_all_browsing_data() / cookies()）。虽当前功能未走到，但一旦调用即崩，
-  #   故一并 keep。见 docs/agents/GOTCHAS.md #122。
+  #   故一并 keep。见 local/agents/GOTCHAS.md #122。
   void clearAllBrowsingData();
   java.lang.String getCookies(java.lang.String);
 }
@@ -93,7 +93,7 @@
 # → 真机启动即 java.lang.NoSuchMethodError（与上面的 wry getId() 同类故障）。
 # 官方规则本应由 tauri CLI 自动生成到 app/proguard-tauri.pro；本仓该文件曾缺失，
 # 故在此再显式补一份（该文件为 user-owned、始终被引用、不被 tauri CLI 覆盖），
-# 防止自动生成文件再次丢失后复发。见 docs/agents/GOTCHAS.md #122。
+# 防止自动生成文件再次丢失后复发。见 local/agents/GOTCHAS.md #122。
 -keep class com.spiritpal.desktop_pet.TauriActivity {
   public app.tauri.plugin.PluginManager getPluginManager();
 }

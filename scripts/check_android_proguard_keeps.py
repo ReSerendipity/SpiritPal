@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """静态守卫：Android release 的 R8 keep 规则完整性（**无需 Android 工具链**）。
 
-为什么需要它（见 docs/agents/GOTCHAS.md #121 / #122）
+为什么需要它（见 local/agents/GOTCHAS.md #121 / #122）
 ------------------------------------------------------
 release 开 `minifyEnabled=true` 后，R8 会把「Kotlin/Java 侧没有调用者、只能被 Rust
 侧经 JNI 反射调用」的方法当 unused **整方法删除** —— 编译期零告警、打包零报错，

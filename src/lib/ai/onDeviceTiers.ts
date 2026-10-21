@@ -194,7 +194,7 @@ export async function recommendOnDeviceDetected(saver = false, vision = true): P
 
 // ============ 端侧图像（Qwen-Image-2.1）分档 ============
 // 与上面 LLM 分档相互独立：图像对内存/存储的要求高一个量级（默认组 ≈9.9GB，
-// 加 Turbo ≈15.1GB），门槛是 RAM ≥12GB + OpenCL。见 docs/agents/ADR-0006-ondevice-image.md。
+// 加 Turbo ≈15.1GB），门槛是 RAM ≥12GB + OpenCL。见 local/agents/ADR-0006-ondevice-image.md。
 
 /** 图像尺寸档位（对齐 libQwenImage21 的 Size.Tier） */
 export type ImageSizeTier = 'standard' | 'fast' | 'tiny' | 'micro' | 'nano' | 'pico'

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """verify_tauri_embed.py — SpiritPal 前端内嵌发布门禁（AGENTS v2.60 规格还原）。
 
-门禁分两道（与 docs/agents/QUALITY_CONTRACT.md §13.2 / AGENTS.md v2.60 记录一致）：
+门禁分两道（与 local/agents/QUALITY_CONTRACT.md §13.2 / AGENTS.md v2.60 记录一致）：
   1. 配置门禁（--config-only，CI 每 PR 执行）：
      src-tauri/Cargo.toml 的 tauri 依赖 features 必须包含 `custom-protocol`，
      否则 release 构建不内嵌 dist 前端（会回退 devUrl，双击 exe 报 localhost 拒绝连接）。

@@ -127,16 +127,16 @@ describe('spec_audit_local 门禁自证', () => {
 
   it('已跟踪治理文档引用被 .gitignore 命中的路径时，记入台账但不判失败', () => {
     const root = gitFixture({
-      '.gitignore': ['AGENTS.md', 'docs/agents/', ''].join('\n'),
-      'README.md': ['# demo', '', '本地层规则见 `docs/agents/SOPS.md`。', ''].join('\n'),
-      'AGENTS.md': ['# agents', '', '同类内容见 `docs/agents/GOTCHAS.md`。', ''].join('\n'),
+      '.gitignore': ['AGENTS.md', 'local/agents/', ''].join('\n'),
+      'README.md': ['# demo', '', '本地层规则见 `local/agents/SOPS.md`。', ''].join('\n'),
+      'AGENTS.md': ['# agents', '', '同类内容见 `local/agents/GOTCHAS.md`。', ''].join('\n'),
     })
     const { code, out } = runAuditor(root)
     // 不阻断：本地层不入库是有意设计，硬判会让必需检查天天红、信号被噪声吃掉
     expect(code, out).toBe(0)
     expect(out).toContain('status=PASS')
     // 但必须可见：已跟踪文档里那条引用过去被 check-ignore 整条静默减掉
-    expect(out).toContain('UNTRACKED docs/agents/SOPS.md')
+    expect(out).toContain('UNTRACKED local/agents/SOPS.md')
     expect(out).toMatch(/untracked_refs=1/)
     expect(out).toContain('README.md')
     // 本地层自身引用兄弟本地层文件属设计内行为，不进台账

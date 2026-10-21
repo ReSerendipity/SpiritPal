@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""snapshot_local_docs.py — 本地层治理文档快照与恢复（AGENTS.md + LOCAL_RULES.md + docs/agents/ + .qoder/skills/）。
+"""snapshot_local_docs.py — 本地层治理文档快照与恢复（AGENTS.md + LOCAL_RULES.md + local/agents/ + .qoder/skills/）。
 
-本地层文件（AGENTS.md + LOCAL_RULES.md + docs/agents/ + .qoder/skills/）被 .gitignore 忽略、无版本库保护，
+本地层文件（AGENTS.md + LOCAL_RULES.md + local/agents/ + .qoder/skills/）被 .gitignore 忽略、无版本库保护，
 2026-09-17 曾发生目录整体硬删除事故（GOTCHAS #115，6 个子文档只能凭记忆重写）。
 本脚本为这些路径建立项目内最小恢复路径；2026-10-17 起把两个项目级 Skill
 （SOP-3 发版预检、SOP-8 快照恢复的可执行封装）与本地策略层 LOCAL_RULES.md 一并纳入——
@@ -44,7 +44,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCES = ("AGENTS.md", "LOCAL_RULES.md", "docs/agents", ".qoder/skills")  # 受保护的本地层路径（2026-10-17 补入项目级 Skill 与本地策略层）
+SOURCES = ("AGENTS.md", "LOCAL_RULES.md", "local/agents", ".qoder/skills")  # 受保护的本地层路径（2026-10-17 补入项目级 Skill 与本地策略层；2026-10-21 随 §13.1 迁至 local/agents/）
 SNAPSHOT_ROOT = ROOT / "backups" / "agents-snapshots"
 MANIFEST_NAME = "MANIFEST.json"
 DEFAULT_KEEP = 30                                # 滚动保留最近 N 份快照
@@ -161,7 +161,7 @@ def cmd_snapshot(force: bool, keep: int, mirror: str | None = None) -> int:
             file=sys.stderr,
         )
         print(
-            "       异地镜像必须是仓库外目录——禁止把本地层文档（AGENTS.md / docs/agents/）"
+            "       异地镜像必须是仓库外目录——禁止把本地层文档（AGENTS.md / local/agents/）"
             "复制进可被 Git 跟踪的区域、变相纳入版本控制。",
             file=sys.stderr,
         )
@@ -326,7 +326,7 @@ def cmd_list(src: str | None = None) -> int:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="本地层治理文档快照与恢复（AGENTS.md + docs/agents/）")
+    ap = argparse.ArgumentParser(description="本地层治理文档快照与恢复（AGENTS.md + local/agents/）")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p_snap = sub.add_parser("snapshot", help="新建快照（内容无变化时跳过）")

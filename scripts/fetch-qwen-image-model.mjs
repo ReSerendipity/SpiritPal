@@ -28,7 +28,7 @@
  *
  * 依赖：Node 18+（内置 fetch）。无第三方依赖。
  *
- * @see docs/agents/ADR-0006-ondevice-image.md
+ * @see local/agents/ADR-0006-ondevice-image.md
  */
 import { mkdir, open, stat, readFile, rm } from 'node:fs/promises'
 import { createReadStream } from 'node:fs'

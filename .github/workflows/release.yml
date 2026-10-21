@@ -235,7 +235,7 @@ jobs:
         with:
           node-version: 22
 
-      # P1-1 发布回读验证：资产数量齐全 + 签名文件存在（哈希比对见本地发布清单 docs/agents/RELEASE_VERIFICATION.md）
+      # P1-1 发布回读验证：资产数量齐全 + 签名文件存在（哈希比对见本地发布清单 local/agents/RELEASE_VERIFICATION.md）
       - name: Verify release assets (count + signature presence)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

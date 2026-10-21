@@ -3,7 +3,7 @@
 //! 移动端（Android）内嵌 MNN 引擎桥（进程内推理）。
 //!
 //! 仅 `#[cfg(mobile)]` 编译；桌面端不编此文件，`ondevice` 走 companion loopback（前端 `llmClient.ts`）。
-//! 设计 / 文件级改动见 [`docs/agents/ondevice-embed-plan.md`](../../docs/agents/ondevice-embed-plan.md) §3.3–§3.6。
+//! 设计 / 文件级改动见 [`local/agents/ondevice-embed-plan.md`](../../../local/agents/ondevice-embed-plan.md) §3.3–§3.6。
 //!
 //! 桥接契约（Kotlin 侧 `com.alibaba.mnnllm.android.SpiritPalOnDevice`，由 Doro 编写，见 plan §3.3）：
 //! - Rust → Kotlin（`call_static_method`）：

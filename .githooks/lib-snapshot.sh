@@ -1,5 +1,5 @@
 #!/bin/sh
-# 本地层治理文档快照（AGENTS.md + docs/agents/ -> backups/agents-snapshots/）。
+# 本地层治理文档快照（AGENTS.md + local/agents/ -> backups/agents-snapshots/）。
 # 尽力而为：任何失败只提示、不阻断 git 操作；找不到 Python 时静默跳过。
 # 用法：. lib-snapshot.sh; snapshot_docs
 snapshot_docs() {

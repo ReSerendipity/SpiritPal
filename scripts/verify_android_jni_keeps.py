@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """校验 Android release APK 里「仅 JNI 可达」的方法是否被 R8 保留。
 
-背景（见 docs/agents/GOTCHAS.md #121 / #122）：
+背景（见 local/agents/GOTCHAS.md #121 / #122）：
     release 构建开了 `minifyEnabled=true`，R8 会把「Kotlin/Java 侧没有直接调用者、
     只能被 Rust 侧经 JNI 反射调用」的方法当 unused 整方法删除。这类删除**编译期
     无告警、打包无报错**，只在真机启动/触发对应功能时抛

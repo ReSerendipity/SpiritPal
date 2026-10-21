@@ -44,6 +44,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 ASSERTIVE_PREFIXES = (
     "scripts/", ".github/", ".githooks/", "src/", "src-tauri/", "docs/",
     "tests/", "perf/", "public/", "references/", "character-packs/", "demo/",
+    "local/",
 )
 
 # Tier B: governance docs whose prose is a declaration of fact.

@@ -6,7 +6,7 @@
 //! - [`models`]    — 模型下载缓存 + LRU 空闲卸载
 //!
 //! 移动端（Android）实际推理走 **内嵌 MNN 引擎**（`libmnnllmapp.so`，经 Kotlin/JNI 桥接，
-//! 详见 `docs/agents/ondevice-embed-plan.md`）。本模块只提供与平台无关的分档/调度/缓存原语，
+//! 详见 `local/agents/ondevice-embed-plan.md`）。本模块只提供与平台无关的分档/调度/缓存原语，
 //! 以及跨平台 [`detect_device_tier`] 命令，供前端 `src/lib/ai/onDeviceTiers.ts` 使用。
 //!
 //! 约束：MNN 不是 SpiritPal 的运行依赖——

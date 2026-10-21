@@ -3,7 +3,7 @@
 //! 移动端（Android）端侧图像桥 —— Qwen-Image-2.1（MNN + OpenCL，进程内推理）。
 //!
 //! 仅 `#[cfg(mobile)]` 编译；桌面端不编此文件（桌面无端侧图像能力，前端按设备分档不暴露入口）。
-//! 设计 / 文件级改动见 `docs/agents/ADR-0006-ondevice-image.md`。
+//! 设计 / 文件级改动见 `local/agents/ADR-0006-ondevice-image.md`。
 //!
 //! 桥接契约（Kotlin 侧 `com.spiritpal.desktop_pet.QwenImageBridge`，其内部包装
 //! libQwenImage21 的 `com.scsonic.qwenimage21.QwenImage21` Java API）：

@@ -34,7 +34,7 @@ export default defineConfig({
   },
   // 入口自带前置：冷启动 `pnpm test:e2e` 时由 Playwright 拉起 vite dev server，
   // 调用方无需先手工起服务（此前该前置只编码在 ci.yml 的「Start dev server」步骤里，
-  // README 与 docs/agents/SOPS.md 只教命令，导致本地按文档执行必然连接失败）。
+  // README 与 local/agents/SOPS.md 只教命令，导致本地按文档执行必然连接失败）。
   // reuseExistingServer=true 让 CI 里已起好的服务被复用而不是二次占用端口
   // （vite 为 strictPort，端口被占时再起一个会失败）；两条路径共用上面同一个 baseURL 探活。
   webServer: {

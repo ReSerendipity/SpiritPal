@@ -10,4 +10,4 @@ echo "  pre-push            执行 precheck.ps1（无则退回根目录守卫）
 echo "  prepare-commit-msg  自动补 DCO 签名（幂等）+ 消费 capability-lint 降级便签"
 echo "  commit-msg          DCO 硬校验 + 规范软提示"
 echo "  post-commit         核对本次提交是否真走过 pre-commit（--no-verify 整链绕过记为 gate-bypass suspected）"
-echo "  post-merge/-checkout 依赖清单变更提醒 + 本地层文档快照（AGENTS.md/docs/agents -> backups/agents-snapshots/）"
+echo "  post-merge/-checkout 依赖清单变更提醒 + 本地层文档快照（AGENTS.md/local/agents -> backups/agents-snapshots/）"

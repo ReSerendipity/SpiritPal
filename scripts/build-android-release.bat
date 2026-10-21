@@ -5,7 +5,7 @@ title SpiritPal - 构建 Android 安装包
 echo ============================================
 echo   SpiritPal - 一键构建 Android APK
 echo   AI Desktop Pet - Tauri v2 (Android)
-echo   对应 docs/agents/SOPS.md SOP-4
+echo   对应 local/agents/SOPS.md SOP-4
 echo ============================================
 echo.
 echo   说明：桌面安装包请用 scripts\build-release.bat
