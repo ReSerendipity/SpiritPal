@@ -1,5 +1,7 @@
 # SpiritPal · 桌边友 — AI Desktop Pet
 
+> 治理规范：[ReSerendipity/.github/governance](https://github.com/ReSerendipity/.github/tree/main/governance)
+
 > Cross-platform AI desktop pet companion built with Tauri v2. The core philosophy is "simple yet warm" — emotional companionship, lightweight interaction, and gentle productivity assistance.
 >
 > 跨平台 AI 桌面宠物：简单、温暖，陪在桌边。用轻交互与温柔的提醒，陪你工作、帮你专注。
