@@ -42,6 +42,8 @@
 
 > **2026-10-21 订正（本地层保护状态已变）**：`docs/agents/` 此前由 `.gitignore` 的 `docs/agents/` 目录条目显式忽略；该规则已在治理批次 PR #156（`e9d2281`，2026-10-20，§12.1「docs/ 纯入库」收敛）中随全部 `docs/` 忽略规则一并移除。现状：`git check-ignore docs/agents/GOTCHAS.md` 无命中（rc=1）、`git status` 显示 `?? docs/agents/`，即**整目录 untracked 且未被忽略**；仅其中名为 `AGENTS.md` 的文件仍被 `.gitignore` 的通用 `AGENTS.md` 条目命中。规范目标位置为 `local/agents/**`（`AGENTS.md` §7/§13.1）。上文「`.gitignore` 显式忽略」的表述**已过时**，结论（本地层不入库、登记备查）不变；是否需要把 `docs/agents/**` 整体迁至 `local/agents/**` 以免误提交，仍属待决策项。
 
+> **2026-10-21 关闭记录（待决策项已落地）**：该迁移已完成——`docs/agents/**` 共 11 份文件（ARCH_MAP / CODE_STYLE / CONFIG / GOTCHAS / QUALITY_CONTRACT / REVISION_LOG / SOPS / TEST_COMMANDS + ADR-0005 / ADR-0006 / ondevice-embed-plan，均 untracked）已迁入 `local/agents/`；`docs/agents/` 目录已清空并删除。引用同步范围（提交 `8b330ed`，28 files +39/−38）：`.githooks/*` 6 文件 7 处 + 其他 tracked 文档 22 文件（`.github/workflows/release.yml`、`docs/TECH_DEBT.md`、`docs/adr/0004-pixi-live2d-version-lock.md`、`docs/adr/README.md`、`docs/project/KNOWN_GOTCHAS.md`、`playwright.config.ts`、`scripts/` 10 文件、`src-tauri/` 4 文件、`src/lib/ai/` 2 文件）。**结论：该待决策项关闭。**
+
 ## 5. 前端工程四项「未能判断」项（前端 P1，批次六取证）
 
 见 `docs/execution/` 批次六取证报告（Props Drilling / 过度封装 / 无效重渲染 / 无限循环），按交接单要求只取证登记、不顺手重构。
