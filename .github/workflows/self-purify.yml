@@ -25,7 +25,7 @@ concurrency:
 jobs:
   self-purify:
     name: 自净化检查（非阻塞）
-    uses: ReSerendipity/.github/.github/workflows/self-purify.yml@7c03273a862ffc8136ec886914c6105d77dce32d # pinned 2026-10-22
+    uses: ReSerendipity/.github/.github/workflows/self-purify.yml@051227229483b9efe65f57a6a81ddcd10cf950fc # pinned 2026-10-22
     with:
       # 仓级豁免（2026-10-20）：docs/execution/ 为本仓公开层归档处——LOCAL_RULES.md 第 4 条
       # （2026-10-17 更正）明确执行记录与证据截图归公开层并纳入版本控制，故不按「本地治理文档」判违规。
