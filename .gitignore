@@ -250,3 +250,4 @@ src-tauri/patches/**/Cargo.lock
 
 # 仓库内 Python 虚拟环境（.githooks/pre-commit 会优先用它跑 pre-commit 框架）
 .venv/
+!/AGENTS.md
