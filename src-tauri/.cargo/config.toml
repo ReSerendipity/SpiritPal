@@ -1,8 +1,5 @@
-[source.crates-io]
-replace-with = 'ustc'
-
-[source.ustc]
-registry = "sparse+https://mirrors.ustc.edu.cn/crates.io-index/"
-
+# 不在仓库级配置镜像源：GitHub Runner 访问国内镜像会被限流（HTTP 429），
+# 导致 CI 构建随机失败。CI 使用官方 crates.io；需要镜像的开发者请在
+# 自己的全局 ~/.cargo/config.toml 中配置 source replacement。
 [net]
 git-fetch-with-cli = true
