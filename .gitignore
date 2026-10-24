@@ -211,9 +211,12 @@ public/pets/
 
 # sidecar 预编产物（externalBin；由 CI / 本地构建生成，不入库）。
 # Windows 侧 *.exe 已被上面的规则覆盖，这里补 unix 目标名；
-# 已提交的 4 个 android 占位符与 windows-msvc 占位脚本不受影响（名字不同）。
+# 4 个 android 占位符仍入库（名字不同，保留）。
+# 2026-10-24: 删除无扩展名的 windows-msvc 陈旧占位副本（CI 每次重建 .exe，
+# 无扩展名那份是早期手动构建残留，与 .exe 内容重复），并把精确路径加入忽略。
 src-tauri/binaries/spiritpal-mcp-*-unknown-linux-gnu
 src-tauri/binaries/spiritpal-mcp-*-apple-darwin
+src-tauri/binaries/spiritpal-mcp-x86_64-pc-windows-msvc
 
 # --- 敏感信息防泄露（Git 版本控制安全工程与防泄露最佳实践指南 v1.1 第二章/第八章）---
 # 本仓已有 .env / *.pem / *.key / logs/ 规则；补齐私有钥命名、凭据文件与本地库。
