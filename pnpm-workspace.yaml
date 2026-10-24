@@ -27,6 +27,14 @@ overrides:
   # auth handler 用到；本仓只用 stdio/sse 传输，运行时不加载该路径。同包另 5 条公告
   # 的漏洞上限均 <=10.5.0，故 >=10.5.1 一并清零。
   ip-address: ">=10.5.1"
+  # 依赖漏洞修复（2026-10-24，PR #166 追加）：4 个 high
+  # 1) zod 4.6.5 -> >=4.6.6（直接依赖 + @modelcontextprotocol/sdk 链）
+  zod: ">=4.6.6"
+  # 2) body-parser 2.3.0 -> >=2.4.0（@modelcontextprotocol/sdk > express > body-parser）
+  body-parser: ">=2.4.0"
+  # 3) undici 7.29.1 -> >=7.30.1（vitest > jsdom 链）；undici 6.28.1 -> >=6.29.1（javascript-obfuscator > @vercel/blob 链）
+  "undici@<7": ">=6.29.1"
+  "undici@>=7": ">=7.30.1"
   # 依赖漏洞修复（2026-10-02 人工#4，GHSA-qhr7-859c-m2p7 / GHSA-6j4f-fj2g-mc7p high、
   # GHSA-q2hr-2g5m-vwhr moderate）：brace-expansion 通配符展开可被构造出指数级内存/耗时。
   # **此处刻意不加 override**：锁里三份 brace-expansion（1.1.18 / 2.1.4 / 5.0.9）的父包
