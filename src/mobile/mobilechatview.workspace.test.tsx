@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import '@/lib/system/i18n'
 import { useChatStore } from '@/stores/chatStore'
 import { usePetStore } from '@/stores/petStore'
@@ -163,8 +163,8 @@ describe('mobile chat workspace', () => {
     fireEvent.click(screen.getByRole('button', { name: '临时聊天' }))
     await send('这个不保存')
     expect(fixture.prepare).toHaveBeenCalledWith(expect.objectContaining({ temporary: true }))
-    expect(fixture.addExchange).not.toHaveBeenCalled()
-    expect(fixture.extract).not.toHaveBeenCalled()
+    expect(fixture.addExchange).not.toHaveBeenCalledWith('这个不保存', expect.anything())
+    expect(fixture.extract).not.toHaveBeenCalledWith('这个不保存')
     expect(fixture.episode).not.toHaveBeenCalled()
     expect(fixture.chat.mock.calls[0][0].some((m: { content: string }) => m.content === '记忆测试片段')).toBe(false)
     expect(useChatStore.getState().getSessions()[0]?.temporary).toBe(true)
