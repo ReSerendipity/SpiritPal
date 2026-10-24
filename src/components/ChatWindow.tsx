@@ -1,168 +1,91 @@
-/**
- * AI聊天窗口组件
- *
- * 功能概述：
- * - 消息列表展示，支持用户/助手消息区分显示
- * - 流式输出实时渲染，支持停止生成
- * - Markdown渲染助手回复
- * - 消息内搜索功能，支持上下导航和高亮
- * - Think标签解析（内心独白半透明折叠显示）
- * - 情绪标签实时检测，触发宠物动画
- * - 四阶段记忆系统集成，上下文自动组装
- * - Agent工具调用模式（日程提醒、系统操作等）
- * - 角色一致性校验，标记不符性格回复并支持重新生成
- * - 聊天阶段管理（input/waiting/reply/error）驱动宠物动画
- * - 自动从对话提取日程提醒
- *
- * 核心Hooks/状态：
- * - useChatStore: 消息管理、流式状态、中止控制
- * - usePetStore: 当前角色信息
- * - useState: 输入框、搜索、错误、重新生成状态
- * - useRef: 消息列表滚动容器
- * - useEffect: 自动滚动、键盘快捷键、记忆预览
- *
- * 使用模块：
- * - llmClient: LLM客户端流式对话
- * - enhancedMemory: 四阶段记忆管理与触发
- * - emotionExtractor: 情绪标签提取
- * - thinkTagParser: Think标签流式解析
- * - aiAgent: Agent意图检测与工具执行
- * - personalityEngine: 性格化System Prompt合成
- * - characterConsistency: 角色一致性校验
- */
 import { emit } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import {
   Send,
   Square,
   Trash2,
-  Bot,
-  User,
   Search,
   X,
   ChevronUp,
   ChevronDown,
   Flag,
   AlertTriangle,
-  RefreshCw,
   Mic,
   Volume2,
   PanelLeft,
   Brain,
   Plus,
 } from 'lucide-react'
-import Markdown from 'react-markdown'
-// SECURITY R-02: 为 react-markdown 配置 rehype-sanitize，阻断 AI 输出型 XSS
-import rehypeSanitize from 'rehype-sanitize'
+import { useTranslation } from 'react-i18next'
+import { ChatContextPanel } from '@/components/chat/ChatContextPanel'
+import { ChatMessageCard } from '@/components/chat/ChatMessageCard'
+import { ChatViewControls } from '@/components/chat/ChatViewControls'
 import { MemorySidePanel } from '@/components/chat/MemorySidePanel'
-import { MessageMetricsBar } from '@/components/chat/MessageMetricsBar'
 import { SessionList } from '@/components/chat/SessionList'
-import { SessionStatsBar } from '@/components/chat/SessionStatsBar'
 import { FramelessResizeHandles } from '@/components/FramelessChrome'
 import { WindowControls } from '@/components/WindowControls'
 import { usePetTTS } from '@/hooks/usePetTTS'
-// P0-1：注入真实工具确认处理器（高风险工具默认需确认；无处理器时 fail-closed 一律拒绝）
 import { setToolConfirmationHandler } from '@/lib/ai/agentSandbox'
 import { detectAgentIntent, processAgentRequest } from '@/lib/ai/aiAgent'
 import { loadAIConfig } from '@/lib/ai/aiConfig'
 import { getChatStageManager } from '@/lib/ai/chatStages'
-// P2-2：情境感知信号
 import { getContextAwarenessManager } from '@/lib/ai/contextAwareness'
 import { getEmotionAnalyzer, getEmotionStateManager } from '@/lib/ai/emotionEngine'
-// Phase 1.3 + 1.4: 情绪标签与 Think 标签解析
-import { extractEmotionFromChunk, extractEmotion } from '@/lib/ai/emotionExtractor'
-// P1-5：情绪标签提示词 + 好感度解析
 import {
+  extractEmotionFromChunk,
+  extractEmotion,
   EMOTION_PROMPT_FRAGMENT,
   extractAffectionDeltas,
   sumAffectionDeltas,
   emotionTagsToMood,
 } from '@/lib/ai/emotionExtractor'
+import { EmotionTagFilter, extractEmotionTagKeywords } from '@/lib/ai/emotionTagFilter'
 import { getLLMClient } from '@/lib/ai/llmClient'
+import { truncateAssistantHistory } from '@/lib/ai/onDeviceContext'
 import { composeFullSystemPrompt, getEffectivePersonality } from '@/lib/ai/personalityEngine'
-// STT：语音输入转文字（Web Speech API 主，零依赖）
 import { STTEngine, isSpeechRecognitionSupported } from '@/lib/ai/stt'
-// LLM 维度 P1：输出内容护栏（毒性阻断 + PII 掩码）——助手文本渲染前的兜底过滤
 import { filterLLMOutput } from '@/lib/ai/toxicityFilter'
-// VOICEVOX 本地 TTS：助手回复「朗读」按钮（HTTP API → wav Blob → HTMLAudioElement）
 import { voicevoxTTS } from '@/lib/ai/tts'
 import { TTSPlayer } from '@/lib/ai/ttsPlayer'
 import { getCharacter } from '@/lib/data/characters'
 import type { ChatMessage } from '@/lib/data/types'
-// R2：约定与计划追踪
-import { ContextManager, getContextManager } from '@/lib/memory/contextManager'
+import { prepareChatMemory } from '@/lib/memory/chatMemoryContext'
+import { cogneeAdd } from '@/lib/memory/cogneeClient'
+import { ContextManager } from '@/lib/memory/contextManager'
+import { deriveEmotionalIntensity } from '@/lib/memory/emotionIntensity'
 import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
-// P2-1：结构化用户画像层
 import { getOwnerFactsManager } from '@/lib/memory/ownerFacts'
-// 2.1: 视觉感知「看看」
 import { getVisualPerceptionManager } from '@/lib/memory/visualPerception'
 import { getAchievementManager } from '@/lib/nurture/achievementSystem'
-import { checkConsistency, generateCorrectionPrompt } from '@/lib/nurture/characterConsistency'
+import { checkConsistency } from '@/lib/nurture/characterConsistency'
 import { getCommitmentTracker } from '@/lib/nurture/commitmentTracker'
-// P1-1：接线日记系统
 import { getDiarySystemManager } from '@/lib/nurture/diarySystem'
-// P2-4：宠物共同经历记忆
-import { getPetExperienceManager } from '@/lib/nurture/petExperience'
 import { getScheduleManager } from '@/lib/nurture/scheduleManager'
-import { truncateAssistantHistory } from '@/lib/ai/onDeviceContext'
 import { ThinkTagParser } from '@/lib/render/thinkTagParser'
-import { trackChatSend, trackChatReceive, trackMemoryTrigger } from '@/lib/system/analytics'
-// P1-6：接线防重复机制
+import { trackChatSend, trackChatReceive } from '@/lib/system/analytics'
 import { getAntiRepetitionManager } from '@/lib/system/antiRepetition'
 import { genId } from '@/lib/system/randomId'
 import { getSilentModeManager } from '@/lib/system/silentModeManager'
 import { swallowedCatch } from '@/lib/system/swallowedCatch'
 import { useChatStore } from '@/stores/chatStore'
+import { useChatViewStore } from '@/stores/chatViewStore'
 import { usePetStore } from '@/stores/petStore'
-import { cogneeAdd } from '../lib/memory/cogneeClient'
+import './chat/chat-workspace.css'
 
-/**
- * 端侧（on-device）上下文预算 —— 与 `MobileChatView` 同口径，见 GOTCHAS #182。
- *
- * 桌面端的 on-device 走 companion loopback，同样是**本地小模型**，prompt 一样不能太长：
- * 真机实测「记忆 3000 token + 20 轮历史」会把 prefill 推到 4359 token，小模型注意力被稀释。
- * 三处预算同比例收紧（约为云端 1/3），云端预算不动。
- */
+/** Desktop companion on-device requests share the mobile context limits. */
 export const ON_DEVICE_HISTORY_TOKEN_BUDGET = 2000
 export const ON_DEVICE_MEM_SECTION_BUDGET = 1500
 export const ON_DEVICE_MEM_CTX_BUDGET = 1000
-/** 重新生成路径的端侧历史上限（该路径原为「标记消息之前全量历史」，无任何预算） */
 export const ON_DEVICE_REGEN_HISTORY_TURNS = 6
 
-/**
- * 技术指标采集用的时间源（模块级包装）。
- * 组件内直接调用 `Date.now()` 会被 `react-hooks/purity` 判为「渲染期调用非纯函数」
- * ——React Compiler 无法区分事件处理器与渲染期，故统一经本包装取时间。
- */
-const nowMs = (): number => Date.now()
-
-/**
- * 创建聊天消息对象
- * @param role 消息角色
- * @param content 消息内容
- * @returns 格式化的ChatMessage对象
- */
-function mkMsg(role: 'user' | 'assistant' | 'system', content: string): ChatMessage {
-  return {
-    // CSPRNG ID（与 chatStore 共用 lib/system/randomId.genId）：
-    // 本处原先用 `Math.random()`，与 chatStore 同属 CodeQL
-    // "Insecure randomness" 模式，故统一到一处实现。
-    id: genId(),
-    role,
-    content,
-    timestamp: Date.now(),
-  }
+function mkMsg(role: ChatMessage['role'], content: string): ChatMessage {
+  return { id: genId(), role, content, timestamp: Date.now() }
 }
 
-/**
-/**
- * 朗读前清洗 AI 回复文本（与 usePetTTS 同一套规则）：
- * 去掉代码块、方括号/中括号标签（情绪、think、系统备注）、markdown 符号、多余空白
- */
 function cleanVoicevoxText(text: string): string {
-  return (text ?? '')
+  return text
     .replace(/```[\s\S]*?```/g, ' ')
     .replace(/\[[^\]]*\]|【[^】]*】/g, ' ')
     .replace(/[*#>`_~]/g, ' ')
@@ -170,660 +93,513 @@ function cleanVoicevoxText(text: string): string {
     .trim()
 }
 
-/**
- * AI聊天窗口主组件
- *
- * 提供完整的AI对话界面，支持流式输出、Markdown渲染、记忆集成、
- * 情绪动画、Agent工具调用、角色一致性校验等功能。
- */
+// Only desktop layout lives here; shared cards and theme tokens stay in chat-workspace.css.
+const desktopLayout = `
+.desktop-chat { display:flex; flex-direction:column; height:100%; width:100%; min-width:0; overflow:hidden; position:relative; }
+.desktop-chat .desktop-titlebar { flex-shrink:0; position:relative; z-index:50; }
+.desktop-chat .desktop-header { flex-shrink:0; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px 18px; padding:12px 20px; }
+.desktop-chat .desktop-heading { min-width:0; flex:1 1 220px; }
+.desktop-chat .desktop-heading h1 { font-size:15px; font-weight:600; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.desktop-chat .desktop-subtitle { display:flex; flex-wrap:wrap; gap:4px 12px; font-size:11px; margin-top:4px; }
+.desktop-chat .desktop-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+.desktop-chat .desktop-body { display:flex; flex:1; min-width:0; min-height:0; position:relative; }
+.desktop-chat .desktop-main { display:flex; flex:1; min-width:0; min-height:0; flex-direction:column; }
+.desktop-chat .desktop-sessions, .desktop-chat .desktop-context { display:none; flex-direction:column; flex-shrink:0; min-height:0; overflow-y:auto; }
+.desktop-chat .desktop-sessions { width:232px; }
+.desktop-chat .desktop-sessions > div { width:100%; }
+.desktop-chat .desktop-context { width:280px; }
+.desktop-chat .desktop-sessions.is-open, .desktop-chat .desktop-context.is-open { display:flex; position:absolute; top:0; bottom:0; z-index:30; box-shadow:0 12px 36px #0003; }
+.desktop-chat .desktop-sessions.is-open { left:0; }
+.desktop-chat .desktop-context.is-open { right:0; max-width:90%; }
+.desktop-chat .desktop-scrim { position:absolute; inset:0; z-index:20; background:#0003; border:0; }
+.desktop-chat .desktop-context-close { display:flex; justify-content:flex-end; padding:6px 10px 0; }
+.desktop-chat .desktop-scroll-region { display:flex; flex:1; min-height:0; position:relative; }
+.desktop-chat .desktop-scroll { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+.desktop-chat .desktop-transcript { width:100%; max-width:860px; margin:0 auto; padding:20px 24px; }
+.desktop-chat .desktop-composer { flex-shrink:0; padding:12px 24px 14px; }
+.desktop-chat .desktop-composer-inner { max-width:812px; margin:0 auto; }
+.desktop-chat .desktop-input-row { display:flex; align-items:flex-end; gap:8px; }
+.desktop-chat .desktop-input { width:100%; flex:1; min-width:0; min-height:44px; max-height:200px; resize:none; line-height:1.6; }
+.desktop-chat .desktop-composer-note { display:flex; flex-wrap:wrap; justify-content:space-between; gap:4px 16px; font-size:11px; margin-top:7px; }
+.desktop-chat .desktop-search { display:flex; align-items:center; gap:8px; padding:8px 20px; flex-shrink:0; }
+.desktop-chat .desktop-search input { flex:1; min-width:0; background:transparent; font-size:12px; outline:none; }
+.desktop-chat .desktop-bottom { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); }
+.desktop-chat .desktop-suggestions { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:18px; }
+.desktop-chat .desktop-match { outline:1px solid currentColor; outline-offset:3px; border-radius:12px; }
+.desktop-chat .desktop-drawer { position:absolute; top:0; right:0; bottom:0; z-index:40; max-width:95%; box-shadow:0 12px 36px #0003; }
+.desktop-chat .desktop-drawer-scrim { z-index:35; }
+.desktop-chat.chat-workspace--compact .desktop-transcript { padding-top:12px; padding-bottom:12px; }
+@media (min-width:1100px) {
+  .desktop-chat .desktop-sessions:not(.is-closed), .desktop-chat .desktop-context:not(.is-closed) { display:flex; position:static; box-shadow:none; }
+  .desktop-chat .desktop-side-scrim { display:none; }
+}
+@media (max-width:599px) {
+  .desktop-chat .desktop-header { padding:10px 12px; }
+  .desktop-chat .desktop-transcript { padding:12px; }
+  .desktop-chat .desktop-composer { padding:10px 12px; }
+}
+`
+
 export default function ChatWindow() {
+  const { t } = useTranslation()
   const messagesBySession = useChatStore((s) => s.messagesBySession)
+  const sessions = useChatStore((s) => s.sessions)
   const activeSessionByCharacter = useChatStore((s) => s.activeSessionByCharacter)
   const isLoading = useChatStore((s) => s.isLoading)
   const sendMessage = useChatStore((s) => s.sendMessage)
+  const startGeneration = useChatStore((s) => s.startGeneration)
   const appendAssistantChunk = useChatStore((s) => s.appendAssistantChunk)
   const finishStreaming = useChatStore((s) => s.finishStreaming)
   const updateMessageThink = useChatStore((s) => s.updateMessageThink)
   const stopGeneration = useChatStore((s) => s.stopGeneration)
   const clearHistory = useChatStore((s) => s.clearHistory)
   const setAbortController = useChatStore((s) => s.setAbortController)
-  const setLoading = useChatStore((s) => s.setLoading)
   const setMessageMetrics = useChatStore((s) => s.setMessageMetrics)
+  const setMessageMemoryTrace = useChatStore((s) => s.setMessageMemoryTrace)
+  const setMessageStatus = useChatStore((s) => s.setMessageStatus)
   const createSession = useChatStore((s) => s.createSession)
-
+  const forkSessionAtMessage = useChatStore((s) => s.forkSessionAtMessage)
+  const flagMessage = useChatStore((s) => s.flagMessage)
+  const updateMessageContent = useChatStore((s) => s.updateMessageContent)
+  const setMessageConsistency = useChatStore((s) => s.setMessageConsistency)
+  const compact = useChatViewStore((s) => s.compact)
+  const showMetrics = useChatViewStore((s) => s.showMetrics)
+  const showMemory = useChatViewStore((s) => s.showMemory)
   const currentCharacterId = usePetStore((s) => s.currentCharacterId)
   const character = getCharacter(currentCharacterId)
-  // 用 useMemo 稳定 messages 引用，避免 ?? [] 每次渲染产生新数组导致下游依赖频繁变化
   const activeSessionId = activeSessionByCharacter[currentCharacterId] ?? ''
+  const session = sessions[currentCharacterId]?.find((s) => s.id === activeSessionId)
   const messages = useMemo(() => messagesBySession[activeSessionId] ?? [], [messagesBySession, activeSessionId])
 
   const [input, setInput] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [modelLabel, setModelLabel] = useState('模型配置加载中')
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchIndex, setSearchIndex] = useState(0)
-  // 会话列表抽屉与记忆面板的展开/收起状态
-  const [sessionListOpen, setSessionListOpen] = useState(false)
+  // null: follow the CSS breakpoint (visible on desktop, closed on narrow windows).
+  const [sessionListOpen, setSessionListOpen] = useState<boolean | null>(null)
+  const [contextOpen, setContextOpen] = useState<boolean | null>(null)
   const [memoryPanelOpen, setMemoryPanelOpen] = useState(false)
-  // 当前正在重新生成的消息 id（用于禁用按钮、显示加载态）
-  const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
-  // STT 语音输入：是否正在识别中
+  const [memoryEnabled, setMemoryEnabled] = useState(true)
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null)
+  const [awayFromBottom, setAwayFromBottom] = useState(false)
+  const nearBottom = useRef(true)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const composing = useRef(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const [sttActive, setSttActive] = useState(false)
   const sttEngineRef = useRef<STTEngine | null>(null)
-  // VOICEVOX 朗读：ttsAvailable null=探测中/false=引擎不可用；speakingId=正在朗读的消息 id
   const [ttsAvailable, setTtsAvailable] = useState<boolean | null>(null)
   const [speakingId, setSpeakingId] = useState<string | null>(null)
   const voicevoxPlayerRef = useRef<TTSPlayer | null>(null)
+  const chatStageMgr = getChatStageManager()
+  const { speak } = usePetTTS()
+  const prevStreamingIds = useRef<ReadonlySet<string>>(new Set())
+  const spokenIds = useRef<Set<string>>(new Set())
+  const latestAssistant = [...messages].reverse().find((m) => m.role === 'assistant')
+  const contextMessage = messages.find((m) => m.id === selectedMessageId && m.role === 'assistant') ?? latestAssistant
+  const knownTokens = useMemo(() => {
+    const inputCounts = messages.flatMap((m) => (m.metrics?.promptTokens === undefined ? [] : [m.metrics.promptTokens]))
+    const outputCounts = messages.flatMap((m) =>
+      m.metrics?.completionTokens === undefined ? [] : [m.metrics.completionTokens],
+    )
+    return {
+      input: inputCounts.length ? inputCounts.reduce((a, b) => a + b, 0).toLocaleString() : '—',
+      output: outputCounts.length ? outputCounts.reduce((a, b) => a + b, 0).toLocaleString() : '—',
+    }
+  }, [messages])
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    return q ? messages.filter((m) => m.content.toLowerCase().includes(q)) : []
+  }, [messages, searchQuery])
+
   function getVoicevoxPlayer(): TTSPlayer {
     if (!voicevoxPlayerRef.current) voicevoxPlayerRef.current = new TTSPlayer()
     return voicevoxPlayerRef.current
   }
-  // 语音朗读（TTS）：仅朗读"刚结束流式"的助手回复，避免朗读历史/重复朗读
-  const { speak } = usePetTTS()
-  const prevStreamingIds = useRef<ReadonlySet<string>>(new Set())
-  const spokenIds = useRef<Set<string>>(new Set())
+
   useEffect(() => {
-    const stillStreaming = new Set<string>()
-    for (const m of messages) {
-      if (m.isStreaming) stillStreaming.add(m.id)
+    let cancelled = false
+    void loadAIConfig()
+      .then((config) => {
+        if (!cancelled) setModelLabel(`${config.model || '默认模型'} · ${config.provider}`)
+      })
+      .catch(() => {
+        if (!cancelled) setModelLabel('模型未配置')
+      })
+    return () => {
+      cancelled = true
     }
-    const newlyFinished = messages.filter(
-      (m) => !m.isStreaming && prevStreamingIds.current.has(m.id) && !spokenIds.current.has(m.id),
-    )
-    for (const m of newlyFinished) {
-      // 仅朗读有实质内容的助手回复，跳过系统/空内容
-      if (m.content) {
+  }, [])
+
+  useEffect(() => {
+    const stillStreaming = new Set(messages.filter((m) => m.isStreaming).map((m) => m.id))
+    for (const m of messages) {
+      if (!m.isStreaming && prevStreamingIds.current.has(m.id) && !spokenIds.current.has(m.id)) {
         spokenIds.current.add(m.id)
-        // A-5：静默模式下不朗读助手回复（"对话不再说话"）
-        if (!getSilentModeManager().isSilent()) speak(m.content)
-      } else {
-        spokenIds.current.add(m.id)
+        if (m.role === 'assistant' && m.content && !m.sendStatus && !getSilentModeManager().isSilent()) speak(m.content)
       }
     }
     prevStreamingIds.current = stillStreaming
   }, [messages, speak])
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const chatStageMgr = getChatStageManager()
 
-  // 角色一致性校验相关方法
-  const flagMessage = useChatStore((s) => s.flagMessage)
-  const updateMessageContent = useChatStore((s) => s.updateMessageContent)
-  const setMessageConsistency = useChatStore((s) => s.setMessageConsistency)
-
-  // 高级搜索：查找所有匹配的消息
-  const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return []
-    const q = searchQuery.toLowerCase()
-    return messages
-      .map((m, i) => ({ message: m, index: i }))
-      .filter(
-        ({ message }) =>
-          message.content.toLowerCase().includes(q) ||
-          (message.role === 'user' && message.content.toLowerCase().includes(q)),
-      )
-  }, [messages, searchQuery])
-
-  // 自动滚动到搜索结果
-  useEffect(() => {
-    if (searchResults.length > 0 && searchQuery) {
-      const result = searchResults[searchIndex % searchResults.length]
-      if (result) {
-        const el = scrollRef.current?.children[result.index] as HTMLElement
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        }
-      }
-    }
-  }, [searchIndex, searchResults, searchQuery])
-
-  // 高亮搜索文本
-  function highlightText(text: string, query: string): ReactNode {
-    if (!query.trim()) return text
-    const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'))
-    return parts.map((part, i) =>
-      part.toLowerCase() === query.toLowerCase() ? (
-        <mark key={i} className="bg-tangerine/20 text-tangerine-deep rounded px-0.5">
-          {part}
-        </mark>
-      ) : (
-        part
-      ),
-    )
-  }
-
-  // 组件挂载时触发 input 阶段（宠物坐下听）
   useEffect(() => {
     chatStageMgr.setStage('input')
-    // P0-1：注册真实工具确认处理器。write_file/execute_command 等豁免名单之外的
-    // 高风险工具在执行前会弹系统确认框；组件卸载时恢复 fail-closed 默认（一律拒绝）。
     setToolConfirmationHandler((toolName, params) => {
-      const paramSummary = JSON.stringify(params, null, 2)
       const approved = window.confirm(
-        `SpiritPal 请求执行以下操作：\n\n工具：${toolName}\n参数：\n${paramSummary}\n\n是否允许执行？`,
+        `SpiritPal 请求执行以下操作：\n\n工具：${toolName}\n参数：${JSON.stringify(params, null, 2)}\n\n是否允许执行？`,
       )
       return { approved, reason: approved ? '用户已确认' : '用户拒绝' }
     })
     return () => {
-      // 组件卸载时恢复 idle
       chatStageMgr.restore()
-      // 注销确认处理器（恢复 fail-closed）
       setToolConfirmationHandler(null)
-      // 中止进行中的语音识别会话
       sttEngineRef.current?.abort()
       sttEngineRef.current = null
     }
   }, [chatStageMgr])
 
-  // 挂载时探测 VOICEVOX 引擎是否在线（非阻塞）；卸载时停止朗读并释放音频资源
   useEffect(() => {
     let cancelled = false
-    void voicevoxTTS.isEngineAvailable().then((avail) => {
-      if (!cancelled) setTtsAvailable(avail)
-    })
+    void voicevoxTTS
+      .isEngineAvailable()
+      .then((available) => {
+        if (!cancelled) setTtsAvailable(available)
+      })
+      .catch(() => {
+        if (!cancelled) setTtsAvailable(false)
+      })
     return () => {
       cancelled = true
-      getVoicevoxPlayer().stop()
+      voicevoxPlayerRef.current?.stop()
     }
   }, [])
 
-  // Esc 键关闭聊天窗口（无障碍键盘导航）
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (searchOpen) {
-          setSearchOpen(false)
-          setSearchQuery('')
-        } else {
-          void getCurrentWindow().hide()
-        }
-      }
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      if (memoryPanelOpen) setMemoryPanelOpen(false)
+      else if (searchOpen) {
+        setSearchOpen(false)
+        setSearchQuery('')
+      } else if (sessionListOpen === true || contextOpen === true) {
+        setSessionListOpen(false)
+        setContextOpen(false)
+      } else void getCurrentWindow().hide()
     }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [searchOpen])
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [searchOpen, memoryPanelOpen, sessionListOpen, contextOpen])
 
-  // 自动滚动到底部
   useEffect(() => {
     const el = scrollRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [messages])
+    if (el && nearBottom.current && !searchQuery) el.scrollTop = el.scrollHeight
+  }, [messages, activeSessionId, searchQuery])
 
-  // 记忆引用预览
-  const memoryPreview = useMemo(() => {
-    const mgr = getEnhancedMemoryManager(currentCharacterId)
-    const working = mgr.getWorkingMemories()
-    if (working.length === 0) return null
-    const last = working[working.length - 1]
-    if (!last) return null
-    const preview = last.user.length > 20 ? `${last.user.slice(0, 20)}…` : last.user
-    return preview
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- messages 作为触发源用于在消息更新时刷新记忆预览，移除会导致预览陈旧
-  }, [currentCharacterId, messages])
+  useEffect(() => {
+    const result = searchResults[searchIndex % searchResults.length]
+    if (!result) return
+    // IDs are opaque. Compare dataset values rather than interpolating CSS selectors or child indices.
+    const target = Array.from(scrollRef.current?.querySelectorAll<HTMLElement>('[data-message-id]') ?? []).find(
+      (el) => el.dataset.messageId === result.id,
+    )
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [searchIndex, searchResults])
 
-  async function handleSend() {
-    const text = input.trim()
-    if (!text || isLoading) return
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(200, Math.max(44, el.scrollHeight))}px`
+  }, [input])
+
+  async function handleSend(overrideText?: string) {
+    // Fork actions switch synchronously: never use render-closure history here.
+    const state = useChatStore.getState()
+    const text = (overrideText ?? input).trim()
+    if (!text || state.isLoading) return
+    const sessionId = state.activeSessionByCharacter[currentCharacterId]
+    const temporary = Boolean(state.sessions[currentCharacterId]?.find((s) => s.id === sessionId)?.temporary)
+    const enabled = memoryEnabled
+    const canUseMemory = enabled && !temporary
+    const history = (state.messagesBySession[sessionId ?? ''] ?? []).filter((m) => m.role !== 'system')
     setError(null)
     setInput('')
-
-    // 埋点：发送消息（provider 在后续加载，此处用默认值）
     trackChatSend(text.length, 'default')
-
     const assistantId = sendMessage(text)
-
-    // B2（ADR-0003）：用户对话文本写入 cognee 长期记忆侧车（fire-and-forget，失败静默降级）
-    void cogneeAdd(currentCharacterId, text)
-
-    if (!character) return
-
-    // 通知 PetWindow 用户已响应（用于周期触发频率控制）
-    // 阶段3：携带用户文本用于语义化响应判定
-    void emit('user-chat-responded', { characterId: currentCharacterId, text })
-
-    // ===== F5.5 Agent 模式：检测工具调用意图 =====
-    // 如果用户消息包含工具调用意图（如"帮我打开计算器"、"提醒我明天9点开会"），
-    // 走 Agent 流程而非普通聊天
-    if (detectAgentIntent(text)) {
-      const agentController = new AbortController()
-      setAbortController(agentController)
-      setLoading(true)
-      chatStageMgr.setStage('waiting')
-      try {
-        const agentConfig = await loadAIConfig()
-        // T-7: Agent 路径也注入记忆上下文
-        let agentMemCtx = ''
-        try {
-          const agentMemory = getEnhancedMemoryManager(currentCharacterId)
-          await agentMemory.ensureLoaded()
-          agentMemCtx = await agentMemory.getContextForChat(2000, text)
-        } catch {
-          // 记忆获取失败不影响 Agent 流程
-        }
-        const result = await processAgentRequest(text, agentConfig, currentCharacterId, agentMemCtx)
-        appendAssistantChunk(assistantId, result)
-        chatStageMgr.setStage('reply')
-        // Agent 结果也写入记忆
-        const agentMemory = getEnhancedMemoryManager(currentCharacterId)
-        agentMemory.addExchange(text, result)
-        getAchievementManager().recordChat()
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : '未知错误'
-        setError(`Agent 执行失败：${msg}`)
-        appendAssistantChunk(assistantId, `[Agent 执行失败：${msg}]`)
-        chatStageMgr.setStage('error')
-      } finally {
-        finishStreaming(assistantId)
-      }
-      return
-    }
-
-    const config = await loadAIConfig()
-    // 端侧（on-device）收紧上下文预算：本地小模型喂太长会被稀释，见 GOTCHAS #182
-    const isOnDevice = config.provider === 'ondevice'
-    // F5：接线 ContextManager 做 token 预算管理（替代旧的硬编码滑窗）
-    // ContextManager 支持优先级排序、token 预算控制、自动压缩
-    const HISTORY_TOKEN_BUDGET = isOnDevice ? ON_DEVICE_HISTORY_TOKEN_BUDGET : 6000
-    const allHistory = (messagesBySession[activeSessionId] ?? []).filter((m) => m.role !== 'system')
-    // F5：用 ContextManager 管理历史消息
-    const ctxMgr = getContextManager({ defaultMaxTokens: HISTORY_TOKEN_BUDGET })
-    // 将历史消息灌入 ContextManager
-    for (const m of allHistory) {
-      ctxMgr.addMessage(m.role as 'user' | 'assistant', m.content)
-    }
-    // 获取预算内的消息（自动按优先级排序 + 保留最近 N 轮）
-    // 端侧：截断助手自己的历史输出，降低「被自己上一轮的错误答案锚死」的概率（GOTCHAS #184）
-    const prevMessages: ChatMessage[] = truncateAssistantHistory(
-      ctxMgr.getContextWindow(HISTORY_TOKEN_BUDGET).map((m) => mkMsg(m.role as 'user' | 'assistant', m.content)),
-      isOnDevice,
-    )
-    // 若有更早的历史被截断，插入一条衔接提示
-    const droppedCount = allHistory.length - prevMessages.length
-    if (droppedCount > 0) {
-      const droppedMessages = allHistory.slice(0, Math.max(0, allHistory.length - prevMessages.length))
-      const contentSnippets = droppedMessages
-        .filter((m) => m.role === 'user')
-        .slice(-3) // 最近3条用户消息
-        .map((m) => m.content.slice(0, 40))
-        .join('；')
-      const droppedSummary = `（更早还有 ${droppedCount} 条对话因篇幅未展示${contentSnippets ? '，主要聊过：' + contentSnippets : ''}，如需回顾可询问具体内容）`
-      prevMessages.unshift(mkMsg('system', droppedSummary))
-    }
-
-    // ===== 2.1: 视觉感知「看看」指令检测 =====
-    // 用户说「看看屏幕」「你看看」「看看我在干什么」时触发截屏分析
-    const lookKeywords = /^(看看|你看看|看一下|瞅瞅|瞄一眼|看看屏幕|看看我在|看看我正|看一眼|帮我看看|看看现在)/
-    if (lookKeywords.test(text)) {
-      setLoading(true)
-      chatStageMgr.setStage('waiting')
-      try {
-        const vpMgr = getVisualPerceptionManager()
-        const analysis = await vpMgr.triggerAnalysis()
-        if (analysis) {
-          // 将屏幕分析结果作为系统提示注入对话
-          const screenContext = `【视觉感知】宠物刚刚看了一眼屏幕，观察到：${analysis.userActivity}（工作状态：${analysis.inferredWorkState}，置信度：${((analysis.confidence ?? 0) * 100).toFixed(0)}%）${analysis.sceneDetails ? ' 场景详情：' + analysis.sceneDetails : ''}`
-          const vpConfig = await loadAIConfig()
-          const vpClient = getLLMClient(vpConfig)
-          const vpMessages: ChatMessage[] = [
-            mkMsg('system', character.systemPrompt + '\n' + EMOTION_PROMPT_FRAGMENT),
-            mkMsg('system', screenContext),
-            ...character.fewShotExamples.flatMap((ex) => [mkMsg('user', ex.user), mkMsg('assistant', ex.assistant)]),
-            mkMsg('user', text),
-          ]
-          const vpResult = await vpClient.chat(vpMessages, undefined, undefined)
-          appendAssistantChunk(assistantId, vpResult)
-          chatStageMgr.setStage('reply')
-          // 写入记忆
-          const vpMemory = getEnhancedMemoryManager(currentCharacterId)
-          vpMemory.addExchange(text, vpResult)
-          getAchievementManager().recordChat()
-          // 记录视觉记忆
-          try {
-            const { getVisualMemoryManager } = await import('@/lib/memory/visualMemoryManager')
-            const vmMgr = getVisualMemoryManager(currentCharacterId)
-            vmMgr.record('scene', analysis.userActivity, 'neutral')
-          } catch {
-            // 视觉记忆记录失败不影响主流程
-          }
-        } else {
-          // 截屏或分析失败，降级提示
-          appendAssistantChunk(
-            assistantId,
-            '[think]让我看看…[/think] 嗯…我现在的视力好像不太好，没法看清楚屏幕呢。也许你可以告诉我你在做什么？ [shy]',
-          )
-          chatStageMgr.setStage('reply')
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : '未知错误'
-        setError(`视觉感知失败：${msg}`)
-        appendAssistantChunk(assistantId, `[视觉感知失败：${msg}]`)
-        chatStageMgr.setStage('error')
-      } finally {
-        finishStreaming(assistantId)
-      }
-      return
-    }
-
-    // 构建 API 消息：系统提示 → few-shot → 记忆上下文 → 历史 → 当前用户消息
-    // 合成带性格参数的 System Prompt
-    // P1-5：注入情绪标签提示词，让主聊天模型也输出 [emotion] / [affection] 标签
-    const effectivePersonality = getEffectivePersonality(currentCharacterId, character.personality)
-    const fullSystemPrompt =
-      composeFullSystemPrompt(character.systemPrompt, character.personality, effectivePersonality) +
-      '\n' +
-      EMOTION_PROMPT_FRAGMENT
-
-    // P2-1：预加载结构化用户画像
-    const ownerFactsMgr = getOwnerFactsManager(currentCharacterId)
-    await ownerFactsMgr.ensureLoaded()
-    const ownerFactsContext = ownerFactsMgr.buildContext(500)
-
-    // P2-4：预加载宠物共同经历记忆
-    const expMgr = getPetExperienceManager(currentCharacterId)
-    await expMgr.ensureLoaded()
-    const expContext = expMgr.buildContext(300)
-
-    // P2-2：情境感知信号注入——让记忆检索考虑当前情境
-    let contextQuery = text
-    try {
-      const ctxMgr = getContextAwarenessManager()
-      const workState = ctxMgr.getCurrentWindowState()
-      const idleMinutes = ctxMgr.getLastIdleMinutes()
-      // 将情境信号拼接到检索 query 中（影响记忆检索的相关性）
-      const contextSignals: string[] = []
-      const hour = new Date().getHours()
-      if (hour >= 0 && hour < 6) contextSignals.push('深夜')
-      else if (hour >= 6 && hour < 9) contextSignals.push('早上')
-      else if (hour >= 9 && hour < 12) contextSignals.push('上午')
-      else if (hour >= 12 && hour < 14) contextSignals.push('中午')
-      else if (hour >= 14 && hour < 18) contextSignals.push('下午')
-      else if (hour >= 18 && hour < 22) contextSignals.push('晚上')
-      else contextSignals.push('深夜')
-      if (workState === 'coding') contextSignals.push('写代码')
-      else if (workState === 'meeting') contextSignals.push('开会')
-      else if (workState === 'browsing') contextSignals.push('浏览')
-      if (idleMinutes >= 30) contextSignals.push('主人忙碌')
-      // 将情境信号拼接到 query 以影响记忆检索
-      if (contextSignals.length > 0) {
-        contextQuery = `${contextSignals.join(' ')} ${text}`
-      }
-    } catch {
-      // contextAwareness 不可用时不影响正常流程
-    }
-
-    const apiMessages: ChatMessage[] = [
-      mkMsg('system', fullSystemPrompt),
-      ...character.fewShotExamples.flatMap((ex) => [mkMsg('user', ex.user), mkMsg('assistant', ex.assistant)]),
-    ]
-
-    // F5b：记忆注入预算统一收编进 ContextManager（联合预算，替代各自独立硬编码）
-    // 四段式记忆 4000 + 画像 500 + 经历 300 + 感知 200 = 5000 联合预算：
-    // 正常量下所有区块全部保留（与旧行为一致）；仅当总量超预算时按优先级/时间裁掉最旧的区块。
-    // preserveSystem=false 保证 system 区块也受预算约束，preserveRecentRounds=0 不强制保留最近轮次。
-    const MEMORY_TOKEN_BUDGET = isOnDevice ? ON_DEVICE_MEM_SECTION_BUDGET : 5000
-    const memoryCtxMgr = new ContextManager({
-      defaultMaxTokens: MEMORY_TOKEN_BUDGET,
-      preserveSystem: false,
-      preserveRecentRounds: 0,
-    })
-
-    // P2-1：注入结构化用户画像——每条对话的 system prompt 顶层固定注入
-    if (ownerFactsContext) {
-      memoryCtxMgr.addMessage('system', ownerFactsContext)
-    }
-
-    // P2-4：注入宠物共同经历记忆
-    if (expContext) {
-      memoryCtxMgr.addMessage('system', expContext)
-    }
-
-    // R2：注入约定与计划上下文——让 AI 知道主人有哪些待完成的计划
-    try {
-      const commitmentTracker = getCommitmentTracker(currentCharacterId)
-      const commitmentCtx = await commitmentTracker.buildContext()
-      if (commitmentCtx) {
-        memoryCtxMgr.addMessage('system', commitmentCtx)
-      }
-    } catch {
-      // commitmentTracker 不可用时不影响正常流程
-    }
-
-    // P3-6：注入视觉记忆上下文
-    try {
-      const { getVisualMemoryManager } = await import('@/lib/memory/visualMemoryManager')
-      const vmMgr = getVisualMemoryManager(currentCharacterId)
-      await vmMgr.ensureLoaded()
-      const vmContext = vmMgr.buildContext(200)
-      if (vmContext) {
-        memoryCtxMgr.addMessage('system', vmContext)
-      }
-    } catch {
-      // 视觉记忆不可用时不影响正常流程
-    }
-
-    const memory = getEnhancedMemoryManager(currentCharacterId)
-
-    // 检查记忆触发
-    const trigger = await memory.checkTriggers(text)
-    // 四段式记忆按 token 预算组装（即时 > 短期 > 长期 > 核心）
-    // P2-2：使用带情境信号的 contextQuery 进行记忆检索
-    let memCtx = await memory.getContextForChat(isOnDevice ? ON_DEVICE_MEM_CTX_BUDGET : 4000, contextQuery)
-    if (trigger && trigger.message) {
-      trackMemoryTrigger(trigger.type, trigger.memories[0]?.id ?? '')
-      memCtx = `${memCtx}\n\n【记忆触发】${trigger.message}\n${trigger.memories.map((m) => m.user.slice(0, 80)).join('\n')}`
-    }
-    // P1-6：记忆注入指令——告诉模型不要复述原文，用自己的话自然带出
-    if (memCtx) {
-      memCtx += '\n\n【指令】以上历史记忆仅供参考，请不要直接复述原文，用自己的话自然提及即可。'
-    }
-    // P1-6：防重复指令注入
-    const antiRepMgr = getAntiRepetitionManager()
-    const antiRepInstruction = antiRepMgr.getAntiRepetitionInstruction()
-    if (antiRepInstruction) {
-      memCtx = `${memCtx}\n\n${antiRepInstruction}`
-    }
-    if (memCtx) {
-      memoryCtxMgr.addMessage('system', memCtx)
-    }
-
-    // 取预算内的记忆上下文（getContextWindow 按时间升序返回，与注入顺序一致）
-    for (const section of memoryCtxMgr.getContextWindow(MEMORY_TOKEN_BUDGET)) {
-      apiMessages.push(mkMsg('system', section.content))
-    }
-    apiMessages.push(...prevMessages)
-    apiMessages.push(mkMsg('user', text))
-
+    startGeneration(assistantId)
     const controller = new AbortController()
-    setAbortController(controller)
-    setLoading(true)
-
-    // 触发 waiting 阶段（宠物吃东西等待）
+    setAbortController(controller, assistantId)
+    setMessageStatus(assistantId, 'pending')
     chatStageMgr.setStage('waiting')
+    let client: ReturnType<typeof getLLMClient> | undefined
 
+    // Recording failures must not turn a completed reply into a failed message.
+    const record = async (task: () => unknown) => {
+      if (!canUseMemory || controller.signal.aborted) return
+      try {
+        await task()
+      } catch (err) {
+        swallowedCatch('ChatWindow.recordMemory')(err)
+      }
+    }
     try {
-      const client = getLLMClient(config)
-      // Phase 1.3 + 1.4: 流式解析情绪标签与 Think 标签
-      // 用 ThinkTagParser 实时分离 think 内容，用 extractEmotionFromChunk 提取情绪动画
-      const thinkParser = new ThinkTagParser()
-      let cleanBuffer = '' // 已清理情绪标签的累积文本
-      // 技术指标采集：请求发起时间 + 首 token 时间
-      const requestStartTs = nowMs()
-      let firstTokenTs = 0
-      const fullText = await client.chat(
-        apiMessages,
-        (chunk) => {
-          // 记录首 token 到达时间
-          if (firstTokenTs === 0) firstTokenTs = nowMs()
-          // 情绪标签：实时检测并触发宠物动画（不送入最终文本）
-          const emotions = extractEmotionFromChunk(chunk)
-          if (emotions.length > 0) {
-            void emit('spiritpal-emotion', { animationIds: emotions, characterId: currentCharacterId })
-          }
-          // 先解析 think 标签边界，分离出 think 增量
-          const parsed = thinkParser.push(chunk)
-          // 把 reply 增量（已去掉 think 标签）送入累积 buffer
-          const replyDelta = parsed.replyContent.slice(cleanBuffer.length)
-          if (replyDelta) {
-            cleanBuffer = parsed.replyContent
-            appendAssistantChunk(assistantId, replyDelta)
-          }
-          // 同步 think 内容到消息（用于半透明折叠显示）
-          if (parsed.thinkContent) {
-            updateMessageThink(assistantId, parsed.thinkContent)
-          }
-        },
-        controller.signal,
-      )
-      // 流结束：flush 可能还扣着末尾不足一个标签长度的尾巴，必须补吐，
-      // 否则正文会缺最后一小段（原实现只取 thinkContent，reply 尾部被丢掉）。
-      const finalParsed = thinkParser.flush()
-      const tailDelta = finalParsed.replyContent.slice(cleanBuffer.length)
-      if (tailDelta) {
-        cleanBuffer = finalParsed.replyContent
-        appendAssistantChunk(assistantId, tailDelta)
+      if (!character) throw new Error('Character unavailable')
+      const config = await loadAIConfig()
+      controller.signal.throwIfAborted()
+      setModelLabel(`${config.model || '默认模型'} · ${config.provider}`)
+      const isOnDevice = config.provider === 'ondevice'
+      let query = text
+      if (canUseMemory) {
+        try {
+          const awareness = getContextAwarenessManager()
+          query = `${awareness.getCurrentWindowState()} ${awareness.getLastIdleMinutes() >= 30 ? '主人忙碌 ' : ''}${text}`
+        } catch {
+          /* Context-awareness is optional, not a requirement for text chat. */
+        }
       }
-      if (finalParsed.thinkContent) {
-        updateMessageThink(assistantId, finalParsed.thinkContent)
+      const prepared = await prepareChatMemory({
+        characterId: currentCharacterId,
+        query,
+        enabled,
+        temporary,
+        contextBudget: isOnDevice ? ON_DEVICE_MEM_CTX_BUDGET : 4000,
+        totalBudget: isOnDevice ? ON_DEVICE_MEM_SECTION_BUDGET : 5000,
+      })
+      controller.signal.throwIfAborted()
+
+      const parseFinal = (raw: string) => {
+        const parser = new ThinkTagParser()
+        parser.push(raw)
+        const parsed = parser.flush()
+        updateMessageThink(assistantId, parsed.thinkContent)
+        const extraction = extractEmotion(parsed.replyContent)
+        const clean = filterLLMOutput(extraction.cleanText).filteredText
+        updateMessageContent(assistantId, clean)
+        return { clean, extraction, reply: parsed.replyContent }
       }
-      // 最终清理：去除残留情绪标签和好感度标签
-      const extraction = extractEmotion(fullText)
-      const cleanFinal = extraction.cleanText
-      // P1-5：解析好感度变化并写回 petStore
-      const affectionDeltas = extractAffectionDeltas(fullText)
-      if (affectionDeltas.length > 0) {
-        const totalDelta = sumAffectionDeltas(affectionDeltas)
-        if (totalDelta !== 0) {
-          // P2-6 修复：直接使用 Zustand setState 更新 affection 字段
-          usePetStore.setState((state) => {
-            const cur = state.stats[currentCharacterId]
-            if (!cur) return state
-            return {
-              stats: {
-                ...state.stats,
-                [currentCharacterId]: {
-                  ...cur,
-                  affection: Math.max(0, Math.min(100, cur.affection + totalDelta)),
+      let finalReply: ReturnType<typeof parseFinal>
+      let toolPath = false
+      if (canUseMemory && detectAgentIntent(text)) {
+        toolPath = true
+        // This trace describes the memory payload passed to Agent, NOT its hidden tool reasoning.
+        setMessageMemoryTrace(assistantId, prepared.trace)
+        controller.signal.throwIfAborted()
+        const result = await processAgentRequest(
+          text,
+          config,
+          currentCharacterId,
+          prepared.messages.map((m) => m.content).join('\n\n'),
+        )
+        controller.signal.throwIfAborted()
+        finalReply = parseFinal(result)
+      } else {
+        const historyBudget = isOnDevice ? ON_DEVICE_HISTORY_TOKEN_BUDGET : 6000
+        const context = new ContextManager({ defaultMaxTokens: historyBudget })
+        for (const m of history) context.addMessage(m.role, m.content)
+        const prevMessages = truncateAssistantHistory(context.getContextWindow(historyBudget), isOnDevice)
+        const dropped = history.length - prevMessages.length
+        if (dropped > 0) {
+          const snippets = history
+            .slice(0, dropped)
+            .filter((m) => m.role === 'user')
+            .slice(-3)
+            .map((m) => m.content.slice(0, 40))
+            .join('；')
+          prevMessages.unshift(
+            mkMsg('system', `（更早还有 ${dropped} 条对话因篇幅未展示${snippets ? '，主要聊过：' + snippets : ''}）`),
+          )
+        }
+        const effective = getEffectivePersonality(currentCharacterId, character.personality)
+        const apiMessages: ChatMessage[] = [
+          mkMsg(
+            'system',
+            composeFullSystemPrompt(character.systemPrompt, character.personality, effective) +
+              '\n' +
+              EMOTION_PROMPT_FRAGMENT,
+          ),
+          ...character.fewShotExamples.flatMap((ex) => [mkMsg('user', ex.user), mkMsg('assistant', ex.assistant)]),
+          ...prepared.messages,
+          ...prevMessages,
+          mkMsg('user', text),
+        ]
+        const lookKeywords = /^(看看|你看看|看一下|瞅瞅|瞄一眼|看一眼|帮我看看)/
+        if (canUseMemory && lookKeywords.test(text)) {
+          toolPath = true
+          const analysis = await getVisualPerceptionManager().triggerAnalysis()
+          controller.signal.throwIfAborted()
+          if (analysis) {
+            const screenContext = `【视觉感知】宠物刚刚看了一眼屏幕，观察到：${analysis.userActivity}（工作状态：${analysis.inferredWorkState}，置信度：${((analysis.confidence ?? 0) * 100).toFixed(0)}%）${analysis.sceneDetails ? ' 场景详情：' + analysis.sceneDetails : ''}`
+            apiMessages.splice(1, 0, mkMsg('system', screenContext))
+            prepared.trace = {
+              ...prepared.trace,
+              sections: [
+                ...prepared.trace.sections,
+                {
+                  id: 'screen-analysis',
+                  label: '本轮屏幕观察',
+                  content: screenContext,
+                  estimatedTokens: Math.ceil(screenContext.length / 2),
                 },
-              },
+              ],
             }
-          })
-        }
-      }
-      // 写入四段式记忆（使用清理后的文本）
-      // D6 修复：先判断是否命中"记住"指令；命中时单次写入带标记的文本，
-      // 避免原实现下方再次 addExchange 造成同一轮对话重复入库
-      const isRememberRequest = /记住|记着|以后|别忘了|remember this/i.test(text)
-      const exchangedMem = memory.addExchange(isRememberRequest ? `[用户要求记住] ${text}` : text, cleanFinal)
-      // T-6: 将宠物回复的情绪标签回写为当轮记忆的 valence/arousal
-      // 打通 emotionExtractor（LLM 情绪标签）与记忆侧情感体系，让后续检索能按情绪一致召回
-      const moodTag = emotionTagsToMood(extraction.animations)
-      if (moodTag) {
-        memory.updateMemoryMood(exchangedMem.id, moodTag.valence, moodTag.arousal)
-      }
-      // A-10: 同一调用点升级替换为 emotionEngine —— 将回复文本送入情绪引擎状态机，
-      // 驱动 MemoryPanel 情绪分布 / 每日情绪曲线（情绪落库单链贯通）
-      getEmotionStateManager().update(getEmotionAnalyzer().analyze(cleanFinal))
-      // P1-6：记录回复到防重复管理器
-      antiRepMgr.recordResponse(cleanFinal)
-      // P1-1：记录对话到日记系统
-      const diaryMgr = getDiarySystemManager(currentCharacterId)
-      diaryMgr.recordExchange(text, cleanFinal)
-
-      // P2-1：从对话中提取用户事实（规则层兜底）
-      void ownerFactsMgr.extractAndSave(text).then((hasNew) => {
-        if (hasNew) {
-          // 如果提取到新事实，追加确认提示
-          appendAssistantChunk(assistantId, '\n\n[我记住了关于你的新信息～]')
-        }
-      })
-
-      // P3-3：LLM 自动提取用户事实（异步，不阻塞主流程）
-      void ownerFactsMgr
-        .autoExtractWithLLM(text, cleanFinal)
-        .then((hasNew) => {
-          if (hasNew && !appendAssistantChunk.toString().includes('新信息')) {
-            // 仅在规则层未提示时追加 LLM 提取确认
-            appendAssistantChunk(assistantId, '\n\n[我记住了关于你的新信息～]')
+            await record(async () => {
+              const { getVisualMemoryManager } = await import('@/lib/memory/visualMemoryManager')
+              controller.signal.throwIfAborted()
+              getVisualMemoryManager(currentCharacterId).record('scene', analysis.userActivity, 'neutral')
+            })
+            controller.signal.throwIfAborted()
+          } else {
+            apiMessages.splice(1, 0, mkMsg('system', '本轮未能获取屏幕信息。请说明无法看清，不要猜测屏幕内容。'))
           }
-        })
-        .catch(swallowedCatch('ChatWindow.autoExtractWithLLM'))
-
-      // P2-5：检测"记住"指令——用户明确要求记住的内容以高置信度存储
-      if (isRememberRequest) {
-        // D6 修复：原实现二次 addExchange 造成同一轮对话重复入库；
-        // 写入时已附加 [用户要求记住] 标记，这里提升置信度后追加确认提示
-        exchangedMem.importance = Math.max(exchangedMem.importance, 90)
-        exchangedMem.emotionalIntensity = Math.max(exchangedMem.emotionalIntensity, 0.7)
-        exchangedMem.isAutobiographical = true
-        appendAssistantChunk(assistantId, '\n\n[好的，我记住了～]')
+        }
+        client = getLLMClient(config)
+        const parser = new ThinkTagParser()
+        const emotionFilter = new EmotionTagFilter()
+        let replyLength = 0
+        setMessageMemoryTrace(assistantId, prepared.trace)
+        controller.signal.throwIfAborted()
+        const raw = await client.chat(
+          apiMessages,
+          (chunk) => {
+            if (controller.signal.aborted) return
+            const emotions = extractEmotionFromChunk(chunk)
+            if (emotions.length > 0)
+              void emit('spiritpal-emotion', { animationIds: emotions, characterId: currentCharacterId })
+            const parsed = parser.push(chunk)
+            const delta = parsed.replyContent.slice(replyLength)
+            replyLength = parsed.replyContent.length
+            if (delta) {
+              const visible = emotionFilter.push(delta)
+              if (visible) appendAssistantChunk(assistantId, visible)
+            }
+            if (parsed.thinkContent) updateMessageThink(assistantId, parsed.thinkContent)
+          },
+          controller.signal,
+          (progress) => setMessageMetrics(assistantId, progress),
+        )
+        controller.signal.throwIfAborted()
+        const tail = emotionFilter.flush()
+        if (tail) appendAssistantChunk(assistantId, tail)
+        finalReply = parseFinal(raw)
       }
-      trackChatReceive(cleanFinal.length, config.provider, 0)
 
-      // 技术指标回写：将本次 LLM 调用的 token/耗时/速率写入消息
-      const responseEndTs = nowMs()
-      const usage = client.lastCallUsage
-      const durationMs = responseEndTs - requestStartTs
-      const completionTokens = usage?.output ?? 0
-      setMessageMetrics(assistantId, {
-        promptTokens: usage?.input ?? 0,
-        completionTokens,
-        requestStartTs,
-        firstTokenTs: firstTokenTs || undefined,
-        responseEndTs,
-        durationMs,
-        ttftMs: firstTokenTs ? firstTokenTs - requestStartTs : undefined,
-        tokensPerSec:
-          completionTokens > 0 && durationMs > 0 ? Math.round(completionTokens / (durationMs / 1000)) : undefined,
-        model: config.model,
-        provider: config.provider,
-      })
-
-      // 触发 reply 阶段（宠物开心说话）
+      const { clean, extraction, reply } = finalReply
+      setMessageStatus(assistantId, undefined)
+      setMessageConsistency(assistantId, checkConsistency(clean, currentCharacterId).violations)
+      trackChatReceive(clean.length, config.provider, client?.lastCallMetrics?.durationMs ?? 0)
       chatStageMgr.setStage('reply')
       getAchievementManager().recordChat()
 
-      // 尝试从对话中提取日程
-      const schedMgr = getScheduleManager()
-      const schedEvent = schedMgr.addFromChat(text, currentCharacterId)
-      if (schedEvent) {
-        const d = new Date(schedEvent.triggerTime)
-        const timeStr = `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
-        appendAssistantChunk(assistantId, `\n\n[已创建日程：${schedEvent.title} - ${timeStr}]`)
-      }
-
-      // R2：从对话中抽取约定并保存
-      try {
-        const commitmentTracker = getCommitmentTracker(currentCharacterId)
-        const extracted = commitmentTracker.extractFromText(text, cleanFinal)
-        for (const ext of extracted) {
-          await commitmentTracker.saveCommitment(ext)
+      if (canUseMemory) {
+        await Promise.all([
+          record(() => cogneeAdd(currentCharacterId, text)),
+          // The receiving window may derive memories from this event's text; never emit it in read-only chat.
+          record(() => emit('user-chat-responded', { characterId: currentCharacterId, text })),
+          record(() => {
+            const memory = getEnhancedMemoryManager(currentCharacterId)
+            const remember = /记住|记着|以后|别忘了|remember this/i.test(text)
+            const exchange = memory.addExchange(remember ? `[用户要求记住] ${text}` : text, clean)
+            const analyzer = getEmotionAnalyzer()
+            const intensity = deriveEmotionalIntensity(
+              exchange.emotionalIntensity,
+              [...extraction.animations, ...extractEmotionTagKeywords(reply)],
+              analyzer.analyze(clean),
+              analyzer.analyze(text),
+            )
+            memory.updateMemoryIntensity(exchange.id, remember ? Math.max(intensity, 0.7) : intensity)
+            const mood = emotionTagsToMood(extraction.animations)
+            if (mood) memory.updateMemoryMood(exchange.id, mood.valence, mood.arousal)
+            if (remember) {
+              exchange.importance = Math.max(exchange.importance, 90)
+              exchange.emotionalIntensity = Math.max(exchange.emotionalIntensity, 0.7)
+              exchange.isAutobiographical = true
+            }
+          }),
+        ])
+        if (!toolPath) {
+          await Promise.all([
+            record(() => {
+              const delta = sumAffectionDeltas(extractAffectionDeltas(reply))
+              if (delta)
+                usePetStore.setState((state) => {
+                  const current = state.stats[currentCharacterId]
+                  return current
+                    ? {
+                        stats: {
+                          ...state.stats,
+                          [currentCharacterId]: {
+                            ...current,
+                            affection: Math.max(0, Math.min(100, current.affection + delta)),
+                          },
+                        },
+                      }
+                    : state
+                })
+            }),
+            record(() => getEmotionStateManager().update(getEmotionAnalyzer().analyze(clean))),
+            record(() => getAntiRepetitionManager().recordResponse(clean)),
+            record(() => getDiarySystemManager(currentCharacterId).recordExchange(text, clean)),
+            record(() => getOwnerFactsManager(currentCharacterId).extractAndSave(text)),
+            record(() => getOwnerFactsManager(currentCharacterId).autoExtractWithLLM(text, clean)),
+            record(() => getScheduleManager().addFromChat(text, currentCharacterId)),
+            record(async () => {
+              const tracker = getCommitmentTracker(currentCharacterId)
+              for (const item of tracker.extractFromText(text, clean)) {
+                controller.signal.throwIfAborted()
+                await tracker.saveCommitment(item)
+                controller.signal.throwIfAborted()
+              }
+              await tracker.autoLapseOverdue()
+            }),
+          ])
         }
-        // 自动将超期 3 天未提及的约定标记为 lapsed
-        await commitmentTracker.autoLapseOverdue()
-      } catch {
-        // 约定追踪失败不影响正常流程
-      }
-
-      // 角色一致性后处理校验（使用清理后的文本）
-      const consistencyResult = checkConsistency(cleanFinal, currentCharacterId)
-      if (!consistencyResult.isConsistent) {
-        setMessageConsistency(assistantId, consistencyResult.violations)
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '未知错误'
-      setError(`发送失败：${msg}`)
-      appendAssistantChunk(assistantId, `\n\n[发送失败：${msg}]`)
-      // 触发 error 阶段（宠物难过）
-      chatStageMgr.setStage('error')
+      const aborted = controller.signal.aborted || (err instanceof Error && err.name === 'AbortError')
+      setMessageStatus(assistantId, aborted ? 'aborted' : 'failed')
+      if (!aborted) {
+        setError('发送失败，请检查模型配置或网络后重试。')
+        chatStageMgr.setStage('error')
+      }
     } finally {
+      if (client?.lastCallMetrics) setMessageMetrics(assistantId, client.lastCallMetrics)
+      // Store finishes only this ID; an older request must not clear a newer generation's loading state.
       finishStreaming(assistantId)
     }
   }
 
-  // STT：点击麦克风开始/停止语音识别，结果实时回填输入框
+  function handleEdit(message: ChatMessage) {
+    if (useChatStore.getState().isLoading || message.role !== 'user') return
+    if (!forkSessionAtMessage(message.id)) return
+    setInput(message.content)
+    setError(null)
+    inputRef.current?.focus()
+  }
+
+  async function handleRegenerate(message: ChatMessage) {
+    const state = useChatStore.getState()
+    if (state.isLoading || message.role !== 'assistant') return
+    const current = state.messagesBySession[state.activeSessionByCharacter[currentCharacterId] ?? ''] ?? []
+    const index = current.findIndex((m) => m.id === message.id)
+    const user = current
+      .slice(0, index)
+      .reverse()
+      .find((m) => m.role === 'user')
+    if (index < 0 || !user || !forkSessionAtMessage(user.id)) return
+    await handleSend(user.content)
+  }
+
+  async function handleFlag(message: ChatMessage) {
+    if (useChatStore.getState().isLoading) return
+    flagMessage(message.id, checkConsistency(message.content, currentCharacterId).violations)
+    await handleRegenerate(message)
+  }
+
   function handleMicToggle() {
     if (sttActive) {
       sttEngineRef.current?.stop()
-      // stop() 后由 onEnd 回调复位 sttActive；这里同步复位避免延迟
       setSttActive(false)
       return
     }
@@ -837,8 +613,8 @@ export default function ChatWindow() {
       sttEngineRef.current = engine
       engine.start(
         {
-          onPartial: (text) => setInput(text),
-          onFinal: (text) => setInput(text),
+          onPartial: setInput,
+          onFinal: setInput,
           onError: (msg) => {
             setError(`语音识别失败：${msg}`)
             setSttActive(false)
@@ -848,258 +624,165 @@ export default function ChatWindow() {
         { lang: 'zh-CN', continuous: true, interimResults: true },
       )
       setSttActive(true)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '语音识别启动失败')
+    } catch {
+      setError('语音识别启动失败')
       sttEngineRef.current = null
     }
   }
 
-  // VOICEVOX 朗读：点击合成并播放；再次点击停止。引擎不可用由按钮 disabled 拦截。
   async function handleSpeak(message: ChatMessage) {
     if (speakingId === message.id) {
       getVoicevoxPlayer().stop()
       setSpeakingId(null)
       return
     }
-    const clean = cleanVoicevoxText(message.content)
-    if (!clean) return
+    const text = cleanVoicevoxText(message.content)
+    if (!text) return
     setSpeakingId(message.id)
     try {
-      const blob = await voicevoxTTS.synthesize(clean.slice(0, 500))
+      const blob = await voicevoxTTS.synthesize(text.slice(0, 500))
       await getVoicevoxPlayer().play(blob)
-    } catch (err) {
-      // 合成/播放失败：标记引擎不可用并提示（下次按钮禁用）
+    } catch {
       setTtsAvailable(false)
-      setError(`语音朗读失败：${err instanceof Error ? err.message : 'VOICEVOX 引擎未启动'}`)
+      setError('语音朗读失败，请检查 VOICEVOX 引擎是否启动。')
     } finally {
-      setSpeakingId((cur) => (cur === message.id ? null : cur))
+      setSpeakingId((current) => (current === message.id ? null : current))
     }
   }
 
-  function handleKeyDown(e: ReactKeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  function handleKeyDown(e: ReactKeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && !e.shiftKey && !composing.current && !e.nativeEvent.isComposing && e.keyCode !== 229) {
       e.preventDefault()
       void handleSend()
     }
   }
 
-  // 标记消息不符性格并自动重新生成回复
-  async function handleFlag(messageId: string) {
-    if (!character || isLoading || regeneratingId) return
-
-    const message = messages.find((m) => m.id === messageId)
-    if (!message || message.role !== 'assistant') return
-
-    // 校验获取违规列表
-    const result = checkConsistency(message.content, currentCharacterId)
-    // 标记消息
-    flagMessage(messageId, result.violations)
-
-    // 生成修正 prompt
-    const correctionPrompt = generateCorrectionPrompt(currentCharacterId, result.violations)
-
-    // 找到触发该回复的用户消息（前一条 user 消息）
-    const msgIndex = messages.findIndex((m) => m.id === messageId)
-    let userText = ''
-    for (let i = msgIndex - 1; i >= 0; i--) {
-      const msg = messages[i]
-      if (msg && msg.role === 'user') {
-        userText = msg.content
-        break
-      }
-    }
-    if (!userText) return
-
-    const config = await loadAIConfig()
-    // 端侧收紧上下文预算（与 handleSend 同口径，见 GOTCHAS #182）
-    const isOnDevice = config.provider === 'ondevice'
-    const effectivePersonality = getEffectivePersonality(currentCharacterId, character.personality)
-    const fullSystemPrompt = composeFullSystemPrompt(
-      character.systemPrompt,
-      character.personality,
-      effectivePersonality,
-    )
-
-    // 构建 API 消息：系统提示 → 修正 prompt → few-shot → 记忆上下文 → 历史（到标记消息前）→ 用户消息
-    const apiMessages: ChatMessage[] = [
-      mkMsg('system', fullSystemPrompt),
-      mkMsg('system', correctionPrompt),
-      ...character.fewShotExamples.flatMap((ex) => [mkMsg('user', ex.user), mkMsg('assistant', ex.assistant)]),
-    ]
-
-    // D8：重新生成路径也注入记忆上下文
-    try {
-      const regenMemory = getEnhancedMemoryManager(currentCharacterId)
-      await regenMemory.ensureLoaded()
-      const regenMemCtx = await regenMemory.getContextForChat(isOnDevice ? ON_DEVICE_MEM_CTX_BUDGET : 4000, userText)
-      if (regenMemCtx) {
-        apiMessages.push(
-          mkMsg(
-            'system',
-            regenMemCtx + '\n\n【指令】以上历史记忆仅供参考，请不要直接复述原文，用自己的话自然提及即可。',
-          ),
-        )
-      }
-    } catch {
-      // 记忆注入失败不影响重新生成
-    }
-
-    // 添加标记消息之前的对话历史（排除 system 消息）
-    // 端侧只带最近 N 条：该路径原本是「标记消息之前全量历史」，长会话下会直接把 prompt 撑爆
-    const regenHistoryStart = isOnDevice ? Math.max(0, msgIndex - ON_DEVICE_REGEN_HISTORY_TURNS) : 0
-    // 端侧：助手侧历史同样截断（GOTCHAS #184）
-    const regenHistory = truncateAssistantHistory(
-      messages
-        .slice(regenHistoryStart, msgIndex)
-        .filter((m): m is NonNullable<typeof m> => Boolean(m) && m.role !== 'system')
-        .map((m) => mkMsg(m.role as 'user' | 'assistant', m.content)),
-      isOnDevice,
-    )
-    apiMessages.push(...regenHistory)
-    // 重新添加用户消息（触发重新生成）
-    apiMessages.push(mkMsg('user', userText))
-
-    // 清空原回复内容，准备流式接收新回复
-    updateMessageContent(messageId, '')
-    setRegeneratingId(messageId)
-
-    const controller = new AbortController()
-    setAbortController(controller)
-    setLoading(true)
-    chatStageMgr.setStage('waiting')
-
-    try {
-      const client = getLLMClient(config)
-      const requestStartTs = nowMs()
-      let firstTokenTs = 0
-      const fullText = await client.chat(
-        apiMessages,
-        (chunk) => {
-          if (firstTokenTs === 0) firstTokenTs = nowMs()
-          appendAssistantChunk(messageId, chunk)
-        },
-        controller.signal,
-      )
-      // 技术指标回写
-      const responseEndTs = nowMs()
-      const usage = client.lastCallUsage
-      const durationMs = responseEndTs - requestStartTs
-      const completionTokens = usage?.output ?? 0
-      setMessageMetrics(messageId, {
-        promptTokens: usage?.input ?? 0,
-        completionTokens,
-        requestStartTs,
-        firstTokenTs: firstTokenTs || undefined,
-        responseEndTs,
-        durationMs,
-        ttftMs: firstTokenTs ? firstTokenTs - requestStartTs : undefined,
-        tokensPerSec:
-          completionTokens > 0 && durationMs > 0 ? Math.round(completionTokens / (durationMs / 1000)) : undefined,
-        model: config.model,
-        provider: config.provider,
-      })
-      chatStageMgr.setStage('reply')
-
-      // 对新回复重新进行一致性校验
-      const newResult = checkConsistency(fullText, currentCharacterId)
-      setMessageConsistency(messageId, newResult.violations)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '未知错误'
-      setError(`重新生成失败：${msg}`)
-      appendAssistantChunk(messageId, `\n\n[重新生成失败：${msg}]`)
-      chatStageMgr.setStage('error')
-    } finally {
-      finishStreaming(messageId)
-      setRegeneratingId(null)
-    }
+  function toggleSidebar(open: boolean | null) {
+    return !(open ?? window.matchMedia('(min-width: 1100px)').matches)
   }
 
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden bg-cream text-ink">
-      {/* 左侧会话列表抽屉（覆盖式，不挤压主内容） */}
-      {sessionListOpen && (
-        <div className="absolute inset-y-0 left-0 z-30 shadow-xl">
+    <div className={`chat-workspace desktop-chat${compact ? ' chat-workspace--compact' : ''}`}>
+      <style>{desktopLayout}</style>
+      <div className="desktop-titlebar">
+        <WindowControls title={`${character?.displayName ?? '宠物'} 聊天`} />
+      </div>
+      <header className="chat-header desktop-header">
+        <div className="desktop-heading">
+          <h1>{session?.title ?? '新对话'}</h1>
+          <div className="chat-note desktop-subtitle">
+            <span>{character?.displayName ?? '宠物'}</span>
+            <span>{modelLabel}</span>
+            {showMetrics && (
+              <span
+                aria-label={t('chatUi.scope.knownTokens', { input: knownTokens.input, output: knownTokens.output })}
+              >
+                {t('chatUi.scope.knownTokens', { input: knownTokens.input, output: knownTokens.output })}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="desktop-toolbar">
+          <button
+            className="chat-button"
+            onClick={() => setSessionListOpen(toggleSidebar)}
+            aria-label="对话历史"
+            title="对话历史"
+          >
+            <PanelLeft size={16} />
+          </button>
+          <button
+            className="chat-button"
+            onClick={() => {
+              createSession()
+              setInput('')
+              setError(null)
+            }}
+            aria-label="新建对话"
+            title="新建对话"
+          >
+            <Plus size={16} />
+          </button>
+          <button
+            className="chat-button"
+            aria-pressed={Boolean(session?.temporary)}
+            onClick={() => {
+              createSession(session?.temporary ? undefined : { temporary: true })
+              setInput('')
+              setError(null)
+            }}
+          >
+            {session?.temporary ? t('chatUi.scope.exitTemp') : t('chatUi.scope.temp')}
+          </button>
+          <button
+            className="chat-button"
+            role="switch"
+            aria-label="记忆读写"
+            aria-checked={memoryEnabled && !session?.temporary}
+            disabled={Boolean(session?.temporary)}
+            onClick={() => setMemoryEnabled((value) => !value)}
+            title="下一轮是否读取并写入长期记忆"
+          >
+            <Brain size={15} />
+            {memoryEnabled && !session?.temporary ? t('chatUi.scope.memoryOn') : t('chatUi.scope.memoryOff')}
+          </button>
+          <ChatViewControls />
+          <button
+            className="chat-button"
+            onClick={() => {
+              setSearchOpen(!searchOpen)
+              setSearchQuery('')
+            }}
+            aria-label="搜索对话"
+            aria-expanded={searchOpen}
+          >
+            <Search size={16} />
+          </button>
+          <button
+            className="chat-button"
+            onClick={() => {
+              useChatViewStore.getState().setOption('showMemory', true)
+              setContextOpen(toggleSidebar)
+            }}
+            aria-label={t('chatUi.scope.context')}
+            title={t('chatUi.scope.context')}
+          >
+            <Brain size={16} />
+          </button>
+          <button
+            className="chat-button"
+            onClick={() => setMemoryPanelOpen(true)}
+            aria-label={t('chatUi.scope.manageMemory')}
+            title={t('chatUi.scope.manageMemory')}
+          >
+            {t('chatUi.scope.manageMemory')}
+          </button>
+          <button
+            className="chat-button"
+            onClick={() => {
+              if (window.confirm(t('chatUi.scope.clearConfirm'))) {
+                if (isLoading) stopGeneration()
+                clearHistory()
+              }
+            }}
+            aria-label="清空聊天记录"
+            title="清空聊天记录"
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
+      </header>
+      <div className="desktop-body">
+        <aside
+          className={`chat-side-panel desktop-sessions${sessionListOpen === true ? ' is-open' : sessionListOpen === false ? ' is-closed' : ''}`}
+          aria-label="会话列表"
+        >
           <SessionList onClose={() => setSessionListOpen(false)} />
-        </div>
-      )}
-
-      {/* 主聊天区域 */}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {/* 无边框窗口标题栏 */}
-        <div className="relative z-50 shrink-0">
-          <WindowControls title={`${character?.displayName ?? '宠物'} 聊天`} />
-        </div>
-
-        {/* 头部 */}
-        <div className="flex shrink-0 items-center justify-between border-b border-ink/10 px-3 py-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <div
-              className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold"
-              style={{
-                background: `linear-gradient(135deg, ${character?.themeColor.primary ?? '#FFB6C1'}, ${character?.themeColor.secondary ?? '#FFA500'})`,
-              }}
-            >
-              {character?.displayName.charAt(0) ?? '?'}
-            </div>
-            <div>
-              <div className="text-sm font-semibold">{character?.displayName ?? '宠物'}</div>
-              <div className="text-[11px] text-ink-faint">{character?.signaturePhrase}</div>
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-0.5">
-            <button
-              onClick={() => setSessionListOpen(!sessionListOpen)}
-              className={`spiritpal-focusable rounded-md p-1.5 ${sessionListOpen ? 'bg-tangerine/15 text-tangerine-deep' : 'text-ink-faint hover:bg-ink/8'}`}
-              aria-label="对话历史"
-              title="对话历史"
-            >
-              <PanelLeft size={16} aria-hidden="true" />
-            </button>
-            <button
-              onClick={() => {
-                createSession()
-              }}
-              className="spiritpal-focusable rounded-md p-1.5 text-ink-faint hover:bg-ink/8"
-              aria-label="新建对话"
-              title="新建对话"
-            >
-              <Plus size={16} aria-hidden="true" />
-            </button>
-            <SessionStatsBar />
-            <button
-              onClick={() => {
-                setSearchOpen(!searchOpen)
-                setSearchQuery('')
-              }}
-              className={`spiritpal-focusable rounded-md p-1.5 ${searchOpen ? 'bg-tangerine/15 text-tangerine-deep' : 'text-ink-faint hover:bg-ink/8'}`}
-              aria-label="搜索对话"
-              aria-expanded={searchOpen}
-            >
-              <Search size={16} aria-hidden="true" />
-            </button>
-            <button
-              onClick={clearHistory}
-              className="spiritpal-focusable rounded-md p-1.5 text-ink-faint hover:bg-ink/8 hover:text-error"
-              aria-label="清空聊天记录"
-            >
-              <Trash2 size={16} aria-hidden="true" />
-            </button>
-            <button
-              onClick={() => setMemoryPanelOpen(!memoryPanelOpen)}
-              className={`spiritpal-focusable rounded-md p-1.5 ${memoryPanelOpen ? 'bg-tangerine/15 text-tangerine-deep' : 'text-ink-faint hover:bg-ink/8'}`}
-              aria-label="记忆面板"
-              title="查看记忆"
-            >
-              <Brain size={16} aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-
-        {/* 搜索栏 */}
-        {searchOpen && (
-          <div className="shrink-0 border-b border-ink/10 bg-cream-deep/60 px-4 py-2">
-            <div className="flex items-center gap-2">
-              <Search size={14} className="text-ink-faint" />
+        </aside>
+        <main className="desktop-main">
+          {searchOpen && (
+            <div className="chat-header desktop-search">
+              <Search size={14} aria-hidden="true" />
               <input
                 value={searchQuery}
                 onChange={(e) => {
@@ -1107,264 +790,265 @@ export default function ChatWindow() {
                   setSearchIndex(0)
                 }}
                 placeholder="搜索对话内容…"
-                className="flex-1 bg-transparent text-sm text-ink placeholder-ink-faint focus:outline-none"
+                aria-label="搜索对话内容"
                 autoFocus
               />
-              {searchQuery && searchResults.length > 0 && (
-                <span className="text-[11px] text-ink-faint">
-                  {searchIndex + 1}/{searchResults.length}
+              {searchQuery && (
+                <span className="chat-note">
+                  {searchResults.length ? `${searchIndex + 1}/${searchResults.length}` : '未找到匹配的消息'}
                 </span>
               )}
-              {searchQuery && searchResults.length > 0 && (
+              {searchResults.length > 0 && (
                 <>
                   <button
-                    onClick={() => setSearchIndex((i) => Math.max(0, i - 1))}
-                    className="rounded p-0.5 text-ink-faint hover:bg-ink/8"
+                    className="chat-button"
                     title="上一个"
+                    onClick={() => setSearchIndex((i) => (i - 1 + searchResults.length) % searchResults.length)}
                   >
                     <ChevronUp size={14} />
                   </button>
                   <button
-                    onClick={() => setSearchIndex((i) => Math.min(searchResults.length - 1, i + 1))}
-                    className="rounded p-0.5 text-ink-faint hover:bg-ink/8"
+                    className="chat-button"
                     title="下一个"
+                    onClick={() => setSearchIndex((i) => (i + 1) % searchResults.length)}
                   >
                     <ChevronDown size={14} />
                   </button>
                 </>
               )}
               <button
+                className="chat-button"
+                title="关闭搜索"
                 onClick={() => {
                   setSearchOpen(false)
                   setSearchQuery('')
                 }}
-                className="rounded p-0.5 text-ink-faint hover:bg-ink/8"
-                title="关闭搜索"
               >
                 <X size={14} />
               </button>
             </div>
-            {searchQuery && searchResults.length === 0 && (
-              <div className="mt-1 text-[11px] text-ink-faint">未找到匹配的消息</div>
-            )}
-          </div>
-        )}
-
-        {/* 记忆引用提示 */}
-        {memoryPreview && (
-          <div className="shrink-0 border-b border-ink/5 bg-blush-soft/70 px-4 py-1.5 text-[11px] text-tangerine-deep">
-            📖 记得你上次说「{memoryPreview}」…
-          </div>
-        )}
-
-        {/* 消息列表 */}
-        <div
-          ref={scrollRef}
-          className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3"
-          role="log"
-          aria-live="polite"
-          aria-label="聊天消息列表"
-        >
-          {messages.length === 0 && !isLoading && (
-            <div className="flex h-full items-center justify-center text-sm text-ink-faint">
-              说点什么吧～ {character?.displayName ?? '我'}在等你
-            </div>
           )}
-          {messages.map((m) => {
-            const isUser = m.role === 'user'
-            const isSearchMatch = searchQuery && m.content.toLowerCase().includes(searchQuery.toLowerCase())
-            const isCurrentResult = searchQuery && searchResults[searchIndex]?.message.id === m.id
-            const hasViolations = !isUser && (m.consistencyViolations?.length ?? 0) > 0
-            const isFlagged = !isUser && m.flagged === true
-            const canFlag = !isUser && !m.isStreaming && !isFlagged && regeneratingId !== m.id && !isLoading
-            const isRegenerating = regeneratingId === m.id
-            return (
-              <div
-                key={m.id}
-                className={`flex gap-2 ${isUser ? 'flex-row-reverse' : 'flex-row'} ${isCurrentResult ? 'ring-2 ring-tangerine/50 rounded-2xl' : ''}`}
-              >
-                <div
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-                    isUser ? 'bg-tangerine text-white' : 'bg-blush-soft text-tangerine-deep'
-                  }`}
-                >
-                  {isUser ? <User size={14} /> : <Bot size={14} />}
-                </div>
-                <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
-                  {/* 一致性警告标记 */}
-                  {hasViolations && (
-                    <div className="mb-1 flex items-center gap-1 rounded-md bg-tangerine-soft px-2 py-0.5 text-[11px] text-tangerine-deep">
-                      <AlertTriangle size={11} />
-                      <span>⚠️ 可能不符性格</span>
-                      {m.consistencyViolations && m.consistencyViolations.length > 0 && (
-                        <span className="text-tangerine-deep/70">
-                          （
-                          {m.consistencyViolations
-                            .slice(0, 3)
-                            .map((v) => `「${v}」`)
-                            .join('')}
-                          ）
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  <div
-                    className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${
-                      isUser
-                        ? 'bg-tangerine text-white'
-                        : isFlagged
-                          ? 'bg-surface text-ink ring-1 ring-error/40 border border-ink/10'
-                          : 'bg-surface text-ink border border-ink/10'
-                    } ${isSearchMatch && !isCurrentResult ? 'ring-1 ring-tangerine/30' : ''}`}
-                  >
-                    {isUser ? (
-                      searchQuery ? (
-                        highlightText(m.content, searchQuery)
-                      ) : (
-                        m.content
-                      )
-                    ) : (
-                      <div className="prose prose-sm max-w-none break-words">
-                        {/* Phase 1.4: Think 标签内容 — 半透明折叠显示（内心独白） */}
-                        {m.thinkContent && m.thinkContent.trim() && (
-                          <div className="mb-2 rounded-lg border border-blush/40 bg-blush-soft/70 px-2 py-1.5 text-[12px] italic text-ink-muted">
-                            <span className="not-italic text-tangerine-deep/60">💭 内心独白：</span>{' '}
-                            {/* LLM 维度 P1：内心独白同属 LLM 输出，渲染前一并过护栏 */}
-                            {filterLLMOutput(m.thinkContent).filteredText}
-                          </div>
-                        )}
-                        {m.content ? (
-                          // LLM 维度 P1：渲染前再过一次输出护栏。
-                          // store 落库已过滤（新建回复），此处兜底覆盖「本次改动之前就已
-                          // 持久化到本地库」的历史助手消息——它们从未经过护栏。
-                          <Markdown rehypePlugins={[rehypeSanitize]}>
-                            {filterLLMOutput(m.content).filteredText}
-                          </Markdown>
-                        ) : (
-                          <span className="text-ink-faint">{isRegenerating ? '重新生成中…' : '思考中…'}</span>
-                        )}
-                        {(m.isStreaming || isRegenerating) && (
-                          <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-tangerine align-middle" />
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  {/* 不符性格按钮 */}
-                  {canFlag && (
-                    <button
-                      onClick={() => void handleFlag(m.id)}
-                      className="mt-1 flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] text-ink-faint hover:bg-ink/5 hover:text-tangerine-deep"
-                      title="标记此回复不符性格并重新生成"
-                    >
-                      {isRegenerating ? <RefreshCw size={11} className="animate-spin" /> : <Flag size={11} />}
-                      不符性格
-                    </button>
-                  )}
-                  {/* VOICEVOX 朗读按钮：仅助手已完成回复显示；引擎未启动时禁用 */}
-                  {!isUser && !m.isStreaming && m.content && (
-                    <button
-                      onClick={() => void handleSpeak(m)}
-                      disabled={ttsAvailable === false || isRegenerating}
-                      className={`mt-1 flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-40 ${
-                        speakingId === m.id ? 'text-tangerine-deep' : 'text-ink-faint hover:text-tangerine-deep'
-                      }`}
-                      title={
-                        ttsAvailable === false
-                          ? 'VOICEVOX 引擎未启动（默认 http://127.0.0.1:50021）'
-                          : speakingId === m.id
-                            ? '点击停止朗读'
-                            : '用 VOICEVOX 朗读此回复'
-                      }
-                      aria-label={speakingId === m.id ? '停止朗读' : '朗读此回复'}
-                    >
-                      {speakingId === m.id ? <Square size={11} className="animate-pulse" /> : <Volume2 size={11} />}
-                      {speakingId === m.id ? '停止朗读' : '朗读'}
-                    </button>
-                  )}
-                  {isFlagged && (
-                    <span className="mt-1 flex items-center gap-1 px-2 py-0.5 text-[11px] text-error/70">
-                      <Flag size={11} /> 已标记
-                    </span>
-                  )}
-                  {/* 技术指标条：仅助手已完成消息且有 metrics 时显示 */}
-                  {!isUser && !m.isStreaming && m.metrics && <MessageMetricsBar metrics={m.metrics} />}
-                </div>
-              </div>
-            )
-          })}
-          {error && (
-            <div className="rounded-lg border border-error bg-error/15 px-3 py-2 text-xs text-error">{error}</div>
-          )}
-        </div>
-
-        {/* 输入框 */}
-        <div className="shrink-0 border-t border-ink/10 p-3">
-          <div className="flex items-end gap-2">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="输入消息与宠物聊天…"
-              rows={2}
-              aria-label="聊天输入框"
-              className="flex-1 resize-none rounded-panel border border-ink/10 bg-surface px-3 py-2 text-sm text-ink placeholder-ink-faint focus:outline-none focus:ring-1 focus:ring-tangerine"
-            />
-            <button
-              onClick={handleMicToggle}
-              aria-label={sttActive ? '停止语音输入' : '语音输入'}
-              aria-pressed={sttActive}
-              title={sttActive ? '点击停止语音输入' : '点击开始语音输入'}
-              className={`spiritpal-focusable flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
-                sttActive
-                  ? 'bg-red-500 text-white hover:bg-red-400 animate-pulse'
-                  : 'bg-surface text-ink-faint border border-ink/10 hover:bg-ink/8'
-              }`}
+          <div className="desktop-scroll-region">
+            <div
+              ref={scrollRef}
+              className="chat-scroll desktop-scroll"
+              role="log"
+              aria-live="polite"
+              aria-label="聊天消息列表"
+              onScroll={() => {
+                const el = scrollRef.current
+                if (!el) return
+                nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 96
+                setAwayFromBottom(!nearBottom.current)
+              }}
             >
-              <Mic size={16} aria-hidden="true" />
-            </button>
-            {isLoading ? (
+              <div className="chat-transcript desktop-transcript">
+                {messages.length === 0 && !isLoading && (
+                  <div className="chat-empty">
+                    <h2>{t('chatUi.scope.emptyTitle', { name: character?.displayName ?? 'SpiritPal' })}</h2>
+                    <p className="chat-note">{character?.signaturePhrase ?? t('chatUi.scope.emptySubtitle')}</p>
+                    <div className="desktop-suggestions">
+                      {[
+                        t('chatUi.scope.suggestion1'),
+                        t('chatUi.scope.suggestion2'),
+                        t('chatUi.scope.suggestion3'),
+                      ].map((text) => (
+                        <button
+                          key={text}
+                          className="chat-button"
+                          onClick={() => {
+                            setInput(text)
+                            inputRef.current?.focus()
+                          }}
+                        >
+                          {text}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {messages.map((message) => (
+                  <div
+                    key={message.id}
+                    data-message-id={message.id}
+                    className={searchResults[searchIndex]?.id === message.id ? 'desktop-match' : undefined}
+                  >
+                    <ChatMessageCard
+                      message={message}
+                      onEdit={isLoading ? undefined : handleEdit}
+                      onRegenerate={isLoading ? undefined : (m) => void handleRegenerate(m)}
+                      actions={
+                        message.role === 'assistant' ? (
+                          <>
+                            {Boolean(message.consistencyViolations?.length) && (
+                              <span className="chat-note" title={message.consistencyViolations?.join('、')}>
+                                <AlertTriangle size={12} />
+                                可能不符性格
+                              </span>
+                            )}
+                            {!message.isStreaming && !message.flagged && (
+                              <button
+                                className="chat-button"
+                                disabled={isLoading}
+                                onClick={() => void handleFlag(message)}
+                                title="标记此回复不符性格并在新会话重新生成"
+                              >
+                                <Flag size={12} />
+                                不符性格
+                              </button>
+                            )}
+                            {message.flagged && (
+                              <span className="chat-note">
+                                <Flag size={12} />
+                                已标记
+                              </span>
+                            )}
+                            {!message.isStreaming && message.content && (
+                              <button
+                                className="chat-button"
+                                onClick={() => void handleSpeak(message)}
+                                disabled={ttsAvailable !== true}
+                                aria-label={speakingId === message.id ? '停止朗读' : '朗读此回复'}
+                                title={
+                                  ttsAvailable === false
+                                    ? 'VOICEVOX 引擎未启动（默认 http://127.0.0.1:50021）'
+                                    : '用 VOICEVOX 朗读此回复'
+                                }
+                              >
+                                {speakingId === message.id ? <Square size={12} /> : <Volume2 size={12} />}
+                                {speakingId === message.id ? '停止朗读' : '朗读'}
+                              </button>
+                            )}
+                            <button
+                              className="chat-button"
+                              onClick={() => {
+                                setSelectedMessageId(message.id)
+                                setContextOpen(true)
+                                useChatViewStore.getState().setOption('showMemory', true)
+                              }}
+                            >
+                              {t('chatUi.scope.context')}
+                            </button>
+                          </>
+                        ) : undefined
+                      }
+                    />
+                  </div>
+                ))}
+                {error && (
+                  <p role="alert" className="chat-error">
+                    {error}
+                  </p>
+                )}
+              </div>
+            </div>
+            {awayFromBottom && (
               <button
-                onClick={stopGeneration}
-                className="spiritpal-focusable flex h-10 w-10 items-center justify-center rounded-full bg-red-500 hover:bg-red-400"
-                aria-label="停止生成"
+                className="chat-button desktop-bottom"
+                onClick={() => {
+                  const el = scrollRef.current
+                  if (el) el.scrollTop = el.scrollHeight
+                  nearBottom.current = true
+                  setAwayFromBottom(false)
+                }}
               >
-                <Square size={16} aria-hidden="true" />
-              </button>
-            ) : (
-              <button
-                onClick={() => void handleSend()}
-                disabled={!input.trim()}
-                className="spiritpal-focusable flex h-10 w-10 items-center justify-center rounded-full bg-tangerine text-white shadow-soft hover:bg-tangerine-deep disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label="发送消息"
-              >
-                <Send size={16} aria-hidden="true" />
+                <ChevronDown size={14} />
+                {t('chatUi.scope.backToLatest')}
               </button>
             )}
           </div>
-        </div>
+          <footer className="chat-composer desktop-composer">
+            <div className="desktop-composer-inner">
+              <div className="desktop-input-row">
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onCompositionStart={() => {
+                    composing.current = true
+                  }}
+                  onCompositionEnd={() => {
+                    composing.current = false
+                  }}
+                  placeholder="输入消息与宠物聊天…"
+                  rows={1}
+                  aria-label="聊天输入框"
+                  className="desktop-input"
+                />
+                <button
+                  className="chat-button"
+                  onClick={handleMicToggle}
+                  aria-label={sttActive ? '停止语音输入' : '语音输入'}
+                  aria-pressed={sttActive}
+                >
+                  <Mic size={18} />
+                </button>
+                {isLoading ? (
+                  <button className="chat-button" onClick={stopGeneration} aria-label="停止生成">
+                    <Square size={18} />
+                  </button>
+                ) : (
+                  <button
+                    className="chat-button"
+                    onClick={() => void handleSend()}
+                    disabled={!input.trim()}
+                    aria-label="发送消息"
+                  >
+                    <Send size={18} />
+                  </button>
+                )}
+              </div>
+              <div className="chat-note desktop-composer-note">
+                <span>
+                  {session?.temporary
+                    ? t('chatUi.scope.memoryStatusTemp')
+                    : !memoryEnabled
+                      ? t('chatUi.scope.memoryStatusOff')
+                      : t('chatUi.scope.memoryStatusOn')}
+                </span>
+                <span>Enter 发送 · Shift+Enter 换行</span>
+              </div>
+            </div>
+          </footer>
+        </main>
+        {showMemory && (
+          <aside
+            className={`chat-side-panel desktop-context${contextOpen === true ? ' is-open' : contextOpen === false ? ' is-closed' : ''}`}
+            aria-label="本轮上下文面板"
+          >
+            <div className="desktop-context-close">
+              <button className="chat-button" aria-label={t('app.close')} onClick={() => setContextOpen(false)}>
+                <X size={14} />
+              </button>
+            </div>
+            <ChatContextPanel message={contextMessage} onManage={() => setMemoryPanelOpen(true)} />
+            <p className="chat-note px-4 text-xs">{t('chatUi.context.sentInfo')}</p>
+          </aside>
+        )}
+        {(sessionListOpen === true || (showMemory && contextOpen === true)) && (
+          <button
+            className="desktop-scrim desktop-side-scrim"
+            aria-label="关闭侧栏"
+            onClick={() => {
+              setSessionListOpen(false)
+              setContextOpen(false)
+            }}
+          />
+        )}
+        {memoryPanelOpen && (
+          <>
+            <button
+              className="desktop-scrim desktop-drawer-scrim"
+              aria-label="关闭记忆管理"
+              onClick={() => setMemoryPanelOpen(false)}
+            />
+            <div className="desktop-drawer" role="dialog" aria-label="记忆管理">
+              <MemorySidePanel onClose={() => setMemoryPanelOpen(false)} />
+            </div>
+          </>
+        )}
       </div>
-      {/* 主聊天区域 end */}
-
-      {/* 右侧记忆面板（覆盖式） */}
-      {memoryPanelOpen && (
-        <div className="absolute inset-y-0 right-0 z-30 shadow-xl">
-          <MemorySidePanel onClose={() => setMemoryPanelOpen(false)} />
-        </div>
-      )}
-
-      {/* 点击遮罩关闭面板 */}
-      {(sessionListOpen || memoryPanelOpen) && (
-        <div
-          className="absolute inset-0 z-20 bg-ink/20"
-          onClick={() => {
-            setSessionListOpen(false)
-            setMemoryPanelOpen(false)
-          }}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* 无边框窗口缩放手柄 */}
       <FramelessResizeHandles />
     </div>
   )

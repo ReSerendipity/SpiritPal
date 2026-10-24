@@ -35,14 +35,16 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { extractJSONString } from '@/lib/data/jsonUtils'
-import type { AIConfig, ChatMessage, CharacterProfile } from '@/lib/data/types'
+import type { AIConfig, ChatMessage, CharacterProfile, MessageMetrics } from '@/lib/data/types'
+import { ThinkTagParser } from '@/lib/render/thinkTagParser'
 import { isMobileRuntime } from '@/lib/system/platform'
 import { runtimeMonitor } from '@/lib/system/runtimeMonitor'
 import { safeFetch } from '@/lib/system/ssrfProtection'
+import { ChatMetricsRecorder, type CallUsage } from './chatMetrics'
 import { OLLAMA_TAGS_URL, recordUsage } from './llmProviders'
 import { getPrompt } from './promptRegistry'
 // [Quality Review] DRY 提取：共享 SSE 流解析和 JSON 提取逻辑
-import { readTextStream, type StreamLineType } from './sseUtils'
+import { readTextStream } from './sseUtils'
 // SECURITY R-09: SSRF 防护 — LLM 请求使用 safeFetch 替代原生 fetch
 
 // ============ LLM 请求超时与重试常量 ============
@@ -111,20 +113,17 @@ export async function fetchWithTimeout(
     clearTimeout(timeout)
     throw new Error('LLM 请求已取消')
   }
-  // OPTIMIZE: 用 { once: true } + finally removeEventListener 双保险，杜绝监听器累积
-  const onUserAbort = () => controller.abort()
-  if (userSignal) {
-    userSignal.addEventListener('abort', onUserAbort, { once: true })
-  }
+  // Header completion must not disconnect cancellation of the still-streaming body.
+  const signal = userSignal ? AbortSignal.any([controller.signal, userSignal]) : controller.signal
   try {
     // SECURITY R-09: SSRF 防护 — 统一经 safeFetch 出网。
     // safeFetch 内置：① 回环地址（localhost/127/::1，用户显式配置的本地服务如 Ollama）直通；
     // ② 远程 URL 先按 SSRF 白名单校验；③ Tauri 运行时经 Rust 侧 http_proxy 出网
     // （绕过生产 CSP 对境内/本地服务商的阻断，Rust 侧再做私有 IP/端口第二道校验）。
-    return await safeFetch(url, { ...options, signal: controller.signal }, undefined, 'llm')
+    return await safeFetch(url, { ...options, signal }, undefined, 'llm')
   } catch (err) {
     // E2: 精准区分超时 abort 与用户主动 abort
-    if (err instanceof Error && (err.name === 'AbortError' || controller.signal.aborted)) {
+    if (controller.signal.aborted || userSignal?.aborted || (err instanceof Error && err.name === 'AbortError')) {
       if (userSignal?.aborted) {
         throw new Error('LLM 请求已取消', { cause: err })
       }
@@ -132,11 +131,7 @@ export async function fetchWithTimeout(
     }
     throw err
   } finally {
-    // E7: 清理定时器与监听器，防止泄漏
     clearTimeout(timeout)
-    if (userSignal) {
-      userSignal.removeEventListener('abort', onUserAbort)
-    }
   }
 }
 
@@ -167,34 +162,82 @@ export function computeRetryDelay(attempt: number): number {
  * 带重试机制的 fetch（仅对 5xx 错误重试，4xx 不重试）
  * 使用指数退避 + 全抖动：第1次重试等 0.5-1s，第2次重试等 1-2s
  */
+async function waitForRetry(delay: number, signal?: AbortSignal | null): Promise<void> {
+  signal?.throwIfAborted()
+  await new Promise<void>((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', onAbort)
+      reject(signal?.reason ?? new DOMException('请求已取消', 'AbortError'))
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, delay)
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
 async function fetchWithRetry(url: string, options: RequestInit, timeoutMs?: number): Promise<Response> {
   let lastError: Error | null = null
   for (let attempt = 0; attempt <= LLM_RETRY_MAX; attempt++) {
+    options.signal?.throwIfAborted()
     try {
       const response = await fetchWithTimeout(url, options, timeoutMs)
-      // 5xx 错误且还有重试次数时重试
+      options.signal?.throwIfAborted()
       if (response.status >= 500 && attempt < LLM_RETRY_MAX) {
-        await new Promise((resolve) => setTimeout(resolve, computeRetryDelay(attempt)))
-        continue
+        await response.body?.cancel().catch(() => {})
+      } else {
+        return response
       }
-      return response
     } catch (err) {
+      options.signal?.throwIfAborted()
       lastError = err instanceof Error ? err : new Error(String(err))
-      // 网络错误/超时且还有重试次数时重试
-      if (attempt < LLM_RETRY_MAX) {
-        await new Promise((resolve) => setTimeout(resolve, computeRetryDelay(attempt)))
-        continue
-      }
+      if (attempt === LLM_RETRY_MAX) throw lastError
     }
+    if (attempt < LLM_RETRY_MAX) await waitForRetry(computeRetryDelay(attempt), options.signal)
   }
   throw lastError ?? new Error('LLM 请求失败')
+}
+
+function throwStreamError(value: unknown): void {
+  const error = (value as { error?: unknown } | null)?.error
+  if (!error) return
+  const message = typeof error === 'string' ? error : (error as { message?: unknown }).message
+  throw new Error(`模型流错误: ${redactErrorText(typeof message === 'string' ? message : '服务商返回错误')}`)
+}
+
+function tokenCount(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : undefined
+}
+
+function serverTokenRate(tokens: number | undefined, nanoseconds: unknown): number | undefined {
+  return tokens !== undefined && typeof nanoseconds === 'number' && Number.isFinite(nanoseconds) && nanoseconds > 0
+    ? tokens / (nanoseconds / 1e9)
+    : undefined
+}
+
+function createContentDecoder() {
+  let thinking = false
+  return (reasoning: unknown, text: unknown): string | null => {
+    let delta = ''
+    if (typeof reasoning === 'string' && reasoning) {
+      delta += `${thinking ? '' : '<think>'}${reasoning}`
+      thinking = true
+    }
+    if (typeof text === 'string' && text) {
+      delta += `${thinking ? '</think>' : ''}${text}`
+      thinking = false
+    }
+    return delta || null
+  }
 }
 
 // ============ LLM 客户端 ============
 export class LLMClient {
   private config: AIConfig
-  /** 最近一次 chat() 调用的 token 用量（由子方法在流结束时写入） */
-  private _lastUsage: { input: number; output: number } | null = null
+  private _lastUsage: CallUsage | null = null
+  private _lastMetrics: MessageMetrics | null = null
 
   constructor(config: AIConfig) {
     this.config = config
@@ -210,42 +253,71 @@ export class LLMClient {
     return this.config
   }
 
-  /** 最近一次 chat() 完成后的 token 用量（无数据时返回 null） */
-  get lastCallUsage(): { input: number; output: number } | null {
+  get lastCallUsage(): CallUsage | null {
     return this._lastUsage
   }
 
-  // 流式聊天：通过回调推送增量文本
-  // onChunk 每收到一个文本片段时被调用
-  // abortSignal 用于中断生成
-  // 根据 provider id 分发到不同的协议实现
-  async chat(messages: ChatMessage[], onChunk?: (chunk: string) => void, abortSignal?: AbortSignal): Promise<string> {
+  get lastCallMetrics(): MessageMetrics | null {
+    return this._lastMetrics
+  }
+
+  private mergeUsage(usage: CallUsage): void {
+    const provided = Object.fromEntries(Object.entries(usage).filter(([, value]) => value !== undefined))
+    if (Object.keys(provided).length) this._lastUsage = { ...this._lastUsage, ...provided }
+  }
+
+  async chat(
+    messages: ChatMessage[],
+    onChunk?: (chunk: string) => void,
+    abortSignal?: AbortSignal,
+    onProgress?: (metrics: MessageMetrics) => void,
+  ): Promise<string> {
     this._lastUsage = null
+    this._lastMetrics = null
     const provider = this.config.provider
+    const recorder = new ChatMetricsRecorder(this.config)
+    let status: MessageMetrics['status'] = 'streaming'
+    const progress = () => {
+      this._lastMetrics = recorder.snapshot(this._lastUsage, status)
+      onProgress?.(this._lastMetrics)
+    }
+    const emit = (chunk: string) => {
+      abortSignal?.throwIfAborted()
+      recorder.observe(chunk)
+      onChunk?.(chunk)
+      progress()
+    }
     const llmHandle = runtimeMonitor.startLLMCall(provider)
     try {
+      abortSignal?.throwIfAborted()
+      progress()
       let result: string
       if (provider === 'ollama') {
-        result = await this.chatOllama(messages, onChunk, abortSignal)
+        result = await this.chatOllama(messages, emit, abortSignal)
       } else if (provider === 'claude') {
-        result = await this.chatClaude(messages, onChunk, abortSignal)
+        result = await this.chatClaude(messages, emit, abortSignal)
       } else if (provider === 'gemini') {
-        result = await this.chatGemini(messages, onChunk, abortSignal)
+        result = await this.chatGemini(messages, emit, abortSignal)
       } else if (provider === 'ondevice') {
-        // 分流（ADR-0005）：
-        // - **移动端**：进程内 MNN 引擎（单进程持模型，无 loopback、无明文）
-        // - **桌面端**：companion loopback（MNN Chat 的 OpenAI 兼容端点 127.0.0.1:8080/v1）
         result = isMobileRuntime()
-          ? await this.onDeviceGenerate(messages, onChunk, abortSignal)
-          : await this.chatOpenAI(messages, onChunk, abortSignal)
+          ? await this.onDeviceGenerate(messages, emit, abortSignal)
+          : await this.chatOpenAI(messages, emit, abortSignal)
       } else {
-        result = await this.chatOpenAI(messages, onChunk, abortSignal)
+        result = await this.chatOpenAI(messages, emit, abortSignal)
       }
-      runtimeMonitor.endLLMCall(llmHandle, false)
+      abortSignal?.throwIfAborted()
+      status = 'completed'
+      const usage = this.lastCallUsage
+      if (usage) {
+        recordUsage(provider, this.config.model, usage.input ?? 0, usage.output ?? 0)
+      }
       return result
     } catch (e) {
-      runtimeMonitor.endLLMCall(llmHandle, true)
+      status = abortSignal?.aborted ? 'aborted' : 'failed'
       throw e
+    } finally {
+      runtimeMonitor.endLLMCall(llmHandle, status === 'failed')
+      progress()
     }
   }
 
@@ -261,36 +333,85 @@ export class LLMClient {
     const sessionId = crypto.randomUUID()
     const modelId = this.config.model || 'qwen3.5-2b'
     let full = ''
-
-    const tokenUnlisten = await listen<{ sessionId: string; text: string }>('ondevice://token', (e) => {
-      if (e.payload.sessionId !== sessionId) return
-      full += e.payload.text
-      onChunk?.(e.payload.text)
+    let settled = false
+    let started = false
+    let tokensDone = false
+    let tokenUnlisten: (() => void) | undefined
+    let doneUnlisten: (() => void) | undefined
+    let resolveResult!: (value: string) => void
+    let rejectResult!: (error: unknown) => void
+    const result = new Promise<string>((resolve, reject) => {
+      resolveResult = resolve
+      rejectResult = reject
     })
-    const doneUnlisten = await listen<{ sessionId: string }>('ondevice://done', (e) => {
-      if (e.payload.sessionId !== sessionId) return
-      tokenUnlisten()
-      doneUnlisten()
-    })
-
-    const onAbort = () => {
-      invoke('ondevice_cancel', { sessionId }).catch(() => {})
+    const cleanupListeners = () => {
+      const token = tokenUnlisten
+      const done = doneUnlisten
+      tokenUnlisten = undefined
+      doneUnlisten = undefined
+      token?.()
+      done?.()
     }
-    abortSignal?.addEventListener('abort', onAbort)
+    const fail = (error: unknown, cancel = false) => {
+      if (settled) return
+      settled = true
+      rejectResult(error)
+      if (cancel && started) void invoke('ondevice_cancel', { sessionId }).catch(() => {})
+    }
+    const onAbort = () => fail(abortSignal?.reason ?? new DOMException('请求已取消', 'AbortError'), true)
+    const setup = async () => {
+      try {
+        abortSignal?.throwIfAborted()
+        tokenUnlisten = await listen<{ sessionId: string; text: string }>('ondevice://token', (e) => {
+          if (settled || tokensDone || e.payload.sessionId !== sessionId) return
+          full += e.payload.text
+          try {
+            onChunk?.(e.payload.text)
+          } catch (error) {
+            fail(error, true)
+          }
+        })
+        if (settled) return
+        abortSignal?.throwIfAborted()
+        doneUnlisten = await listen<{ sessionId: string }>('ondevice://done', (e) => {
+          if (settled || tokensDone || e.payload.sessionId !== sessionId) return
+          // Rust nativeOnDone ends tokens, then wakes ondevice_generate; its Result
+          // can still be an error. Only invoke success may resolve this request.
+          tokensDone = true
+          cleanupListeners()
+        })
+        if (settled) return
+        abortSignal?.throwIfAborted()
+        started = true
+        // Keep both handlers attached even after cancellation releases the caller.
+        void invoke('ondevice_generate', {
+          modelId,
+          sessionId,
+          prompt,
+          paramsJson: '{}',
+        }).then(
+          () => {
+            if (settled) return
+            settled = true
+            resolveResult(full)
+          },
+          (error: unknown) => fail(error),
+        )
+      } catch (error) {
+        fail(error)
+      } finally {
+        // A pending listen may finish after the caller has already been aborted.
+        if (settled) cleanupListeners()
+      }
+    }
     try {
-      await invoke('ondevice_generate', {
-        modelId,
-        sessionId,
-        prompt,
-        paramsJson: '{}',
-      })
+      abortSignal?.addEventListener('abort', onAbort, { once: true })
+      void setup()
+      return await result
     } finally {
       abortSignal?.removeEventListener('abort', onAbort)
-      // 兜底：若未收到 done 事件，确保取消监听避免泄漏
-      tokenUnlisten()
-      doneUnlisten()
+      cleanupListeners()
     }
-    return full
   }
 
   // ============ OpenAI 兼容格式 ============
@@ -327,6 +448,7 @@ export class LLMClient {
       temperature: this.config.temperature,
       max_tokens: this.config.maxTokens,
       stream: true,
+      stream_options: { include_usage: true },
     })
   }
 
@@ -354,34 +476,40 @@ export class LLMClient {
       throw new Error('响应中没有可读流')
     }
 
-    // P1-1: 收集 OpenAI 兼容接口流末 `usage` 行（prompt/completion_tokens）
-    let lastUsage: { input: number; output: number } | null = null
+    const decode = createContentDecoder()
     return readTextStream(
       response.body,
       {
-        lineType: 'sse' as StreamLineType,
+        lineType: 'sse',
+        signal: abortSignal,
         extractDelta: (json: unknown) => {
-          const j = json as { choices?: { delta?: { content?: string } }[] }
-          return j?.choices?.[0]?.delta?.content ?? null
+          const j = json as {
+            choices?: { delta?: { content?: string; reasoning_content?: string; reasoning?: string } }[]
+          }
+          const delta = j?.choices?.[0]?.delta
+          return decode(delta?.reasoning_content ?? delta?.reasoning, delta?.content)
         },
         onMeta: (json: unknown) => {
-          const j = json as { usage?: { prompt_tokens?: number; completion_tokens?: number } }
-          if (j?.usage && (j.usage.prompt_tokens != null || j.usage.completion_tokens != null)) {
-            lastUsage = {
-              input: j.usage.prompt_tokens ?? 0,
-              output: j.usage.completion_tokens ?? 0,
+          throwStreamError(json)
+          const j = json as {
+            usage?: {
+              prompt_tokens?: number
+              completion_tokens?: number
+              prompt_tokens_details?: { cached_tokens?: number }
+              completion_tokens_details?: { reasoning_tokens?: number }
             }
           }
+          if (j?.usage)
+            this.mergeUsage({
+              input: tokenCount(j.usage.prompt_tokens),
+              output: tokenCount(j.usage.completion_tokens),
+              cachedInput: tokenCount(j.usage.prompt_tokens_details?.cached_tokens),
+              reasoning: tokenCount(j.usage.completion_tokens_details?.reasoning_tokens),
+            })
         },
       },
       onChunk,
-    ).then((text) => {
-      if (lastUsage) {
-        this._lastUsage = lastUsage
-        recordUsage(this.config.provider, this.config.model ?? '', lastUsage.input, lastUsage.output)
-      }
-      return text
-    })
+    )
   }
 
   // ============ Ollama 本地 ============
@@ -421,32 +549,40 @@ export class LLMClient {
       throw new Error('响应中没有可读流')
     }
 
-    // P1-1: 收集 Ollama done 行的 token 计数（prompt_eval_count / eval_count）
-    let lastUsage: { input: number; output: number } | null = null
+    const decode = createContentDecoder()
     return readTextStream(
       response.body,
       {
-        lineType: 'raw_json' as StreamLineType,
+        lineType: 'raw_json',
+        signal: abortSignal,
         extractDelta: (json: unknown) => {
-          const j = json as { message?: { content?: string } }
-          return j?.message?.content ?? null
+          const j = json as { message?: { content?: string; thinking?: string } }
+          return decode(j?.message?.thinking, j?.message?.content)
         },
         isTerminated: (json: unknown) => (json as { done?: boolean })?.done === true,
         onMeta: (json: unknown) => {
-          const j = json as { done?: boolean; prompt_eval_count?: number; eval_count?: number }
-          if (j?.done && (j.prompt_eval_count != null || j.eval_count != null)) {
-            lastUsage = { input: j.prompt_eval_count ?? 0, output: j.eval_count ?? 0 }
+          throwStreamError(json)
+          const j = json as {
+            done?: boolean
+            prompt_eval_count?: number
+            eval_count?: number
+            prompt_eval_duration?: number
+            eval_duration?: number
+          }
+          if (j?.done) {
+            const input = tokenCount(j.prompt_eval_count)
+            const output = tokenCount(j.eval_count)
+            this.mergeUsage({
+              input,
+              output,
+              inputTokensPerSec: serverTokenRate(input, j.prompt_eval_duration),
+              outputTokensPerSec: serverTokenRate(output, j.eval_duration),
+            })
           }
         },
       },
       onChunk,
-    ).then((text) => {
-      if (lastUsage) {
-        this._lastUsage = lastUsage
-        recordUsage(this.config.provider, this.config.model ?? '', lastUsage.input, lastUsage.output)
-      }
-      return text
-    })
+    )
   }
 
   // ============ Anthropic Claude ============
@@ -500,35 +636,42 @@ export class LLMClient {
       throw new Error('响应中没有可读流')
     }
 
-    // P1-1: 收集 Claude message_delta 事件中的 usage（input/output_tokens）
-    let lastUsage: { input: number; output: number } | null = null
+    const decode = createContentDecoder()
     return readTextStream(
       response.body,
       {
-        lineType: 'sse' as StreamLineType,
+        lineType: 'sse',
+        signal: abortSignal,
         extractDelta: (json: unknown) => {
-          const j = json as { type?: string; delta?: { text?: string } }
-          return j?.type === 'content_block_delta' ? (j?.delta?.text ?? null) : null
+          const j = json as { type?: string; delta?: { text?: string; thinking?: string } }
+          return j?.type === 'content_block_delta' ? decode(j.delta?.thinking, j.delta?.text) : null
         },
         isTerminated: (json: unknown) => (json as { type?: string })?.type === 'message_stop',
         onMeta: (json: unknown) => {
-          const j = json as { type?: string; usage?: { input_tokens?: number; output_tokens?: number } }
-          if (j?.type === 'message_delta' && j?.usage) {
-            lastUsage = {
-              input: j.usage.input_tokens ?? 0,
-              output: j.usage.output_tokens ?? 0,
-            }
+          throwStreamError(json)
+          type Usage = {
+            input_tokens?: number
+            output_tokens?: number
+            cache_read_input_tokens?: number
+            cache_creation_input_tokens?: number
+          }
+          const j = json as { type?: string; usage?: Usage; message?: { usage?: Usage } }
+          const usage = j?.type === 'message_start' ? j.message?.usage : j?.usage
+          if (usage) {
+            const input = tokenCount(usage.input_tokens)
+            const cachedInput = tokenCount(usage.cache_read_input_tokens)
+            const cacheWrite = tokenCount(usage.cache_creation_input_tokens)
+            // Anthropic reports uncached, cache-read and cache-write input tokens separately.
+            this.mergeUsage({
+              input: input === undefined ? undefined : input + (cachedInput ?? 0) + (cacheWrite ?? 0),
+              output: tokenCount(usage.output_tokens),
+              cachedInput,
+            })
           }
         },
       },
       onChunk,
-    ).then((text) => {
-      if (lastUsage) {
-        this._lastUsage = lastUsage
-        recordUsage(this.config.provider, this.config.model ?? '', lastUsage.input, lastUsage.output)
-      }
-      return text
-    })
+    )
   }
 
   // ============ Google Gemini ============
@@ -587,47 +730,55 @@ export class LLMClient {
       throw new Error('响应中没有可读流')
     }
 
-    // P1-1: 收集 Gemini usageMetadata（promptTokenCount / candidatesTokenCount）
-    let lastUsage: { input: number; output: number } | null = null
+    const decode = createContentDecoder()
     return readTextStream(
       response.body,
       {
-        lineType: 'sse' as StreamLineType,
+        lineType: 'sse',
+        signal: abortSignal,
         extractDelta: (json: unknown) => {
-          const j = json as { candidates?: { content?: { parts?: { text?: string }[] } }[] }
+          const j = json as { candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[] }
           const parts = j?.candidates?.[0]?.content?.parts
           if (!Array.isArray(parts)) return null
-          const text = parts
-            .map((p) => p?.text)
-            .filter((t): t is string => typeof t === 'string' && t.length > 0)
-            .join('')
-          return text.length > 0 ? text : null
+          return (
+            parts
+              .map((part) => (part.thought ? decode(part.text, undefined) : decode(undefined, part.text)))
+              .join('') || null
+          )
         },
         onMeta: (json: unknown) => {
+          throwStreamError(json)
           const j = json as {
-            usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number }
-          }
-          if (j?.usageMetadata) {
-            lastUsage = {
-              input: j.usageMetadata.promptTokenCount ?? 0,
-              output: j.usageMetadata.candidatesTokenCount ?? 0,
+            usageMetadata?: {
+              promptTokenCount?: number
+              candidatesTokenCount?: number
+              thoughtsTokenCount?: number
+              cachedContentTokenCount?: number
             }
+          }
+          const usage = j?.usageMetadata
+          if (usage) {
+            const textTokens = tokenCount(usage.candidatesTokenCount)
+            const reasoning = tokenCount(usage.thoughtsTokenCount)
+            this.mergeUsage({
+              input: tokenCount(usage.promptTokenCount),
+              output: textTokens === undefined ? undefined : textTokens + (reasoning ?? 0),
+              reasoning,
+              cachedInput: tokenCount(usage.cachedContentTokenCount),
+            })
           }
         },
       },
       onChunk,
-    ).then((text) => {
-      if (lastUsage) {
-        this._lastUsage = lastUsage
-        recordUsage(this.config.provider, this.config.model ?? '', lastUsage.input, lastUsage.output)
-      }
-      return text
-    })
+    )
   }
 
-  // 非流式聊天（一次性返回完整文本）
+  // 非展示调用只返回正文；chat 保留原始思考标签供聊天流展示。
   async chatOnce(messages: ChatMessage[], abortSignal?: AbortSignal): Promise<string> {
-    return this.chat(messages, undefined, abortSignal)
+    const parser = new ThinkTagParser()
+    parser.push(await this.chat(messages, undefined, abortSignal))
+    // 使用最终累计结果，保留裸 </think> 对此前内容的回溯改判语义。
+    return parser.flush().replyContent
   }
 
   // ============ Chapter 6: 增强流式响应支持 ============
@@ -813,7 +964,7 @@ export class LLMClient {
         { id: `sel-${Date.now()}-sys`, role: 'system', content: systemPrompt, timestamp: Date.now() },
         { id: `sel-${Date.now()}-usr`, role: 'user', content: context, timestamp: Date.now() },
       ]
-      const response = await this.chat(messages)
+      const response = await this.chatOnce(messages)
       const selected = response.trim().toLowerCase()
       // 验证返回的表情 ID 是否在可用列表中
       const match = availableExpressions.find((e) => e.toLowerCase() === selected)
@@ -838,7 +989,7 @@ export class LLMClient {
         { id: `mem-${Date.now()}-sys`, role: 'system', content: systemPrompt, timestamp: Date.now() },
         { id: `mem-${Date.now()}-usr`, role: 'user', content: context, timestamp: Date.now() },
       ]
-      const response = await this.chat(messages)
+      const response = await this.chatOnce(messages)
       const extracted = extractJSONString(response)
       if (!extracted) return []
       const parsed = JSON.parse(extracted)

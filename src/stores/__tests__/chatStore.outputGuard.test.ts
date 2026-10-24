@@ -32,6 +32,7 @@ describe('chatStore 输出内容护栏（LLM 维度 P1）', () => {
       activeSessionByCharacter: {},
       isLoading: false,
       abortController: null,
+      activeGenerationId: null,
     })
   })
 

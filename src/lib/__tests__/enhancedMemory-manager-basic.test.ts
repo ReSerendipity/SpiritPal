@@ -18,6 +18,7 @@ vi.mock('@/lib/data/db', () => ({
   saveEmbedding: vi.fn(() => Promise.resolve()),
   getAllEmbeddings: vi.fn(() => Promise.resolve([])),
   updateMemoryLastAccessed: vi.fn(() => Promise.resolve()),
+  updateMemoryRow: vi.fn(() => Promise.resolve()),
   clearMemories: vi.fn(() => Promise.resolve()),
 }))
 
@@ -141,6 +142,22 @@ describe('EnhancedMemoryManager', () => {
 
     it('import 无效 JSON 返回 false', () => {
       expect(mgr.import('invalid json')).toBe(false)
+    })
+  })
+
+  describe('updateMemoryIntensity', () => {
+    it('回写情感强度并钳制到 0~1', () => {
+      const mem = mgr.addExchange('今天有点难过', '我陪着你')
+      mgr.updateMemoryIntensity(mem.id, 0.73)
+      expect(mgr.getWorkingMemories().find((m) => m.id === mem.id)?.emotionalIntensity).toBe(0.73)
+      mgr.updateMemoryIntensity(mem.id, 5)
+      expect(mgr.getWorkingMemories().find((m) => m.id === mem.id)?.emotionalIntensity).toBe(1)
+      mgr.updateMemoryIntensity(mem.id, -3)
+      expect(mgr.getWorkingMemories().find((m) => m.id === mem.id)?.emotionalIntensity).toBe(0)
+    })
+
+    it('不存在的记忆 id 是空操作', () => {
+      expect(() => mgr.updateMemoryIntensity('missing', 0.5)).not.toThrow()
     })
   })
 

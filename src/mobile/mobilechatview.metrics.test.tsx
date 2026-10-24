@@ -16,6 +16,20 @@ vi.mock('@/lib/ai/llmClient', () => ({
     get lastCallUsage() {
       return { input: 120, output: 45 }
     },
+    get lastCallMetrics() {
+      return {
+        requestStartTs: Date.now(),
+        responseEndTs: Date.now(),
+        durationMs: 50,
+        promptTokens: 120,
+        completionTokens: 45,
+        ttftMs: 5,
+        model: 'test-model',
+        provider: 'custom',
+        usageSource: 'reported',
+        status: 'completed',
+      }
+    },
     getConfig: () => ({ model: 'test-model', provider: 'custom' }),
   }),
   DEFAULT_AI_CONFIG: {
@@ -49,6 +63,8 @@ vi.mock('@/lib/memory/enhancedMemory', () => ({
     ensureLoaded: () => Promise.resolve(),
     getContextForChat: () => Promise.resolve(''),
     addExchange: vi.fn(() => ({ id: 'mem-test-1' })),
+    updateMemoryIntensity: vi.fn(),
+    updateMemoryMood: vi.fn(),
   }),
 }))
 
@@ -104,6 +120,6 @@ describe('MobileChatView 消息指标（P2-14）', () => {
     act(() => {
       fireEvent.click(bar)
     })
-    expect(screen.getByText(/首 token/)).toBeTruthy()
+    expect(screen.getByText(/首输出延迟/)).toBeTruthy()
   })
 })

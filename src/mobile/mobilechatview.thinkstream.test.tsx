@@ -49,6 +49,8 @@ vi.mock('@/lib/memory/enhancedMemory', () => ({
     ensureLoaded: () => Promise.resolve(),
     getContextForChat: () => Promise.resolve(''),
     addExchange: vi.fn(() => ({ id: 'mem-test-1' })),
+    updateMemoryIntensity: vi.fn(),
+    updateMemoryMood: vi.fn(),
   }),
 }))
 
@@ -116,7 +118,7 @@ describe('MobileChatView 思维链流式接线（P1-2b）', () => {
     expect(msg?.content).not.toContain('让我想想')
     expect(msg?.content).not.toContain('</think>')
     // 折叠块出现在界面上
-    expect(screen.getByRole('button', { name: /内心独白/ })).toBeTruthy()
+    expect(screen.getByText('思考过程')).toBeTruthy()
   })
 
   it('标准 <think>…</think>：同样分离，正文不含标签', async () => {
@@ -128,7 +130,7 @@ describe('MobileChatView 思维链流式接线（P1-2b）', () => {
       expect(lastAssistant()?.content).toBe('答案是 9.9')
     })
     expect(lastAssistant()?.thinkContent).toBe('先确认一下再回答')
-    expect(screen.getByRole('button', { name: /内心独白/ })).toBeTruthy()
+    expect(screen.getByText('思考过程')).toBeTruthy()
   })
 
   it('无标签：正文照常流式落地，且不渲染折叠块（回归：旧解析器会把正文扣住）', async () => {

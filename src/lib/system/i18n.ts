@@ -22,6 +22,7 @@
  */
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
+import { chatUiZh, chatUiEn, chatUiJa, chatUiKo, chatUiZhTw } from '@/lib/system/chatUiI18n'
 
 /** 支持的语言类型：简体中文(zh)、英文(en)、日文(ja)、韩文(ko)、繁体中文(zh-TW) */
 export type SupportedLang = 'zh' | 'en' | 'ja' | 'ko' | 'zh-TW'
@@ -31,6 +32,7 @@ const zh = {
   // ===== 移动端设置页（P2-2 全量 i18n 化：主页面+分区标题）=====
 
   translation: {
+    ...chatUiZh,
     'settings.mobile.appearance': '外观主题',
     'settings.mobile.appearanceFollow': '跟随系统',
     'settings.mobile.appearanceDark': '深色',
@@ -718,6 +720,7 @@ const zh = {
 // 英文翻译资源
 const en = {
   translation: {
+    ...chatUiEn,
     'settings.mobile.appearance': 'Appearance',
     'settings.mobile.appearanceFollow': 'Follow system',
     'settings.mobile.appearanceDark': 'Dark',
@@ -1402,6 +1405,7 @@ const en = {
 // 日文翻译资源
 const ja = {
   translation: {
+    ...chatUiJa,
     'settings.mobile.appearance': '外観テーマ',
     'settings.mobile.appearanceFollow': 'システムに従う',
     'settings.mobile.appearanceDark': 'ダーク',
@@ -2082,6 +2086,7 @@ const ja = {
 // 韩文翻译资源
 const ko = {
   translation: {
+    ...chatUiKo,
     'settings.mobile.appearance': '외관 테마',
     'settings.mobile.appearanceFollow': '시스템 따름',
     'settings.mobile.appearanceDark': '다크',
@@ -2762,6 +2767,7 @@ const ko = {
 // 繁体中文翻译资源
 const zhTw = {
   translation: {
+    ...chatUiZhTw,
     'settings.mobile.appearance': '外觀主題',
     'settings.mobile.appearanceFollow': '跟隨系統',
     'settings.mobile.appearanceDark': '深色',

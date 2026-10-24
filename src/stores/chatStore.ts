@@ -33,7 +33,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 // UI 渲染、SQLite 持久化、以及下游导出/记忆提取读到的都是护栏后的内容。
 import { filterLLMOutput } from '@/lib/ai/toxicityFilter'
 import { sqliteStorage } from '@/lib/data/db'
-import type { ChatMessage, ChatSession, MessageMetrics, SessionSearchHit } from '@/lib/data/types'
+import type { ChatMemoryTrace, ChatMessage, ChatSession, MessageMetrics, SessionSearchHit } from '@/lib/data/types'
 import i18n from '@/lib/system/i18n'
 import { genId } from '@/lib/system/randomId'
 import { usePetStore } from '@/stores/petStore'
@@ -59,10 +59,14 @@ interface ChatStoreState {
   isLoading: boolean
   /** 流式生成中断控制器 */
   abortController: AbortController | null
+  /** 唯一拥有 loading / abortController 的助手消息 ID */
+  activeGenerationId: string | null
 
   // ---- 会话管理 ----
   /** 为当前角色新建一个会话，返回新会话 ID */
-  createSession: () => string
+  createSession: (options?: { temporary?: boolean }) => string
+  /** 将目标消息之前的前缀复制到新会话；生成中或跨角色时拒绝 */
+  forkSessionAtMessage: (messageId: string) => string | null
   /** 切换当前角色的活跃会话 */
   switchSession: (sessionId: string) => void
   /** 删除指定会话（及其消息） */
@@ -78,13 +82,15 @@ interface ChatStoreState {
 
   // ---- 消息操作 ----
   sendMessage: (text: string) => string
+  startGeneration: (messageId: string) => void
+  setMessageMemoryTrace: (messageId: string, trace: ChatMemoryTrace) => void
   appendAssistantChunk: (messageId: string, chunk: string) => void
   finishStreaming: (messageId: string) => void
   stopGeneration: () => void
   clearHistory: () => void
   getMessages: () => ChatMessage[]
   setLoading: (loading: boolean) => void
-  setAbortController: (controller: AbortController | null) => void
+  setAbortController: (controller: AbortController | null, messageId?: string) => void
   addMessage: (message: ChatMessage) => void
   flagMessage: (messageId: string, violations: string[]) => void
   updateMessageContent: (messageId: string, content: string) => void
@@ -95,7 +101,7 @@ interface ChatStoreState {
   /**
    * 设置消息发送状态（pending/failed/timeout/aborted）。
    * 传 undefined 清除状态（恢复为「已成功送达」）。
-   * 仅作用于当前活跃会话内的消息。
+   * 按消息 ID 定位所属会话，不依赖当前角色或活跃会话。
    */
   setMessageStatus: (messageId: string, status: ChatMessage['sendStatus']) => void
 
@@ -159,10 +165,115 @@ function updateActiveMessages(
   })
 }
 
+type StoreSetter = (fn: (state: ChatStoreState) => Partial<ChatStoreState>) => void
+
+/** 元数据与消息必须同时存在；已删除的会话绝不通过迟到回调重建。 */
+function findMessage(state: ChatStoreState, messageId: string) {
+  for (const [characterId, sessions] of Object.entries(state.sessions)) {
+    for (const session of sessions) {
+      const list = state.messagesBySession[session.id] ?? []
+      const message = list.find((m) => m.id === messageId)
+      if (message) return { characterId, session, list, message }
+    }
+  }
+  return null
+}
+
+function messageTotals(message: ChatMessage) {
+  const metrics = message.role === 'assistant' ? message.metrics : undefined
+  return {
+    totalPromptTokens: metrics?.promptTokens ?? 0,
+    totalCompletionTokens: metrics?.completionTokens ?? 0,
+    requestCount: metrics ? 1 : 0,
+  }
+}
+
+/** 消息更新统一按 ID 寻址，指标替换/清除都按差额调整会话汇总。 */
+function updateMessageById(
+  set: StoreSetter,
+  messageId: string,
+  updater: (message: ChatMessage) => ChatMessage,
+  extra?: (state: ChatStoreState) => Partial<ChatStoreState>,
+): void {
+  set((state) => {
+    const target = findMessage(state, messageId)
+    if (!target) return state
+    const { characterId, session, list, message } = target
+    const updated = updater(message)
+    const oldTotals = messageTotals(message)
+    const newTotals = messageTotals(updated)
+    return {
+      ...extra?.(state),
+      messagesBySession: {
+        ...state.messagesBySession,
+        [session.id]: list.map((m) => (m.id === messageId ? updated : m)),
+      },
+      ...(updated.metrics !== message.metrics
+        ? {
+            sessions: {
+              ...state.sessions,
+              [characterId]: state.sessions[characterId].map((s) =>
+                s.id !== session.id
+                  ? s
+                  : {
+                      ...s,
+                      totalPromptTokens:
+                        s.totalPromptTokens + newTotals.totalPromptTokens - oldTotals.totalPromptTokens,
+                      totalCompletionTokens:
+                        s.totalCompletionTokens + newTotals.totalCompletionTokens - oldTotals.totalCompletionTokens,
+                      requestCount: s.requestCount + newTotals.requestCount - oldTotals.requestCount,
+                    },
+              ),
+            },
+          }
+        : {}),
+    }
+  })
+}
+
 // ============ 流式 chunk 批处理缓冲区 ============
 
 let chunkBuffer: Map<string, string> = new Map()
 let flushScheduled = false
+
+/** 一次批量提交所有会话的 buffer；flush 本身不结束任何请求。 */
+function flushChunks(set: StoreSetter): void {
+  const buffered = chunkBuffer
+  chunkBuffer = new Map()
+  if (buffered.size === 0) return
+  set((state) => {
+    const messagesBySession = { ...state.messagesBySession }
+    for (const sessions of Object.values(state.sessions)) {
+      for (const session of sessions) {
+        const list = state.messagesBySession[session.id]
+        if (!list?.some((m) => buffered.has(m.id))) continue
+        messagesBySession[session.id] = list.map((m) => {
+          const chunks = buffered.get(m.id)
+          return chunks ? { ...m, content: m.content + chunks } : m
+        })
+      }
+    }
+    return { messagesBySession }
+  })
+}
+
+/** 持久化边界同时过滤临时元数据、消息及指针，保留其它历史数据。 */
+function persistentHistory(state: Pick<ChatStoreState, 'sessions' | 'messagesBySession' | 'activeSessionByCharacter'>) {
+  const sessions: ChatStoreState['sessions'] = {}
+  const messagesBySession = { ...state.messagesBySession }
+  const activeSessionByCharacter: ChatStoreState['activeSessionByCharacter'] = {}
+  for (const [characterId, list] of Object.entries(state.sessions)) {
+    sessions[characterId] = list.filter((s) => !s.temporary)
+    for (const session of list) {
+      if (session.temporary) delete messagesBySession[session.id]
+    }
+    const activeId = state.activeSessionByCharacter[characterId]
+    activeSessionByCharacter[characterId] = sessions[characterId].some((s) => s.id === activeId)
+      ? activeId
+      : ([...sessions[characterId]].sort((a, b) => b.updatedAt - a.updatedAt)[0]?.id ?? '')
+  }
+  return { sessions, messagesBySession, activeSessionByCharacter }
+}
 
 // ============ 迁移辅助 ============
 
@@ -224,10 +335,11 @@ export const useChatStore = create<ChatStoreState>()(
       activeSessionByCharacter: {},
       isLoading: false,
       abortController: null,
+      activeGenerationId: null,
 
       // ---- 会话管理 ----
 
-      createSession: () => {
+      createSession: (options) => {
         const charId = getCurrentCharacterId()
         const sessionId = genId()
         const newSession: ChatSession = {
@@ -240,6 +352,7 @@ export const useChatStore = create<ChatStoreState>()(
           totalPromptTokens: 0,
           totalCompletionTokens: 0,
           requestCount: 0,
+          temporary: options?.temporary,
         }
         set((state) => {
           const charSessions = state.sessions[charId] ?? []
@@ -271,15 +384,66 @@ export const useChatStore = create<ChatStoreState>()(
         return sessionId
       },
 
+      forkSessionAtMessage: (messageId) => {
+        const state = get()
+        const target = findMessage(state, messageId)
+        const characterId = getCurrentCharacterId()
+        if (state.isLoading || state.activeGenerationId || !target || target.characterId !== characterId) return null
+        const prefix = target.list
+          .slice(
+            0,
+            target.list.findIndex((m) => m.id === messageId),
+          )
+          .map((m) => ({ ...structuredClone(m), id: genId(), isStreaming: false }))
+        const id = genId()
+        const totals = prefix.reduce(
+          (sum, m) => {
+            const contribution = messageTotals(m)
+            return {
+              totalPromptTokens: sum.totalPromptTokens + contribution.totalPromptTokens,
+              totalCompletionTokens: sum.totalCompletionTokens + contribution.totalCompletionTokens,
+              requestCount: sum.requestCount + contribution.requestCount,
+            }
+          },
+          { totalPromptTokens: 0, totalCompletionTokens: 0, requestCount: 0 },
+        )
+        const session: ChatSession = {
+          id,
+          characterId,
+          title: target.session.title,
+          temporary: target.session.temporary,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          messageCount: prefix.length,
+          ...totals,
+        }
+        // fork 不走淘汰逻辑，源会话（包括其元数据）必须完整保留。
+        set({
+          sessions: { ...state.sessions, [characterId]: [session, ...state.sessions[characterId]] },
+          messagesBySession: { ...state.messagesBySession, [id]: prefix },
+          activeSessionByCharacter: { ...state.activeSessionByCharacter, [characterId]: id },
+        })
+        return id
+      },
+
       switchSession: (sessionId) => {
         const charId = getCurrentCharacterId()
-        set((state) => ({
-          activeSessionByCharacter: { ...state.activeSessionByCharacter, [charId]: sessionId },
-        }))
+        set((state) =>
+          state.sessions[charId]?.some((s) => s.id === sessionId)
+            ? {
+                activeSessionByCharacter: { ...state.activeSessionByCharacter, [charId]: sessionId },
+              }
+            : state,
+        )
       },
 
       deleteSession: (sessionId) => {
         const charId = getCurrentCharacterId()
+        const state = get()
+        if (!state.sessions[charId]?.some((s) => s.id === sessionId)) return
+        if (state.activeGenerationId && findMessage(state, state.activeGenerationId)?.session.id === sessionId) {
+          get().stopGeneration()
+        }
         set((state) => {
           const charSessions = (state.sessions[charId] ?? []).filter((s) => s.id !== sessionId)
           // eslint-disable-next-line @typescript-eslint/no-unused-vars -- omit 惯用法：_removed 是刻意丢弃的占位，靠 rest 拿到去掉该键的副本
@@ -354,6 +518,7 @@ export const useChatStore = create<ChatStoreState>()(
         const charId = getCurrentCharacterId()
         const hits: SessionSearchHit[] = []
         for (const session of get().sessions[charId] ?? []) {
+          if (session.temporary) continue
           for (const m of get().messagesBySession[session.id] ?? []) {
             const idx = m.content.indexOf(q)
             if (idx === -1) continue
@@ -369,6 +534,7 @@ export const useChatStore = create<ChatStoreState>()(
       // ---- 消息操作 ----
 
       sendMessage: (text) => {
+        if (get().activeGenerationId) get().stopGeneration()
         const charId = getCurrentCharacterId()
         const userMsg: ChatMessage = {
           id: genId(),
@@ -435,82 +601,89 @@ export const useChatStore = create<ChatStoreState>()(
             messagesBySession: { ...messagesBySession, [sessionId]: trimmed },
             activeSessionByCharacter: { ...state.activeSessionByCharacter, [charId]: sessionId },
             isLoading: true,
+            activeGenerationId: assistantId,
+            abortController: null,
           }
         })
         return assistantId
       },
 
+      startGeneration: (messageId) => {
+        const target = findMessage(get(), messageId)
+        if (!target || target.message.role !== 'assistant') return
+        if (get().activeGenerationId) get().stopGeneration()
+        chunkBuffer.delete(messageId)
+        updateMessageById(
+          set,
+          messageId,
+          (m) => ({
+            ...m,
+            content: '',
+            thinkContent: undefined,
+            sendStatus: undefined,
+            metrics: undefined,
+            memoryTrace: undefined,
+            isStreaming: true,
+          }),
+          () => ({ isLoading: true, activeGenerationId: messageId, abortController: null }),
+        )
+      },
+
+      setMessageMemoryTrace: (messageId, trace) => {
+        updateMessageById(set, messageId, (m) => ({ ...m, memoryTrace: structuredClone(trace) }))
+      },
+
       appendAssistantChunk: (messageId, chunk) => {
+        if (!findMessage(get(), messageId)?.message.isStreaming) return
         chunkBuffer.set(messageId, (chunkBuffer.get(messageId) ?? '') + chunk)
         if (!flushScheduled) {
           flushScheduled = true
           queueMicrotask(() => {
             flushScheduled = false
-            const buffered = chunkBuffer
-            chunkBuffer = new Map()
-            if (buffered.size === 0) return
-            updateActiveMessages(set, (list) =>
-              list.map((m) => {
-                const chunks = buffered.get(m.id)
-                if (chunks) return { ...m, content: m.content + chunks }
-                return m
-              }),
-            )
+            flushChunks(set)
           })
         }
       },
 
       finishStreaming: (messageId) => {
-        if (chunkBuffer.size > 0) {
-          const buffered = chunkBuffer
-          chunkBuffer = new Map()
-          flushScheduled = false
-          updateActiveMessages(
-            set,
-            (list) =>
-              list.map((m) => {
-                const chunks = buffered.get(m.id)
-                if (chunks) {
-                  return {
-                    ...m,
-                    content: guardAssistantText(m.role, m.content + chunks),
-                    isStreaming: false,
-                  }
-                }
-                // 无残留 chunk 也要过一次护栏：桌面端内容全部经 appendAssistantChunk 累积，
-                // 此前从未过滤，这里是它进入「最终态」的唯一时机。
-                if (m.id === messageId) {
-                  return { ...m, content: guardAssistantText(m.role, m.content), isStreaming: false }
-                }
-                return m
-              }),
-            { isLoading: false, abortController: null },
-          )
-        } else {
-          updateActiveMessages(
-            set,
-            (list) =>
-              list.map((m) =>
-                m.id === messageId ? { ...m, content: guardAssistantText(m.role, m.content), isStreaming: false } : m,
-              ),
-            { isLoading: false, abortController: null },
-          )
-        }
-      },
-
-      stopGeneration: () => {
-        const { abortController } = get()
-        if (abortController) abortController.abort()
-        chunkBuffer.clear()
-        flushScheduled = false
-        set({ isLoading: false, abortController: null })
-        updateActiveMessages(set, (list) =>
-          // P0-3: 用户主动停止的消息显式标记 aborted（区别于超时/失败，不算错误）
-          list.map((m) => (m.isStreaming ? { ...m, isStreaming: false, sendStatus: 'aborted' } : m)),
+        flushChunks(set)
+        updateMessageById(
+          set,
+          messageId,
+          (m) => ({
+            ...m,
+            content: guardAssistantText(m.role, m.content),
+            isStreaming: false,
+          }),
+          (state) =>
+            state.activeGenerationId === messageId
+              ? { isLoading: false, abortController: null, activeGenerationId: null }
+              : {},
         )
       },
 
+      stopGeneration: () => {
+        const { abortController, activeGenerationId } = get()
+        flushChunks(set)
+        if (activeGenerationId) {
+          updateMessageById(set, activeGenerationId, (m) => ({
+            ...m,
+            content: guardAssistantText(m.role, m.content),
+            isStreaming: false,
+            sendStatus: 'aborted',
+          }))
+        }
+        // 先解除归属再 abort，避免同步 abort 监听器的旧回调清理后来请求。
+        set({ isLoading: false, abortController: null, activeGenerationId: null })
+        abortController?.abort()
+      },
+
       clearHistory: () => {
+        const state = get()
+        const sessionId = state.activeSessionByCharacter[getCurrentCharacterId()]
+        if (state.activeGenerationId && findMessage(state, state.activeGenerationId)?.session.id === sessionId) {
+          get().stopGeneration()
+        }
         // 清空当前会话的消息（不删除会话本身）
         updateActiveMessages(set, () => [])
       },
@@ -523,7 +696,11 @@ export const useChatStore = create<ChatStoreState>()(
       },
 
       setLoading: (loading) => set({ isLoading: loading }),
-      setAbortController: (controller) => set({ abortController: controller }),
+      setAbortController: (controller, messageId) => {
+        if (messageId !== undefined && (get().activeGenerationId !== messageId || !findMessage(get(), messageId)))
+          return
+        set({ abortController: controller })
+      },
 
       addMessage: (message) => {
         const charId = getCurrentCharacterId()
@@ -566,75 +743,59 @@ export const useChatStore = create<ChatStoreState>()(
       },
 
       flagMessage: (messageId, violations) => {
-        updateActiveMessages(set, (list) =>
-          list.map((m) => (m.id === messageId ? { ...m, flagged: true, consistencyViolations: violations } : m)),
-        )
+        updateMessageById(set, messageId, (m) => ({ ...m, flagged: true, consistencyViolations: violations }))
       },
 
       updateMessageContent: (messageId, content) => {
-        updateActiveMessages(set, (list) =>
-          list.map((m) => (m.id === messageId ? { ...m, content: guardAssistantText(m.role, content) } : m)),
-        )
+        updateMessageById(set, messageId, (m) => ({ ...m, content: guardAssistantText(m.role, content) }))
       },
 
       setMessageConsistency: (messageId, violations) => {
-        updateActiveMessages(set, (list) =>
-          list.map((m) =>
-            m.id === messageId
-              ? { ...m, consistencyViolations: violations, flagged: violations.length > 0 ? m.flagged : false }
-              : m,
-          ),
-        )
+        updateMessageById(set, messageId, (m) => ({
+          ...m,
+          consistencyViolations: violations,
+          flagged: violations.length > 0 ? m.flagged : false,
+        }))
       },
 
       updateMessageThink: (messageId, thinkContent) => {
         // 内心独白同属 LLM 产出且会渲染给用户（折叠展示），一并过护栏
-        updateActiveMessages(set, (list) =>
-          list.map((m) => (m.id === messageId ? { ...m, thinkContent: guardAssistantText(m.role, thinkContent) } : m)),
-        )
+        updateMessageById(set, messageId, (m) => ({ ...m, thinkContent: guardAssistantText(m.role, thinkContent) }))
       },
 
       // ---- P0-3: 发送状态机 ----
 
       setMessageStatus: (messageId, status) => {
-        updateActiveMessages(set, (list) => list.map((m) => (m.id === messageId ? { ...m, sendStatus: status } : m)))
+        updateMessageById(set, messageId, (m) => ({ ...m, sendStatus: status }))
       },
 
       // ---- 指标回写 ----
 
       setMessageMetrics: (messageId, metrics) => {
-        const charId = getCurrentCharacterId()
-        set((state) => {
-          const sessionId = state.activeSessionByCharacter[charId]
-          if (!sessionId) return state
-          const list = state.messagesBySession[sessionId] ?? []
-          const updatedList = list.map((m) => (m.id === messageId ? { ...m, metrics } : m))
-          // 更新会话级汇总
-          const charSessions = (state.sessions[charId] ?? []).map((s) => {
-            if (s.id !== sessionId) return s
-            return {
-              ...s,
-              totalPromptTokens: s.totalPromptTokens + metrics.promptTokens,
-              totalCompletionTokens: s.totalCompletionTokens + metrics.completionTokens,
-              requestCount: s.requestCount + 1,
-            }
-          })
-          return {
-            messagesBySession: { ...state.messagesBySession, [sessionId]: updatedList },
-            sessions: { ...state.sessions, [charId]: charSessions },
-          }
-        })
+        updateMessageById(set, messageId, (m) => ({ ...m, metrics: { ...metrics } }))
       },
     }),
     {
       name: 'spiritpal-chat-store',
       version: 2,
       storage: createJSONStorage(() => sqliteStorage),
-      partialize: (state) => ({
-        sessions: state.sessions,
-        messagesBySession: state.messagesBySession,
-        activeSessionByCharacter: state.activeSessionByCharacter,
-      }),
+      partialize: (state: ChatStoreState) => persistentHistory(state),
+      // migrate 仅在版本变化时执行；同版本旧 pending 也必须在每次 hydrate 规范化。
+      merge: (persisted, current) => {
+        const saved = persisted as Partial<ChatStoreState> | undefined
+        if (!saved) return current
+        const history = persistentHistory({
+          sessions: saved?.sessions ?? current.sessions,
+          messagesBySession: saved?.messagesBySession ?? current.messagesBySession,
+          activeSessionByCharacter: saved?.activeSessionByCharacter ?? current.activeSessionByCharacter,
+        })
+        for (const [sessionId, list] of Object.entries(history.messagesBySession)) {
+          history.messagesBySession[sessionId] = list.map((m) =>
+            m.isStreaming || m.sendStatus === 'pending' ? { ...m, isStreaming: false, sendStatus: 'aborted' } : m,
+          )
+        }
+        return { ...current, ...history, isLoading: false, abortController: null, activeGenerationId: null }
+      },
       migrate: (persistedState, version) => {
         const state = persistedState as Record<string, unknown>
         // v1 → v2: 旧格式有 messagesByCharacter，无 sessions
