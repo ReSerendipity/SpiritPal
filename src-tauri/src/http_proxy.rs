@@ -172,7 +172,10 @@ fn build_request(request: HttpProxyRequest) -> Result<(reqwest::RequestBuilder, 
         .build()
         .map_err(|e| format!("HTTP 客户端初始化失败: {e}"))?;
 
-    let method = request.method.to_ascii_uppercase().parse::<reqwest::Method>()
+    let method = request
+        .method
+        .to_ascii_uppercase()
+        .parse::<reqwest::Method>()
         .map_err(|_| "HTTP 方法无效".to_string())?;
     let mut builder = client.request(method, url);
 
@@ -199,15 +202,23 @@ fn build_request(request: HttpProxyRequest) -> Result<(reqwest::RequestBuilder, 
 }
 
 fn response_headers(response: &reqwest::Response) -> Vec<(String, String)> {
-    response.headers().iter().map(|(k, v)| (
-        k.as_str().to_string(),
-        v.to_str().unwrap_or("<non-utf8>").to_string(),
-    )).collect()
+    response
+        .headers()
+        .iter()
+        .map(|(k, v)| {
+            (
+                k.as_str().to_string(),
+                v.to_str().unwrap_or("<non-utf8>").to_string(),
+            )
+        })
+        .collect()
 }
 
 /// 检查通过才更新计数/转发；不信任 Content-Length（含解压后的实际字节）。
 fn check_body_limit(count: &mut usize, chunk_len: usize, max: usize) -> Result<(), String> {
-    let total = count.checked_add(chunk_len).ok_or_else(|| "响应体超限（计数溢出）".to_string())?;
+    let total = count
+        .checked_add(chunk_len)
+        .ok_or_else(|| "响应体超限（计数溢出）".to_string())?;
     if total > max {
         return Err(format!("响应体超限（{total} 字节 > 上限 {max} 字节）"));
     }
@@ -227,7 +238,11 @@ pub async fn http_proxy(
     let headers = response_headers(&response);
     let mut count = 0;
     let mut body_bytes = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(|e| format!("读取响应失败: {e}"))? {
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|e| format!("读取响应失败: {e}"))?
+    {
         check_body_limit(&mut count, chunk.len(), max_body_bytes)?;
         body_bytes.extend_from_slice(&chunk);
     }
@@ -242,10 +257,18 @@ pub async fn http_proxy(
 #[derive(Debug, serde::Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum HttpProxyEvent {
-    Headers { status: u16, headers: Vec<(String, String)> },
-    Chunk { #[serde(rename = "dataBase64")] data_base64: String },
+    Headers {
+        status: u16,
+        headers: Vec<(String, String)>,
+    },
+    Chunk {
+        #[serde(rename = "dataBase64")]
+        data_base64: String,
+    },
     End,
-    Error { message: String },
+    Error {
+        message: String,
+    },
 }
 
 #[derive(Clone, Default)]
@@ -260,7 +283,11 @@ struct RequestGuard {
 }
 impl Drop for RequestGuard {
     fn drop(&mut self) {
-        self.state.requests.lock().unwrap_or_else(|e| e.into_inner()).remove(&self.id);
+        self.state
+            .requests
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&self.id);
     }
 }
 
@@ -276,7 +303,11 @@ async fn stream_response(
     })?;
     let mut count = 0;
     use base64::Engine;
-    while let Some(chunk) = response.chunk().await.map_err(|e| format!("读取响应失败: {e}"))? {
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|e| format!("读取响应失败: {e}"))?
+    {
         check_body_limit(&mut count, chunk.len(), max_body_bytes)?;
         send(HttpProxyEvent::Chunk {
             data_base64: base64::engine::general_purpose::STANDARD.encode(&chunk),
@@ -293,18 +324,26 @@ fn start_proxy_stream(
 ) -> Result<(), String> {
     let cancel = CancellationToken::new();
     {
-        let mut requests = state.requests.lock().map_err(|_| "代理状态不可用".to_string())?;
+        let mut requests = state
+            .requests
+            .lock()
+            .map_err(|_| "代理状态不可用".to_string())?;
         if requests.contains_key(&request_id) {
             return Err("重复的代理 requestId".into());
         }
         requests.insert(request_id.clone(), cancel.clone());
     }
-    let guard = RequestGuard { state, id: request_id };
+    let guard = RequestGuard {
+        state,
+        id: request_id,
+    };
     tokio::spawn(async move {
         // select 丢弃 reqwest future 即取消 DNS/connect/headers/body 读取。
         // 每次发送前也检查，避免已有大量 ready chunks 时延迟响应取消。
         let send_data = |event| {
-            if cancel.is_cancelled() { return Err("请求已取消".into()); }
+            if cancel.is_cancelled() {
+                return Err("请求已取消".into());
+            }
             send(event)
         };
         let result = tokio::select! {
@@ -324,8 +363,13 @@ fn start_proxy_stream(
 }
 
 fn abort_proxy_stream(state: &HttpProxyState, request_id: &str) -> Result<(), String> {
-    let requests = state.requests.lock().map_err(|_| "代理状态不可用".to_string())?;
-    if let Some(cancel) = requests.get(request_id) { cancel.cancel(); }
+    let requests = state
+        .requests
+        .lock()
+        .map_err(|_| "代理状态不可用".to_string())?;
+    if let Some(cancel) = requests.get(request_id) {
+        cancel.cancel();
+    }
     Ok(())
 }
 
@@ -338,12 +382,17 @@ pub async fn http_proxy_stream(
     state: State<'_, HttpProxyState>,
 ) -> Result<(), String> {
     start_proxy_stream(state.inner().clone(), request, request_id, move |event| {
-        on_event.send(event).map_err(|e| format!("代理 Channel 已关闭: {e}"))
+        on_event
+            .send(event)
+            .map_err(|e| format!("代理 Channel 已关闭: {e}"))
     })
 }
 
 #[tauri::command]
-pub fn http_proxy_abort(request_id: String, state: State<'_, HttpProxyState>) -> Result<(), String> {
+pub fn http_proxy_abort(
+    request_id: String,
+    state: State<'_, HttpProxyState>,
+) -> Result<(), String> {
     abort_proxy_stream(state.inner(), &request_id)
 }
 
@@ -355,7 +404,9 @@ mod tests {
 
     // A real HTTP peer with an explicit gate: no timing-based fake streaming.
     // Until the test releases it, neither later bytes nor EOF can exist.
-    async fn http_peer(initial: &'static [u8]) -> (
+    async fn http_peer(
+        initial: &'static [u8],
+    ) -> (
         HttpProxyRequest,
         oneshot::Sender<Vec<u8>>,
         tokio::task::JoinHandle<()>,
@@ -368,7 +419,9 @@ mod tests {
             let mut request = Vec::new();
             let mut byte = [0];
             while !request.ends_with(b"\r\n\r\n") {
-                if socket.read(&mut byte).await.unwrap() == 0 { return; }
+                if socket.read(&mut byte).await.unwrap() == 0 {
+                    return;
+                }
                 request.push(byte[0]);
             }
             socket.write_all(initial).await.unwrap();
@@ -381,14 +434,18 @@ mod tests {
                 }
             }
         });
-        (HttpProxyRequest {
-            url,
-            method: "GET".into(),
-            headers: None,
-            body_b64: None,
-            timeout_ms: Some(5_000),
-            max_body_bytes: None,
-        }, tx, task)
+        (
+            HttpProxyRequest {
+                url,
+                method: "GET".into(),
+                headers: None,
+                body_b64: None,
+                timeout_ms: Some(5_000),
+                max_body_bytes: None,
+            },
+            tx,
+            task,
+        )
     }
 
     fn start_test_stream(
@@ -399,18 +456,23 @@ mod tests {
         let (tx, rx) = mpsc::unbounded_channel();
         start_proxy_stream(state.clone(), request, id.into(), move |event| {
             tx.send(event).map_err(|_| "receiver closed".into())
-        }).unwrap();
+        })
+        .unwrap();
         rx
     }
 
     async fn next(rx: &mut mpsc::UnboundedReceiver<HttpProxyEvent>) -> HttpProxyEvent {
-        tokio::time::timeout(Duration::from_secs(3), rx.recv()).await
-            .expect("event must arrive without waiting for peer EOF").unwrap()
+        tokio::time::timeout(Duration::from_secs(3), rx.recv())
+            .await
+            .expect("event must arrive without waiting for peer EOF")
+            .unwrap()
     }
 
     async fn closed(peer: tokio::task::JoinHandle<()>) {
-        tokio::time::timeout(Duration::from_secs(3), peer).await
-            .expect("HTTP connection must be released").unwrap();
+        tokio::time::timeout(Duration::from_secs(3), peer)
+            .await
+            .expect("HTTP connection must be released")
+            .unwrap();
     }
 
     #[tokio::test]
@@ -426,10 +488,19 @@ mod tests {
             other => panic!("headers must be first: {other:?}"),
         }
         let first = next(&mut rx).await;
-        assert_eq!(serde_json::to_value(first).unwrap(), serde_json::json!({"type": "chunk", "dataBase64": "5A=="}));
-        assert!(matches!(rx.try_recv(), Err(mpsc::error::TryRecvError::Empty)));
+        assert_eq!(
+            serde_json::to_value(first).unwrap(),
+            serde_json::json!({"type": "chunk", "dataBase64": "5A=="})
+        );
+        assert!(matches!(
+            rx.try_recv(),
+            Err(mpsc::error::TryRecvError::Empty)
+        ));
         gate.send(b"2\r\n\xb8\xad\r\n0\r\n\r\n".to_vec()).unwrap();
-        assert_eq!(serde_json::to_value(next(&mut rx).await).unwrap(), serde_json::json!({"type": "chunk", "dataBase64": "uK0="}));
+        assert_eq!(
+            serde_json::to_value(next(&mut rx).await).unwrap(),
+            serde_json::json!({"type": "chunk", "dataBase64": "uK0="})
+        );
         assert!(matches!(next(&mut rx).await, HttpProxyEvent::End));
         assert!(rx.recv().await.is_none());
         assert!(state.requests.lock().unwrap().is_empty());
@@ -438,12 +509,21 @@ mod tests {
 
     #[tokio::test]
     async fn stream_size_limit_counts_chunks_and_aborts_without_eof() {
-        let (mut request, gate, peer) = http_peer(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nAB\r\n2\r\nCD\r\n").await;
+        let (mut request, gate, peer) = http_peer(
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nAB\r\n2\r\nCD\r\n",
+        )
+        .await;
         request.max_body_bytes = Some(3);
         let state = HttpProxyState::default();
         let mut rx = start_test_stream(&state, request, "limit");
-        assert!(matches!(next(&mut rx).await, HttpProxyEvent::Headers { .. }));
-        assert_eq!(serde_json::to_value(next(&mut rx).await).unwrap(), serde_json::json!({"type": "chunk", "dataBase64": "QUI="}));
+        assert!(matches!(
+            next(&mut rx).await,
+            HttpProxyEvent::Headers { .. }
+        ));
+        assert_eq!(
+            serde_json::to_value(next(&mut rx).await).unwrap(),
+            serde_json::json!({"type": "chunk", "dataBase64": "QUI="})
+        );
         match next(&mut rx).await {
             HttpProxyEvent::Error { message } => assert!(message.contains("响应体超限")),
             other => panic!("expected size-limit error, got {other:?}"),
@@ -457,12 +537,18 @@ mod tests {
 
     #[tokio::test]
     async fn stream_abort_before_and_after_headers_is_idempotent() {
-        for initial in [b"".as_slice(), b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n".as_slice()] {
+        for initial in [
+            b"".as_slice(),
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n".as_slice(),
+        ] {
             let (request, gate, peer) = http_peer(initial).await;
             let state = HttpProxyState::default();
             let mut rx = start_test_stream(&state, request, "cancel");
             if !initial.is_empty() {
-                assert!(matches!(next(&mut rx).await, HttpProxyEvent::Headers { .. }));
+                assert!(matches!(
+                    next(&mut rx).await,
+                    HttpProxyEvent::Headers { .. }
+                ));
             } else {
                 // Make sure send() is pending on a connected server, not just queued.
                 tokio::task::yield_now().await;
@@ -480,18 +566,23 @@ mod tests {
 
     #[tokio::test]
     async fn stream_errors_and_disconnected_channels_release_state() {
-        let (mut request, gate, peer) = http_peer(b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\n").await;
+        let (mut request, gate, peer) =
+            http_peer(b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\n").await;
         request.timeout_ms = Some(200);
         let state = HttpProxyState::default();
         let mut rx = start_test_stream(&state, request, "timeout");
-        assert!(matches!(next(&mut rx).await, HttpProxyEvent::Headers { .. }));
+        assert!(matches!(
+            next(&mut rx).await,
+            HttpProxyEvent::Headers { .. }
+        ));
         assert!(matches!(next(&mut rx).await, HttpProxyEvent::Error { .. }));
         assert!(rx.recv().await.is_none());
         assert!(state.requests.lock().unwrap().is_empty());
         closed(peer).await;
         drop(gate);
 
-        let (request, gate, peer) = http_peer(b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\n").await;
+        let (request, gate, peer) =
+            http_peer(b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\n").await;
         let rx = start_test_stream(&state, request, "disconnected");
         drop(rx);
         closed(peer).await;
@@ -504,8 +595,11 @@ mod tests {
         let state = HttpProxyState::default();
         let request = HttpProxyRequest {
             url: "http://169.254.169.254/latest/meta-data/".into(),
-            method: "GET".into(), headers: None, body_b64: None,
-            timeout_ms: None, max_body_bytes: None,
+            method: "GET".into(),
+            headers: None,
+            body_b64: None,
+            timeout_ms: None,
+            max_body_bytes: None,
         };
         let mut rx = start_test_stream(&state, request, "ssrf");
         match next(&mut rx).await {
