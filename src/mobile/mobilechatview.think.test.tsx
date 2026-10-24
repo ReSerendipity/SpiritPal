@@ -40,6 +40,8 @@ vi.mock('@/lib/memory/enhancedMemory', () => ({
     ensureLoaded: () => Promise.resolve(),
     getContextForChat: () => Promise.resolve(''),
     addExchange: vi.fn(),
+    updateMemoryIntensity: vi.fn(),
+    updateMemoryMood: vi.fn(),
   }),
 }))
 
@@ -77,31 +79,31 @@ describe('MobileChatView 思维链折叠（P1-2）', () => {
     addAssistant('这是回复', '用户问的是量子物理，我应该先解释波粒二象性')
     render(<MobileChatView />)
 
-    // 折叠态：标题按钮可见，内容不可见
-    const toggle = screen.getByRole('button', { name: /内心独白/ })
-    expect(toggle.getAttribute('aria-expanded')).toBe('false')
-    expect(screen.queryByText(/波粒二象性/)).toBeNull()
+    // 原生 details：默认折叠，摘要可见
+    const summary = screen.getByText('思考过程')
+    const details = summary.closest('details')
+    expect(details).not.toBeNull()
+    expect(details?.open).toBe(false)
 
-    // 展开态：内容可见
-    fireEvent.click(toggle)
+    // 展开态
+    fireEvent.click(summary)
+    expect(details?.open).toBe(true)
     expect(screen.getByText(/波粒二象性/)).toBeTruthy()
-    expect(toggle.getAttribute('aria-expanded')).toBe('true')
 
     // 再点收起
-    fireEvent.click(toggle)
-    expect(screen.queryByText(/波粒二象性/)).toBeNull()
-    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(summary)
+    expect(details?.open).toBe(false)
   })
 
   it('无 thinkContent 时不渲染思维链块', () => {
     addAssistant('普通回复，没有思考过程')
     render(<MobileChatView />)
-    expect(screen.queryByText(/内心独白/)).toBeNull()
+    expect(screen.queryByText('思考过程')).toBeNull()
   })
 
   it('空白 thinkContent 同样不渲染', () => {
     addAssistant('回复', '   ')
     render(<MobileChatView />)
-    expect(screen.queryByText(/内心独白/)).toBeNull()
+    expect(screen.queryByText('思考过程')).toBeNull()
   })
 })

@@ -18,14 +18,13 @@
  * @see {@link ../stores/chatStore} 聊天状态 Store
  * @see {@link ../stores/petStore} 宠物状态 Store
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import {
   Send,
   Square,
   Trash2,
   Bot,
-  User,
   RefreshCw,
   MessagesSquare,
   X,
@@ -35,24 +34,24 @@ import {
   Pencil,
   Check,
   Search,
-  Brain,
-  ChevronDown,
   ChevronUp,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import Markdown from 'react-markdown'
-// SECURITY R-02 对齐：与桌面端 ChatWindow 使用同一套 rehype-sanitize 配置，
-// 阻断 AI 输出型 XSS（此前移动端直接渲染 Markdown，无任何消毒）
-import rehypeSanitize from 'rehype-sanitize'
-// P2-14：消息指标条（复用桌面端组件，可展开查看 tokens/TTFT/速率）
-import { MessageMetricsBar } from '@/components/chat/MessageMetricsBar'
+import { ChatContextPanel } from '@/components/chat/ChatContextPanel'
+import { ChatMessageCard } from '@/components/chat/ChatMessageCard'
+import { ChatViewControls } from '@/components/chat/ChatViewControls'
+import '@/components/chat/chat-workspace.css'
+import { getEmotionAnalyzer, getEmotionStateManager } from '@/lib/ai/emotionEngine'
+import { extractEmotion, emotionTagsToMood } from '@/lib/ai/emotionExtractor'
+import { stripEmotionTags, extractEmotionTagKeywords } from '@/lib/ai/emotionTagFilter'
+import type { LLMClient } from '@/lib/ai/llmClient'
 import { truncateAssistantHistory } from '@/lib/ai/onDeviceContext'
 import { composeFullSystemPrompt, getEffectivePersonality } from '@/lib/ai/personalityEngine'
-// LLM 维度 P1：输出内容护栏（毒性阻断 + PII 掩码）——与桌面端 ChatWindow 同口径，
-// store 落库已过滤（新建回复），此处渲染前兜底覆盖历史已持久化的助手消息。
-import { filterLLMOutput } from '@/lib/ai/toxicityFilter'
 import { getCharacter } from '@/lib/data/characters'
+import type { ChatMessage } from '@/lib/data/types'
+import { prepareChatMemory } from '@/lib/memory/chatMemoryContext'
 import { getContextEpisodeManager } from '@/lib/memory/contextEpisodeManager'
+import { deriveEmotionalIntensity } from '@/lib/memory/emotionIntensity'
 import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 import { getOwnerFactsManager } from '@/lib/memory/ownerFacts'
 import { getCommitmentTracker } from '@/lib/nurture/commitmentTracker'
@@ -83,8 +82,13 @@ export const CLOUD_HISTORY_TURNS = 20
  * 移动端聊天视图组件
  * @returns 聊天界面组件
  */
-export function MobileChatView() {
+export function MobileChatView({ onManageMemory }: { onManageMemory?: () => void } = {}) {
   const { t } = useTranslation()
+  const [memoryEnabled, setMemoryEnabled] = useState(true)
+  const [contextOpen, setContextOpen] = useState(false)
+  const [modelLabel, setModelLabel] = useState(t('chatUi.scope.modelFromSettings'))
+  const [hasUnread, setHasUnread] = useState(false)
+  const followBottom = useRef(true)
   const messagesBySession = useChatStore((s) => s.messagesBySession)
   const activeSessionByCharacter = useChatStore((s) => s.activeSessionByCharacter)
   const isLoading = useChatStore((s) => s.isLoading)
@@ -116,8 +120,9 @@ export function MobileChatView() {
   // ?? [] 每次产生新数组会导致无限重渲染。
   const charSessions = useChatStore((s) => s.sessions[currentCharacterId])
   const sessions = charSessions ?? []
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- messages 是 ?? [] 逻辑表达式，每次渲染可能产生新引用；用 useMemo 包裹会改变 useEffect 滚动触发时机，故保留原依赖数组
-  const messages = messagesBySession[activeSessionId] ?? []
+  const temporary = sessions.find((session) => session.id === activeSessionId)?.temporary ?? false
+  const messages = useMemo(() => messagesBySession[activeSessionId] ?? [], [messagesBySession, activeSessionId])
+  const latestAssistant = [...messages].reverse().find((message) => message.role === 'assistant')
 
   /** 末条助手消息内容为空或显式 failed/timeout ⇒ 上一轮失败/被中断，可重试 */
   const lastMessage = messages[messages.length - 1]
@@ -138,16 +143,6 @@ export function MobileChatView() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const searchHits = searchQuery.trim() ? searchMessages(searchQuery) : []
-  // P1-2: 思维链展开状态（默认折叠，按消息 ID 记忆）
-  const [thinkExpanded, setThinkExpanded] = useState<Set<string>>(new Set())
-  const toggleThink = (id: string) => {
-    setThinkExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
   // 与 chatStore.getSessions 同序：置顶优先，再按 updatedAt 降序
   const sessionsSorted = [...sessions].sort((a, b) => {
     if (a.pinned && !b.pinned) return -1
@@ -155,18 +150,60 @@ export function MobileChatView() {
     return b.updatedAt - a.updatedAt
   })
 
-  // 新消息到达时自动滚动到底部
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    followBottom.current = true
+    setHasUnread(false)
+  }, [activeSessionId])
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('spiritpal-ai-config')
+      if (!saved) return
+      const config = JSON.parse(saved) as { model?: string; provider?: string }
+      if (config.model) setModelLabel(`${config.model}${config.provider ? ` · ${config.provider}` : ''}`)
+    } catch {
+      // 配置读取失败时保持中性占位，不阻断聊天
     }
+  }, [])
+
+  useEffect(() => {
+    const element = scrollRef.current
+    if (!element) return
+    if (followBottom.current) element.scrollTop = element.scrollHeight
+    else setHasUnread(true)
   }, [messages])
+
+  function scrollToLatest() {
+    followBottom.current = true
+    setHasUnread(false)
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+  }
+
+  function editMessage(message: ChatMessage) {
+    if (isLoading) return
+    const sessionId = useChatStore.getState().forkSessionAtMessage(message.id)
+    if (!sessionId) return
+    setInput(message.content)
+    setError(null)
+    inputRef.current?.focus()
+  }
+
+  function regenerateMessage(message: ChatMessage) {
+    if (isLoading) return
+    const index = messages.findIndex((item) => item.id === message.id)
+    const user = messages
+      .slice(0, index)
+      .reverse()
+      .find((item) => item.role === 'user')
+    if (!user || !useChatStore.getState().forkSessionAtMessage(user.id)) return
+    const assistantId = sendMessage(user.content)
+    setError(null)
+    void runCompletion(user.content, assistantId)
+  }
 
   // 主题样式类（与桌面端 ChatWindow 一致的语义 Token 配色）
   const bgClass = 'bg-cream'
   const textClass = 'text-ink'
-  const bubbleUserClass = 'bg-tangerine text-white'
-  const bubbleBotClass = 'border border-ink/10 bg-surface text-ink'
   const inputBgClass = 'bg-surface'
   const inputBorderClass = 'border-ink/10'
 
@@ -212,8 +249,7 @@ export function MobileChatView() {
     const lastUser = [...messages].reverse().find((m) => m.role === 'user')
     if (!lastUser) return
     setError(null)
-    // failed/timeout 的消息可能残留部分流式内容（流中异常），重试前先清空避免拼接
-    if (last.content) updateMessageContent(last.id, '')
+    useChatStore.getState().startGeneration(last.id)
     void runCompletion(lastUser.content, last.id)
   }
 
@@ -223,10 +259,22 @@ export function MobileChatView() {
    * @param assistantId 承载回复的助手消息 ID
    */
   async function runCompletion(text: string, assistantId: string) {
-    setLoading(true)
-    // P0-3: 发送开始 → 显式 pending（成功/失败/超时/中止时由对应路径覆盖）
+    const snapshot = useChatStore.getState()
+    const sessionId = Object.keys(snapshot.messagesBySession).find((id) =>
+      snapshot.messagesBySession[id]?.some((message) => message.id === assistantId),
+    )
+    if (!sessionId) return
+    const isTemporary =
+      snapshot.sessions[currentCharacterId]?.find((session) => session.id === sessionId)?.temporary ?? false
+    const useMemory = memoryEnabled && !isTemporary
+    const sessionMessages = snapshot.messagesBySession[sessionId] ?? []
+    const assistantIndex = sessionMessages.findIndex((message) => message.id === assistantId)
+    const priorMessages = sessionMessages.slice(0, Math.max(0, assistantIndex - 1))
+    const abortController = new AbortController()
+    setAbortController(abortController, assistantId)
     setMessageStatus(assistantId, 'pending')
-
+    let client: LLMClient | undefined
+    const thinkParser = new ThinkTagParser()
     try {
       // 延迟导入避免循环依赖
       const { getLLMClient, DEFAULT_AI_CONFIG } = await import('@/lib/ai/llmClient')
@@ -259,7 +307,9 @@ export function MobileChatView() {
         return
       }
 
-      const client = getLLMClient(config)
+      abortController.signal.throwIfAborted()
+      client = getLLMClient(config)
+      setModelLabel(`${config.model} · ${config.provider}`)
       const char = getCharacter(currentCharacterId)
       if (!char) {
         setError(t('chat.errNoCharacter'))
@@ -276,7 +326,7 @@ export function MobileChatView() {
       const historyTurns = isOnDevice ? ON_DEVICE_HISTORY_TURNS : CLOUD_HISTORY_TURNS
       // 重试场景下末条助手消息内容为空，不应进入上下文
       const history = truncateAssistantHistory(
-        messages
+        priorMessages
           .filter((m) => m.content.trim())
           .slice(-historyTurns)
           .map((m) => ({
@@ -289,180 +339,141 @@ export function MobileChatView() {
         isOnDevice,
       )
 
-      // D8：移动端注入记忆上下文
-      let memCtx = ''
-      try {
-        const memMgr = getEnhancedMemoryManager(currentCharacterId)
-        await memMgr.ensureLoaded()
-        memCtx = await memMgr.getContextForChat(isOnDevice ? ON_DEVICE_MEM_TOKEN_BUDGET : 3000, text)
-      } catch {
-        // 记忆加载失败不影响正常使用
-      }
-
-      // P1-7-be：注入约定与计划上下文（桌面端 ChatWindow 有、移动端此前整段没接）
-      // 让 AI 知道主人有哪些待完成的计划/承诺，才能在约定日主动关心。
-      let commitmentCtx = ''
-      try {
-        commitmentCtx = await getCommitmentTracker(currentCharacterId).buildContext()
-      } catch {
-        // 约定上下文不可用不影响正常使用
-      }
-
-      const abortController = new AbortController()
-      setAbortController(abortController)
-
-      const apiMessages: Array<{
-        id: string
-        role: 'system' | 'user' | 'assistant'
-        content: string
-        timestamp: number
-      }> = [{ id: 'system', role: 'system', content: systemPrompt, timestamp: Date.now() }]
-      if (memCtx) {
-        apiMessages.push({ id: 'mem-ctx', role: 'system', content: memCtx, timestamp: Date.now() })
-      }
-      if (commitmentCtx) {
-        apiMessages.push({ id: 'commitment-ctx', role: 'system', content: commitmentCtx, timestamp: Date.now() })
-      }
-      apiMessages.push(...history)
-      apiMessages.push({ id: 'user', role: 'user', content: text, timestamp: Date.now() })
-
-      // P3-6：移动端情境片段——以「对话轮」为 episode 边界。
-      // 桌面端靠 get_idle_time（仅桌面注册）驱动工作状态变迁；移动端拿不到系统空闲时间，
-      // 改为每轮对话开/闭一个 chatting episode（recordStateChange 变迁检测去重）。
-      void getContextEpisodeManager(currentCharacterId)
-        .recordStateChange('chatting')
-        .catch(() => {
-          /* 情境记录失败不影响回复 */
-        })
-
-      // P2-14：消息指标采集起点（TTFT / 总耗时 / tokens）
-      const requestStartTs = Date.now()
-      let firstTokenTs: number | undefined
-      // P1-2b：思维链折叠 —— 流式把 think 段与正式回复分离。
-      // 端侧 Qwen3 开启 thinking 时由 chat template 预填开标签、模型只吐 `</think>`，
-      // 解析器两种形态都认（见 lib/render/thinkTagParser.ts）。
-      const thinkParser = new ThinkTagParser()
+      const preparedMemory = await prepareChatMemory({
+        characterId: currentCharacterId,
+        query: text,
+        enabled: memoryEnabled,
+        temporary: isTemporary,
+        contextBudget: isOnDevice ? ON_DEVICE_MEM_TOKEN_BUDGET : 3000,
+        totalBudget: isOnDevice ? 1500 : 5000,
+      })
+      abortController.signal.throwIfAborted()
+      const apiMessages: ChatMessage[] = [
+        { id: 'system', role: 'system', content: systemPrompt, timestamp: Date.now() },
+        ...preparedMemory.messages,
+        ...history,
+        { id: 'user', role: 'user', content: text, timestamp: Date.now() },
+      ]
+      useChatStore.getState().setMessageMemoryTrace(assistantId, preparedMemory.trace)
+      if (useMemory)
+        void getContextEpisodeManager(currentCharacterId)
+          .recordStateChange('chatting')
+          .catch(() => {})
       const fullText = await client.chat(
         apiMessages,
         (chunk: string) => {
-          if (firstTokenTs === undefined) firstTokenTs = Date.now()
           const parsed = thinkParser.push(chunk)
           // 用「覆盖」而非「追加」：解析器遇到裸 `</think>`（开标签被 chat template 预填）时，
           // 会把此前**已经吐出的正文回溯改判为思考**，追加式写法撤不回来，只有整段覆盖才与解析结果一致。
-          updateMessageContent(assistantId, parsed.replyContent)
+          updateMessageContent(assistantId, stripEmotionTags(parsed.replyContent))
           if (parsed.thinkContent) {
             updateMessageThink(assistantId, parsed.thinkContent)
           }
         },
         abortController.signal,
+        (metrics) => setMessageMetrics(assistantId, metrics),
       )
+      abortController.signal.throwIfAborted()
       // 流结束：flush 补上仍扣在 buffer 里的尾巴（不足一个标签长度、无法判定为标签前缀的部分）
       const finalParsed = thinkParser.flush()
-      updateMessageContent(assistantId, finalParsed.replyContent)
+      updateMessageContent(assistantId, stripEmotionTags(finalParsed.replyContent))
       if (finalParsed.thinkContent) {
         updateMessageThink(assistantId, finalParsed.thinkContent)
       }
 
-      // P2-14：指标回写（与桌面端同构：tokens / TTFT / 速率 / 模型）。
-      // 遥测属非关键路径：任何异常都不能影响回复本身，故整体 try/catch。
       try {
-        const responseEndTs = Date.now()
-        const usage = client.lastCallUsage
-        const metricsDurationMs = responseEndTs - requestStartTs
-        const completionTokens = usage?.output ?? 0
-        setMessageMetrics(assistantId, {
-          promptTokens: usage?.input ?? 0,
-          completionTokens,
-          requestStartTs,
-          firstTokenTs,
-          responseEndTs,
-          durationMs: metricsDurationMs,
-          ttftMs: firstTokenTs !== undefined ? firstTokenTs - requestStartTs : undefined,
-          tokensPerSec:
-            completionTokens > 0 && metricsDurationMs > 0
-              ? Math.round(completionTokens / (metricsDurationMs / 1000))
-              : undefined,
-          model: client.getConfig().model,
-          provider: client.getConfig().provider,
-        })
+        const finalMetrics = client.lastCallMetrics
+        if (finalMetrics) setMessageMetrics(assistantId, { ...finalMetrics, status: 'completed' })
       } catch {
         // 指标采集失败不影响对话
       }
 
-      // D8：移动端写入记忆
-      try {
-        const memMgr = getEnhancedMemoryManager(currentCharacterId)
-        const mem = memMgr.addExchange(text, fullText)
-        // P1-3-be: 规则层实体提取（EntityManager.extractAndLink）→ 节点写入
-        // 图谱表 memory_entities + 同记忆共现实体两两建边 memory_entity_edges。
-        // 此前抽取无生产调用且 entityLinking 只写旧表（sp_entity_*），图谱两端恒空。
+      // D8：移动端写入记忆（临时聊天或本轮关闭记忆时绝不写入）
+      if (useMemory)
         try {
-          const { getEntityManager } = await import('@/lib/memory/entityLinking')
-          const { upsertEntity, upsertEntityEdge } = await import('@/lib/memory/entityGraph')
-          const em = getEntityManager(currentCharacterId)
-          await em.ensureLoaded()
-          const nodes = em.extractAndLink(text, mem.id)
-          // entityLinking 与 entityGraph 的类型命名漂移：place↔location、thing↔object
-          const typeMap: Record<string, 'person' | 'location' | 'object' | 'time' | 'concept' | 'event'> = {
-            person: 'person',
-            place: 'location',
-            thing: 'object',
-            time: 'time',
-            concept: 'concept',
-            event: 'event',
-          }
-          const ids: string[] = []
-          for (const n of nodes) {
-            ids.push(await upsertEntity(n.name, typeMap[n.type] ?? 'concept', mem.id))
-          }
-          for (let i = 0; i < ids.length; i++) {
-            for (let j = i + 1; j < ids.length; j++) {
-              await upsertEntityEdge(ids[i]!, ids[j]!, 1.0)
+          const memMgr = getEnhancedMemoryManager(currentCharacterId)
+          const extraction = extractEmotion(fullText)
+          const mem = memMgr.addExchange(text, extraction.cleanText)
+          const analyzer = getEmotionAnalyzer()
+          const replyAnalysis = analyzer.analyze(extraction.cleanText)
+          memMgr.updateMemoryIntensity(
+            mem.id,
+            deriveEmotionalIntensity(
+              mem.emotionalIntensity,
+              [...extraction.animations, ...extractEmotionTagKeywords(fullText)],
+              replyAnalysis,
+              analyzer.analyze(text),
+            ),
+          )
+          const mood = emotionTagsToMood(extraction.animations)
+          if (mood) memMgr.updateMemoryMood(mem.id, mood.valence, mood.arousal)
+          getEmotionStateManager().update(replyAnalysis)
+          // P1-3-be: 规则层实体提取（EntityManager.extractAndLink）→ 节点写入
+          // 图谱表 memory_entities + 同记忆共现实体两两建边 memory_entity_edges。
+          // 此前抽取无生产调用且 entityLinking 只写旧表（sp_entity_*），图谱两端恒空。
+          try {
+            const { getEntityManager } = await import('@/lib/memory/entityLinking')
+            const { upsertEntity, upsertEntityEdge } = await import('@/lib/memory/entityGraph')
+            const em = getEntityManager(currentCharacterId)
+            await em.ensureLoaded()
+            const nodes = em.extractAndLink(text, mem.id)
+            // entityLinking 与 entityGraph 的类型命名漂移：place↔location、thing↔object
+            const typeMap: Record<string, 'person' | 'location' | 'object' | 'time' | 'concept' | 'event'> = {
+              person: 'person',
+              place: 'location',
+              thing: 'object',
+              time: 'time',
+              concept: 'concept',
+              event: 'event',
             }
+            const ids: string[] = []
+            for (const n of nodes) {
+              ids.push(await upsertEntity(n.name, typeMap[n.type] ?? 'concept', mem.id))
+            }
+            for (let i = 0; i < ids.length; i++) {
+              for (let j = i + 1; j < ids.length; j++) {
+                await upsertEntityEdge(ids[i]!, ids[j]!, 1.0)
+              }
+            }
+          } catch {
+            // 实体提取失败不影响记忆写入
           }
         } catch {
-          // 实体提取失败不影响记忆写入
+          // 记忆写入失败不影响正常使用
         }
-      } catch {
-        // 记忆写入失败不影响正常使用
-      }
       // P1-7-be：从本轮对话抽取约定并落库，并自动把超期未提及的置为 lapsed
       // 与桌面端同序：记忆写入之后、主人事实提取之前；失败一律不影响回复。
-      void (async () => {
-        const tracker = getCommitmentTracker(currentCharacterId)
-        const extracted = tracker.extractFromText(text, fullText)
-        for (const ext of extracted) {
-          await tracker.saveCommitment(ext)
-        }
-        await tracker.autoLapseOverdue()
-      })().catch(() => {
-        // 约定提取失败不影响回复
-      })
+      if (useMemory)
+        void (async () => {
+          const tracker = getCommitmentTracker(currentCharacterId)
+          const extracted = tracker.extractFromText(text, fullText)
+          for (const ext of extracted) {
+            await tracker.saveCommitment(ext)
+          }
+          await tracker.autoLapseOverdue()
+        })().catch(() => {
+          // 约定提取失败不影响回复
+        })
       // P2-1：规则层提取主人事实（桌面端 ChatWindow 有、移动端此前整段没接）
       // 只接规则层：纯正则 + 一次 upsert，不额外发 LLM 请求，
       // 否则每聊一句就多一次网络调用，手机上的流量/配额代价要单独决策。
       // 用 void 异步跑（与桌面端同一写法），不挡住 finishStreaming。
-      void (async () => {
-        const factsMgr = getOwnerFactsManager(currentCharacterId)
-        await factsMgr.ensureLoaded()
-        await factsMgr.extractAndSave(text)
-      })().catch(() => {
-        // 事实提取失败不影响回复
-      })
-      if (abortController.signal.aborted) {
-        // P0-3: proxyFetch 不透传 AbortSignal（netProxy 无 signal 支持），用户中止后
-        // client.chat 可能正常 resolve 部分文本而非抛 AbortError——以 signal 为准判定，
-        // 保留 stopGeneration 已标记的 aborted，绝不静默标成功。
-        setMessageStatus(assistantId, 'aborted')
-      } else {
-        // P0-3: 成功送达 → 清除 pending（sendStatus 回到缺省「已成功」）
-        setMessageStatus(assistantId, undefined)
-      }
-      void getContextEpisodeManager(currentCharacterId)
-        .recordStateChange('idle')
-        .catch(() => {
-          /* 情境记录失败不影响回复 */
+      if (useMemory)
+        void (async () => {
+          const factsMgr = getOwnerFactsManager(currentCharacterId)
+          await factsMgr.ensureLoaded()
+          await factsMgr.extractAndSave(text)
+        })().catch(() => {
+          // 事实提取失败不影响回复
         })
+      if (abortController.signal.aborted) setMessageStatus(assistantId, 'aborted')
+      else setMessageStatus(assistantId, undefined)
+      if (useMemory)
+        void getContextEpisodeManager(currentCharacterId)
+          .recordStateChange('idle')
+          .catch(() => {
+            /* 情境记录失败不影响回复 */
+          })
       finishStreaming(assistantId)
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err)
@@ -490,8 +501,8 @@ export function MobileChatView() {
       }
       finishStreaming(assistantId)
     } finally {
-      setLoading(false)
-      setAbortController(null)
+      if (useChatStore.getState().activeGenerationId === assistantId) setLoading(false)
+      setAbortController(null, assistantId)
     }
   }
 
@@ -502,6 +513,7 @@ export function MobileChatView() {
    * @param e React 键盘事件
    */
   function handleKeyDown(e: ReactKeyboardEvent<HTMLTextAreaElement>) {
+    if (e.nativeEvent.isComposing) return
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault()
       void handleSend()
@@ -536,144 +548,166 @@ export function MobileChatView() {
 
   return (
     <div className={`relative flex h-full w-full flex-col ${bgClass} ${textClass}`}>
-      {/* 顶部：角色信息 + 会话管理 + 清空按钮 */}
-      <header className={`flex items-center justify-between border-b ${inputBorderClass} px-4 py-2`}>
-        <div className="flex items-center gap-2">
-          <Bot size={18} className="text-tangerine" />
-          <span className="text-sm font-medium">{character?.displayName ?? t('tab.pet')}</span>
+      <header className="chat-header">
+        <div className="flex min-w-0 items-center gap-2">
+          <Bot size={18} className="shrink-0 text-tangerine" />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold">
+              {character?.displayName ?? t('tab.pet')}
+              {temporary && (
+                <span className="ml-1.5 rounded bg-ink/8 px-1 py-0.5 text-[10px] font-normal text-ink-faint">
+                  {t('chatUi.scope.tempBadge')}
+                </span>
+              )}
+            </div>
+            <div className="truncate text-[10px] text-ink-faint">{modelLabel}</div>
+          </div>
         </div>
-        <div className="flex items-center gap-1">
-          {/* P1-1: 会话管理抽屉入口（P2-1: 命中区经 after 伪元素扩到 ≥48px） */}
+        <div className="flex shrink-0 items-center gap-0.5">
           <button
             onClick={() => setSessionsOpen(true)}
-            className="relative flex h-9 w-9 items-center justify-center rounded-lg text-ink-faint after:absolute after:-inset-2 after:content-[''] hover:bg-ink/5 hover:text-ink"
+            className="relative flex h-10 w-10 items-center justify-center rounded-lg text-ink-faint after:absolute after:-inset-2 after:content-[''] hover:bg-ink/5 hover:text-ink"
             aria-label={t('chat.sessions.title')}
             title={t('chat.sessions.title')}
           >
             <MessagesSquare size={16} />
           </button>
           <button
+            onClick={() => setContextOpen(true)}
+            className="relative flex h-10 w-10 items-center justify-center rounded-lg text-ink-faint hover:bg-ink/5 hover:text-ink"
+            aria-label={t('chatUi.scope.context')}
+            title="本轮指标与记忆引用"
+          >
+            <ChevronUp size={16} />
+          </button>
+          <ChatViewControls />
+          <button
             onClick={handleClear}
-            className="relative flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-ink-faint after:absolute after:-inset-2 after:content-[''] hover:bg-ink/5 hover:text-error"
+            className="relative flex h-10 w-10 items-center justify-center rounded-lg text-ink-faint after:absolute after:-inset-2 after:content-[''] hover:bg-ink/5 hover:text-error"
+            aria-label={t('app.clear')}
             title={t('chat.clearHistory')}
           >
-            <Trash2 size={14} />
-            {t('app.clear')}
+            <Trash2 size={16} />
           </button>
         </div>
       </header>
+
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-ink/8 px-3 py-1.5 text-[11px]">
+        <label className="flex min-h-8 items-center gap-1.5 text-ink-muted">
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-tangerine"
+            checked={memoryEnabled && !temporary}
+            disabled={temporary}
+            onChange={(event) => setMemoryEnabled(event.target.checked)}
+            aria-label={t('chatUi.context.memory')}
+          />
+          {t('chatUi.context.memory')}
+        </label>
+        <button
+          type="button"
+          aria-pressed={temporary}
+          onClick={() => {
+            if (isLoading) return
+            const created = createSession(temporary ? undefined : { temporary: true })
+            if (created) setError(null)
+          }}
+          className={`min-h-8 rounded-full px-2.5 ${temporary ? 'bg-tangerine/15 text-tangerine-deep' : 'text-ink-faint hover:bg-ink/5'}`}
+        >
+          {temporary ? t('chatUi.scope.exitTemp') : t('chatUi.scope.temp')}
+        </button>
+        <span className="ml-auto text-ink-faint">
+          {latestAssistant?.memoryTrace
+            ? t('chatUi.scope.memoryInjected', { count: latestAssistant.memoryTrace.sections.length })
+            : t('chatUi.scope.memoryState')}
+        </span>
+      </div>
 
       {/* P1-7-fe: 到期/逾期约定提示（无数据时不渲染） */}
       <div className="px-3 pt-2">
         <MobileCommitmentBar refreshKey={messages.length} />
       </div>
 
-      {/* 消息列表 */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3" style={{ overscrollBehavior: 'contain' }}>
-        {messages.length === 0 && (
-          <div className="flex h-full flex-col items-center justify-center text-center text-ink-faint">
-            <Bot size={48} className="mb-3 opacity-40" />
-            <p className="text-sm">{t('chat.emptyHint', { name: character?.displayName ?? t('tab.pet') })}</p>
-            <p className="mt-1 text-xs text-ink-muted">{t('chat.markdownHint')}</p>
-          </div>
-        )}
-
-        {messages.map((msg) => (
-          <div key={msg.id} className={`mb-3 flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            {msg.role === 'assistant' && (
-              <div className="mr-2 mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-blush-soft text-tangerine-deep">
-                <Bot size={14} />
+      <div
+        ref={scrollRef}
+        className="chat-scroll"
+        style={{ overscrollBehavior: 'contain' }}
+        onScroll={(event) => {
+          const el = event.currentTarget
+          followBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48
+          if (followBottom.current && hasUnread) setHasUnread(false)
+        }}
+        role="log"
+        aria-live="polite"
+        aria-label="聊天消息列表"
+      >
+        <div className="chat-transcript">
+          {messages.length === 0 && (
+            <div className="chat-empty">
+              <Bot size={44} className="mb-3 opacity-40" />
+              <p className="text-sm">{t('chat.emptyHint', { name: character?.displayName ?? t('tab.pet') })}</p>
+              <p className="mt-1 text-xs text-ink-muted">{t('chat.markdownHint')}</p>
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                {[t('chatUi.scope.suggestion1'), t('chatUi.scope.suggestion2'), t('chatUi.scope.suggestion3')].map(
+                  (suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => {
+                        setInput(suggestion)
+                        inputRef.current?.focus()
+                      }}
+                      className="min-h-9 rounded-full border border-ink/10 bg-surface px-3 text-xs text-ink-muted hover:border-tangerine/40 hover:text-tangerine-deep"
+                    >
+                      {suggestion}
+                    </button>
+                  ),
+                )}
               </div>
-            )}
-            <div
-              className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${
-                msg.role === 'user' ? bubbleUserClass : bubbleBotClass
-              } ${msg.isStreaming ? 'opacity-90' : ''}`}
-            >
-              {msg.role === 'assistant' ? (
-                <>
-                  {/* P1-2: 思维链折叠展示（默认折叠可展开；无 thinkContent 不渲染该块） */}
-                  {msg.thinkContent?.trim() && (
-                    <div className="mb-1">
-                      <button
-                        onClick={() => toggleThink(msg.id)}
-                        aria-expanded={thinkExpanded.has(msg.id)}
-                        className="flex items-center gap-1 rounded-lg bg-blush-soft/70 px-2 py-1 text-[11px] text-tangerine-deep/80"
-                      >
-                        <Brain size={11} />
-                        {t('chat.thinkTitle')}
-                        {thinkExpanded.has(msg.id) ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-                      </button>
-                      {thinkExpanded.has(msg.id) && (
-                        <div className="mt-1 rounded-lg border border-blush/40 bg-blush-soft/70 px-2 py-1.5 text-[12px] italic leading-relaxed text-ink-muted">
-                          {filterLLMOutput(msg.thinkContent).filteredText}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {msg.content ? (
-                    <Markdown rehypePlugins={[rehypeSanitize]}>{filterLLMOutput(msg.content).filteredText}</Markdown>
-                  ) : msg.sendStatus && msg.sendStatus !== 'pending' ? (
-                    /* P0-3: 失败/超时/中止且无内容 → 显示状态文字（替代流式等待的 ...） */
-                    <div className={`text-xs ${msg.sendStatus === 'aborted' ? 'text-ink-faint' : 'text-error'}`}>
-                      {msg.sendStatus === 'failed' && t('chat.statusFailed')}
-                      {msg.sendStatus === 'timeout' && t('chat.statusTimeout')}
-                      {msg.sendStatus === 'aborted' && t('chat.statusStopped')}
-                    </div>
-                  ) : (
-                    <Markdown rehypePlugins={[rehypeSanitize]}>{msg.content || '...'}</Markdown>
-                  )}
-                  {/* 流中中止（已有部分内容）时在气泡尾部补「已停止」标记 */}
-                  {msg.content && msg.sendStatus === 'aborted' && (
-                    <div className="mt-1 text-[11px] text-ink-faint">{t('chat.statusStopped')}</div>
-                  )}
-                  {/* 陈旧 pending：App 重启后持久化残留的发送中状态（无流式进行）＝失败 */}
-                  {msg.sendStatus === 'pending' && !msg.isStreaming && (
-                    <div className="mt-1 text-[11px] text-error">{t('chat.statusFailed')}</div>
-                  )}
-                  {/* P2-14：消息指标条（仅助手已完成消息且有指标时可展开查看） */}
-                  {msg.role === 'assistant' && !msg.isStreaming && msg.metrics && (
-                    <MessageMetricsBar metrics={msg.metrics} />
-                  )}
-                </>
-              ) : (
-                <div className="whitespace-pre-wrap break-words">{msg.content}</div>
-              )}
             </div>
-            {msg.role === 'user' && (
-              <div className="ml-2 mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-tangerine text-white">
-                <User size={14} />
-              </div>
-            )}
-          </div>
-        ))}
+          )}
 
-        {error && (
-          <div className="mb-3 rounded-lg border border-ink/10 bg-surface px-3 py-2 text-xs text-error ring-1 ring-error/40">
-            <div className="flex items-start gap-2">
-              <span className="flex-1">{error}</span>
-              {/* 重试：仅当末条助手消息为空（上一轮确实失败）时可用 */}
-              {canRetry && (
-                <button
-                  type="button"
-                  onClick={handleRetry}
-                  disabled={isLoading}
-                  className={`flex flex-shrink-0 items-center gap-1 rounded-md border border-ink/15 px-2 py-0.5 text-[11px] text-ink ${
-                    isLoading ? 'opacity-50' : 'hover:bg-ink/5'
-                  }`}
-                >
-                  <RefreshCw size={11} />
-                  {t('app.retry')}
-                </button>
-              )}
+          {messages.map((msg) => (
+            <ChatMessageCard key={msg.id} message={msg} onEdit={editMessage} onRegenerate={regenerateMessage} />
+          ))}
+
+          {error && (
+            <div className="mb-3 rounded-lg border border-ink/10 bg-surface px-3 py-2 text-xs text-error ring-1 ring-error/40">
+              <div className="flex items-start gap-2">
+                <span className="flex-1">{error}</span>
+                {/* 重试：仅当末条助手消息为空（上一轮确实失败）时可用 */}
+                {canRetry && (
+                  <button
+                    type="button"
+                    onClick={handleRetry}
+                    disabled={isLoading}
+                    className={`flex flex-shrink-0 items-center gap-1 rounded-md border border-ink/15 px-2 py-0.5 text-[11px] text-ink ${
+                      isLoading ? 'opacity-50' : 'hover:bg-ink/5'
+                    }`}
+                  >
+                    <RefreshCw size={11} />
+                    {t('app.retry')}
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
+
+      {hasUnread && (
+        <button
+          type="button"
+          onClick={scrollToLatest}
+          className="absolute bottom-24 left-1/2 z-20 min-h-9 -translate-x-1/2 rounded-full border border-ink/10 bg-surface px-3 text-xs text-ink shadow-soft"
+        >
+          {t('chatUi.scope.backToLatest')}
+        </button>
+      )}
 
       {/* 底部输入区：适配软键盘 */}
       <div
-        className={`border-t ${inputBorderClass} ${inputBgClass} px-3 py-2 pb-[calc(env(safe-area-inset-bottom)+8px)]`}
+        className={`chat-composer border-t ${inputBorderClass} ${inputBgClass} px-3 py-2 pb-[calc(env(safe-area-inset-bottom)+8px)]`}
       >
         <div className="flex items-end gap-2">
           <textarea
@@ -706,6 +740,24 @@ export function MobileChatView() {
           )}
         </div>
       </div>
+
+      {contextOpen && (
+        <div className="absolute inset-0 z-30 flex flex-col bg-cream text-ink">
+          <div className="flex items-center justify-between border-b border-ink/10 px-4 py-2">
+            <span className="text-sm font-semibold">{t('chatUi.scope.context')}</span>
+            <button
+              onClick={() => setContextOpen(false)}
+              aria-label={t('app.close')}
+              className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-ink/5"
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+            <ChatContextPanel message={latestAssistant} onManage={onManageMemory} />
+          </div>
+        </div>
+      )}
 
       {/* P1-1: 会话管理抽屉（全屏面板） */}
       {sessionsOpen && (

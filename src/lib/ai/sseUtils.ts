@@ -52,59 +52,62 @@ export async function readTextStream(
     extractDelta: DeltaExtractor
     isTerminated?: TerminationChecker
     onMeta?: MetaExtractor
+    signal?: AbortSignal
   },
   onChunk?: (chunk: string) => void,
 ): Promise<string> {
   const reader = body.getReader()
   const decoder = new TextDecoder('utf-8')
   let buffer = ''
-  // [Quality Review] 使用数组代替 += 拼接，避免大响应 O(n²) 开销
   const chunks: string[] = []
+  const onAbort = () => {
+    void reader.cancel().catch(() => {})
+  }
+  options.signal?.addEventListener('abort', onAbort, { once: true })
+
+  const consumeLine = (line: string): boolean => {
+    options.signal?.throwIfAborted()
+    const trimmed = line.trim()
+    if (!trimmed) return false
+    if (options.lineType === 'sse' && !trimmed.startsWith('data:')) return false
+    const data = options.lineType === 'sse' ? trimmed.slice(5).trim() : trimmed
+    if (data === '[DONE]') return true
+    if (!data) return false
+    let json: unknown
+    try {
+      json = JSON.parse(data)
+    } catch {
+      return false
+    }
+    options.onMeta?.(json)
+    const delta = options.extractDelta(json)
+    if (typeof delta === 'string' && delta.length > 0) {
+      chunks.push(delta)
+      onChunk?.(delta)
+    }
+    return options.isTerminated?.(json) ?? false
+  }
 
   try {
     while (true) {
+      options.signal?.throwIfAborted()
       const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
+      options.signal?.throwIfAborted()
+      buffer += done ? decoder.decode() : decoder.decode(value, { stream: true })
       const lines = buffer.split('\n')
-      // 最后一行可能不完整，保留到下一轮
       buffer = lines.pop() ?? ''
-
       for (const line of lines) {
-        const trimmed = line.trim()
-        if (!trimmed) continue
-
-        // SSE 协议：行以 "data:" 开头
-        // 原始 JSON 协议：整行即 JSON
-        let data: string
-        if (options.lineType === 'sse') {
-          if (!trimmed.startsWith('data:')) continue
-          data = trimmed.slice(5).trim()
-          if (!data || data === '[DONE]') continue
-        } else {
-          data = trimmed
-        }
-
-        try {
-          const json = JSON.parse(data)
-          // P1-1: 元数据钩子先于 delta 提取触发（usage 行通常同时出现或紧随其后）
-          options.onMeta?.(json)
-          const delta = options.extractDelta(json)
-          if (typeof delta === 'string' && delta.length > 0) {
-            chunks.push(delta)
-            onChunk?.(delta)
-          }
-          if (options.isTerminated?.(json)) {
-            return chunks.join('')
-          }
-        } catch {
-          // 单行 JSON 解析失败则跳过（可能是心跳或注释行）
-        }
+        if (consumeLine(line)) return chunks.join('')
+      }
+      if (done) {
+        if (buffer) consumeLine(buffer)
+        break
       }
     }
+    return chunks.join('')
   } finally {
+    options.signal?.removeEventListener('abort', onAbort)
+    await reader.cancel().catch(() => {})
     reader.releaseLock()
   }
-
-  return chunks.join('')
 }

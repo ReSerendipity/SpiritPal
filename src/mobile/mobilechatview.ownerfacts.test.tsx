@@ -44,6 +44,8 @@ vi.mock('@/lib/memory/enhancedMemory', () => ({
     ensureLoaded: () => Promise.resolve(),
     getContextForChat: () => Promise.resolve(''),
     addExchange: vi.fn(),
+    updateMemoryIntensity: vi.fn(),
+    updateMemoryMood: vi.fn(),
   }),
 }))
 vi.mock('@/lib/memory/ownerFacts', () => ({

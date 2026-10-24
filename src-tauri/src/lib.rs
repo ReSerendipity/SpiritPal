@@ -151,7 +151,7 @@ use encrypted_db::{
 use audit_log::audit_log;
 // P0: Rust 侧 HTTP 网络出口命令（绕过生产 CSP 对境内/本地服务商的阻断）
 mod http_proxy;
-use http_proxy::http_proxy;
+use http_proxy::{http_proxy, http_proxy_abort, http_proxy_stream, HttpProxyState};
 
 #[cfg(desktop)]
 use device::{start_device_listening, stop_device_listening};
@@ -276,6 +276,7 @@ pub fn run() {
     }
 
     builder = builder
+        .manage(HttpProxyState::default())
         .setup(|app| {
             println!("[SpiritPal] starting up...");
             log::info!("SpiritPal starting up");
@@ -433,6 +434,8 @@ pub fn run() {
                     export_diagnostics,
                     // P0: Rust 侧 HTTP 网络出口（代理 LLM / 天气 / 模组下载）
                     http_proxy,
+                    http_proxy_stream,
+                    http_proxy_abort,
                     // D-1: Rust 语义 SQL 命令层（替代前端 plugin-sql 的 sql:* 授权）
                     sqlite::sp_db_migrate,
                     sqlite::sp_settings_get,
@@ -600,6 +603,8 @@ pub fn run() {
                     export_diagnostics,
                     // P0: Rust 侧 HTTP 网络出口（代理 LLM / 天气 / 模组下载）
                     http_proxy,
+                    http_proxy_stream,
+                    http_proxy_abort,
                     // D-1: Rust 语义 SQL 命令层（移动端同样需要数据访问）
                     sqlite::sp_db_migrate,
                     sqlite::sp_settings_get,

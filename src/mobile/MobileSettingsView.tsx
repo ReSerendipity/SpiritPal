@@ -148,7 +148,13 @@ export function MobileSettingsView() {
   // AI 服务商（持久化在 localStorage，MobileChatView 每次发送重读 → 改完即时生效）
   const [provider, setProvider] = useState<string>(() => readProvider())
   const selectProvider = (id: string) => {
+    const preset = getProvider(id)
     writeProvider(id)
+    // 服务商切换必须同时更新端点与模型，否则会把本地/境内请求发到上一个服务商的地址
+    if (preset) {
+      writeEndpointConfig({ baseUrl: preset.baseUrl, model: preset.models[0] ?? '' })
+      setEndpointCfg({ baseUrl: preset.baseUrl, model: preset.models[0] ?? '' })
+    }
     setProvider(id)
   }
   // 端点配置（custom / ollama：Base URL + 模型名；llama.cpp 等本地服务无需 API Key）
@@ -728,7 +734,7 @@ export function MobileSettingsView() {
               {provider === p.id && <span className="text-xs text-tangerine">{t('settings.mobile.current')}</span>}
             </button>
           ))}
-          {provider === 'custom' && (
+          {(provider === 'custom' || provider === 'ollama') && (
             <div className={`mb-2 rounded-xl ${cardBgClass} border ${cardBorderClass} p-3`}>
               <div className="mb-2 text-sm font-medium">{t('settings.mobile.connConfig')}</div>
               <input

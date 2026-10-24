@@ -12,6 +12,7 @@
  */
 import { useMemo, useState, useCallback } from 'react'
 import { Tag, TrendingUp, BarChart3, Calendar } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { EnhancedMemory } from '@/lib/memory/enhancedMemory'
 
 // ============ 标签云 ============
@@ -129,35 +130,33 @@ interface EmotionCurveProps {
  * 高/中/低情感用不同颜色数据点区分。
  */
 export function EmotionCurve({ memories }: EmotionCurveProps) {
+  const { t } = useTranslation()
   // "当前时间"在组件挂载时固定一次（惰性初始化），避免渲染期调用不纯函数 Date.now()
   const [now] = useState(() => Date.now())
   const chartData = useMemo(() => {
-    // 取最近 30 天的数据，按天聚合情感强度
     const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000
     const recentMemories = memories.filter((m) => new Date(m.created_at).getTime() > thirtyDaysAgo)
 
     if (recentMemories.length === 0) return []
 
-    // 按天聚合
-    const dailyMap = new Map<string, { total: number; count: number; maxIntensity: number; ts: number }>()
+    const dailyMap = new Map<string, { total: number; count: number; ts: number; max: number }>()
     for (const mem of recentMemories) {
       const date = new Date(mem.created_at)
       const key = `${date.getMonth() + 1}/${date.getDate()}`
-      const existing = dailyMap.get(key) ?? { total: 0, count: 0, maxIntensity: 0, ts: date.getTime() }
+      const existing = dailyMap.get(key) ?? { total: 0, count: 0, ts: date.getTime(), max: 0 }
       existing.total += mem.emotionalIntensity
       existing.count += 1
-      existing.maxIntensity = Math.max(existing.maxIntensity, mem.emotionalIntensity)
+      existing.max = Math.max(existing.max, mem.emotionalIntensity)
       dailyMap.set(key, existing)
     }
 
-    // 视觉回归发现 #2：Map 按插入序， memories 数组顺序≠时间序 → x 轴标签乱序；按日期升序
+    // Map 按插入序，memories 数组顺序≠时间序 → 按日期升序
     return Array.from(dailyMap.entries())
       .map(([date, stats]) => ({
         date,
         ts: stats.ts,
         avgIntensity: stats.count > 0 ? stats.total / stats.count : 0,
-        maxIntensity: stats.maxIntensity,
-        count: stats.count,
+        maxIntensity: stats.max,
       }))
       .sort((a, b) => a.ts - b.ts)
   }, [memories, now])
@@ -167,153 +166,216 @@ export function EmotionCurve({ memories }: EmotionCurveProps) {
       <div className="rounded-xl border border-ink/10 bg-surface p-4">
         <div className="mb-2 flex items-center gap-2">
           <TrendingUp size={14} className="text-tangerine" />
-          <h4 className="text-xs font-semibold text-ink">情感曲线</h4>
+          <h4 className="text-xs font-semibold text-ink">{t('chatUi.emotion.heading')}</h4>
         </div>
-        <div className="py-4 text-center text-[11px] text-ink-faint">近 30 天无记忆数据</div>
+        <div className="py-4 text-center text-[11px] text-ink-faint">{t('chatUi.emotion.empty')}</div>
       </div>
     )
   }
 
-  const maxAvg = Math.max(...chartData.map((d) => d.avgIntensity), 0.01)
-  const chartHeight = 60
-  // P2-3：峰值日（结论副标题用）
   const peakDay = chartData.reduce((a, b) => (b.avgIntensity > a.avgIntensity ? b : a))
-  // P2-3：y 轴刻度（1/0.75/0.5/0.25/0 × 本期峰值；HTML 渲染避免 SVG 非等比拉伸把文字拉变形）
+  if (peakDay.maxIntensity <= 0) {
+    return (
+      <div className="rounded-xl border border-ink/10 bg-surface p-4">
+        <div className="mb-2 flex items-center gap-2">
+          <TrendingUp size={14} className="text-tangerine" />
+          <h4 className="text-xs font-semibold text-ink">{t('chatUi.emotion.heading')}</h4>
+        </div>
+        <div className="py-6 text-center text-[11px] leading-5 text-ink-faint">
+          {t('chatUi.emotion.zeroTitle', { days: chartData.length })}
+          <br />
+          {t('chatUi.emotion.zeroHint')}
+        </div>
+      </div>
+    )
+  }
+  // 曲线按本期峰值归一化铺满画布；纵轴标注相对百分比，避免 tiny 值被压成一条贴底直线，
+  // 也避免「刻度取整后全部相同」或刻度上限与峰值文案互相矛盾。
+  // 留 10% 顶部余量，避免峰值点贴着上边框像被裁掉。
+  const scaleMax = peakDay.maxIntensity > 0 ? peakDay.maxIntensity * 1.1 : 0.0001
+  const formatPeak = (value: number) =>
+    value === 0 ? '0' : value < 0.001 ? '<0.001' : value < 0.01 ? value.toFixed(4) : value.toFixed(2)
   const yTicks = [1, 0.75, 0.5, 0.25, 0]
+  const xOf = (index: number) =>
+    chartData.length === 1 ? PLOT_LEFT + PLOT_WIDTH / 2 : PLOT_LEFT + (index / (chartData.length - 1)) * PLOT_WIDTH
+  const yOf = (value: number) => PLOT_TOP + (1 - Math.min(1, value / scaleMax)) * (PLOT_BOTTOM - PLOT_TOP)
+  const dateTickIndexes = pickDateTickIndexes(chartData.length)
+  const peakPath = chartData
+    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${xOf(index).toFixed(2)} ${yOf(point.maxIntensity).toFixed(2)}`)
+    .join(' ')
+  const averagePath = chartData
+    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${xOf(index).toFixed(2)} ${yOf(point.avgIntensity).toFixed(2)}`)
+    .join(' ')
+  const areaPath = `${peakPath} L ${xOf(chartData.length - 1).toFixed(2)} ${PLOT_HEIGHT} L ${xOf(0).toFixed(2)} ${PLOT_HEIGHT} Z`
+  const peakAverage = chartData.reduce((a, b) => (b.avgIntensity > a.avgIntensity ? b : a))
 
   return (
     <div className="rounded-xl border border-ink/10 bg-surface p-4">
       <div className="mb-2 flex items-center gap-2">
         <TrendingUp size={14} className="text-tangerine" />
-        <h4 className="text-xs font-semibold text-ink">情感曲线（近 30 天）</h4>
+        <h4 className="text-xs font-semibold text-ink">{t('chatUi.emotion.heading')}</h4>
       </div>
 
-      {/* SVG 折线图 */}
-      <div className="relative" style={{ height: chartHeight + 20 }}>
-        {/* P2-3：y 轴刻度列（数值 = 刻度比例 × 本期峰值） */}
-        <div className="absolute inset-y-0 left-0 w-9" data-testid="emotion-y-ticks">
-          {yTicks.map((tick) => (
-            <span
-              key={tick}
-              className="absolute right-1 -translate-y-1/2 text-[8px] tabular-nums text-ink-faint"
-              style={{ top: `${((1 - tick) * chartHeight * 100) / (chartHeight + 20)}%` }}
-            >
-              {(tick * maxAvg).toFixed(2)}
-            </span>
+      <div style={{ height: CHART_HEIGHT }}>
+        <svg
+          data-testid="emotion-chart"
+          className="block h-auto w-full"
+          viewBox={`0 0 ${VIEW_WIDTH} ${CHART_HEIGHT}`}
+          preserveAspectRatio="xMidYMid meet"
+          role="img"
+          aria-label={t('chatUi.emotion.conclusion', {
+            peak: formatPeak(peakDay.maxIntensity),
+            date: peakDay.date,
+            avg: formatPeak(peakAverage.avgIntensity),
+            days: chartData.length,
+          })}
+        >
+          {[0.25, 0.5, 0.75].map((ratio) => (
+            <line
+              key={ratio}
+              x1={PLOT_LEFT}
+              y1={PLOT_TOP + (1 - ratio) * (PLOT_BOTTOM - PLOT_TOP)}
+              x2={PLOT_RIGHT}
+              y2={PLOT_TOP + (1 - ratio) * (PLOT_BOTTOM - PLOT_TOP)}
+              className="stroke-ink/10"
+              strokeWidth={1}
+            />
           ))}
-        </div>
-        <div className="pl-9">
-          <svg
-            className="w-full"
-            height={chartHeight + 20}
-            viewBox={`0 0 ${chartData.length * 30} ${chartHeight + 20}`}
-            preserveAspectRatio="none"
-          >
-            {/* 背景网格线 */}
-            {[0.25, 0.5, 0.75].map((ratio) => (
-              <line
-                key={ratio}
-                x1={0}
-                y1={chartHeight * (1 - ratio)}
-                x2={chartData.length * 30}
-                y2={chartHeight * (1 - ratio)}
-                className="stroke-ink/8"
-                strokeWidth={1}
+
+          {chartData.length > 1 ? (
+            <>
+              <path d={areaPath} className="fill-tangerine/10" />
+              <path
+                data-testid="emotion-peak-line"
+                d={peakPath}
+                className="fill-none stroke-tangerine"
+                strokeWidth={2}
+                strokeLinejoin="round"
               />
-            ))}
+              <path
+                data-testid="emotion-average-line"
+                d={averagePath}
+                className="fill-none stroke-ink-muted"
+                strokeWidth={1.5}
+                strokeDasharray="5 4"
+                strokeLinejoin="round"
+              />
+            </>
+          ) : (
+            <>
+              <line
+                x1={PLOT_LEFT + PLOT_WIDTH * 0.2}
+                y1={yOf(peakDay.maxIntensity)}
+                x2={PLOT_LEFT + PLOT_WIDTH * 0.8}
+                y2={yOf(peakDay.maxIntensity)}
+                className="stroke-tangerine/50"
+                strokeWidth={2}
+                strokeDasharray="4 4"
+              />
+              <line
+                x1={PLOT_LEFT + PLOT_WIDTH * 0.2}
+                y1={yOf(peakAverage.avgIntensity)}
+                x2={PLOT_LEFT + PLOT_WIDTH * 0.8}
+                y2={yOf(peakAverage.avgIntensity)}
+                className="stroke-ink-muted"
+                strokeWidth={1.5}
+                strokeDasharray="5 4"
+                opacity={0.6}
+              />
+            </>
+          )}
 
-            {/* 情感曲线（填充区域） */}
-            {chartData.length > 1 && (
-              <>
-                <path
-                  d={chartData
-                    .map((d, i) => {
-                      const x = i * 30 + 15
-                      const y = chartHeight - (d.avgIntensity / maxAvg) * (chartHeight - 10)
-                      return `${i === 0 ? 'M' : 'L'} ${x} ${y}`
-                    })
-                    .join(' ')}
-                  className="fill-none stroke-tangerine/80"
-                  strokeWidth={2}
-                />
-                {/* 填充区域 */}
-                <path
-                  d={
-                    chartData
-                      .map((d, i) => {
-                        const x = i * 30 + 15
-                        const y = chartHeight - (d.avgIntensity / maxAvg) * (chartHeight - 10)
-                        return `${i === 0 ? 'M' : 'L'} ${x} ${y}`
-                      })
-                      .join(' ') + ` L ${(chartData.length - 1) * 30 + 15} ${chartHeight} L 15 ${chartHeight} Z`
-                  }
-                  className="fill-tangerine/12"
-                />
-              </>
-            )}
+          {chartData.map((point, index) => (
+            <circle
+              key={point.date}
+              cx={xOf(index)}
+              cy={yOf(point.maxIntensity)}
+              r={4}
+              className={`stroke-surface ${
+                point.maxIntensity > 0.7
+                  ? 'fill-tangerine'
+                  : point.maxIntensity > 0.3
+                    ? 'fill-ink-muted'
+                    : 'fill-tangerine-deep'
+              }`}
+              strokeWidth={1.5}
+            />
+          ))}
 
-            {/* 数据点 */}
-            {chartData.map((d, i) => {
-              const x = i * 30 + 15
-              const y = chartHeight - (d.avgIntensity / maxAvg) * (chartHeight - 10)
+          {dateTickIndexes.map((index) => (
+            <text
+              key={chartData[index].date}
+              x={xOf(index)}
+              y={PLOT_HEIGHT + 15}
+              textAnchor={index === 0 ? 'start' : index === chartData.length - 1 ? 'end' : 'middle'}
+              className="fill-ink/50"
+              fontSize={9}
+            >
+              {chartData[index].date}
+            </text>
+          ))}
+
+          <g data-testid="emotion-y-ticks">
+            {yTicks.map((tick) => {
+              const y = PLOT_TOP + (1 - tick) * (PLOT_BOTTOM - PLOT_TOP)
               return (
-                <circle
-                  key={i}
-                  cx={x}
-                  cy={y}
-                  r={3}
-                  className={`stroke-ink/30 ${
-                    d.avgIntensity > 0.7
-                      ? 'fill-tangerine'
-                      : d.avgIntensity > 0.3
-                        ? 'fill-ink-muted'
-                        : 'fill-tangerine-deep'
-                  }`}
-                  strokeWidth={1}
-                />
+                <text
+                  key={tick}
+                  x={PLOT_LEFT - 6}
+                  y={y + 3}
+                  textAnchor="end"
+                  className="fill-ink/50 tabular-nums"
+                  fontSize={9}
+                >
+                  {Math.round(tick * 100)}%
+                </text>
               )
             })}
-
-            {/* 日期标签 */}
-            {chartData.map((d, i) => (
-              <text
-                key={i}
-                x={i * 30 + 15}
-                y={chartHeight + 14}
-                textAnchor="middle"
-                className="fill-ink/40"
-                fontSize={8}
-              >
-                {d.date}
-              </text>
-            ))}
-          </svg>
-        </div>
+          </g>
+        </svg>
       </div>
 
-      {/* 图例 */}
       <div className="mt-1 flex items-center justify-center gap-3 text-[10px] text-ink-faint">
         <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-tangerine" /> 高情感
+          <span className="h-2 w-2 rounded-full bg-tangerine" /> {t('chatUi.emotion.peakLegend')}
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-ink-faint" /> 中情感
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-tangerine-deep" /> 低情感
+          <span className="h-2 w-4 border-t-2 border-dashed border-ink-muted" /> {t('chatUi.emotion.avgLegend')}
         </span>
       </div>
 
-      {/* P2-3：结论副标题——y 轴含义 + 峰值标注 */}
       <div
         className="mt-1 border-t border-ink/8 pt-1.5 text-[10px] leading-4 text-ink-faint"
         data-testid="emotion-conclusion"
       >
-        纵轴 = 当日平均情感强度（0~1）；峰值 {peakDay.avgIntensity.toFixed(2)}（{peakDay.date}） · 共 {chartData.length}{' '}
-        天有记忆
+        {t('chatUi.emotion.conclusion', {
+          peak: formatPeak(peakDay.maxIntensity),
+          date: peakDay.date,
+          avg: formatPeak(peakAverage.avgIntensity),
+          days: chartData.length,
+        })}
+        {chartData.length === 1 ? `；${t('chatUi.emotion.singleDay')}` : ''}
       </div>
     </div>
   )
+}
+
+const VIEW_WIDTH = 360
+const PLOT_LEFT = 34
+const PLOT_RIGHT = VIEW_WIDTH
+const PLOT_WIDTH = PLOT_RIGHT - PLOT_LEFT
+const PLOT_HEIGHT = 120
+const PLOT_TOP = 6
+const PLOT_BOTTOM = PLOT_HEIGHT - 6
+const LABEL_HEIGHT = 22
+const CHART_HEIGHT = PLOT_HEIGHT + LABEL_HEIGHT
+
+/** 30 个点全标会重叠；最多保留 6 个（含首尾）。 */
+function pickDateTickIndexes(length: number): number[] {
+  if (length <= 6) return Array.from({ length }, (_, i) => i)
+  const indexes = new Set<number>()
+  for (let i = 0; i < 6; i++) indexes.add(Math.round((i / 5) * (length - 1)))
+  return Array.from(indexes).sort((a, b) => a - b)
 }
 
 // ============ 时间密度图 ============

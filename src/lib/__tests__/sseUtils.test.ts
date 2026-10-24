@@ -62,16 +62,14 @@ describe('readTextStream — SSE 协议', () => {
     expect(result).toBe('Hi')
   })
 
-  it('跳过 data: [DONE] 行但不终止流（仅丢弃该行，继续解析后续）', async () => {
-    // 注意：readTextStream 对 [DONE] 只做跳过（continue），不提前返回。
-    // 终止只能靠 isTerminated 回调，此为当前真实行为。
+  it('收到 [DONE] 后不再接收正文', async () => {
     const body = streamFromChunks([
       'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n',
       'data: [DONE]\n\n',
       'data: {"choices":[{"delta":{"content":" after"}}]}\n\n',
     ])
     const result = await readTextStream(body, { lineType: 'sse', extractDelta: extractOpenAIDelta })
-    expect(result).toBe('Hi after')
+    expect(result).toBe('Hi')
   })
 
   it('data: 后带空格时仍能正确裁剪', async () => {
@@ -118,6 +116,36 @@ describe('readTextStream — SSE 协议', () => {
     expect(result).toBe('Hello')
   })
 
+  it('流结束时消费没有换行的末尾正文与用量', async () => {
+    const meta: unknown[] = []
+    const body = streamFromChunks(['data: {"choices":[{"delta":{"content":"完整"}}],"usage":{"completion_tokens":2}}'])
+    const result = await readTextStream(body, {
+      lineType: 'sse',
+      extractDelta: extractOpenAIDelta,
+      onMeta: (value) => meta.push(value),
+    })
+    expect(result).toBe('完整')
+    expect(meta).toEqual([{ choices: [{ delta: { content: '完整' } }], usage: { completion_tokens: 2 } }])
+  })
+
+  it('不吞掉消费者异常，并取消未读完的流', async () => {
+    let cancelled = false
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"content":"x"}}]}\n'))
+      },
+      cancel() {
+        cancelled = true
+      },
+    })
+    await expect(
+      readTextStream(body, { lineType: 'sse', extractDelta: extractOpenAIDelta }, () => {
+        throw new Error('consumer failed')
+      }),
+    ).rejects.toThrow('consumer failed')
+    expect(cancelled).toBe(true)
+  })
+
   it('onChunk 回调按 delta 顺序逐次触发', async () => {
     const body = streamFromChunks([
       'data: {"choices":[{"delta":{"content":"x"}}]}\n\n',
@@ -135,6 +163,25 @@ describe('readTextStream — SSE 协议', () => {
       extractDelta: extractOpenAIDelta,
     })
     expect(result).toBe('')
+  })
+
+  it('取消等待中的读取，并拒绝而不是伪装为正常完成', async () => {
+    const controller = new AbortController()
+    let cancelled = false
+    const body = new ReadableStream<Uint8Array>({
+      cancel() {
+        cancelled = true
+      },
+    })
+    const result = readTextStream(body, {
+      lineType: 'sse',
+      extractDelta: extractOpenAIDelta,
+      signal: controller.signal,
+    })
+    const rejection = expect(result).rejects.toMatchObject({ name: 'AbortError' })
+    controller.abort()
+    await rejection
+    expect(cancelled).toBe(true)
   })
 })
 

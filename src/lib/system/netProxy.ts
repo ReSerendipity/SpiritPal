@@ -9,7 +9,7 @@
  * server 无 CSP 注入）不受影响，导致问题未在 CI 被捕获。
  *
  * # 方案（评估报告 Q1 推荐：Rust 侧代理，不放宽 CSP）
- * - Tauri 运行时：所有网络请求经 `http_proxy` 命令由 Rust 侧发出
+ * - Tauri 运行时：请求经 `http_proxy_stream` 命令由 Rust 侧流式发出
  *   （Rust 侧做第二道 SSRF 校验：私有 IP / 端口 / 回环放行，见 src-tauri/src/http_proxy.rs）。
  * - 非 Tauri 环境（浏览器开发 / Vitest / Playwright web 模式）：回退原生 fetch
  *   保证测试链路不变。
@@ -17,7 +17,7 @@
  *   调用方无需感知差异。
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { Channel, invoke } from '@tauri-apps/api/core'
 
 /** 是否为 Tauri 运行时（WebView 注入 __TAURI_INTERNALS__） */
 export function isTauriRuntime(): boolean {
@@ -43,12 +43,12 @@ export function isLoopbackUrl(url: string): boolean {
   }
 }
 
-/** Rust http_proxy 命令的响应载荷（与 http_proxy.rs HttpProxyResponse 对应） */
-interface ProxyResponsePayload {
-  status: number
-  headers: Array<[string, string]>
-  bodyBase64: string
-}
+/** 与 http_proxy.rs HttpProxyEvent 对应；chunk 是字节，不单独解码 UTF-8。 */
+type ProxyStreamEvent =
+  | { type: 'headers'; status: number; headers: Array<[string, string]> }
+  | { type: 'chunk'; dataBase64: string }
+  | { type: 'end' }
+  | { type: 'error'; message: string }
 
 /** 把字节缓冲编码为 base64 */
 function toBase64(bytes: Uint8Array): string {
@@ -85,6 +85,10 @@ function headersToPairs(headers: HeadersInit | undefined): Array<[string, string
  * 与原生 `fetch(url, init)` 语义对齐，返回标准 `Response`。
  */
 export async function proxyFetch(url: string, init?: RequestInit): Promise<Response> {
+  const signal = init?.signal
+  const abortReason = () => signal?.reason ?? new DOMException('The operation was aborted.', 'AbortError')
+  if (signal?.aborted) throw abortReason()
+
   // 请求体编码：支持 string / ArrayBuffer / Uint8Array
   let bodyB64: string | undefined
   if (init?.body != null) {
@@ -100,25 +104,124 @@ export async function proxyFetch(url: string, init?: RequestInit): Promise<Respo
     }
   }
 
-  const payload = await invoke<ProxyResponsePayload>('http_proxy', {
-    request: {
-      url,
-      method: init?.method ?? 'GET',
-      headers: headersToPairs(init?.headers),
-      bodyB64,
-      timeoutMs: 120_000,
-      maxBodyBytes: 32 * 1024 * 1024,
-    },
-  })
-
-  const bodyBytes = fromBase64(payload.bodyBase64)
-  const headers = new Headers()
-  for (const [k, v] of payload.headers) {
-    try {
-      headers.set(k, v)
-    } catch {
-      // 非法头名/值（非 UTF-8 等）忽略，不阻断响应
-    }
+  const request = {
+    url,
+    method: init?.method ?? 'GET',
+    headers: headersToPairs(init?.headers),
+    bodyB64,
+    timeoutMs: 120_000,
+    maxBodyBytes: 32 * 1024 * 1024,
   }
-  return new Response(bodyBytes, { status: payload.status, headers })
+  // 用户提供的 body/headers 转换也可能同步触发取消。
+  if (signal?.aborted) throw abortReason()
+  const requestId = crypto.randomUUID()
+
+  return new Promise<Response>((resolve, reject) => {
+    let terminal = false
+    let receivedHeaders = false
+    let controller: ReadableStreamDefaultController<Uint8Array> | undefined
+    let registered = false
+    let cancelRequested = false
+    let abortSent = false
+    const onEvent = new Channel<ProxyStreamEvent>()
+
+    const cancelBackend = () => {
+      cancelRequested = true
+      // invoke 的回复只确认状态表已登记，不等待网络结束。先登记后取消，
+      // 避免 abort 抢在 stream command 之前到达而漏掉仍在启动的请求。
+      if (registered && !abortSent) {
+        abortSent = true
+        void invoke('http_proxy_abort', { requestId }).catch(() => {})
+      }
+    }
+    const cleanup = () => {
+      signal?.removeEventListener('abort', onAbort)
+      onEvent.onmessage = () => {}
+      // Channel 没有公共 close；不能只等待 Rust Drop（取消/IPC 失败也要释放）。
+      const internals = (
+        window as unknown as {
+          __TAURI_INTERNALS__: { unregisterCallback: (id: number) => void }
+        }
+      ).__TAURI_INTERNALS__
+      internals.unregisterCallback(onEvent.id)
+    }
+    const fail = (reason: unknown, cancel = false) => {
+      if (terminal) return
+      terminal = true
+      cleanup()
+      if (cancel) cancelBackend()
+      if (receivedHeaders) controller?.error(reason)
+      else reject(reason)
+    }
+    const onAbort = () => fail(abortReason(), true)
+
+    onEvent.onmessage = (event) => {
+      if (terminal) return
+      try {
+        switch (event.type) {
+          case 'headers': {
+            if (receivedHeaders) throw new Error('Duplicate proxy headers')
+            const headers = new Headers()
+            for (const [k, v] of event.headers) {
+              try {
+                headers.append(k, v)
+              } catch {
+                /* 忽略非法响应头，与旧代理一致 */
+              }
+            }
+            const nullBody = request.method.toUpperCase() === 'HEAD' || [204, 205, 304].includes(event.status)
+            const body = nullBody
+              ? null
+              : new ReadableStream<Uint8Array>({
+                  start(value) {
+                    controller = value
+                  },
+                  cancel() {
+                    if (terminal) return
+                    terminal = true
+                    cleanup()
+                    cancelBackend()
+                  },
+                })
+            const response = new Response(body, { status: event.status, headers })
+            receivedHeaders = true
+            resolve(response)
+            break
+          }
+          case 'chunk':
+            if (!receivedHeaders) throw new Error('Proxy chunk before headers')
+            controller?.enqueue(fromBase64(event.dataBase64))
+            break
+          case 'end':
+            if (!receivedHeaders) throw new Error('Proxy ended before headers')
+            terminal = true
+            cleanup()
+            controller?.close()
+            break
+          case 'error':
+            fail(new Error(event.message))
+            break
+        }
+      } catch (error) {
+        fail(error, true)
+      }
+    }
+
+    signal?.addEventListener('abort', onAbort, { once: true })
+    if (signal?.aborted) {
+      onAbort()
+      return
+    }
+    try {
+      void invoke<void>('http_proxy_stream', { request, requestId, onEvent }).then(
+        () => {
+          registered = true
+          if (cancelRequested) cancelBackend()
+        },
+        (error: unknown) => fail(error instanceof Error ? error : new Error(String(error))),
+      )
+    } catch (error) {
+      fail(error instanceof Error ? error : new Error(String(error)))
+    }
+  })
 }

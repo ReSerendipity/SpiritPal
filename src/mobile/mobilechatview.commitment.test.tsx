@@ -46,6 +46,8 @@ vi.mock('@/lib/memory/enhancedMemory', () => ({
     ensureLoaded: () => Promise.resolve(),
     getContextForChat: () => Promise.resolve(''),
     addExchange: vi.fn(() => ({ id: 'mem-test-1' })),
+    updateMemoryIntensity: vi.fn(),
+    updateMemoryMood: vi.fn(),
   }),
 }))
 
@@ -101,6 +103,8 @@ describe('MobileChatView 承诺接线（P1-7-be）', () => {
     })
     const messages = chatMock.mock.calls[0][0] as Array<{ role: string; content: string }>
     expect(messages.some((m) => m.role === 'system' && m.content.includes('主人的计划与约定'))).toBe(true)
+    // 等待本轮 fire-and-forget 约定链路结束，避免落进下一个用例的 mock 计数
+    await waitFor(() => expect(autoLapseOverdueMock).toHaveBeenCalled())
   })
 
   it('回复后抽取约定并落库 + 自动过期', async () => {

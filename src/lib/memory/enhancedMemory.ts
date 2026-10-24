@@ -3053,6 +3053,25 @@ export class EnhancedMemoryManager {
   }
 
   /**
+   * 回写情感强度。聊天侧已从情绪标签/回复文本得到更强信号时使用；
+   * 只更新强度，不动 valence/arousal，避免把未知维度覆盖成 0。
+   */
+  updateMemoryIntensity(memoryId: string, intensity: number): void {
+    const clamped = Math.max(0, Math.min(1, Number.isFinite(intensity) ? intensity : 0))
+    for (const pool of [this.workingMemory, this.episodicMemory, this.autobiographicalMemory]) {
+      const mem = pool.find((m) => m.id === memoryId)
+      if (mem) {
+        mem.emotionalIntensity = clamped
+        if (this.useRowLevelStorage && mem.dbId !== undefined) {
+          void updateMemoryRow(mem.dbId, { emotional_intensity: clamped })
+        }
+        this.scheduleSave()
+        return
+      }
+    }
+  }
+
+  /**
    * 销毁实例：清理定时器和缓存，防止内存泄漏
    * 在切换角色或应用退出时调用
    */
