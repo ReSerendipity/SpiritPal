@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" font-family="-apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif">
+  <defs>
+    <linearGradient id="bg1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="pet1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7dd3fc"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+    <filter id="soft1" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="800" fill="url(#bg1)"/>
+
+  <!-- 桌面背景：代码窗口示意 -->
+  <rect x="60" y="60" width="700" height="680" rx="14" fill="#0b1220" stroke="#334155" stroke-width="1.5"/>
+  <rect x="60" y="60" width="700" height="36" rx="14" fill="#1e293b"/>
+  <circle cx="84" cy="78" r="5" fill="#f87171"/>
+  <circle cx="102" cy="78" r="5" fill="#fbbf24"/>
+  <circle cx="120" cy="78" r="5" fill="#34d399"/>
+  <text x="150" y="83" fill="#94a3b8" font-size="13" font-family="monospace">~/workspace/project.ts</text>
+
+  <!-- 代码行示意 -->
+  <g font-family="monospace" font-size="13" fill="#64748b">
+    <text x="90" y="130">function <tspan fill="#7dd3fc">focus</tspan>() {</text>
+    <text x="110" y="158"><tspan fill="#fbbf24">timer</tspan>.start(<tspan fill="#34d399">25</tspan>);</text>
+    <text x="110" y="186"><tspan fill="#fbbf24">pal</tspan>.whisper(<tspan fill="#34d399">"深呼吸"</tspan>);</text>
+    <text x="90" y="214">}</text>
+    <text x="90" y="254"><tspan fill="#94a3b8">// SpiritPal 陪着你，不打扰</tspan></text>
+    <text x="90" y="300">export <tspan fill="#c084fc">default</tspan> App;</text>
+  </g>
+
+  <!-- 宠物主窗口（frameless） -->
+  <g transform="translate(780,180)">
+    <rect x="0" y="0" width="360" height="440" rx="24" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+    <!-- 顶部小条 -->
+    <rect x="0" y="0" width="360" height="28" rx="24" fill="#0f172a"/>
+    <circle cx="18" cy="14" r="4" fill="#38bdf8"/>
+    <text x="34" y="19" fill="#94a3b8" font-size="11">SpiritPal · 精灵</text>
+
+    <!-- 宠物形象（小幽灵） -->
+    <g transform="translate(180,150)">
+      <ellipse cx="0" cy="80" rx="70" ry="10" fill="#000" opacity="0.3" filter="url(#soft1)"/>
+      <path d="M -60 40 Q -60 -70 0 -70 Q 60 -70 60 40 L 60 70 Q 45 55 30 70 Q 15 55 0 70 Q -15 55 -30 70 Q -45 55 -60 70 Z"
+            fill="url(#pet1)" opacity="0.95"/>
+      <circle cx="-22" cy="-20" r="8" fill="#0f172a"/>
+      <circle cx="22" cy="-20" r="8" fill="#0f172a"/>
+      <circle cx="-19" cy="-23" r="3" fill="#fff"/>
+      <circle cx="25" cy="-23" r="3" fill="#fff"/>
+      <path d="M -10 5 Q 0 12 10 5" stroke="#0f172a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      <!-- 腮红 -->
+      <circle cx="-35" cy="0" r="6" fill="#fda4af" opacity="0.6"/>
+      <circle cx="35" cy="0" r="6" fill="#fda4af" opacity="0.6"/>
+    </g>
+
+    <!-- 聊天气泡 -->
+    <g transform="translate(30,260)">
+      <rect width="300" height="70" rx="12" fill="#0f172a" stroke="#334155"/>
+      <path d="M 20 0 L 20 -10 L 32 0 Z" fill="#0f172a" stroke="#334155"/>
+      <text x="16" y="26" fill="#e2e8f0" font-size="14">已经专注 18 分钟啦，</text>
+      <text x="16" y="48" fill="#e2e8f0" font-size="14">要不要喝口水？ <tspan fill="#fbbf24">💧</tspan></text>
+    </g>
+
+    <!-- 底部输入栏 -->
+    <g transform="translate(20,360)">
+      <rect width="320" height="40" rx="20" fill="#0f172a" stroke="#334155"/>
+      <text x="16" y="26" fill="#64748b" font-size="13">和 SpiritPal 说点什么…</text>
+      <circle cx="296" cy="20" r="14" fill="#38bdf8"/>
+      <path d="M 290 20 L 302 20 M 298 16 L 302 20 L 298 24" stroke="#0f172a" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </g>
+
+    <!-- 番茄钟角标 -->
+    <g transform="translate(20,30)">
+      <circle cx="0" cy="0" r="18" fill="#f59e0b"/>
+      <text x="0" y="5" text-anchor="middle" fill="#0f172a" font-size="13" font-weight="700">25</text>
+    </g>
+  </g>
+
+  <!-- 系统托盘示意 -->
+  <g transform="translate(780,660)">
+    <rect width="360" height="60" rx="12" fill="#0f172a" stroke="#334155"/>
+    <text x="16" y="26" fill="#94a3b8" font-size="12" font-weight="600">系统托盘 tray.rs</text>
+    <g font-size="11" fill="#e2e8f0">
+      <text x="16" y="48">显示宠物</text>
+      <text x="90" y="48">专注</text>
+      <text x="130" y="48">番茄钟</text>
+      <text x="186" y="48">漫游</text>
+      <text x="232" y="48">设置</text>
+      <text x="276" y="48">更新</text>
+    </g>
+  </g>
+
+  <!-- 标题 -->
+  <text x="60" y="50" fill="#f1f5f9" font-size="22" font-weight="700">主界面 · 桌边的宠物窗口</text>
+  <text x="60" y="750" fill="#64748b" font-size="12">Frameless window · ChatWindow.tsx · pet/ renderer · tray menu（示意，非真实截图）</text>
+</svg>

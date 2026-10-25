@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 860" font-family="-apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif">
+  <defs>
+    <linearGradient id="bg4" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#e2e8f0"/>
+    </linearGradient>
+    <marker id="arrow4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="860" fill="url(#bg4)"/>
+
+  <text x="60" y="55" fill="#0f172a" font-size="24" font-weight="700">分层架构 · Tauri v2 桌面应用</text>
+  <text x="60" y="80" fill="#475569" font-size="13">React 19 + TypeScript 前端 ↔ Tauri IPC ↔ Rust 后端；外部依赖全部走 HTTPS / 本机 Keychain</text>
+
+  <!-- 第 1 层：前端 -->
+  <g transform="translate(60,120)">
+    <rect width="1080" height="160" rx="14" fill="#fff" stroke="#38bdf8" stroke-width="2"/>
+    <text x="20" y="30" fill="#0369a1" font-size="15" font-weight="700">① 前端层 · React 19 + TypeScript + Vite + Tailwind v4（src/）</text>
+
+    <g font-size="12" fill="#0f172a">
+      <rect x="20" y="50" width="180" height="90" rx="8" fill="#f0f9ff"/>
+      <text x="110" y="75" text-anchor="middle" font-weight="600">pet/ 渲染</text>
+      <text x="110" y="95" text-anchor="middle" fill="#475569">Pixi.js 8</text>
+      <text x="110" y="113" text-anchor="middle" fill="#475569">Live2D（可选）</text>
+
+      <rect x="215" y="50" width="180" height="90" rx="8" fill="#f0f9ff"/>
+      <text x="305" y="75" text-anchor="middle" font-weight="600">ChatWindow</text>
+      <text x="305" y="95" text-anchor="middle" fill="#475569">chat/ 子组件</text>
+      <text x="305" y="113" text-anchor="middle" fill="#475569">react-markdown</text>
+
+      <rect x="410" y="50" width="180" height="90" rx="8" fill="#f0f9ff"/>
+      <text x="500" y="75" text-anchor="middle" font-weight="600">MemoryPanel</text>
+      <text x="500" y="95" text-anchor="middle" fill="#475569">memory/</text>
+      <text x="500" y="113" text-anchor="middle" fill="#475569">MemoryVisualizer</text>
+
+      <rect x="605" y="50" width="180" height="90" rx="8" fill="#f0f9ff"/>
+      <text x="695" y="75" text-anchor="middle" font-weight="600">设置 / 面板</text>
+      <text x="695" y="95" text-anchor="middle" fill="#475569">McpSettingsPanel</text>
+      <text x="695" y="113" text-anchor="middle" fill="#475569">DataPanel / 角色</text>
+
+      <rect x="800" y="50" width="260" height="90" rx="8" fill="#f0f9ff"/>
+      <text x="930" y="75" text-anchor="middle" font-weight="600">状态 / i18n / 移动端</text>
+      <text x="930" y="95" text-anchor="middle" fill="#475569">Zustand 5 · i18next（5 语言）</text>
+      <text x="930" y="113" text-anchor="middle" fill="#475569">mobile/ 适配视图（Android minSdk 24）</text>
+    </g>
+  </g>
+
+  <!-- 箭头下行 -->
+  <line x1="600" y1="280" x2="600" y2="320" stroke="#64748b" stroke-width="2" marker-end="url(#arrow4)"/>
+  <text x="615" y="305" fill="#475569" font-size="11">Tauri IPC（invoke / event）</text>
+
+  <!-- 第 2 层：IPC / Commands -->
+  <g transform="translate(60,320)">
+    <rect width="1080" height="80" rx="14" fill="#fff" stroke="#8b5cf6" stroke-width="2"/>
+    <text x="20" y="32" fill="#6d28d9" font-size="15" font-weight="700">② IPC 层 · src-tauri/src/commands/</text>
+    <text x="20" y="58" fill="#475569" font-size="12">chat · memory · settings · tray · autostart · notification · fs · dialog · deep-link（spiritpal://）</text>
+  </g>
+
+  <line x1="600" y1="400" x2="600" y2="440" stroke="#64748b" stroke-width="2" marker-end="url(#arrow4)"/>
+
+  <!-- 第 3 层：Rust 后端 -->
+  <g transform="translate(60,440)">
+    <rect width="1080" height="220" rx="14" fill="#fff" stroke="#f59e0b" stroke-width="2"/>
+    <text x="20" y="32" fill="#92400e" font-size="15" font-weight="700">③ Rust 后端 · src-tauri/src/（edition 2021，rust-version 1.77.2）</text>
+
+    <g font-size="12" fill="#0f172a">
+      <rect x="20" y="50" width="200" height="70" rx="8" fill="#fffbeb"/>
+      <text x="120" y="75" text-anchor="middle" font-weight="600">加密 / 密钥</text>
+      <text x="120" y="95" text-anchor="middle" fill="#475569">crypto.rs · keychain.rs</text>
+      <text x="120" y="111" text-anchor="middle" fill="#475569">encrypted_db.rs · pbkdf2</text>
+
+      <rect x="235" y="50" width="200" height="70" rx="8" fill="#fffbeb"/>
+      <text x="335" y="75" text-anchor="middle" font-weight="600">记忆 sidecar</text>
+      <text x="335" y="95" text-anchor="middle" fill="#475569">memory_sidecar/</text>
+      <text x="335" y="111" text-anchor="middle" fill="#475569">memory_sidecar.rs</text>
+
+      <rect x="450" y="50" width="200" height="70" rx="8" fill="#fffbeb"/>
+      <text x="550" y="75" text-anchor="middle" font-weight="600">MCP 桥</text>
+      <text x="550" y="95" text-anchor="middle" fill="#475569">mcp_bridge.rs</text>
+      <text x="550" y="111" text-anchor="middle" fill="#475569">binaries/spiritpal-mcp</text>
+
+      <rect x="665" y="50" width="200" height="70" rx="8" fill="#fffbeb"/>
+      <text x="765" y="75" text-anchor="middle" font-weight="600">桌面集成</text>
+      <text x="765" y="95" text-anchor="middle" fill="#475569">tray.rs · system.rs</text>
+      <text x="765" y="111" text-anchor="middle" fill="#475569">single-instance · updater</text>
+
+      <rect x="880" y="50" width="180" height="70" rx="8" fill="#fffbeb"/>
+      <text x="970" y="75" text-anchor="middle" font-weight="600">端侧推理</text>
+      <text x="970" y="95" text-anchor="middle" fill="#475569">ondevice/</text>
+      <text x="970" y="111" text-anchor="middle" fill="#475569">设备分档调度</text>
+
+      <rect x="20" y="135" width="330" height="60" rx="8" fill="#fef3c7"/>
+      <text x="185" y="160" text-anchor="middle" font-weight="600">安全 · anti-debug / integrity / magic_check</text>
+      <text x="185" y="180" text-anchor="middle" fill="#475569">antidebug.rs · integrity.rs · magic_check.rs · window_gate.rs</text>
+
+      <rect x="365" y="135" width="330" height="60" rx="8" fill="#fef3c7"/>
+      <text x="530" y="160" text-anchor="middle" font-weight="600">诊断 · audit_log · diagnostics · log_level</text>
+      <text x="530" y="180" text-anchor="middle" fill="#475569">崩溃自启 · 60s 窗口 ≤3 次 · crash_*.log</text>
+
+      <rect x="710" y="135" width="350" height="60" rx="8" fill="#fef3c7"/>
+      <text x="885" y="160" text-anchor="middle" font-weight="600">资源 · asset_pipeline · petmod · character_import</text>
+      <text x="885" y="180" text-anchor="middle" fill="#475569">.petmod zip · sqlite.rs · http_proxy.rs</text>
+    </g>
+  </g>
+
+  <!-- 外部依赖 -->
+  <g transform="translate(60,690)">
+    <rect width="1080" height="130" rx="14" fill="#0f172a"/>
+    <text x="20" y="32" fill="#f1f5f9" font-size="15" font-weight="700">④ 外部边界（不直连内网、不落 token）</text>
+    <g font-size="12" fill="#e2e8f0">
+      <rect x="20" y="50" width="240" height="60" rx="8" fill="#1e293b"/>
+      <text x="140" y="75" text-anchor="middle" font-weight="600">LLM Provider APIs</text>
+      <text x="140" y="95" text-anchor="middle" fill="#94a3b8">OpenAI / Anthropic / Gemini / DeepSeek…</text>
+
+      <rect x="280" y="50" width="240" height="60" rx="8" fill="#1e293b"/>
+      <text x="400" y="75" text-anchor="middle" font-weight="600">系统 Keychain</text>
+      <text x="400" y="95" text-anchor="middle" fill="#94a3b8">Windows Credential Manager / macOS / Linux</text>
+
+      <rect x="540" y="50" width="240" height="60" rx="8" fill="#1e293b"/>
+      <text x="660" y="75" text-anchor="middle" font-weight="600">MCP 客户端</text>
+      <text x="660" y="95" text-anchor="middle" fill="#94a3b8">通过 spiritpal-mcp sidecar 接入</text>
+
+      <rect x="800" y="50" width="260" height="60" rx="8" fill="#1e293b"/>
+      <text x="930" y="75" text-anchor="middle" font-weight="600">更新通道</text>
+      <text x="930" y="95" text-anchor="middle" fill="#94a3b8">GitHub Releases · updates.json（Tauri updater）</text>
+    </g>
+  </g>
+
+  <text x="60" y="845" fill="#64748b" font-size="11">所有模块名均来自仓库 src/ 与 src-tauri/src/ 真实目录，未虚构组件</text>
+</svg>
