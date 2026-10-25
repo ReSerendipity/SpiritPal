@@ -36,17 +36,9 @@ SpiritPal 是一只住在你桌面的 AI 伙伴，基于 Tauri v2 的原生应�
 
 ### 展示
 
-**陪伴场景示意（非真实运行截图）**
-
-![主界面](https://gcore.jsdelivr.net/gh/ReSerendipity/SpiritPal@main/docs/assets/readme-spiritpal-1-pet.svg)
-
 **交互流程 · 一次聊天的真实链路**
 
 ![交互流程](https://gcore.jsdelivr.net/gh/ReSerendipity/SpiritPal@main/docs/assets/readme-spiritpal-2-interaction.svg)
-
-**设置与记忆面板**（Provider / Keychain / 快捷键 / 语言 / 自启 / 更新 / 端侧模型）
-
-![设置与记忆](https://gcore.jsdelivr.net/gh/ReSerendipity/SpiritPal@main/docs/assets/readme-spiritpal-3-settings-memory.svg)
 
 **分层架构 · React ↔ Tauri IPC ↔ Rust 后端**
 
@@ -140,17 +132,9 @@ SpiritPal is an AI companion that lives on your desktop — a native Tauri v2 ap
 
 ### Showcase
 
-**Companionship scene illustration (not a real running screenshot)**
-
-![Main window](https://gcore.jsdelivr.net/gh/ReSerendipity/SpiritPal@main/docs/assets/readme-spiritpal-1-pet.svg)
-
 **Interaction flow · one chat turn, end to end**
 
 ![Interaction flow](https://gcore.jsdelivr.net/gh/ReSerendipity/SpiritPal@main/docs/assets/readme-spiritpal-2-interaction.svg)
-
-**Settings & memory panel** (Provider / Keychain / shortcut / language / autostart / updater / on-device model)
-
-![Settings & memory](https://gcore.jsdelivr.net/gh/ReSerendipity/SpiritPal@main/docs/assets/readme-spiritpal-3-settings-memory.svg)
 
 **Layered architecture · React ↔ Tauri IPC ↔ Rust backend**
 
