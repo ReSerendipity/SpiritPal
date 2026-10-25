@@ -233,7 +233,7 @@ const zh = {
     'chat.errGenerating': '上一条回复还在生成中，请稍候再发送',
     'chat.errNoApiKey': '请先在设置中配置 AI API Key',
     'chat.errNoCharacter': '角色不存在',
-    'chat.errNetwork': '无法连接到 AI 服务：请确认本地服务已启动、地址与端口正确后重试。',
+    'chat.errNetwork': '无法连接到 AI 服务：请检查服务地址、端口与网络后重试。',
     'chat.errAuth': '鉴权失败：API Key 无效或缺失，请检查服务端配置。',
     'chat.errTimeout': '请求超时：模型响应时间过长，请稍后重试。',
     'chat.statusFailed': '发送失败',
@@ -930,8 +930,7 @@ const en = {
     'chat.errGenerating': 'The previous reply is still generating, please wait',
     'chat.errNoApiKey': 'Please configure your AI API Key in Settings first',
     'chat.errNoCharacter': 'Character not found',
-    'chat.errNetwork':
-      'Cannot reach the AI service. Make sure the local service is running and the address/port are correct, then retry.',
+    'chat.errNetwork': 'Cannot reach the AI service. Check the service address, port, and network, then retry.',
     'chat.errAuth': 'Authentication failed: the API Key is missing or invalid. Check your server configuration.',
     'chat.errTimeout': 'Request timed out: the model took too long to respond. Please retry later.',
     'chat.statusFailed': 'Send failed',
@@ -1614,7 +1613,7 @@ const ja = {
     'chat.errNoApiKey': '先に設定で AI API Key を構成してください',
     'chat.errNoCharacter': 'キャラクターが見つかりません',
     'chat.errNetwork':
-      'AI サービスに接続できません。ローカルサービスが起動しているか、アドレスとポートが正しいか確認して再試行してください。',
+      'AI サービスに接続できません。サービスアドレス・ポート・ネットワークを確認して再試行してください。',
     'chat.errAuth': '認証に失敗しました：API Key が無効か未設定です。サーバー設定を確認してください。',
     'chat.errTimeout':
       'リクエストがタイムアウトしました：モデルの応答に時間がかかりすぎています。後で再試行してください。',
@@ -2296,8 +2295,7 @@ const ko = {
     'chat.errGenerating': '이전 답변을 생성 중입니다. 잠시 후 다시 보내주세요',
     'chat.errNoApiKey': '먼저 설정에서 AI API Key를 구성하세요',
     'chat.errNoCharacter': '캐릭터를 찾을 수 없습니다',
-    'chat.errNetwork':
-      'AI 서비스에 연결할 수 없습니다. 로컬 서비스가 실행 중인지, 주소와 포트가 올바른지 확인한 후 다시 시도하세요.',
+    'chat.errNetwork': 'AI 서비스에 연결할 수 없습니다. 서비스 주소, 포트, 네트워크를 확인한 후 다시 시도하세요.',
     'chat.errAuth': '인증 실패: API Key가 없거나 유효하지 않습니다. 서버 설정을 확인하세요.',
     'chat.errTimeout': '요청 시간 초과: 모델 응답이 너무 느립니다. 나중에 다시 시도하세요.',
     'chat.statusFailed': '전송 실패',
@@ -2973,7 +2971,7 @@ const zhTw = {
     'chat.errGenerating': '上一則回覆還在生成中，請稍候再發送',
     'chat.errNoApiKey': '請先在設定中配置 AI API Key',
     'chat.errNoCharacter': '角色不存在',
-    'chat.errNetwork': '無法連線到 AI 服務：請確認本機服務已啟動、位址與連接埠正確後重試。',
+    'chat.errNetwork': '無法連線到 AI 服務：請檢查服務位址、連接埠與網路後重試。',
     'chat.errAuth': '驗證失敗：API Key 無效或缺失，請檢查伺服器設定。',
     'chat.errTimeout': '請求逾時：模型回應時間過長，請稍後重試。',
     'chat.statusFailed': '傳送失敗',
