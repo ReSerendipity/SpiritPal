@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import '@/lib/system/i18n'
 import ChatWindow from '@/components/ChatWindow'
+import { ConfirmDialogProvider } from '@/components/ui/ConfirmDialog'
 import type { ChatMessage, MessageMetrics } from '@/lib/data/types'
 import { useChatStore } from '@/stores/chatStore'
 
@@ -201,7 +202,11 @@ function currentMessages() {
 }
 async function mount() {
   await act(async () => {
-    render(<ChatWindow />)
+    render(
+      <ConfirmDialogProvider>
+        <ChatWindow />
+      </ConfirmDialogProvider>,
+    )
   })
 }
 async function send(text = '你好') {
@@ -314,14 +319,17 @@ describe('ChatWindow desktop workspace', () => {
   })
   it('清空历史必须先确认，取消时保留消息', async () => {
     seed([message('u1', 'user', '不能误删')])
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
     await mount()
     fireEvent.click(screen.getByLabelText('清空聊天记录'))
-    expect(confirm).toHaveBeenCalledOnce()
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(currentMessages()).toHaveLength(1)
-    confirm.mockReturnValue(true)
+
     fireEvent.click(screen.getByLabelText('清空聊天记录'))
-    expect(currentMessages()).toHaveLength(0)
+    const confirmDialog = await screen.findByRole('dialog')
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: '清空' }))
+    await waitFor(() => expect(currentMessages()).toHaveLength(0))
   })
   it('搜索通过消息 ID 定位卡片，并支持关闭搜索', async () => {
     seed([message('u1', 'user', '你好'), message('a1', 'assistant', '找到我')])

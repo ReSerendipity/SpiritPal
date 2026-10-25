@@ -15,6 +15,7 @@
  */
 import { Component, useEffect, useState, lazy, Suspense, type ReactNode } from 'react'
 import PetWindow from '@/components/PetWindow'
+import { ConfirmDialogProvider } from '@/components/ui/ConfirmDialog'
 import { UpdateNotification } from '@/components/UpdateNotification'
 import { loadCommunityCharacters } from '@/lib/render/communityLoader'
 import { loadShimejiCharacters } from '@/lib/render/shimejiLoader'
@@ -143,7 +144,9 @@ export default function App() {
         fallback={<div className="flex h-screen w-screen items-center justify-center bg-cream text-ink">Loading…</div>}
       >
         <ErrorBoundary>
-          <MobileApp />
+          <ConfirmDialogProvider>
+            <MobileApp />
+          </ConfirmDialogProvider>
         </ErrorBoundary>
       </Suspense>
     )
@@ -180,10 +183,10 @@ export default function App() {
   }
 
   return (
-    <>
+    <ConfirmDialogProvider>
       <UpdateNotification autoCheck={false} />
       {content}
-    </>
+    </ConfirmDialogProvider>
   )
 }
 

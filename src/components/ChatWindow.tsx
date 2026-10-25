@@ -66,6 +66,7 @@ import { getScheduleManager } from '@/lib/nurture/scheduleManager'
 import { ThinkTagParser } from '@/lib/render/thinkTagParser'
 import { trackChatSend, trackChatReceive } from '@/lib/system/analytics'
 import { getAntiRepetitionManager } from '@/lib/system/antiRepetition'
+import { confirmDialog } from '@/lib/system/confirmDialog'
 import { genId } from '@/lib/system/randomId'
 import { getSilentModeManager } from '@/lib/system/silentModeManager'
 import { swallowedCatch } from '@/lib/system/swallowedCatch'
@@ -246,10 +247,15 @@ export default function ChatWindow() {
 
   useEffect(() => {
     chatStageMgr.setStage('input')
-    setToolConfirmationHandler((toolName, params) => {
-      const approved = window.confirm(
-        `SpiritPal 请求执行以下操作：\n\n工具：${toolName}\n参数：${JSON.stringify(params, null, 2)}\n\n是否允许执行？`,
-      )
+    setToolConfirmationHandler(async (toolName, params) => {
+      const approved = await confirmDialog({
+        title: '允许执行此操作？',
+        message: 'SpiritPal 请求执行以下工具调用：',
+        detail: `工具：${toolName}\n参数：${JSON.stringify(params, null, 2)}`,
+        confirmLabel: '允许',
+        cancelLabel: '拒绝',
+        tone: 'primary',
+      })
       return { approved, reason: approved ? '用户已确认' : '用户拒绝' }
     })
     return () => {
@@ -759,11 +765,16 @@ export default function ChatWindow() {
           </button>
           <button
             className="chat-button"
-            onClick={() => {
-              if (window.confirm(t('chatUi.scope.clearConfirm'))) {
-                if (isLoading) stopGeneration()
-                clearHistory()
-              }
+            onClick={async () => {
+              const approved = await confirmDialog({
+                title: t('chatUi.scope.clearConfirm'),
+                confirmLabel: t('app.clear'),
+                cancelLabel: t('app.cancel'),
+                tone: 'danger',
+              })
+              if (!approved) return
+              if (isLoading) stopGeneration()
+              clearHistory()
             }}
             aria-label="清空聊天记录"
             title="清空聊天记录"

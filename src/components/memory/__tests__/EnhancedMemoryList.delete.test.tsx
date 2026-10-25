@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { EnhancedMemoryList } from '@/components/memory/EnhancedMemoryList'
+import { ConfirmDialogProvider } from '@/components/ui/ConfirmDialog'
 import type { EnhancedMemory } from '@/lib/memory/enhancedMemory'
 
 const { searchMemoriesMock, deleteMemoryMock } = vi.hoisted(() => ({
@@ -66,7 +67,11 @@ describe('EnhancedMemoryList 删除确认', () => {
   })
 
   it('点击删除打开应用内弹窗，确认后调用删除', async () => {
-    render(<EnhancedMemoryList />)
+    render(
+      <ConfirmDialogProvider>
+        <EnhancedMemoryList />
+      </ConfirmDialogProvider>,
+    )
     fireEvent.click(await screen.findByRole('button', { name: '删除记忆' }))
 
     const dialog = await screen.findByRole('dialog')
@@ -84,7 +89,11 @@ describe('EnhancedMemoryList 删除确认', () => {
   })
 
   it('取消时关闭弹窗且不删除', async () => {
-    render(<EnhancedMemoryList />)
+    render(
+      <ConfirmDialogProvider>
+        <EnhancedMemoryList />
+      </ConfirmDialogProvider>,
+    )
     fireEvent.click(await screen.findByRole('button', { name: '删除记忆' }))
     await screen.findByRole('dialog')
 

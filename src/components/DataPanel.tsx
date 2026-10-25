@@ -47,6 +47,7 @@ import { getDataManager } from '@/lib/data/dataManager'
 import { listDbBackups, restoreDbBackup, deleteDbBackup, type DBBackupInfoTs } from '@/lib/data/dbBackup'
 import { cleanupZombieData, getZombieDataReport, type ZombieDataReport } from '@/lib/data/zombieDataCleanup'
 // P1: 数据健康检查 — 接入启动链路（runMigrations + runDirtyDataChecks）的结果展示
+import { confirmDialog } from '@/lib/system/confirmDialog'
 import { syncManager, type SyncStatus } from '@/lib/system/syncManager'
 import { getWebDAVClient, type WebDAVTestResult } from '@/lib/system/webdavClient'
 // P1: 本地自动备份 — 退出自动备份加密库（保留 3 份）+ 列出/恢复/删除
@@ -141,7 +142,14 @@ export function DataPanel() {
 
   // P1: 恢复指定备份（需重启生效）
   async function handleRestoreBackup(name: string) {
-    if (!window.confirm(`从备份「${name}」恢复？恢复后当前数据将被覆盖，且需重启应用生效。`)) return
+    const approved = await confirmDialog({
+      title: '恢复备份？',
+      message: `从备份「${name}」恢复？`,
+      detail: '恢复后当前数据将被覆盖，且需重启应用生效。',
+      confirmLabel: '恢复',
+      tone: 'danger',
+    })
+    if (!approved) return
     try {
       await restoreDbBackup(name)
       flash('success', `已从备份恢复，请重启应用生效`)
@@ -152,7 +160,14 @@ export function DataPanel() {
 
   // P1: 删除指定备份
   async function handleDeleteBackup(name: string) {
-    if (!window.confirm(`删除备份「${name}」？该操作不可恢复。`)) return
+    const approved = await confirmDialog({
+      title: '删除备份？',
+      message: `删除备份「${name}」？`,
+      detail: '该操作不可恢复。',
+      confirmLabel: '删除',
+      tone: 'danger',
+    })
+    if (!approved) return
     try {
       await deleteDbBackup(name)
       loadBackups()
@@ -201,12 +216,22 @@ export function DataPanel() {
   }
 
   async function handleReset() {
-    if (confirm('⚠️ 确定要重置所有数据吗？这将清除所有设置、记忆、养成数据、模组和截图。此操作不可撤销！')) {
-      if (confirm('再次确认：这将永久删除所有 SpiritPal 数据，确定继续吗？')) {
-        await mgr.resetAll()
-        flash('success', '所有数据已重置。请重启应用。')
-      }
-    }
+    const first = await confirmDialog({
+      title: '重置所有数据？',
+      message: '这将清除所有设置、记忆、养成数据、模组和截图。此操作不可撤销！',
+      confirmLabel: '继续',
+      tone: 'danger',
+    })
+    if (!first) return
+    const second = await confirmDialog({
+      title: '再次确认',
+      message: '这将永久删除所有 SpiritPal 数据，确定继续吗？',
+      confirmLabel: '永久删除',
+      tone: 'danger',
+    })
+    if (!second) return
+    await mgr.resetAll()
+    flash('success', '所有数据已重置。请重启应用。')
   }
 
   // B-3: 手动清理迁移遗留数据（force：清除全部 .legacy 副本，包括无时间戳的旧行）
@@ -216,13 +241,14 @@ export function DataPanel() {
       flash('success', '没有需要清理的迁移遗留数据')
       return
     }
-    if (
-      !confirm(
-        `将删除 ${count} 条迁移遗留副本（约 ${formatBytes(zombieReport!.totalEstimatedBytes)}）。这些是行级迁移前的旧数据备份，确认后无法恢复。`,
-      )
-    ) {
-      return
-    }
+    const approved = await confirmDialog({
+      title: '清理迁移遗留数据？',
+      message: `将删除 ${count} 条迁移遗留副本（约 ${formatBytes(zombieReport!.totalEstimatedBytes)}）。`,
+      detail: '这些是行级迁移前的旧数据备份，确认后无法恢复。',
+      confirmLabel: '清理',
+      tone: 'danger',
+    })
+    if (!approved) return
     setCleaning(true)
     try {
       const result = await cleanupZombieData({ forceLegacyCleanup: true })

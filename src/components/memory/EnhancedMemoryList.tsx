@@ -11,11 +11,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Pencil, Database, Trash2, AlertTriangle } from 'lucide-react'
-import { BrandButton } from '@/components/ui/BrandButton'
+import { Pencil, Database, Trash2 } from 'lucide-react'
 import { getEnhancedMemoryManager, type EnhancedMemory } from '@/lib/memory/enhancedMemory'
 import { createMemoryEditor, sanitizeMemoryForDisplay, type MemorySearchOptions } from '@/lib/memory/memoryEditor'
 import { TAG_DIMENSION_LABEL_MAP, parseTag, type TagDimension } from '@/lib/memory/tagCategories'
+import { confirmDialog } from '@/lib/system/confirmDialog'
 import { usePetStore } from '@/stores/petStore'
 import { MemoryEditModal, type MemoryFormValues } from './MemoryEditModal'
 import { MemoryFilterBar } from './MemoryFilterBar'
@@ -36,9 +36,7 @@ export function EnhancedMemoryList({ onCountChange }: EnhancedMemoryListProps) {
   const [editing, setEditing] = useState<EnhancedMemory | null>(null)
   const [saving, setSaving] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
-  const [pendingDelete, setPendingDelete] = useState<EnhancedMemory | null>(null)
-  const [deleteBusy, setDeleteBusy] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const editor = useMemo(() => {
     const mgr = getEnhancedMemoryManager(currentCharacterId)
@@ -104,38 +102,24 @@ export function EnhancedMemoryList({ onCountChange }: EnhancedMemoryListProps) {
     setEnd('')
   }, [])
 
-  const closeDelete = useCallback(() => {
-    if (deleteBusy) return
-    setPendingDelete(null)
-    setDeleteError(null)
-  }, [deleteBusy])
-
-  // Esc 关闭删除确认框（删除进行中不响应）
-  useEffect(() => {
-    if (!pendingDelete) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !deleteBusy) {
-        setPendingDelete(null)
-        setDeleteError(null)
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [pendingDelete, deleteBusy])
-
-  const confirmDelete = useCallback(async () => {
-    if (!pendingDelete) return
-    setDeleteBusy(true)
-    setDeleteError(null)
-    const result = await editor.deleteMemory(pendingDelete.id)
-    setDeleteBusy(false)
-    if (result.success) {
-      setPendingDelete(null)
-      setRefreshKey((k) => k + 1)
-    } else {
-      setDeleteError('删除失败，请重试。')
-    }
-  }, [pendingDelete, editor])
+  const requestDelete = useCallback(
+    async (memory: EnhancedMemory) => {
+      setActionError(null)
+      const approved = await confirmDialog({
+        title: '删除这条记忆？',
+        message: '此操作不可恢复。',
+        detail: memory.user,
+        confirmLabel: '删除',
+        cancelLabel: '取消',
+        tone: 'danger',
+      })
+      if (!approved) return
+      const result = await editor.deleteMemory(memory.id)
+      if (result.success) setRefreshKey((k) => k + 1)
+      else setActionError('删除失败，请重试。')
+    },
+    [editor],
+  )
 
   return (
     <div className="flex flex-col gap-3">
@@ -150,6 +134,10 @@ export function EnhancedMemoryList({ onCountChange }: EnhancedMemoryListProps) {
         onEndChange={setEnd}
         onClear={handleClear}
       />
+
+      {actionError && (
+        <p className="rounded-lg border border-error/30 bg-error/10 px-3 py-2 text-xs text-error">{actionError}</p>
+      )}
 
       <div className="space-y-2">
         {items.length === 0 ? (
@@ -194,10 +182,7 @@ export function EnhancedMemoryList({ onCountChange }: EnhancedMemoryListProps) {
                 <Pencil size={14} />
               </button>
               <button
-                onClick={() => {
-                  setDeleteError(null)
-                  setPendingDelete(mem)
-                }}
+                onClick={() => void requestDelete(mem)}
                 className="rounded p-1 text-ink-faint hover:bg-error/10 hover:text-error"
                 title="删除记忆"
                 aria-label="删除记忆"
@@ -215,46 +200,6 @@ export function EnhancedMemoryList({ onCountChange }: EnhancedMemoryListProps) {
         onCancel={() => setEditing(null)}
         onSave={(v) => void handleSave(v)}
       />
-
-      {pendingDelete && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
-          onClick={closeDelete}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-memory-title"
-            className="w-full max-w-sm rounded-2xl border border-ink/10 bg-surface p-5 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center gap-2">
-              <AlertTriangle size={18} className="text-error" />
-              <h2 id="delete-memory-title" className="text-base font-semibold text-ink">
-                删除这条记忆？
-              </h2>
-            </div>
-            <p className="mt-2 text-xs text-ink-muted">此操作不可恢复。</p>
-            <p className="mt-2 max-h-14 overflow-hidden rounded-lg bg-ink/5 px-2 py-1.5 text-xs text-ink">
-              {pendingDelete.user}
-            </p>
-            {deleteError && <p className="mt-2 text-xs text-error">{deleteError}</p>}
-            <div className="mt-4 flex justify-end gap-2">
-              <BrandButton variant="ghost" size="sm" onClick={closeDelete} disabled={deleteBusy} autoFocus>
-                取消
-              </BrandButton>
-              <button
-                type="button"
-                onClick={() => void confirmDelete()}
-                disabled={deleteBusy}
-                className="spiritpal-focusable rounded-lg bg-error px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-error/90 disabled:opacity-50"
-              >
-                {deleteBusy ? '删除中…' : '删除'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
