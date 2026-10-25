@@ -44,7 +44,19 @@ SpiritPal 是一只住在你桌面的 AI 伙伴，基于 Tauri v2 的原生应�
 
 ![架构](https://gcore.jsdelivr.net/gh/ReSerendipity/SpiritPal@main/docs/assets/readme-spiritpal-4-architecture.svg)
 
-> 上图为模块级示意，模块名均对应仓库真实源码文件；当前未提供真实运行截图，欢迎在使用后提交截图到 issue 或 PR。
+> 上图为模块级示意，模块名均对应仓库真实源码文件。真实运行截图见下。
+
+**真实界面截图**（`pnpm dev` 启动 Vite 后由 Playwright 在 Chromium 中截获，1280×720）
+
+**首次见面 · 内置角色多罗打招呼**
+
+![首次见面](https://gcore.jsdelivr.net/gh/ReSerendipity/SpiritPal@main/docs/assets/readme-spiritpal-shot-1-main.png)
+
+**角色选择 · 欢迎页**
+
+![角色选择](https://gcore.jsdelivr.net/gh/ReSerendipity/SpiritPal@main/docs/assets/readme-spiritpal-shot-4-character.png)
+
+> 注：Web（纯浏览器）模式下聊天输入、设置、记忆等面板依赖 Tauri IPC（`window.__TAURI__`），浏览器中未渲染；这些面板仅在桌面 Tauri 构建（`pnpm tauri dev` / `pnpm tauri build`）中完整可用。
 
 ### 快速开始
 
@@ -140,7 +152,19 @@ SpiritPal is an AI companion that lives on your desktop — a native Tauri v2 ap
 
 ![Architecture](https://gcore.jsdelivr.net/gh/ReSerendipity/SpiritPal@main/docs/assets/readme-spiritpal-4-architecture.svg)
 
-> The diagrams are module-level illustrations; every module name maps to a real source file in this repo. Real screenshots are not yet shipped — feel free to open an issue or PR with one after you try the app.
+> The diagrams are module-level illustrations; every module name maps to a real source file in this repo. Real screenshots follow below.
+
+**Real screenshots** (captured by Playwright in Chromium after `pnpm dev` starts Vite; 1280×720)
+
+**First-run greeting · the built-in character Doro**
+
+![First-run greeting](https://gcore.jsdelivr.net/gh/ReSerendipity/SpiritPal@main/docs/assets/readme-spiritpal-shot-1-main.png)
+
+**Character picker · welcome page**
+
+![Character picker](https://gcore.jsdelivr.net/gh/ReSerendipity/SpiritPal@main/docs/assets/readme-spiritpal-shot-4-character.png)
+
+> Note: in plain Web (browser-only) mode, the chat input, settings, and memory panels depend on Tauri IPC (`window.__TAURI__`) and are not rendered in the browser; those panels are fully available only in desktop Tauri builds (`pnpm tauri dev` / `pnpm tauri build`).
 
 ### Quick start
 
