@@ -117,10 +117,18 @@ beforeEach(() => {
     return '新的回复'
   })
 })
+
+afterEach(async () => {
+  // 等待本轮生成真正结束：episode('idle') 在 finishStreaming 之前调用，
+  // 若用例在回复刚显示时就结束，它的调用会落到下一个用例的断言里。
+  await waitFor(() => expect(useChatStore.getState().isLoading).toBe(false))
+})
+
 async function send(text: string) {
   fireEvent.change(screen.getByRole('textbox'), { target: { value: text } })
   fireEvent.click(screen.getByLabelText('发送'))
   await screen.findByText('新的回复')
+  await waitFor(() => expect(useChatStore.getState().isLoading).toBe(false))
 }
 
 describe('mobile chat workspace', () => {
@@ -157,6 +165,7 @@ describe('mobile chat workspace', () => {
       .find((m) => m.role === 'assistant')
     expect(stored?.content).toBe('太开心了！')
     expect(fixture.addExchange).toHaveBeenCalledWith('今天真好', '太开心了！')
+    await waitFor(() => expect(useChatStore.getState().isLoading).toBe(false))
   })
   it('temporary conversation neither records long-term memory nor receives remembered context', async () => {
     render(<MobileChatView />)
