@@ -25,9 +25,12 @@ fn test_valid_urls() {
 
 #[test]
 fn test_valid_protocol_uris() {
-    // 不含 :// 的协议 URI 不做 scheme 校验
+    // GAP-R01（2026-10-25）：scheme 白名单校验条件收紧为含 `:` 即触发——
+    // 旧条件 contains("://") 放行了 file:/vbscript:/mailto: 等一切不含 :// 的协议。
+    // ms-settings: 是 APP_NAME_MAP「设置」项的显式白名单协议；mailto: 随收口被拒
+    // （fail-closed：TS zod 层本就拒绝 `:` 与 `@`，open_application 语义为按名打开应用）。
     assert!(validate_app_name("ms-settings:").is_ok());
-    assert!(validate_app_name("mailto:test@example.com").is_ok());
+    assert!(validate_app_name("mailto:test@example.com").is_err());
 }
 
 #[test]
