@@ -10,7 +10,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178c6)](https://www.typescriptlang.org/)
 [![Rust](https://img.shields.io/badge/Rust-2021%20edition-orange)](https://www.rust-lang.org/)
 [![Last commit](https://img.shields.io/github/last-commit/ReSerendipity/SpiritPal)](https://github.com/ReSerendipity/SpiritPal/commits/main)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/ReSerendipity/.github/blob/main/CONTRIBUTING.md)
 [![Governance](https://img.shields.io/badge/governance-ReSerendipity%2F.github-blue)](https://github.com/ReSerendipity/.github/tree/main/governance)
 
 **[中文](#中文) · [English](#english)**
@@ -36,7 +36,7 @@ SpiritPal 是一只住在你桌面的 AI 伙伴，基于 Tauri v2 的原生应�
 
 ### 展示
 
-**主界面 · 桌边宠物窗口**（frameless、气泡聊天、番茄钟角标、托盘菜单）
+**陪伴场景示意（非真实运行截图）**
 
 ![主界面](docs/assets/readme-spiritpal-1-pet.svg)
 
@@ -140,7 +140,7 @@ SpiritPal is an AI companion that lives on your desktop — a native Tauri v2 ap
 
 ### Showcase
 
-**Main window · pet by your desk** (frameless window, chat bubble, Pomodoro badge, tray menu)
+**Companionship scene illustration (not a real running screenshot)**
 
 ![Main window](docs/assets/readme-spiritpal-1-pet.svg)
 
