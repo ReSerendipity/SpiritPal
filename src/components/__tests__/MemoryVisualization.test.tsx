@@ -278,9 +278,9 @@ describe('TimeDensityChart', () => {
 
   it('有数据时渲染柱状图', () => {
     const { container } = render(<TimeDensityChart memories={sampleMemories} />)
-    // 柱状图用 div 渲染，检查是否有带 rounded-t 类的 div
-    const bars = container.querySelectorAll('.rounded-t')
-    expect(bars.length).toBeGreaterThan(0)
+    // 固定 12 个月窗口：即使只有一个月有数据，也应渲染 12 个柱位
+    const bars = container.querySelectorAll('[data-testid="density-bar"]')
+    expect(bars.length).toBe(12)
   })
 
   it('最多显示 12 个月', () => {
@@ -291,29 +291,30 @@ describe('TimeDensityChart', () => {
       }),
     )
     const { container } = render(<TimeDensityChart memories={longMemories} />)
-    const bars = container.querySelectorAll('.rounded-t')
-    expect(bars.length).toBeLessThanOrEqual(12)
+    const bars = container.querySelectorAll('[data-testid="density-bar"]')
+    expect(bars.length).toBe(12)
   })
 
   it('显示月份标签', () => {
     render(<TimeDensityChart memories={sampleMemories} />)
-    // 柱状图底部应该有月份文本标签
-    const chart = screen.getByText(/记忆密度/).closest('.rounded-xl')
-    expect(chart).toBeTruthy()
-    // 检查是否有 text-[8px] 类的标签（月份标签样式）
-    const monthLabels = chart?.querySelectorAll('.text-\\[8px\\]')
-    expect(monthLabels?.length).toBeGreaterThan(0)
+    // 12 个月都应有时长标签，而不是只显示有数据的月份
+    expect(screen.getAllByTestId('density-month-label').length).toBe(12)
   })
 
-  it('同月多条记忆聚合为一根柱', () => {
-    const sameMonthMems = [
-      createMemory({ created_at: '2026-07-01T10:00:00Z' }),
-      createMemory({ created_at: '2026-07-15T10:00:00Z' }),
-      createMemory({ created_at: '2026-07-20T10:00:00Z' }),
-    ]
+  it('同月多条记忆聚合为一根柱，并保留完整 12 个月时间轴', () => {
+    const now = new Date()
+    const sameMonthMems = [5, 15, 20].map((day) =>
+      createMemory({
+        created_at: new Date(now.getFullYear(), now.getMonth(), day, 10).toISOString(),
+      }),
+    )
     const { container } = render(<TimeDensityChart memories={sameMonthMems} />)
-    const bars = container.querySelectorAll('.rounded-t')
-    expect(bars.length).toBe(1) // 同月聚合为一根柱
+    const bars = container.querySelectorAll('[data-testid="density-bar"]')
+    // 单个有数据的月份不应铺满整块画布，而是 12 个柱位中只有一根有高度
+    expect(bars.length).toBe(12)
+    const nonZero = Array.from(bars).filter((bar) => Number(bar.getAttribute('data-count')) > 0)
+    expect(nonZero.length).toBe(1)
+    expect(nonZero[0].getAttribute('data-count')).toBe('3')
   })
 
   it('柱高度随记忆数量变化', () => {
@@ -323,9 +324,11 @@ describe('TimeDensityChart', () => {
       }),
     )
     const { container } = render(<TimeDensityChart memories={manyMemories} />)
-    const bars = container.querySelectorAll('.rounded-t')
-    // 不同月份的柱高度应该不同
-    expect(bars.length).toBeGreaterThan(0)
+    const heights = Array.from(container.querySelectorAll('[data-testid="density-bar"]')).map((bar) =>
+      Number(bar.getAttribute('data-height')),
+    )
+    expect(heights.length).toBe(12)
+    expect(new Set(heights).size).toBeGreaterThan(1)
   })
 })
 
@@ -410,13 +413,16 @@ describe('图表可读性（P2-3）', () => {
 
   it('记忆密度：柱顶数值 + 结论副标题（峰值月/合计）', () => {
     render(<TimeDensityChart memories={sampleMemories} onSelectMonth={vi.fn()} />)
-    // 每根柱子都有数值标注
+    // 仅对非零月份标注数值，避免 12 个 0 挤在一起
     const counts = screen.getAllByTestId('density-count')
     expect(counts.length).toBeGreaterThan(0)
     expect(counts.map((c) => c.textContent).every((t) => /^\d+$/.test(t ?? ''))).toBe(true)
-    // 结论：峰值月 + 合计
+    const values = counts.map((c) => Number(c.textContent))
+    expect(values.every((v) => Number.isInteger(v))).toBe(true)
+    expect(values.reduce((sum, v) => sum + v, 0)).toBe(5)
+    // 结论：覆盖固定 12 个月窗口，峰值月 + 合计
     const conclusion = screen.getByTestId('density-conclusion')
     expect(conclusion.textContent).toMatch(/峰值 \d{4}-\d{2}（\d+ 条）/)
-    expect(conclusion.textContent).toMatch(/合计 5 条记忆/)
+    expect(conclusion.textContent).toMatch(/近 12 个月合计 5 条记忆/)
   })
 })

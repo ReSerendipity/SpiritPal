@@ -380,6 +380,26 @@ function pickDateTickIndexes(length: number): number[] {
 
 // ============ 时间密度图 ============
 
+const DENSITY_VIEW_WIDTH = 360
+const DENSITY_PLOT_LEFT = 30
+const DENSITY_PLOT_RIGHT = 356
+const DENSITY_PLOT_WIDTH = DENSITY_PLOT_RIGHT - DENSITY_PLOT_LEFT
+const DENSITY_PLOT_TOP = 14
+const DENSITY_PLOT_BOTTOM = 110
+const DENSITY_PLOT_HEIGHT = DENSITY_PLOT_BOTTOM - DENSITY_PLOT_TOP
+const DENSITY_MONTH_LABEL_Y = 124
+const DENSITY_CHART_HEIGHT = 132
+const DENSITY_MONTHS = 12
+
+/** 把峰值转成整数刻度，最多约 6 条网格线。 */
+function buildDensityScale(maxCount: number): { niceMax: number; ticks: number[] } {
+  const safeMax = Math.max(1, Math.ceil(maxCount))
+  const step = safeMax <= 5 ? 1 : safeMax <= 10 ? 2 : safeMax <= 25 ? 5 : Math.ceil(safeMax / 5 / 10) * 10
+  const niceMax = Math.ceil(safeMax / step) * step
+  const ticks = Array.from({ length: Math.round(niceMax / step) + 1 }, (_, index) => index * step)
+  return { niceMax, ticks }
+}
+
 /** 时间密度图组件Props */
 interface TimeDensityChartProps {
   /** 记忆列表 */
@@ -393,22 +413,35 @@ interface TimeDensityChartProps {
 /**
  * 时间密度图组件
  *
- * 使用CSS柱状图展示近12个月每月记忆条目数量，
- * 柱子高度和颜色深浅表示记忆密度。
- * 2.2 增强：支持点击柱子筛选该月记忆，选中月份高亮显示。
+ * 固定展示最近 12 个自然月（含当前月）：即使只有一个月有记忆，
+ * 也会保留完整时间轴与纵轴刻度，避免单月数据被拉伸成整块。
+ * 柱高按当月记忆条数缩放，峰值月高亮；支持点击柱子筛选该月记忆。
  */
 export function TimeDensityChart({ memories, onSelectMonth, selectedMonth }: TimeDensityChartProps) {
+  // "当前时间"在组件挂载时固定一次，避免渲染期调用不纯函数
+  const [now] = useState(() => Date.now())
   const monthlyData = useMemo(() => {
-    const map = new Map<string, number>()
+    const counts = new Map<string, number>()
     for (const mem of memories) {
       const date = new Date(mem.created_at)
+      if (Number.isNaN(date.getTime())) continue
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-      map.set(key, (map.get(key) ?? 0) + 1)
+      counts.set(key, (counts.get(key) ?? 0) + 1)
     }
-    return Array.from(map.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .slice(-12) // 最近 12 个月
-  }, [memories])
+    const nowDate = new Date(now)
+    const currentMonth = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1)
+    return Array.from({ length: DENSITY_MONTHS }, (_, index) => {
+      const monthDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - (DENSITY_MONTHS - 1 - index), 1)
+      const key = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`
+      return {
+        key,
+        label: String(monthDate.getMonth() + 1).padStart(2, '0'),
+        count: counts.get(key) ?? 0,
+      }
+    })
+  }, [memories, now])
+
+  const totalCount = monthlyData.reduce((sum, month) => sum + month.count, 0)
 
   const handleClick = useCallback(
     (month: string) => {
@@ -420,23 +453,25 @@ export function TimeDensityChart({ memories, onSelectMonth, selectedMonth }: Tim
     [onSelectMonth, selectedMonth],
   )
 
-  if (monthlyData.length === 0) {
+  if (totalCount === 0) {
     return (
       <div className="rounded-xl border border-ink/10 bg-surface p-4">
         <div className="mb-2 flex items-center gap-2">
           <BarChart3 size={14} className="text-tangerine" />
-          <h4 className="text-xs font-semibold text-ink">记忆密度</h4>
+          <h4 className="text-xs font-semibold text-ink">记忆密度（近 12 个月）</h4>
         </div>
         <div className="py-4 text-center text-[11px] text-ink-faint">暂无数据</div>
       </div>
     )
   }
 
-  const maxCount = Math.max(...monthlyData.map((d) => d[1]), 1)
-  const barHeight = 50
-  // P2-3：结论数据——峰值月与合计
-  const peakMonth = monthlyData.reduce((a, b) => (b[1] > a[1] ? b : a))
-  const totalCount = monthlyData.reduce((sum, [, c]) => sum + c, 0)
+  const maxCount = Math.max(...monthlyData.map((month) => month.count))
+  const { niceMax, ticks } = buildDensityScale(maxCount)
+  const peakMonth = monthlyData.reduce((a, b) => (b.count > a.count ? b : a))
+  const slotWidth = DENSITY_PLOT_WIDTH / DENSITY_MONTHS
+  const barWidth = Math.min(16, slotWidth * 0.62)
+  const rangeLabel = `${monthlyData[0].key} 至 ${monthlyData[DENSITY_MONTHS - 1].key}`
+  const summary = `${rangeLabel} · 峰值 ${peakMonth.key}（${peakMonth.count} 条）· 近 ${DENSITY_MONTHS} 个月合计 ${totalCount} 条记忆`
 
   return (
     <div className="rounded-xl border border-ink/10 bg-surface p-4">
@@ -455,44 +490,120 @@ export function TimeDensityChart({ memories, onSelectMonth, selectedMonth }: Tim
         )}
       </div>
 
-      <div className="flex items-end gap-1" style={{ height: barHeight + 28 }}>
-        {monthlyData.map(([month, count]) => {
-          const height = Math.max(2, (count / maxCount) * barHeight)
-          const ratio = count / maxCount
-          const isSelected = selectedMonth === month
-          const color = isSelected
-            ? 'bg-tangerine ring-2 ring-tangerine/30'
-            : ratio > 0.7
-              ? 'bg-tangerine'
-              : ratio > 0.4
-                ? 'bg-tangerine/70'
-                : 'bg-tangerine-deep/50'
-          return (
-            <button
-              key={month}
-              onClick={() => handleClick(month)}
-              className="flex flex-1 flex-col items-center transition-transform hover:scale-105"
-              title={`${month}: ${count} 条记忆${onSelectMonth ? '（点击筛选）' : ''}`}
-            >
-              {/* P2-3：柱顶数值标注 */}
-              <span className="text-[8px] tabular-nums leading-3 text-ink-faint" data-testid="density-count">
-                {count}
-              </span>
-              <div className={`w-full rounded-t ${color} transition-all`} style={{ height }} />
-              <span className={`mt-1 text-[8px] ${isSelected ? 'font-bold text-tangerine' : 'text-ink-faint'}`}>
-                {month.slice(5)}
-              </span>
-            </button>
-          )
-        })}
+      <div style={{ height: DENSITY_CHART_HEIGHT }}>
+        <svg
+          data-testid="density-chart"
+          className="block h-auto w-full"
+          viewBox={`0 0 ${DENSITY_VIEW_WIDTH} ${DENSITY_CHART_HEIGHT}`}
+          preserveAspectRatio="xMidYMid meet"
+          role="img"
+          aria-label={`记忆密度：${summary}${onSelectMonth ? '；点击柱子可筛选该月' : ''}`}
+        >
+          <g data-testid="density-y-ticks">
+            {ticks.map((tick) => {
+              const y = DENSITY_PLOT_BOTTOM - (tick / niceMax) * DENSITY_PLOT_HEIGHT
+              return (
+                <g key={tick}>
+                  <line
+                    x1={DENSITY_PLOT_LEFT}
+                    y1={y}
+                    x2={DENSITY_PLOT_RIGHT}
+                    y2={y}
+                    className={tick === 0 ? 'stroke-ink/20' : 'stroke-ink/10'}
+                    strokeWidth={1}
+                  />
+                  <text
+                    x={DENSITY_PLOT_LEFT - 6}
+                    y={y + 3}
+                    textAnchor="end"
+                    className="fill-ink/50 tabular-nums"
+                    fontSize={9}
+                  >
+                    {tick}
+                  </text>
+                </g>
+              )
+            })}
+          </g>
+
+          {monthlyData.map((month, index) => {
+            const slotX = DENSITY_PLOT_LEFT + slotWidth * index
+            const height = month.count > 0 ? Math.max(2, (month.count / niceMax) * DENSITY_PLOT_HEIGHT) : 0
+            const barY = DENSITY_PLOT_BOTTOM - height
+            const isSelected = selectedMonth === month.key
+            const isPeak = month.count > 0 && month.key === peakMonth.key
+            return (
+              <g
+                key={month.key}
+                onClick={() => handleClick(month.key)}
+                style={{ cursor: onSelectMonth ? 'pointer' : 'default' }}
+              >
+                {/* 整列透明命中区，零值月份也可点击筛选 */}
+                <rect
+                  x={slotX}
+                  y={DENSITY_PLOT_TOP}
+                  width={slotWidth}
+                  height={DENSITY_PLOT_HEIGHT}
+                  fill="transparent"
+                />
+                <rect
+                  data-testid="density-bar"
+                  data-count={month.count}
+                  data-height={height.toFixed(1)}
+                  x={slotX + (slotWidth - barWidth) / 2}
+                  y={barY}
+                  width={barWidth}
+                  height={height}
+                  rx={2}
+                  className={
+                    isSelected
+                      ? 'fill-tangerine-deep stroke-tangerine'
+                      : isPeak
+                        ? 'fill-tangerine'
+                        : 'fill-tangerine/55'
+                  }
+                  strokeWidth={isSelected ? 1.5 : 0}
+                />
+                {month.count > 0 && (
+                  <text
+                    data-testid="density-count"
+                    x={slotX + slotWidth / 2}
+                    y={barY - DENSITY_PLOT_TOP < 10 ? barY + 11 : barY - 4}
+                    textAnchor="middle"
+                    className={
+                      barY - DENSITY_PLOT_TOP < 10
+                        ? 'fill-white font-semibold tabular-nums'
+                        : isPeak
+                          ? 'fill-tangerine font-semibold tabular-nums'
+                          : 'fill-ink-faint tabular-nums'
+                    }
+                    fontSize={9}
+                  >
+                    {month.count}
+                  </text>
+                )}
+                <text
+                  data-testid="density-month-label"
+                  x={slotX + slotWidth / 2}
+                  y={DENSITY_MONTH_LABEL_Y}
+                  textAnchor="middle"
+                  className={isSelected ? 'fill-tangerine font-bold' : 'fill-ink/50'}
+                  fontSize={9}
+                >
+                  {month.label}
+                </text>
+              </g>
+            )
+          })}
+        </svg>
       </div>
 
-      {/* P2-3：结论副标题——峰值月与合计 */}
+      {/* P2-3：结论副标题——时间范围、峰值月与合计 */}
       <div
         className="mt-1 border-t border-ink/8 pt-1.5 text-[10px] leading-4 text-ink-faint"
         data-testid="density-conclusion"
       >
-        峰值 {peakMonth[0]}（{peakMonth[1]} 条）· 近 {monthlyData.length} 个月合计 {totalCount} 条记忆
+        {summary}
         {onSelectMonth ? '；点击柱子可筛选该月' : ''}
       </div>
     </div>
