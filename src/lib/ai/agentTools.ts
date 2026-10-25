@@ -116,8 +116,10 @@ export async function toolSetReminder(
 ): Promise<string> {
   const message = String(params.message ?? params.content ?? '').trim() || userMessage
   const schedMgr = getScheduleManager()
-  // scheduleManager.addFromChat 会从自然语言中解析时间
-  const event = schedMgr.addFromChat(message, characterId)
+  // scheduleManager.addFromChat 会从自然语言中解析时间。
+  // requireIntent:false——本工具经意图解析显式触发（LLM plan 或规则回退的提醒关键词），
+  // 提醒意图已由上游保证；不加门槛会因提醒内容本身不含意图词而解析失败。
+  const event = schedMgr.addFromChat(message, characterId, { requireIntent: false })
   if (event) {
     const d = new Date(event.triggerTime)
     const timeStr = `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`

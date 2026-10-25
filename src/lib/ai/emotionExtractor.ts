@@ -121,6 +121,27 @@ export interface EmotionExtraction {
 // 匹配 [emotion:xxx] 或 [motion:xxx] 或 [xxx] 格式
 const EMOTION_TAG_REGEX = /\[(?:emotion:|motion:)?([a-zA-Z_]+)\]/gi
 
+// 已知情绪/动作关键词集合（EMOTION_MAP 键）。
+// 缺陷修复（2026-10-25）：裸 [word] 形式的标签只有命中这些关键词才视为协议标签剥离——
+// 原实现对任意 [a-zA-Z_]+ 方括号文本一律清除，会误吞正文（如 Markdown 链接
+// `[README](https://…)` 被剥成 `(https://…)`）。带 emotion:/motion: 显式前缀的
+// 协议标签无论关键词是否已知都剥离（避免协议残渣漏出到正文）。
+const KNOWN_EMOTION_WORDS = new Set(Object.keys(EMOTION_MAP))
+
+const EXPLICIT_TAG_PREFIX_RE = /^\[(?:emotion|motion):/i
+
+/** 判定一个方括号匹配是否为情绪协议标签（应剥离） */
+function isProtocolEmotionTag(fullMatch: string, word: string): boolean {
+  return EXPLICIT_TAG_PREFIX_RE.test(fullMatch) || KNOWN_EMOTION_WORDS.has(word.toLowerCase())
+}
+
+/** 按协议标签判定剥离方括号文本（保留非协议的普通方括号内容） */
+function stripEmotionTagText(text: string): string {
+  return text.replace(new RegExp(EMOTION_TAG_REGEX.source, 'gi'), (full: string, word: string) =>
+    isProtocolEmotionTag(full, word) ? '' : full,
+  )
+}
+
 /**
  * 从文本中提取情绪/动作标签，映射到 SpiritPal 动画 ID
  * 移植自 Open-LLM-VTuber live2d_model.py:146-172 extract_emotion
@@ -148,8 +169,8 @@ export function extractEmotion(text: string): EmotionExtraction {
   // 提取好感度标签
   const affectionDeltas = extractAffectionDeltas(text)
 
-  // 移除所有情绪标签和好感度标签，返回纯净文本
-  let cleanText = text.replace(EMOTION_TAG_REGEX, '')
+  // 移除协议情绪标签和好感度标签，返回纯净文本（非协议方括号内容保留）
+  let cleanText = stripEmotionTagText(text)
   cleanText = removeAffectionTags(cleanText)
 
   return { animations, cleanText, affectionDeltas }
@@ -198,7 +219,7 @@ export function extractAffectionFromChunk(chunk: string): AffectionDelta[] {
  * @returns 清理后的纯文本
  */
 export function removeEmotionTags(text: string): string {
-  let result = text.replace(EMOTION_TAG_REGEX, '')
+  let result = stripEmotionTagText(text)
   result = removeAffectionTags(result)
   return result.trim()
 }

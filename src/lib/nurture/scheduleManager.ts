@@ -241,6 +241,28 @@ export function parseScheduleFromText(input: string): ParsedTime | null {
   return null
 }
 
+// ============ 提醒/日程意图判定 ============
+
+/**
+ * 提醒/日程意图关键词正则 —— addFromChat 自动提取路径的意图门槛。
+ *
+ * parseScheduleFromText 只做时间表达解析（"明天"/"X分钟后"/"每天"即命中），
+ * 不携带任何意图信号；自动提取必须同时命中「时间表达 + 意图关键词」才创建日程，
+ * 否则闲聊时间词（"明天再说吧"）会被误建日程。关键词刻意覆盖口语变体
+ * （别忘了/到点/叫我）与英文（reminder/schedule/appointment/deadline）。
+ */
+const REMINDER_INTENT_RE =
+  /提醒|日程|安排|记得|别忘了|到点|叫我|开会|会议|复盘|交报告|截止|deadline|reminder|schedule|appointment/i
+
+/**
+ * 判断文本是否具备显式的提醒/日程意图
+ * @param text 用户输入文本
+ * @returns true 表示包含提醒/日程意图关键词
+ */
+export function hasReminderIntent(text: string): boolean {
+  return REMINDER_INTENT_RE.test(text)
+}
+
 // ============ 工具函数 ============
 
 /** 二分查找：在已排序数组中找到插入位置 */
@@ -582,11 +604,23 @@ export class ScheduleManager {
   /**
    * 从对话文本创建日程
    * 解析自然语言中的时间信息并创建日程事件
+   *
+   * 缺陷修复（2026-10-25）：自动提取路径默认要求显式提醒/日程意图。
+   * parseScheduleFromText 是纯时间解析（"明天"/"X分钟后"/"每天"即命中），
+   * 而聊天主流程会对**每一条**用户消息调用本方法——此前闲聊里带时间词
+   * （如"明天再说吧"、"3分钟后就到饭点了"）都会被误建成幽灵日程。
+   * 现在自动提取默认 requireIntent=true（需同时命中时间表达与意图关键词）；
+   * 显式工具调用路径（set_reminder，意图已由上游保证）传 requireIntent:false。
+   *
    * @param text 用户输入的自然语言文本
    * @param characterId 关联的角色 ID（可选）
-   * @returns 创建的日程事件，解析失败返回 null
+   * @param options.requireIntent 是否要求显式提醒/日程意图（默认 true）
+   * @returns 创建的日程事件，解析失败或无意图时返回 null
    */
-  addFromChat(text: string, characterId?: string): EnhancedScheduleEvent | null {
+  addFromChat(text: string, characterId?: string, options?: { requireIntent?: boolean }): EnhancedScheduleEvent | null {
+    const requireIntent = options?.requireIntent ?? true
+    if (requireIntent && !hasReminderIntent(text)) return null
+
     const parsed = parseScheduleFromText(text)
     if (!parsed) return null
 

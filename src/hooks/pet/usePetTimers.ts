@@ -39,6 +39,14 @@ import { getSilentModeManager } from '@/lib/system/silentModeManager'
 import { initAutoUpdateChecker } from '@/lib/system/updater'
 import { usePetStore } from '@/stores/petStore'
 
+/**
+ * 记忆巩固共用的「语义知识整理」提示（promptManifest 登记 key: memoryTimer.organize）。
+ * 2026-10-25 收敛：此前同一段字面量在 6 小时维护与夜间巩固两处重复，
+ * 既易漂移也令登记锚点无法唯一——现收敛为单一常量供两处引用。
+ */
+const MEMORY_ORGANIZE_PROMPT =
+  '你是一个记忆整理助手。请将以下对话总结为一条简洁的语义知识（50字以内），提炼出最重要的信息。只输出总结内容，不要加多余说明。'
+
 export interface UsePetTimersOptions {
   /** 当前角色 ID */
   currentCharacterId: string
@@ -167,8 +175,7 @@ export function usePetTimers(options: UsePetTimersOptions): UsePetTimersReturn {
                   {
                     id: 'consolidate-sys',
                     role: 'system',
-                    content:
-                      '你是一个记忆整理助手。请将以下对话总结为一条简洁的语义知识（50字以内），提炼出最重要的信息。只输出总结内容，不要加多余说明。',
+                    content: MEMORY_ORGANIZE_PROMPT,
                     timestamp: Date.now(),
                   },
                   { id: 'consolidate-user', role: 'user', content: conversation, timestamp: Date.now() },
@@ -229,8 +236,7 @@ export function usePetTimers(options: UsePetTimersOptions): UsePetTimersReturn {
                     {
                       id: 'nightly-sys',
                       role: 'system',
-                      content:
-                        '你是一个记忆整理助手。请将以下对话总结为一条简洁的语义知识（50字以内），提炼出最重要的信息。只输出总结内容，不要加多余说明。',
+                      content: MEMORY_ORGANIZE_PROMPT,
                       timestamp: Date.now(),
                     },
                     { id: 'nightly-user', role: 'user', content: conversation, timestamp: Date.now() },

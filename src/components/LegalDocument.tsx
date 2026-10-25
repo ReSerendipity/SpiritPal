@@ -19,6 +19,11 @@
  */
 import { X } from 'lucide-react'
 import Markdown from 'react-markdown'
+// SECURITY R-02 防御纵深（2026-10-25）：与 ChatWindow/MobileChatView 同口径补 rehype-sanitize。
+// 内容当前为构建期常量（lib/system/legalDocuments），且 react-markdown 默认不渲染原始 HTML、
+// defaultUrlTransform 会清危险协议——本行把安全性从「依赖默认行为」显式钉住，防未来内容
+// 来源变化（如远程拉取法务文本）时静默失去防线。
+import rehypeSanitize from 'rehype-sanitize'
 
 /** 法律文档组件Props */
 interface LegalDocumentProps {
@@ -55,6 +60,7 @@ export function LegalDocument({ title, content, onClose }: LegalDocumentProps) {
         <div className="overflow-y-auto p-6" style={{ maxHeight: 'calc(80vh - 80px)' }}>
           <div className="max-w-none">
             <Markdown
+              rehypePlugins={[rehypeSanitize]}
               components={{
                 h1: ({ children }) => <h1 className="mb-4 text-xl font-bold text-ink">{children}</h1>,
                 h2: ({ children }) => (

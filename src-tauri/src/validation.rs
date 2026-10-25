@@ -16,9 +16,16 @@ const SHELL_METACHARS: &[char] = &[
     '&', '|', '>', '<', '^', '(', ')', '%', '!', '\n', '\r', ';', '`', '$', ' ', '\t', '"',
 ];
 
-/// 允许的 URL scheme 白名单
-// R-10: 若输入包含 :// 则仅允许 http/https 协议
-const ALLOWED_URL_SCHEMES: &[&str] = &["http://", "https://"];
+/// 允许的 URI scheme 白名单（前缀匹配，小写比较）
+// R-10: 输入含 scheme 时仅允许 http/https
+// 2026-10-25 收口（GAP-R01）：原条件 `contains("://")` 只拦带 `://` 的 URL，
+// `file:C:/x`、`vbscript:x` 等不含 `://` 的协议可绕过 scheme 校验直达
+// `open::that`（Windows 上走 ShellExecute，可执行任意目标）。现改为含 `:` 即校验，
+// 白名单补 `ms-settings:`（APP_NAME_MAP「设置」的合法协议，原本恰是借该口子放行）。
+// 取舍声明：本地绝对路径（`C:/app.exe`）随之被拒（fail-closed）——open_application
+// 的语义是「按名打开应用」，Agent 链路上 zod 白名单本就拒绝 `:`，此处收口的是
+// webview 失陷后直接 invoke 的最后一道防线。
+const ALLOWED_URL_SCHEMES: &[&str] = &["http://", "https://", "ms-settings:"];
 
 /// 校验应用程序名称/URL，拒绝 shell 元字符防止命令注入
 ///
@@ -46,14 +53,17 @@ pub fn validate_app_name(app_name: &str) -> Result<(), String> {
         // R-12 v2.0: obfstr 混淆错误消息
         return Err(obfstr::obfstr!("应用程序名称不能为空").to_string());
     }
-    // R-10: 若输入包含 :// 则验证 URL scheme 白名单
-    if app_name.contains("://") {
+    // R-10 / GAP-R01（2026-10-25）: 含 `:` 即进入 scheme 白名单校验。
+    // 原 `contains("://")` 条件放行了所有不含 `://` 的协议（file:/vbscript: 等）。
+    if app_name.contains(':') {
         let lower = app_name.to_lowercase();
         let scheme_valid = ALLOWED_URL_SCHEMES
             .iter()
             .any(|scheme| lower.starts_with(scheme));
         if !scheme_valid {
-            return Err(obfstr::obfstr!("仅允许 http:// 或 https:// URL 协议").to_string());
+            return Err(
+                obfstr::obfstr!("仅允许 http://、https:// 或 ms-settings: 协议").to_string(),
+            );
         }
     }
     for ch in app_name.chars() {
@@ -203,8 +213,36 @@ mod tests {
 
     #[test]
     fn test_validate_app_name_ms_settings() {
-        // ms-settings: 不包含 :// 所以不做 URL scheme 校验
+        // ms-settings: 是白名单协议（APP_NAME_MAP「设置」项，GAP-R01 收口后显式放行）
         assert!(validate_app_name("ms-settings:").is_ok());
+    }
+
+    // ============ GAP-R01 收口回归（2026-10-25）============
+    // 原条件 contains("://") 放行所有不含 :// 的协议；收紧后无 :// 的危险协议一律拒绝。
+
+    #[test]
+    fn test_validate_app_name_file_uri_without_slashes_rejected() {
+        // file: 不含 :// 原可绕过 scheme 校验直达 open::that（ShellExecute 可执行目标）
+        assert!(validate_app_name("file:C:/Windows/System32/calc.exe").is_err());
+        assert!(validate_app_name("file:C:/Windows/System32/config/SAM").is_err());
+    }
+
+    #[test]
+    fn test_validate_app_name_script_uris_without_slashes_rejected() {
+        assert!(validate_app_name("vbscript:msgbox").is_err());
+        assert!(validate_app_name("search:msstore").is_err());
+        assert!(validate_app_name("ms-gamingoverlay:").is_err());
+    }
+
+    #[test]
+    fn test_validate_app_name_local_absolute_path_rejected() {
+        // fail-closed 取舍：本地绝对路径随收口被拒（open_application 语义为「按名打开应用」）
+        assert!(validate_app_name("C:/Windows/System32/calc.exe").is_err());
+    }
+
+    #[test]
+    fn test_validate_app_name_ms_settings_uri_case_insensitive() {
+        assert!(validate_app_name("MS-SETTINGS:").is_ok());
     }
 
     #[test]

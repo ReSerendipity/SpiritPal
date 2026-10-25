@@ -59,6 +59,8 @@ import {
   ToolMode as AgentToolMode,
 } from './agentTools'
 import { loadAIConfig } from './aiConfig'
+// 2026-10-25：记忆上下文属持久化注入面（记忆投毒），注入 system prompt 前统一包裹可信边界
+import { scanContextForInjection, wrapSystemContext } from './inputInjectionScreen'
 import { getLLMClient } from './llmClient'
 import { getPrompt } from './promptRegistry'
 // P0-1：接入 zod 输出参数校验（LLM 输出 → 工具参数的第一道防线）
@@ -352,6 +354,8 @@ function planByRule(message: string): { tool: string; params: Record<string, unk
  * @param userMessage 用户原始消息
  * @param config AI 配置（可选，未提供则从 localStorage 加载）
  * @param characterId 当前角色 ID（用于日程关联）
+ * @param memoryContext 记忆上下文（可选；注入前会包裹可信边界声明，防记忆投毒）
+ * @param toolMode 当前工具模式（默认 'agent'；单轮路径与 ReAct 路径同口径做模式权限校验）
  * @returns 格式化的执行结果字符串
  */
 export async function processAgentRequest(
@@ -359,6 +363,7 @@ export async function processAgentRequest(
   config?: AIConfig,
   characterId?: string,
   memoryContext?: string,
+  toolMode: ToolMode = 'agent',
 ): Promise<string> {
   // ===== P2 增强：多步任务检测 -> ReAct Loop =====
   // 当用户消息包含多步操作意图时，路由到 processReActRequest 进行多步推理-行动循环。
@@ -366,7 +371,7 @@ export async function processAgentRequest(
     try {
       const reactResult = await processReActRequest(userMessage, config, characterId, {
         maxRounds: 5,
-        toolMode: 'agent',
+        toolMode,
       })
       return reactResult.answer
     } catch (reactErr) {
@@ -383,7 +388,15 @@ export async function processAgentRequest(
     if (aiConfig.apiKey || aiConfig.provider === 'ollama') {
       const client = getLLMClient(aiConfig)
       // T-7: 注入记忆上下文到 system prompt
-      const systemPrompt = memoryContext ? `${AGENT_SYSTEM_PROMPT}\n\n${memoryContext}` : AGENT_SYSTEM_PROMPT
+      // 安全（2026-10-25）：记忆是「用户历史文本 / LLM 抽取结果」的持久化注入面，
+      // 其中的注入指令会跨会话存活——先初筛告警，再包裹可信边界声明后拼接。
+      if (memoryContext) {
+        scanContextForInjection(memoryContext, 'agent.memoryContext')
+      }
+      const guardedMemoryContext = memoryContext ? wrapSystemContext(memoryContext, '历史记忆') : ''
+      const systemPrompt = guardedMemoryContext
+        ? `${AGENT_SYSTEM_PROMPT}\n\n${guardedMemoryContext}`
+        : AGENT_SYSTEM_PROMPT
       const messages: ChatMessage[] = [
         {
           id: 'agent-sys',
@@ -427,7 +440,15 @@ export async function processAgentRequest(
     return '🔧 未识别到需要执行的操作'
   }
 
-  // 3. 执行工具（P0-1：接入 zod 参数校验 + 确认闸门）
+  // 3. 工具模式权限校验（2026-10-25 P0 修复：与 ReAct 路径 isToolAllowed 同口径）。
+  // 此前单轮路径只查 AGENT_TOOLS 注册表（含全部 12 个工具），LLM 被越狱后返回
+  // read_file（确认豁免名单内）即可在 agent 模式下越级执行 developer 权限工具。
+  // （ToolMode 联合类型 → agentTools 枚举的桥接与 isToolAllowed 内部同款）
+  if (!isToolAvailableInMode(plan.tool, toolMode as unknown as AgentToolMode)) {
+    return `🔧 工具「${plan.tool}」在当前模式（${toolMode}）下不可用`
+  }
+
+  // 4. 执行工具（P0-1：接入 zod 参数校验 + 确认闸门）
   const toolDef = AGENT_TOOLS.find((t) => t.name === plan!.tool)
   if (!toolDef) {
     return `🔧 未知工具：${plan.tool}`
@@ -502,6 +523,9 @@ const TOOL_MODE_LEVEL: Record<ToolMode, number> = {
 //   非任意 shell；两者均需用户确认）
 // - install_package / system_setting / registry_edit 等系统级写操作**从未实现，
 //   也不在计划内**（桌面宠物不应具备系统配置写入能力）
+// - 模式边界在两条执行路径（单轮 processAgentRequest / ReAct processReActRequest）
+//   均以 isToolAvailableInMode 强制（2026-10-25 前单轮路径缺失，LLM 越狱可越级调用
+//   read_file 等免确认工具——该缺口已收口）
 
 /**
  * 检查当前工具模式是否允许使用指定工具

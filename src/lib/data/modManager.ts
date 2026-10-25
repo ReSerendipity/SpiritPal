@@ -35,6 +35,9 @@ import { appDataDir, join } from '@tauri-apps/api/path'
 import { open as openDialog, ask as askDialog } from '@tauri-apps/plugin-dialog'
 import { readTextFile, exists } from '@tauri-apps/plugin-fs'
 import { DEFAULT_ANIMATIONS, type AnimationDef } from '@/lib/ai/behaviorEngine'
+// 2026-10-25：导入的 .petmod 是不可信第三方内容，其 dialogue.systemPrompt 会经
+// toCharacterProfile 进入主聊天 system 位置——转换时做注入初筛（检测层，告警去重）
+import { scanImportedPrompt } from '@/lib/ai/inputInjectionScreen'
 import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 import { saveMod, getMods, deleteMod, updateModEnabled } from './db'
 import { detectModConflicts, type ModConflict } from './modConflictResolver'
@@ -492,8 +495,17 @@ export class ModManager {
 
   // ============ 转换为 CharacterProfile ============
 
+  /** 已做过注入初筛告警的 mod id（toCharacterProfile 会被多次调用，告警去重） */
+  static #promptScannedModIds = new Set<string>()
+
   toCharacterProfile(mod: ModInfo): CharacterProfile {
     const { petConf, dialogueConf } = mod.modData
+    // 检测层（2026-10-25）：导入模组的 systemPrompt 进入聊天链路前留痕告警；
+    // 每个 mod 只告警一次，不阻断（运行时另有 security.boundary 条款兜底）。
+    if (!ModManager.#promptScannedModIds.has(mod.id)) {
+      ModManager.#promptScannedModIds.add(mod.id)
+      scanImportedPrompt(dialogueConf.systemPrompt, `petmod:${mod.id}`)
+    }
     return {
       id: petConf.id,
       name: petConf.name,

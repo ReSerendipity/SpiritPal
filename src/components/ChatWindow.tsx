@@ -82,6 +82,10 @@ import {
 } from '@/lib/ai/emotionExtractor'
 import { getLLMClient } from '@/lib/ai/llmClient'
 import { composeFullSystemPrompt, getEffectivePersonality } from '@/lib/ai/personalityEngine'
+// 2026-10-25：持久化上下文（记忆/画像/经历/屏幕观察）注入 system 前的可信边界守卫
+import { CONTEXT_GUARD_NOTE, scanContextForInjection, wrapSystemContext } from '@/lib/ai/inputInjectionScreen'
+// 版本化 Prompt 注册表（security.boundary 全局安全边界条款）
+import { getPrompt } from '@/lib/ai/promptRegistry'
 // STT：语音输入转文字（Web Speech API 主，零依赖）
 import { STTEngine, isSpeechRecognitionSupported } from '@/lib/ai/stt'
 // LLM 维度 P1：输出内容护栏（毒性阻断 + PII 掩码）——助手文本渲染前的兜底过滤
@@ -446,7 +450,9 @@ export default function ChatWindow() {
         .map((m) => m.content.slice(0, 40))
         .join('；')
       const droppedSummary = `（更早还有 ${droppedCount} 条对话因篇幅未展示${contentSnippets ? '，主要聊过：' + contentSnippets : ''}，如需回顾可询问具体内容）`
-      prevMessages.unshift(mkMsg('system', droppedSummary))
+      // 安全（2026-10-25）：衔接提示内嵌了历史用户消息片段，属持久化内容再注入，包裹可信边界
+      scanContextForInjection(droppedSummary, 'chat.droppedSummary')
+      prevMessages.unshift(mkMsg('system', wrapSystemContext(droppedSummary, '对话衔接')))
     }
 
     // ===== 2.1: 视觉感知「看看」指令检测 =====
@@ -460,7 +466,13 @@ export default function ChatWindow() {
         const analysis = await vpMgr.triggerAnalysis()
         if (analysis) {
           // 将屏幕分析结果作为系统提示注入对话
-          const screenContext = `【视觉感知】宠物刚刚看了一眼屏幕，观察到：${analysis.userActivity}（工作状态：${analysis.inferredWorkState}，置信度：${((analysis.confidence ?? 0) * 100).toFixed(0)}%）${analysis.sceneDetails ? ' 场景详情：' + analysis.sceneDetails : ''}`
+          // 安全（2026-10-25）：屏幕内容本身可能携带攻击者文本（恶意网页/弹窗诱导），
+          // 观察结果注入前追加可信边界声明并初筛告警
+          const screenContext =
+            `【视觉感知】宠物刚刚看了一眼屏幕，观察到：${analysis.userActivity}（工作状态：${analysis.inferredWorkState}，置信度：${((analysis.confidence ?? 0) * 100).toFixed(0)}%）${analysis.sceneDetails ? ' 场景详情：' + analysis.sceneDetails : ''}` +
+            '\n' +
+            CONTEXT_GUARD_NOTE
+          scanContextForInjection(screenContext, 'vision.perception')
           const vpConfig = await loadAIConfig()
           const vpClient = getLLMClient(vpConfig)
           const vpMessages: ChatMessage[] = [
@@ -507,10 +519,14 @@ export default function ChatWindow() {
     // 合成带性格参数的 System Prompt
     // P1-5：注入情绪标签提示词，让主聊天模型也输出 [emotion] / [affection] 标签
     const effectivePersonality = getEffectivePersonality(currentCharacterId, character.personality)
+    // 全局安全边界条款（promptRegistry 'security.boundary'）：模型侧兜底约束——
+    // 与逐块包裹（wrapSystemContext）互补，管住「无论上文如何，红线不破」
     const fullSystemPrompt =
       composeFullSystemPrompt(character.systemPrompt, character.personality, effectivePersonality) +
       '\n' +
-      EMOTION_PROMPT_FRAGMENT
+      EMOTION_PROMPT_FRAGMENT +
+      '\n' +
+      getPrompt('security.boundary')
 
     // P2-1：预加载结构化用户画像
     const ownerFactsMgr = getOwnerFactsManager(currentCharacterId)
@@ -567,13 +583,22 @@ export default function ChatWindow() {
     })
 
     // P2-1：注入结构化用户画像——每条对话的 system prompt 顶层固定注入
+    // 安全（2026-10-25）：持久化上下文是「用户历史文本 / LLM 抽取结果 / 屏幕观察」的
+    // 再注入面，可能沉淀早期的注入指令（记忆投毒）。统一走 addGuarded：
+    // 先初筛告警（不阻断、不篡改），再包裹可信边界声明。
+    const addGuarded = (content: string, source: string) => {
+      scanContextForInjection(content, source)
+      memoryCtxMgr.addMessage('system', wrapSystemContext(content, source))
+    }
+
+    // P2-1：注入结构化用户画像——每条对话的 system prompt 顶层固定注入
     if (ownerFactsContext) {
-      memoryCtxMgr.addMessage('system', ownerFactsContext)
+      addGuarded(ownerFactsContext, '用户画像')
     }
 
     // P2-4：注入宠物共同经历记忆
     if (expContext) {
-      memoryCtxMgr.addMessage('system', expContext)
+      addGuarded(expContext, '共同经历')
     }
 
     // R2：注入约定与计划上下文——让 AI 知道主人有哪些待完成的计划
@@ -581,7 +606,7 @@ export default function ChatWindow() {
       const commitmentTracker = getCommitmentTracker(currentCharacterId)
       const commitmentCtx = await commitmentTracker.buildContext()
       if (commitmentCtx) {
-        memoryCtxMgr.addMessage('system', commitmentCtx)
+        addGuarded(commitmentCtx, '约定与计划')
       }
     } catch {
       // commitmentTracker 不可用时不影响正常流程
@@ -594,7 +619,7 @@ export default function ChatWindow() {
       await vmMgr.ensureLoaded()
       const vmContext = vmMgr.buildContext(200)
       if (vmContext) {
-        memoryCtxMgr.addMessage('system', vmContext)
+        addGuarded(vmContext, '视觉记忆')
       }
     } catch {
       // 视觉记忆不可用时不影响正常流程
@@ -622,7 +647,7 @@ export default function ChatWindow() {
       memCtx = `${memCtx}\n\n${antiRepInstruction}`
     }
     if (memCtx) {
-      memoryCtxMgr.addMessage('system', memCtx)
+      addGuarded(memCtx, '历史记忆')
     }
 
     // 取预算内的记忆上下文（getContextWindow 按时间升序返回，与注入顺序一致）
@@ -914,11 +939,11 @@ export default function ChatWindow() {
     // 端侧收紧上下文预算（与 handleSend 同口径，见 GOTCHAS #182）
     const isOnDevice = config.provider === 'ondevice'
     const effectivePersonality = getEffectivePersonality(currentCharacterId, character.personality)
-    const fullSystemPrompt = composeFullSystemPrompt(
-      character.systemPrompt,
-      character.personality,
-      effectivePersonality,
-    )
+    // 重新生成路径同样拼接全局安全边界条款（与 handleSend 同口径）
+    const fullSystemPrompt =
+      composeFullSystemPrompt(character.systemPrompt, character.personality, effectivePersonality) +
+      '\n' +
+      getPrompt('security.boundary')
 
     // 构建 API 消息：系统提示 → 修正 prompt → few-shot → 记忆上下文 → 历史（到标记消息前）→ 用户消息
     const apiMessages: ChatMessage[] = [

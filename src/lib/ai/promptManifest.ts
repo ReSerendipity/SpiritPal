@@ -85,6 +85,11 @@ export const PROMPT_FILE_BASELINE: Record<string, PromptFileBaseline> = {
   'src/lib/nurture/characterPack.ts': { hintLines: 3 },
   'src/lib/ai/emotionExtractor.ts': { hintLines: 0 },
   'src/lib/render/thinkTagParser.ts': { hintLines: 0 },
+  // —— 2026-10-25 补纳管：hooks/ 与 lib/system 域的散落提示此前不受漂移门禁覆盖 ——
+  'src/hooks/pet/usePetMemoryTriggers.ts': { hintLines: 1 },
+  // 整理提示已收敛为 MEMORY_ORGANIZE_PROMPT 常量（1 行）+ 评级 + 观察 = 3 行
+  'src/hooks/pet/usePetTimers.ts': { hintLines: 3 },
+  'src/lib/system/qualityMonitor.ts': { hintLines: 3 },
 }
 
 // ============ 外源 Prompt 清单 ============
@@ -231,6 +236,59 @@ export const EXTERNAL_PROMPT_MANIFEST: ExternalPromptRef[] = [
     changeLog: '首次登记（THINK_TAG_PROMPT_FRAGMENT，拼接进 System Prompt）',
     lastModified: '2026-10-16',
     owner: 'lib/render',
+  },
+
+  // ---- 2026-10-25 补纳管：hooks/ 与 lib/system 域（此前漂移门禁只覆盖 lib/ 六域） ----
+  // ---- 记忆触发 · 回忆渲染提示 ----
+  {
+    key: 'memoryTrigger.recallRender',
+    file: 'src/hooks/pet/usePetMemoryTriggers.ts',
+    anchors: ['你是SpiritPal桌面宠物，正在自然地提起一段回忆'],
+    version: 1,
+    changeLog: '首次登记（回忆气泡渲染提示，hooks 域补纳管）',
+    lastModified: '2026-10-25',
+    owner: 'hooks/pet',
+  },
+
+  // ---- 定时记忆巩固 · 整理 / 评级 / 宠物视角观察 ----
+  {
+    key: 'memoryTimer.organize',
+    file: 'src/hooks/pet/usePetTimers.ts',
+    anchors: ['你是一个记忆整理助手。请将以下对话总结为一条简洁的语义知识'],
+    version: 1,
+    changeLog:
+      '首次登记（语义知识整理提示；同日已把 6 小时维护与夜间巩固两处重复字面量收敛为 MEMORY_ORGANIZE_PROMPT 常量）',
+    lastModified: '2026-10-25',
+    owner: 'hooks/pet',
+  },
+  {
+    key: 'memoryTimer.rate',
+    file: 'src/hooks/pet/usePetTimers.ts',
+    anchors: ['你是记忆重要性评级助手'],
+    version: 1,
+    changeLog: '首次登记（夜间巩固的记忆重要性评级提示）',
+    lastModified: '2026-10-25',
+    owner: 'hooks/pet',
+  },
+  {
+    key: 'memoryTimer.observe',
+    file: 'src/hooks/pet/usePetTimers.ts',
+    anchors: ['你是宠物视角的观察助手'],
+    version: 1,
+    changeLog: '首次登记（当日活动片段浓缩为观察记忆的提示）',
+    lastModified: '2026-10-25',
+    owner: 'hooks/pet',
+  },
+
+  // ---- 回复质量评估 judge ----
+  {
+    key: 'qualityMonitor.judge',
+    file: 'src/lib/system/qualityMonitor.ts',
+    anchors: ['你是一个 AI 回复质量评估器', '请返回 JSON 格式：{"relevance"'],
+    version: 1,
+    changeLog: '首次登记（LLM 质量评估 judgePrompt，lib/system 域补纳管）',
+    lastModified: '2026-10-25',
+    owner: 'lib/system',
   },
 ]
 

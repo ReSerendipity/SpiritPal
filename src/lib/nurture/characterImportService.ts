@@ -16,6 +16,9 @@
  * @requires ./characterCardImporter - SillyTavern 卡导入器
  */
 
+// 2026-10-25：导入角色是不可信第三方内容，其 systemPrompt 进入主聊天 system 位置，
+// 导入时做注入初筛（检测层，命中并入用户可见的 warnings；运行时另有 security.boundary 兜底）
+import { scanImportedPrompt } from '@/lib/ai/inputInjectionScreen'
 import { saveCustomCharacter } from '@/lib/data/characters'
 import type { CharacterProfile } from '@/lib/data/types'
 import { tauriInvoke } from '@/lib/system/tauriInvoker'
@@ -26,6 +29,18 @@ import {
   type SillyTavernCharacterCard,
 } from './characterCardImporter'
 import { parseCharacterPackFromJSON, type PackParseResult } from './characterPack'
+
+/**
+ * 导入角色 systemPrompt 的注入初筛（检测层）。
+ * 命中时返回用户可见的警告文案（并入 UnifiedImportResult.warnings），不阻断导入。
+ */
+function importedPromptWarnings(profile: Pick<CharacterProfile, 'systemPrompt'>, source: string): string[] {
+  const hits = scanImportedPrompt(profile.systemPrompt, source)
+  if (hits.length === 0) return []
+  return [
+    `该角色的系统提示词中检测到疑似提示注入内容（特征：${hits.join('、')}）。已保留原样并记录日志；运行时受全局安全边界约束，建议安装前人工检查其人格设定文本。`,
+  ]
+}
 
 // ============ 类型定义 ============
 
@@ -219,7 +234,7 @@ async function importFromSillyTavernCard(card: SillyTavernCharacterCard): Promis
     characterId: profile.id,
     profile,
     errors: [],
-    warnings: cardResult.warnings,
+    warnings: [...cardResult.warnings, ...importedPromptWarnings(profile, 'sillytavern-card')],
     detectedFormat: 'sillytavern-card',
   }
 }
@@ -270,7 +285,7 @@ async function importFromDirectory(dirPath: string): Promise<UnifiedImportResult
       characterId: profile.id,
       profile,
       errors: [],
-      warnings,
+      warnings: [...warnings, ...importedPromptWarnings(profile, 'character-directory')],
       detectedFormat: packResult.detectedFormat,
     }
   } catch (e) {
@@ -306,7 +321,10 @@ function finalizeImport(packResult: PackParseResult): UnifiedImportResult {
     characterId: profile.id,
     profile,
     errors: [],
-    warnings: packResult.messages.filter((m) => m.level === 'warning').map((m) => m.message),
+    warnings: [
+      ...packResult.messages.filter((m) => m.level === 'warning').map((m) => m.message),
+      ...importedPromptWarnings(profile, 'character-pack-json'),
+    ],
     detectedFormat: packResult.detectedFormat,
   }
 }
