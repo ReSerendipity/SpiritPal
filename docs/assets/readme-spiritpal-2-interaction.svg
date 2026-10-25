@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" font-family="-apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif">
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#e2e8f0"/>
+    </linearGradient>
+    <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="720" fill="url(#bg2)"/>
+
+  <text x="60" y="60" fill="#0f172a" font-size="24" font-weight="700">交互流程 · 一次聊天的真实链路</text>
+  <text x="60" y="86" fill="#475569" font-size="13">用户输入 → ChatWindow → Provider 路由 → 并行记忆召回 → 流式响应（模块名对应仓库源码）</text>
+
+  <!-- 起点：用户输入 -->
+  <g transform="translate(60,300)">
+    <rect width="170" height="100" rx="12" fill="#0f172a"/>
+    <text x="85" y="40" text-anchor="middle" fill="#f1f5f9" font-size="14" font-weight="600">用户输入</text>
+    <text x="85" y="62" text-anchor="middle" fill="#94a3b8" font-size="11">ChatWindow.tsx</text>
+    <text x="85" y="80" text-anchor="middle" fill="#94a3b8" font-size="11">react-markdown 渲染</text>
+  </g>
+
+  <!-- 第二步：IPC -->
+  <line x1="230" y1="350" x2="290" y2="350" stroke="#475569" stroke-width="2" marker-end="url(#arrow2)"/>
+  <g transform="translate(290,300)">
+    <rect width="170" height="100" rx="12" fill="#fff" stroke="#38bdf8" stroke-width="2"/>
+    <text x="85" y="36" text-anchor="middle" fill="#0f172a" font-size="14" font-weight="600">Tauri IPC</text>
+    <text x="85" y="58" text-anchor="middle" fill="#475569" font-size="11">src-tauri/commands/</text>
+    <text x="85" y="76" text-anchor="middle" fill="#475569" font-size="11">invoke('chat_send')</text>
+  </g>
+
+  <!-- 第三步：Provider 路由（上行 LLM） -->
+  <line x1="460" y1="350" x2="520" y2="350" stroke="#475569" stroke-width="2" marker-end="url(#arrow2)"/>
+  <g transform="translate(520,200)">
+    <rect width="200" height="140" rx="12" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+    <text x="100" y="32" text-anchor="middle" fill="#92400e" font-size="14" font-weight="700">Provider 路由</text>
+    <g font-size="11" fill="#78350f">
+      <text x="16" y="58">OpenAI · Anthropic · Gemini</text>
+      <text x="16" y="78">DeepSeek · 千问 · GLM · Kimi</text>
+      <text x="16" y="98">豆包 · Ollama（本地）· 自定义</text>
+      <text x="16" y="122" fill="#92400e" font-style="italic">Key 存系统 Keychain（keychain.rs）</text>
+    </g>
+  </g>
+
+  <!-- 并行：本地记忆召回 -->
+  <g transform="translate(520,400)">
+    <rect width="200" height="140" rx="12" fill="#dcfce7" stroke="#10b981" stroke-width="2"/>
+    <text x="100" y="32" text-anchor="middle" fill="#065f46" font-size="14" font-weight="700">本地记忆召回</text>
+    <g font-size="11" fill="#065f46">
+      <text x="16" y="58">@xenova/transformers</text>
+      <text x="16" y="78">embedding 向量检索</text>
+      <text x="16" y="98">memory_sidecar（Rust）</text>
+      <text x="16" y="122" fill="#047857" font-style="italic">AES-256-GCM 加密落盘</text>
+    </g>
+  </g>
+
+  <!-- 分流箭头 -->
+  <path d="M 460 340 Q 490 270 520 270" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow2)"/>
+  <path d="M 460 360 Q 490 470 520 470" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow2)"/>
+
+  <!-- 合并：流式响应 -->
+  <line x1="720" y1="270" x2="800" y2="350" stroke="#475569" stroke-width="2" marker-end="url(#arrow2)"/>
+  <line x1="720" y1="470" x2="800" y2="370" stroke="#475569" stroke-width="2" marker-end="url(#arrow2)"/>
+  <g transform="translate(800,300)">
+    <rect width="180" height="100" rx="12" fill="#fff" stroke="#8b5cf6" stroke-width="2"/>
+    <text x="90" y="36" text-anchor="middle" fill="#4c1d95" font-size="14" font-weight="600">流式响应</text>
+    <text x="90" y="58" text-anchor="middle" fill="#6d28d9" font-size="11">SSE / fetch stream</text>
+    <text x="90" y="78" text-anchor="middle" fill="#6d28d9" font-size="11">渲染回聊天气泡</text>
+  </g>
+
+  <!-- 出口 -->
+  <line x1="980" y1="350" x2="1040" y2="350" stroke="#475569" stroke-width="2" marker-end="url(#arrow2)"/>
+  <g transform="translate(1040,300)">
+    <rect width="120" height="100" rx="12" fill="#0f172a"/>
+    <text x="60" y="42" text-anchor="middle" fill="#f1f5f9" font-size="14" font-weight="600">回到</text>
+    <text x="60" y="64" text-anchor="middle" fill="#f1f5f9" font-size="14" font-weight="600">桌边陪伴</text>
+  </g>
+
+  <!-- 旁路：MCP -->
+  <g transform="translate(80,560)">
+    <rect width="340" height="110" rx="12" fill="#fff" stroke="#94a3b8" stroke-dasharray="4,3"/>
+    <text x="170" y="30" text-anchor="middle" fill="#334155" font-size="13" font-weight="600">旁路：MCP 桥 spiritpal-mcp（sidecar）</text>
+    <text x="170" y="54" text-anchor="middle" fill="#64748b" font-size="11">mcp_bridge.rs · 供外部 MCP 客户端调用 SpiritPal 能力</text>
+    <text x="170" y="78" text-anchor="middle" fill="#64748b" font-size="11">全局快捷键 Ctrl+Shift+P 唤起 · 单实例 single-instance</text>
+    <text x="170" y="100" text-anchor="middle" fill="#64748b" font-size="11">崩溃自启：crash_YYYYMMDD_HHMMSS.log（60s/≤3 次）</text>
+  </g>
+
+  <text x="60" y="690" fill="#64748b" font-size="11">图为模块级链路示意，不含真实 API Key 与用户数据</text>
+</svg>
