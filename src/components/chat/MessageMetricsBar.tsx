@@ -1,69 +1,101 @@
-/**
- * 消息底部技术指标条
- *
- * 每条助手消息完成后显示一行简要数据（tokens / 耗时 / 速率），
- * 点击可展开详细指标（prompt tokens、completion tokens、TTFT、模型名等）。
- */
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { MessageMetrics } from '@/lib/data/types'
 
-interface MessageMetricsBarProps {
-  metrics: MessageMetrics
+function provided(value: number | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
 }
 
-/** 格式化数字：大于 1000 显示为 k */
-function fmtNum(n: number): string {
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
-  return String(n)
-}
-
-/** 格式化耗时：<1s 显示 ms，否则显示 s */
-function fmtDuration(ms: number): string {
-  if (ms < 1000) return `${Math.round(ms)}ms`
-  return `${(ms / 1000).toFixed(1)}s`
-}
-
-export function MessageMetricsBar({ metrics }: MessageMetricsBarProps) {
+export function MessageMetricsBar({ metrics }: { metrics: MessageMetrics }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
-
-  const totalTokens = metrics.promptTokens + metrics.completionTokens
-  const speed =
-    metrics.tokensPerSec ??
-    (metrics.durationMs > 0 ? Math.round(metrics.completionTokens / (metrics.durationMs / 1000)) : 0)
+  const id = useId()
+  const unknown = t('chatUi.context.notProvided')
+  const number = (value: number | undefined): string => (provided(value) ? String(Math.round(value)) : unknown)
+  const duration = (value: number | undefined): string => {
+    if (!provided(value)) return unknown
+    return value < 1000 ? `${Math.round(value)}ms` : `${(value / 1000).toFixed(1)}s`
+  }
+  const speed = (value: number | undefined): string => (provided(value) ? `${Number(value.toFixed(1))} tok/s` : unknown)
+  const time = (value: number | undefined): string => {
+    if (!provided(value) || !Number.isFinite(new Date(value).getTime())) return unknown
+    return new Date(value).toLocaleString(undefined, { hour12: false })
+  }
+  const statusKeys = {
+    streaming: 'chatUi.metrics.statusStreaming',
+    completed: 'chatUi.metrics.statusCompleted',
+    aborted: 'chatUi.metrics.statusAborted',
+    failed: 'chatUi.metrics.statusFailed',
+  } as const
+  const total =
+    provided(metrics.promptTokens) && provided(metrics.completionTokens)
+      ? metrics.promptTokens + metrics.completionTokens
+      : undefined
+  const source =
+    metrics.usageSource === 'reported'
+      ? t('chatUi.metrics.reported')
+      : metrics.usageSource === 'unavailable'
+        ? t('chatUi.metrics.unknownUsage')
+        : t('chatUi.metrics.historic')
 
   return (
-    <div className="mt-1 select-none">
-      {/* 简要行 */}
+    <div className="chat-metrics">
       <button
+        type="button"
+        className="chat-metrics-summary"
+        aria-expanded={expanded}
+        aria-controls={id}
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 rounded px-1.5 py-0.5 text-[10px] text-ink-faint/70 hover:bg-ink/4 hover:text-ink-faint transition-colors"
-        title={expanded ? '收起详情' : '展开详情'}
       >
-        <span>{fmtNum(totalTokens)} tok</span>
-        <span className="opacity-40">·</span>
-        <span>{fmtDuration(metrics.durationMs)}</span>
-        {speed > 0 && (
-          <>
-            <span className="opacity-40">·</span>
-            <span>{speed} tok/s</span>
-          </>
-        )}
-        {expanded ? <ChevronUp size={9} /> : <ChevronDown size={9} />}
+        <span>
+          {t('chatUi.metrics.input')} {number(metrics.promptTokens)}
+        </span>
+        <span>
+          {t('chatUi.metrics.output')} {number(metrics.completionTokens)}
+        </span>
+        <span>
+          {t('chatUi.metrics.firstOutput')} {duration(metrics.ttftMs)}
+        </span>
+        <span>
+          {t('chatUi.metrics.duration')} {duration(metrics.durationMs)}
+        </span>
+        {provided(total) && <span className="chat-metrics-total">{number(total)} tok</span>}
+        <span className="chat-metrics-source">{source}</span>
+        <span className="chat-sr-only">{expanded ? t('chatUi.metrics.collapse') : t('chatUi.metrics.expand')}</span>
+        {expanded ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
       </button>
-
-      {/* 展开详情 */}
       {expanded && (
-        <div className="mt-1 rounded-lg border border-ink/8 bg-cream-deep/50 px-2.5 py-2 text-[10px] leading-relaxed">
-          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-            <DetailRow label="输入 tokens" value={fmtNum(metrics.promptTokens)} />
-            <DetailRow label="输出 tokens" value={fmtNum(metrics.completionTokens)} />
-            <DetailRow label="总耗时" value={fmtDuration(metrics.durationMs)} />
-            <DetailRow label="首 token 延迟" value={metrics.ttftMs != null ? fmtDuration(metrics.ttftMs) : '—'} />
-            <DetailRow label="输出速率" value={speed > 0 ? `${speed} tok/s` : '—'} />
-            <DetailRow label="模型" value={metrics.model ?? '—'} />
-            {metrics.provider && <DetailRow label="Provider" value={metrics.provider} />}
-          </div>
+        <div id={id} className="chat-metrics-details">
+          <dl className="chat-metrics-grid">
+            <DetailRow label={t('chatUi.metrics.inTokens')} value={number(metrics.promptTokens)} />
+            <DetailRow label={t('chatUi.metrics.outTokens')} value={number(metrics.completionTokens)} />
+            <DetailRow label={t('chatUi.metrics.totalTokens')} value={number(total)} />
+            <DetailRow label={t('chatUi.metrics.source')} value={source} />
+            <DetailRow label={t('chatUi.metrics.firstOutputLatency')} value={duration(metrics.ttftMs)} />
+            <DetailRow label={t('chatUi.metrics.firstTextLatency')} value={duration(metrics.firstTextMs)} />
+            <DetailRow label={t('chatUi.metrics.generationTime')} value={duration(metrics.generationMs)} />
+            <DetailRow label={t('chatUi.metrics.totalTime')} value={duration(metrics.durationMs)} />
+            <DetailRow label={t('chatUi.metrics.outputRate')} value={speed(metrics.tokensPerSec)} />
+            <DetailRow label={t('chatUi.metrics.serverOutputRate')} value={speed(metrics.serverOutputTokensPerSec)} />
+            {/* This value is only supplied with server input timing; never infer it from total duration. */}
+            {provided(metrics.inputTokensPerSec) && (
+              <DetailRow label={t('chatUi.metrics.inputRate')} value={speed(metrics.inputTokensPerSec)} />
+            )}
+            <DetailRow label={t('chatUi.metrics.cachedInput')} value={number(metrics.cachedInputTokens)} />
+            <DetailRow label={t('chatUi.metrics.reasoning')} value={number(metrics.reasoningTokens)} />
+            <DetailRow
+              label={t('chatUi.metrics.status')}
+              value={metrics.status ? t(statusKeys[metrics.status] ?? 'chatUi.context.notProvided') : unknown}
+            />
+            <DetailRow label={t('chatUi.metrics.model')} value={metrics.model || unknown} />
+            <DetailRow label={t('chatUi.metrics.provider')} value={metrics.provider || unknown} />
+            <DetailRow label={t('chatUi.metrics.requestStart')} value={time(metrics.requestStartTs)} />
+            <DetailRow label={t('chatUi.metrics.firstOutputAt')} value={time(metrics.firstTokenTs)} />
+            <DetailRow label={t('chatUi.metrics.firstTextAt')} value={time(metrics.firstTextTs)} />
+            <DetailRow label={t('chatUi.metrics.responseEnd')} value={time(metrics.responseEndTs)} />
+          </dl>
+          <p className="chat-note">{t('chatUi.metrics.note')}</p>
         </div>
       )}
     </div>
@@ -72,9 +104,9 @@ export function MessageMetricsBar({ metrics }: MessageMetricsBarProps) {
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline gap-1">
-      <span className="text-ink-faint/60">{label}</span>
-      <span className="font-medium text-ink-muted">{value}</span>
+    <div className="chat-metric">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </div>
   )
 }

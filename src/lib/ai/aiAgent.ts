@@ -86,8 +86,12 @@ interface IntentKeyword {
   keywords: string[]
 }
 
+/** 英文启动应用需带明确应用对象，避免 'Start the story' / 'Open the door' 误走 Agent。 */
+const OPEN_APP_EN =
+  /\b(?:open|launch|start)\s+(?:the\s+)?(?:app|application|calc|calculator|notepad|browser|chrome|edge|settings|terminal|spotify|word|excel|powerpoint|wechat|qq)\b/i
+
 const INTENT_KEYWORDS: IntentKeyword[] = [
-  { tool: 'open_application', keywords: ['打开', '启动', '运行', '开启', 'open ', 'launch', 'start '] },
+  { tool: 'open_application', keywords: ['打开', '启动', '运行', '开启'] },
   { tool: 'search_web', keywords: ['搜索', '查一下', '查询', '搜索一下', '帮我查', 'search', 'google'] },
   // P0-4 修复：移除单独的"记得"——它会拦截"你还记得我们上次聊过的 XX 吗"这类记忆召回请求，
   // 导致回忆功能根本走不到。改为更精确的组合词，仅在明确表达"提醒我"意图时才触发提醒工具。
@@ -245,6 +249,7 @@ export const AGENT_TOOLS: ToolDefinition[] = [
  * @returns 匹配到的工具名，未匹配返回 null
  */
 export function matchIntent(message: string): string | null {
+  if (OPEN_APP_EN.test(message)) return TOOL_OPEN_APPLICATION
   const lower = message.toLowerCase()
   for (const intent of INTENT_KEYWORDS) {
     for (const kw of intent.keywords) {

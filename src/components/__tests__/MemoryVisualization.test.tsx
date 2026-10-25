@@ -4,6 +4,7 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { TagCloud, EmotionCurve, TimeDensityChart } from '@/components/MemoryVisualization'
 import type { EnhancedMemory } from '@/lib/memory/enhancedMemory'
+import '@/lib/system/i18n'
 
 // ============ 测试数据工厂 ============
 
@@ -153,6 +154,56 @@ describe('EmotionCurve', () => {
     expect(screen.getByText('近 30 天无记忆数据')).toBeInTheDocument()
   })
 
+  it('有记忆但情感强度全为 0 时给出明确空态，而不是伪造一条 0 曲线', () => {
+    const mem = createMemory({ emotionalIntensity: 0 })
+    render(<EmotionCurve memories={[mem]} />)
+    expect(screen.getByText(/尚未记录到情感强度/)).toBeInTheDocument()
+    expect(screen.queryByTestId('emotion-chart')).toBeNull()
+  })
+
+  it('单日数据不被横向拉伸：viewBox 宽度固定，文字与圆点保持比例', () => {
+    const mem = createMemory({ emotionalIntensity: 0.004, created_at: new Date().toISOString() })
+    const { container } = render(<EmotionCurve memories={[mem]} />)
+    const svg = screen.getByTestId('emotion-chart')
+    expect(svg.getAttribute('viewBox')).toBe('0 0 360 142')
+    expect(svg.getAttribute('preserveAspectRatio')).not.toBe('none')
+    expect(container.querySelector('text')?.getAttribute('font-size')).toBe('9')
+    expect(screen.getByText(/仅 1 天有记忆/)).toBeInTheDocument()
+  })
+
+  it('低强度数据的 y 轴刻度仍然可区分，不出现重复的 0.00/0.01', () => {
+    const mem = createMemory({ emotionalIntensity: 0.0037, created_at: new Date().toISOString() })
+    render(<EmotionCurve memories={[mem]} />)
+    const labels = Array.from(screen.getByTestId('emotion-y-ticks').querySelectorAll('text')).map((n) => n.textContent)
+    expect(labels).toEqual(['100%', '75%', '50%', '25%', '0%'])
+    const conclusion = screen.getByTestId('emotion-conclusion')
+    expect(conclusion.textContent).toMatch(/峰值 0\.0037/)
+    expect(conclusion.textContent).toMatch(/按本期峰值归一化/)
+  })
+
+  it('极小但非零的峰值显示为小于 0.001，而不是四舍五入成 0', () => {
+    const mem = createMemory({ emotionalIntensity: 0.000025, created_at: new Date().toISOString() })
+    render(<EmotionCurve memories={[mem]} />)
+    expect(screen.getByTestId('emotion-conclusion').textContent).toContain('峰值 <0.001')
+  })
+
+  it('图高足够阅读，且 30 天标签最多显示 6 个', () => {
+    const memories = Array.from({ length: 30 }, (_, i) =>
+      createMemory({
+        emotionalIntensity: 0.2 + (i % 5) * 0.1,
+        created_at: new Date(Date.now() - i * 86400000).toISOString(),
+      }),
+    )
+    const { container } = render(<EmotionCurve memories={memories} />)
+    const svg = screen.getByTestId('emotion-chart')
+    expect(svg.getAttribute('viewBox')).toBe('0 0 360 142')
+    const dateLabels = Array.from(container.querySelectorAll('text')).filter((t) =>
+      /^\d+\/\d+$/.test(t.textContent ?? ''),
+    )
+    expect(dateLabels.length).toBeGreaterThan(1)
+    expect(dateLabels.length).toBeLessThanOrEqual(6)
+  })
+
   it('有记忆时渲染 SVG 图表', () => {
     const { container } = render(<EmotionCurve memories={sampleMemories} />)
     const svg = container.querySelector('svg')
@@ -165,11 +216,24 @@ describe('EmotionCurve', () => {
     expect(circles.length).toBeGreaterThan(0)
   })
 
-  it('显示图例', () => {
+  it('显示峰值/日均双线图例', () => {
     render(<EmotionCurve memories={sampleMemories} />)
-    expect(screen.getByText('高情感')).toBeInTheDocument()
-    expect(screen.getByText('中情感')).toBeInTheDocument()
-    expect(screen.getByText('低情感')).toBeInTheDocument()
+    expect(screen.getByText('当日峰值')).toBeInTheDocument()
+    expect(screen.getByText('日均')).toBeInTheDocument()
+  })
+
+  it('同日多条记忆时峰值线与日均线分开绘制', () => {
+    const day = new Date(Date.now() - 86400000).toISOString()
+    const memories = [
+      createMemory({ emotionalIntensity: 0.9, created_at: day }),
+      createMemory({ emotionalIntensity: 0.1, created_at: day }),
+      createMemory({ emotionalIntensity: 0.2, created_at: new Date(Date.now() - 2 * 86400000).toISOString() }),
+    ]
+    render(<EmotionCurve memories={memories} />)
+    expect(screen.getByTestId('emotion-peak-line')).toBeInTheDocument()
+    expect(screen.getByTestId('emotion-average-line')).toBeInTheDocument()
+    expect(screen.getByTestId('emotion-conclusion').textContent).toMatch(/日均最高 0\.50/)
+    expect(screen.getByTestId('emotion-conclusion').textContent).toMatch(/峰值 0\.90/)
   })
 
   it('单条记忆也能正确渲染', () => {
@@ -196,7 +260,7 @@ describe('EmotionCurve', () => {
     expect(circle?.getAttribute('fill')).toBeNull()
     expect(circle?.getAttribute('stroke')).toBeNull()
     // stroke 也走令牌（stroke-ink/30），保证深色下可见
-    expect(circle?.className.baseVal ?? '').toContain('stroke-ink')
+    expect(circle?.className.baseVal ?? '').toContain('stroke-surface')
   })
 })
 
@@ -214,9 +278,9 @@ describe('TimeDensityChart', () => {
 
   it('有数据时渲染柱状图', () => {
     const { container } = render(<TimeDensityChart memories={sampleMemories} />)
-    // 柱状图用 div 渲染，检查是否有带 rounded-t 类的 div
-    const bars = container.querySelectorAll('.rounded-t')
-    expect(bars.length).toBeGreaterThan(0)
+    // 固定 12 个月窗口：即使只有一个月有数据，也应渲染 12 个柱位
+    const bars = container.querySelectorAll('[data-testid="density-bar"]')
+    expect(bars.length).toBe(12)
   })
 
   it('最多显示 12 个月', () => {
@@ -227,29 +291,30 @@ describe('TimeDensityChart', () => {
       }),
     )
     const { container } = render(<TimeDensityChart memories={longMemories} />)
-    const bars = container.querySelectorAll('.rounded-t')
-    expect(bars.length).toBeLessThanOrEqual(12)
+    const bars = container.querySelectorAll('[data-testid="density-bar"]')
+    expect(bars.length).toBe(12)
   })
 
   it('显示月份标签', () => {
     render(<TimeDensityChart memories={sampleMemories} />)
-    // 柱状图底部应该有月份文本标签
-    const chart = screen.getByText(/记忆密度/).closest('.rounded-xl')
-    expect(chart).toBeTruthy()
-    // 检查是否有 text-[8px] 类的标签（月份标签样式）
-    const monthLabels = chart?.querySelectorAll('.text-\\[8px\\]')
-    expect(monthLabels?.length).toBeGreaterThan(0)
+    // 12 个月都应有时长标签，而不是只显示有数据的月份
+    expect(screen.getAllByTestId('density-month-label').length).toBe(12)
   })
 
-  it('同月多条记忆聚合为一根柱', () => {
-    const sameMonthMems = [
-      createMemory({ created_at: '2026-07-01T10:00:00Z' }),
-      createMemory({ created_at: '2026-07-15T10:00:00Z' }),
-      createMemory({ created_at: '2026-07-20T10:00:00Z' }),
-    ]
+  it('同月多条记忆聚合为一根柱，并保留完整 12 个月时间轴', () => {
+    const now = new Date()
+    const sameMonthMems = [5, 15, 20].map((day) =>
+      createMemory({
+        created_at: new Date(now.getFullYear(), now.getMonth(), day, 10).toISOString(),
+      }),
+    )
     const { container } = render(<TimeDensityChart memories={sameMonthMems} />)
-    const bars = container.querySelectorAll('.rounded-t')
-    expect(bars.length).toBe(1) // 同月聚合为一根柱
+    const bars = container.querySelectorAll('[data-testid="density-bar"]')
+    // 单个有数据的月份不应铺满整块画布，而是 12 个柱位中只有一根有高度
+    expect(bars.length).toBe(12)
+    const nonZero = Array.from(bars).filter((bar) => Number(bar.getAttribute('data-count')) > 0)
+    expect(nonZero.length).toBe(1)
+    expect(nonZero[0].getAttribute('data-count')).toBe('3')
   })
 
   it('柱高度随记忆数量变化', () => {
@@ -259,9 +324,11 @@ describe('TimeDensityChart', () => {
       }),
     )
     const { container } = render(<TimeDensityChart memories={manyMemories} />)
-    const bars = container.querySelectorAll('.rounded-t')
-    // 不同月份的柱高度应该不同
-    expect(bars.length).toBeGreaterThan(0)
+    const heights = Array.from(container.querySelectorAll('[data-testid="density-bar"]')).map((bar) =>
+      Number(bar.getAttribute('data-height')),
+    )
+    expect(heights.length).toBe(12)
+    expect(new Set(heights).size).toBeGreaterThan(1)
   })
 })
 
@@ -335,23 +402,27 @@ describe('图表可读性（P2-3）', () => {
     render(<EmotionCurve memories={sampleMemories} />)
     // y 轴刻度：顶部 = 峰值均值，底部 = 0.00
     const ticks = screen.getByTestId('emotion-y-ticks')
-    expect(ticks.textContent).toContain('0.00')
+    expect(ticks.textContent).toContain('0%')
+    expect(ticks.textContent).toContain('100%')
     // 结论：峰值 = 最高日均强度（mem-5 的 0.95 与 mem-1 的 0.8 不同天，日均峰值 0.95）
     const conclusion = screen.getByTestId('emotion-conclusion')
-    expect(conclusion.textContent).toMatch(/纵轴 = 当日平均情感强度（0~1）/)
+    expect(conclusion.textContent).toMatch(/绝对强度 0~1/)
     expect(conclusion.textContent).toMatch(/峰值 0\.95（\d+\/\d+）/)
     expect(conclusion.textContent).toMatch(/共 \d+ 天有记忆/)
   })
 
   it('记忆密度：柱顶数值 + 结论副标题（峰值月/合计）', () => {
     render(<TimeDensityChart memories={sampleMemories} onSelectMonth={vi.fn()} />)
-    // 每根柱子都有数值标注
+    // 仅对非零月份标注数值，避免 12 个 0 挤在一起
     const counts = screen.getAllByTestId('density-count')
     expect(counts.length).toBeGreaterThan(0)
     expect(counts.map((c) => c.textContent).every((t) => /^\d+$/.test(t ?? ''))).toBe(true)
-    // 结论：峰值月 + 合计
+    const values = counts.map((c) => Number(c.textContent))
+    expect(values.every((v) => Number.isInteger(v))).toBe(true)
+    expect(values.reduce((sum, v) => sum + v, 0)).toBe(5)
+    // 结论：覆盖固定 12 个月窗口，峰值月 + 合计
     const conclusion = screen.getByTestId('density-conclusion')
     expect(conclusion.textContent).toMatch(/峰值 \d{4}-\d{2}（\d+ 条）/)
-    expect(conclusion.textContent).toMatch(/合计 5 条记忆/)
+    expect(conclusion.textContent).toMatch(/近 12 个月合计 5 条记忆/)
   })
 })

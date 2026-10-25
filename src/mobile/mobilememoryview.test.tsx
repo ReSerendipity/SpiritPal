@@ -1,13 +1,17 @@
 // MobileMemoryView smoke 测试 — 可视化 / 记忆列表子页导航
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { EnhancedMemory } from '@/lib/memory/enhancedMemory'
 import { MobileMemoryView } from '@/mobile/MobileMemoryView'
 
 // mock enhancedMemory：避免测试环境触发真实存储加载
+const { getAllMemoriesMock } = vi.hoisted(() => ({
+  getAllMemoriesMock: vi.fn<() => EnhancedMemory[]>(() => []),
+}))
 vi.mock('@/lib/memory/enhancedMemory', () => ({
   getEnhancedMemoryManager: vi.fn(() => ({
     ensureLoaded: vi.fn(async () => {}),
-    getAllMemories: vi.fn(() => []),
+    getAllMemories: getAllMemoriesMock,
   })),
   EnhancedMemoryManager: class {},
 }))
@@ -40,6 +44,7 @@ vi.mock('@/components/MemoryPanel', () => ({
 describe('MobileMemoryView', () => {
   beforeEach(() => {
     cleanup()
+    getAllMemoriesMock.mockReturnValue([])
   })
 
   it('默认渲染可视化子页（空记忆显示空状态）', async () => {
@@ -58,6 +63,36 @@ describe('MobileMemoryView', () => {
     await screen.findByText('暂无标签数据')
     fireEvent.click(screen.getByRole('button', { name: /记忆列表/i }))
     expect(screen.getByTestId('memory-panel')).toBeInTheDocument()
+  })
+
+  it('从记忆列表切回可视化时重新读取记忆，删除后无需重启即可刷新', async () => {
+    getAllMemoriesMock.mockReturnValue([
+      {
+        id: 'mem-refresh-1',
+        user: '喜欢爬山',
+        assistant: '记住啦',
+        created_at: new Date().toISOString(),
+        importance: 50,
+        emotionalIntensity: 0.5,
+        category: '日常',
+        tags: ['爬山'],
+        accessCount: 0,
+        lastAccessed: Date.now(),
+        decayFactor: 1,
+        isAutobiographical: false,
+      },
+    ])
+    render(<MobileMemoryView />)
+    expect(await screen.findByText('#爬山')).toBeInTheDocument()
+
+    // 模拟在记忆列表里删除后，管理器的数据已变化
+    getAllMemoriesMock.mockReturnValue([])
+    fireEvent.click(screen.getByRole('button', { name: /记忆列表/i }))
+    fireEvent.click(screen.getByRole('button', { name: /可视化/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('暂无标签数据')).toBeInTheDocument()
+    })
   })
 
   it('P3-7：语义事实子页渲染只读列表（key/重要性/来源数）', async () => {

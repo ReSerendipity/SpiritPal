@@ -67,6 +67,8 @@ export const IPC_COMMANDS = [
   'get_window_config',
   'hide_pet_window',
   'http_proxy',
+  'http_proxy_stream',
+  'http_proxy_abort',
   'import_petmod',
   'install_petmod',
   'is_fullscreen_detected',

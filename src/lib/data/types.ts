@@ -602,6 +602,14 @@ export interface AppSettings {
 
 // ============ 聊天消息 ============
 
+/** 本次请求实际使用的记忆上下文快照。 */
+export type ChatMemoryTrace = {
+  mode: 'enabled' | 'disabled' | 'temporary'
+  sections: { id: string; label: string; content: string; estimatedTokens: number }[]
+  capturedAt: number
+  error?: string
+}
+
 /**
  * 聊天消息接口
  */
@@ -627,6 +635,8 @@ export interface ChatMessage {
   // 技术性能指标（流式完成后回写）
   /** 本次 LLM 调用的性能与 token 用量指标 */
   metrics?: MessageMetrics
+  /** 本次请求的记忆上下文，不受之后的记忆变更影响 */
+  memoryTrace?: ChatMemoryTrace
   // P0-3: 发送状态机（离线/失败/超时/中止 显式区分，绝不静默标成功）
   /**
    * 消息发送状态。缺省（undefined）= 已成功送达；
@@ -646,10 +656,18 @@ export interface ChatMessage {
  * 在流式生成完成后由 ChatWindow 回写到 chatStore
  */
 export interface MessageMetrics {
-  /** 输入（prompt）token 数 */
-  promptTokens: number
-  /** 输出（completion）token 数 */
-  completionTokens: number
+  /** 服务商未报告时保持 undefined，不代表零消耗。 */
+  promptTokens?: number
+  completionTokens?: number
+  firstTextTs?: number
+  firstTextMs?: number
+  generationMs?: number
+  inputTokensPerSec?: number
+  serverOutputTokensPerSec?: number
+  cachedInputTokens?: number
+  reasoningTokens?: number
+  usageSource?: 'reported' | 'unavailable'
+  status?: 'streaming' | 'completed' | 'aborted' | 'failed'
   /** 请求发起时间戳（ms epoch） */
   requestStartTs: number
   /** 首 token 到达时间戳（ms epoch），即 TTFT 起点 */
@@ -695,6 +713,8 @@ export interface ChatSession {
   requestCount: number
   /** 是否被用户置顶 */
   pinned?: boolean
+  /** 临时会话仅驻留内存，不进入持久化或跨会话搜索 */
+  temporary?: boolean
 }
 
 /** 会话消息搜索命中（P1-1 多会话管理：跨会话全文搜索结果项） */

@@ -14,6 +14,7 @@ describe('chatStore', () => {
       activeSessionByCharacter: {},
       isLoading: false,
       abortController: null,
+      activeGenerationId: null,
     })
     localStorage.clear()
   })
@@ -163,9 +164,11 @@ describe('chatStore', () => {
       expect(msg?.sendStatus).toBe('pending')
     })
 
-    it('状态只作用于当前活跃会话', () => {
+    it('状态写回只影响目标消息，不污染另一角色的已完成消息', () => {
       usePetStore.setState({ currentCharacterId: 'doro' })
       const doroId = useChatStore.getState().sendMessage('doro msg')
+      // 单请求模型下连续 send 会中止前一请求；此处只验证状态更新隔离。
+      useChatStore.getState().finishStreaming(doroId)
       usePetStore.setState({ currentCharacterId: 'feibi' })
       const feibiId = useChatStore.getState().sendMessage('feibi msg')
       useChatStore.getState().setMessageStatus(feibiId, 'failed')

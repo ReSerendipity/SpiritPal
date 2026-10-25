@@ -18,12 +18,15 @@
 //! - API Key 经请求头透传，明文只在本机出网（与前端直连等价），不落盘
 //! - 私有 IP 段 / 内网探测 / DNS rebinding 目标均被拒绝（与 ssrfProtection.ts 逻辑一致）
 //!
-//! 已知限制：非流式返回（响应体整体拉回后透传），LLM 首字延迟略增；
-//! SSE 解析仍在前端进行，打字机渲染效果保留。
+//! `http_proxy_stream` 在 headers 到达时立即通知，逐块传递原始字节；
+//! 旧 `http_proxy` 保留整包返回接口，两者共用请求校验和逐块大小上限。
 
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tauri::AppHandle;
+use tauri::{ipc::Channel, AppHandle, State};
+use tokio_util::sync::CancellationToken;
 
 /// 单次请求总超时（LLM 流式响应时长 + 网络缓冲裕量）
 const DEFAULT_TIMEOUT_MS: u64 = 120_000;
@@ -152,12 +155,8 @@ pub struct HttpProxyRequest {
     pub max_body_bytes: Option<usize>,
 }
 
-/// Rust 侧 HTTP 网络出口（P0：绕过生产 CSP 对境内/本地服务商的阻断）
-#[tauri::command]
-pub async fn http_proxy(
-    _app: AppHandle,
-    request: HttpProxyRequest,
-) -> Result<HttpProxyResponse, String> {
+/// 共用构建路径，流式接口不能绕过旧接口的安全检查或 no_proxy。
+fn build_request(request: HttpProxyRequest) -> Result<(reqwest::RequestBuilder, usize), String> {
     let url = reqwest::Url::parse(&request.url).map_err(|_| "URL 格式无效".to_string())?;
     validate_target(&request.method, &url)?;
 
@@ -173,7 +172,12 @@ pub async fn http_proxy(
         .build()
         .map_err(|e| format!("HTTP 客户端初始化失败: {e}"))?;
 
-    let mut builder = client.request(request.method.parse::<reqwest::Method>().unwrap(), url);
+    let method = request
+        .method
+        .to_ascii_uppercase()
+        .parse::<reqwest::Method>()
+        .map_err(|_| "HTTP 方法无效".to_string())?;
+    let mut builder = client.request(method, url);
 
     if let Some(headers) = &request.headers {
         let mut map = HeaderMap::new();
@@ -194,10 +198,11 @@ pub async fn http_proxy(
         builder = builder.body(bytes);
     }
 
-    let response = builder.send().await.map_err(|e| format!("请求失败: {e}"))?;
+    Ok((builder, max_body_bytes))
+}
 
-    let status = response.status().as_u16();
-    let headers: Vec<(String, String)> = response
+fn response_headers(response: &reqwest::Response) -> Vec<(String, String)> {
+    response
         .headers()
         .iter()
         .map(|(k, v)| {
@@ -206,35 +211,415 @@ pub async fn http_proxy(
                 v.to_str().unwrap_or("<non-utf8>").to_string(),
             )
         })
-        .collect();
+        .collect()
+}
 
-    // 限制响应体大小：防御大文件整包缓冲（模组下载等）
-    let body_bytes = response
-        .bytes()
+/// 检查通过才更新计数/转发；不信任 Content-Length（含解压后的实际字节）。
+fn check_body_limit(count: &mut usize, chunk_len: usize, max: usize) -> Result<(), String> {
+    let total = count
+        .checked_add(chunk_len)
+        .ok_or_else(|| "响应体超限（计数溢出）".to_string())?;
+    if total > max {
+        return Err(format!("响应体超限（{total} 字节 > 上限 {max} 字节）"));
+    }
+    *count = total;
+    Ok(())
+}
+
+/// 兼容旧调用方的整包响应；同样逐块检查上限，越界立即丢弃连接。
+#[tauri::command]
+pub async fn http_proxy(
+    _app: AppHandle,
+    request: HttpProxyRequest,
+) -> Result<HttpProxyResponse, String> {
+    let (builder, max_body_bytes) = build_request(request)?;
+    let mut response = builder.send().await.map_err(|e| format!("请求失败: {e}"))?;
+    let status = response.status().as_u16();
+    let headers = response_headers(&response);
+    let mut count = 0;
+    let mut body_bytes = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
         .await
         .map_err(|e| format!("读取响应失败: {e}"))?
-        .to_vec();
-    if body_bytes.len() > max_body_bytes {
-        return Err(format!(
-            "响应体超限（{} 字节 > 上限 {} 字节）",
-            body_bytes.len(),
-            max_body_bytes
-        ));
+    {
+        check_body_limit(&mut count, chunk.len(), max_body_bytes)?;
+        body_bytes.extend_from_slice(&chunk);
     }
-
     use base64::Engine;
-    let body_base64 = base64::engine::general_purpose::STANDARD.encode(&body_bytes);
-
     Ok(HttpProxyResponse {
         status,
         headers,
-        body_base64,
+        body_base64: base64::engine::general_purpose::STANDARD.encode(&body_bytes),
     })
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum HttpProxyEvent {
+    Headers {
+        status: u16,
+        headers: Vec<(String, String)>,
+    },
+    Chunk {
+        #[serde(rename = "dataBase64")]
+        data_base64: String,
+    },
+    End,
+    Error {
+        message: String,
+    },
+}
+
+#[derive(Clone, Default)]
+pub struct HttpProxyState {
+    requests: Arc<Mutex<HashMap<String, CancellationToken>>>,
+}
+
+/// 无论成功、网络错误、取消或任务被 drop，登记项都必须回收。
+struct RequestGuard {
+    state: HttpProxyState,
+    id: String,
+}
+impl Drop for RequestGuard {
+    fn drop(&mut self) {
+        self.state
+            .requests
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&self.id);
+    }
+}
+
+async fn stream_response(
+    request: HttpProxyRequest,
+    send: &impl Fn(HttpProxyEvent) -> Result<(), String>,
+) -> Result<(), String> {
+    let (builder, max_body_bytes) = build_request(request)?;
+    let mut response = builder.send().await.map_err(|e| format!("请求失败: {e}"))?;
+    send(HttpProxyEvent::Headers {
+        status: response.status().as_u16(),
+        headers: response_headers(&response),
+    })?;
+    let mut count = 0;
+    use base64::Engine;
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|e| format!("读取响应失败: {e}"))?
+    {
+        check_body_limit(&mut count, chunk.len(), max_body_bytes)?;
+        send(HttpProxyEvent::Chunk {
+            data_base64: base64::engine::general_purpose::STANDARD.encode(&chunk),
+        })?;
+    }
+    Ok(())
+}
+
+fn start_proxy_stream(
+    state: HttpProxyState,
+    request: HttpProxyRequest,
+    request_id: String,
+    send: impl Fn(HttpProxyEvent) -> Result<(), String> + Send + Sync + 'static,
+) -> Result<(), String> {
+    let cancel = CancellationToken::new();
+    {
+        let mut requests = state
+            .requests
+            .lock()
+            .map_err(|_| "代理状态不可用".to_string())?;
+        if requests.contains_key(&request_id) {
+            return Err("重复的代理 requestId".into());
+        }
+        requests.insert(request_id.clone(), cancel.clone());
+    }
+    let guard = RequestGuard {
+        state,
+        id: request_id,
+    };
+    tokio::spawn(async move {
+        // select 丢弃 reqwest future 即取消 DNS/connect/headers/body 读取。
+        // 每次发送前也检查，避免已有大量 ready chunks 时延迟响应取消。
+        let send_data = |event| {
+            if cancel.is_cancelled() {
+                return Err("请求已取消".into());
+            }
+            send(event)
+        };
+        let result = tokio::select! {
+            biased;
+            _ = cancel.cancelled() => Err("请求已取消".into()),
+            result = stream_response(request, &send_data) => result,
+        };
+        // 先移除状态再发送唯一终态；迟到的 abort 是无操作，不留 tombstone。
+        drop(guard);
+        let event = match result {
+            Ok(()) => HttpProxyEvent::End,
+            Err(message) => HttpProxyEvent::Error { message },
+        };
+        let _ = send(event);
+    });
+    Ok(())
+}
+
+fn abort_proxy_stream(state: &HttpProxyState, request_id: &str) -> Result<(), String> {
+    let requests = state
+        .requests
+        .lock()
+        .map_err(|_| "代理状态不可用".to_string())?;
+    if let Some(cancel) = requests.get(request_id) {
+        cancel.cancel();
+    }
+    Ok(())
+}
+
+/// 回复仅确认登记完成，网络事件走 Channel，不把 invoke 挂到响应结束。
+#[tauri::command]
+pub async fn http_proxy_stream(
+    request: HttpProxyRequest,
+    request_id: String,
+    on_event: Channel<HttpProxyEvent>,
+    state: State<'_, HttpProxyState>,
+) -> Result<(), String> {
+    start_proxy_stream(state.inner().clone(), request, request_id, move |event| {
+        on_event
+            .send(event)
+            .map_err(|e| format!("代理 Channel 已关闭: {e}"))
+    })
+}
+
+#[tauri::command]
+pub fn http_proxy_abort(
+    request_id: String,
+    state: State<'_, HttpProxyState>,
+) -> Result<(), String> {
+    abort_proxy_stream(state.inner(), &request_id)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::sync::{mpsc, oneshot};
+
+    // A real HTTP peer with an explicit gate: no timing-based fake streaming.
+    // Until the test releases it, neither later bytes nor EOF can exist.
+    async fn http_peer(
+        initial: &'static [u8],
+    ) -> (
+        HttpProxyRequest,
+        oneshot::Sender<Vec<u8>>,
+        tokio::task::JoinHandle<()>,
+    ) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let (tx, rx) = oneshot::channel::<Vec<u8>>();
+        let task = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
+            let mut byte = [0];
+            while !request.ends_with(b"\r\n\r\n") {
+                if socket.read(&mut byte).await.unwrap() == 0 {
+                    return;
+                }
+                request.push(byte[0]);
+            }
+            socket.write_all(initial).await.unwrap();
+            tokio::select! {
+                rest = rx => {
+                    if let Ok(rest) = rest { let _ = socket.write_all(&rest).await; }
+                }
+                result = socket.read(&mut byte) => {
+                    assert_eq!(result.unwrap_or(0), 0, "cancel must drop the HTTP connection");
+                }
+            }
+        });
+        (
+            HttpProxyRequest {
+                url,
+                method: "GET".into(),
+                headers: None,
+                body_b64: None,
+                timeout_ms: Some(5_000),
+                max_body_bytes: None,
+            },
+            tx,
+            task,
+        )
+    }
+
+    fn start_test_stream(
+        state: &HttpProxyState,
+        request: HttpProxyRequest,
+        id: &str,
+    ) -> mpsc::UnboundedReceiver<HttpProxyEvent> {
+        let (tx, rx) = mpsc::unbounded_channel();
+        start_proxy_stream(state.clone(), request, id.into(), move |event| {
+            tx.send(event).map_err(|_| "receiver closed".into())
+        })
+        .unwrap();
+        rx
+    }
+
+    async fn next(rx: &mut mpsc::UnboundedReceiver<HttpProxyEvent>) -> HttpProxyEvent {
+        tokio::time::timeout(Duration::from_secs(3), rx.recv())
+            .await
+            .expect("event must arrive without waiting for peer EOF")
+            .unwrap()
+    }
+
+    async fn closed(peer: tokio::task::JoinHandle<()>) {
+        tokio::time::timeout(Duration::from_secs(3), peer)
+            .await
+            .expect("HTTP connection must be released")
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn stream_first_bytes_before_end_and_preserve_http_error_body() {
+        let (request, gate, peer) = http_peer(b"HTTP/1.1 429 Too Many Requests\r\nTransfer-Encoding: chunked\r\nX-Test: yes\r\n\r\n1\r\n\xe4\r\n").await;
+        let state = HttpProxyState::default();
+        let mut rx = start_test_stream(&state, request, "first");
+        match next(&mut rx).await {
+            HttpProxyEvent::Headers { status, headers } => {
+                assert_eq!(status, 429);
+                assert!(headers.contains(&("x-test".into(), "yes".into())));
+            }
+            other => panic!("headers must be first: {other:?}"),
+        }
+        let first = next(&mut rx).await;
+        assert_eq!(
+            serde_json::to_value(first).unwrap(),
+            serde_json::json!({"type": "chunk", "dataBase64": "5A=="})
+        );
+        assert!(matches!(
+            rx.try_recv(),
+            Err(mpsc::error::TryRecvError::Empty)
+        ));
+        gate.send(b"2\r\n\xb8\xad\r\n0\r\n\r\n".to_vec()).unwrap();
+        assert_eq!(
+            serde_json::to_value(next(&mut rx).await).unwrap(),
+            serde_json::json!({"type": "chunk", "dataBase64": "uK0="})
+        );
+        assert!(matches!(next(&mut rx).await, HttpProxyEvent::End));
+        assert!(rx.recv().await.is_none());
+        assert!(state.requests.lock().unwrap().is_empty());
+        closed(peer).await;
+    }
+
+    #[tokio::test]
+    async fn stream_size_limit_counts_chunks_and_aborts_without_eof() {
+        let (mut request, gate, peer) = http_peer(
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nAB\r\n2\r\nCD\r\n",
+        )
+        .await;
+        request.max_body_bytes = Some(3);
+        let state = HttpProxyState::default();
+        let mut rx = start_test_stream(&state, request, "limit");
+        assert!(matches!(
+            next(&mut rx).await,
+            HttpProxyEvent::Headers { .. }
+        ));
+        assert_eq!(
+            serde_json::to_value(next(&mut rx).await).unwrap(),
+            serde_json::json!({"type": "chunk", "dataBase64": "QUI="})
+        );
+        match next(&mut rx).await {
+            HttpProxyEvent::Error { message } => assert!(message.contains("响应体超限")),
+            other => panic!("expected size-limit error, got {other:?}"),
+        }
+        assert!(rx.recv().await.is_none());
+        assert!(state.requests.lock().unwrap().is_empty());
+        // The peer is still holding EOF back, yet the client must disconnect.
+        closed(peer).await;
+        drop(gate);
+    }
+
+    #[tokio::test]
+    async fn stream_abort_before_and_after_headers_is_idempotent() {
+        for initial in [
+            b"".as_slice(),
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n".as_slice(),
+        ] {
+            let (request, gate, peer) = http_peer(initial).await;
+            let state = HttpProxyState::default();
+            let mut rx = start_test_stream(&state, request, "cancel");
+            if !initial.is_empty() {
+                assert!(matches!(
+                    next(&mut rx).await,
+                    HttpProxyEvent::Headers { .. }
+                ));
+            } else {
+                // Make sure send() is pending on a connected server, not just queued.
+                tokio::task::yield_now().await;
+            }
+            abort_proxy_stream(&state, "cancel").unwrap();
+            abort_proxy_stream(&state, "cancel").unwrap();
+            assert!(matches!(next(&mut rx).await, HttpProxyEvent::Error { .. }));
+            assert!(rx.recv().await.is_none());
+            assert!(state.requests.lock().unwrap().is_empty());
+            abort_proxy_stream(&state, "cancel").unwrap();
+            drop(gate);
+            peer.abort(); // before-headers cancellation may happen before accept()
+        }
+    }
+
+    #[tokio::test]
+    async fn stream_errors_and_disconnected_channels_release_state() {
+        let (mut request, gate, peer) =
+            http_peer(b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\n").await;
+        request.timeout_ms = Some(200);
+        let state = HttpProxyState::default();
+        let mut rx = start_test_stream(&state, request, "timeout");
+        assert!(matches!(
+            next(&mut rx).await,
+            HttpProxyEvent::Headers { .. }
+        ));
+        assert!(matches!(next(&mut rx).await, HttpProxyEvent::Error { .. }));
+        assert!(rx.recv().await.is_none());
+        assert!(state.requests.lock().unwrap().is_empty());
+        closed(peer).await;
+        drop(gate);
+
+        let (request, gate, peer) =
+            http_peer(b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\n").await;
+        let rx = start_test_stream(&state, request, "disconnected");
+        drop(rx);
+        closed(peer).await;
+        assert!(state.requests.lock().unwrap().is_empty());
+        drop(gate);
+    }
+
+    #[tokio::test]
+    async fn stream_validation_error_is_terminal_and_does_not_open_network() {
+        let state = HttpProxyState::default();
+        let request = HttpProxyRequest {
+            url: "http://169.254.169.254/latest/meta-data/".into(),
+            method: "GET".into(),
+            headers: None,
+            body_b64: None,
+            timeout_ms: None,
+            max_body_bytes: None,
+        };
+        let mut rx = start_test_stream(&state, request, "ssrf");
+        match next(&mut rx).await {
+            HttpProxyEvent::Error { message } => assert!(message.contains("私有 IP")),
+            other => panic!("SSRF target must be rejected: {other:?}"),
+        }
+        assert!(rx.recv().await.is_none());
+        assert!(state.requests.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn byte_limit_exact_boundary_and_overflow() {
+        let mut count = 0;
+        check_body_limit(&mut count, 2, 3).unwrap();
+        check_body_limit(&mut count, 1, 3).unwrap();
+        assert!(check_body_limit(&mut count, 1, 3).is_err());
+        assert_eq!(count, 3);
+        count = usize::MAX;
+        assert!(check_body_limit(&mut count, 1, usize::MAX).is_err());
+    }
 
     fn url(u: &str) -> reqwest::Url {
         reqwest::Url::parse(u).unwrap()

@@ -3,7 +3,7 @@
  *
  * 数据源：EnhancedMemoryManager（经 MemoryEditor 搜索/更新）。
  * 位于 MemoryPanel 的「全部记忆」Tab 内，顶部为 MemoryFilterBar，
- * 每项提供铅笔按钮打开 MemoryEditModal。
+ * 每项提供铅笔按钮打开 MemoryEditModal，以及删除按钮（含确认）。
  *
  * 筛选为跨组 AND：标签维度（组内 OR）+ 分类（组内 OR）+ 时间范围。
  *
@@ -11,10 +11,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Pencil, Database } from 'lucide-react'
+import { Pencil, Database, Trash2 } from 'lucide-react'
 import { getEnhancedMemoryManager, type EnhancedMemory } from '@/lib/memory/enhancedMemory'
 import { createMemoryEditor, sanitizeMemoryForDisplay, type MemorySearchOptions } from '@/lib/memory/memoryEditor'
 import { TAG_DIMENSION_LABEL_MAP, parseTag, type TagDimension } from '@/lib/memory/tagCategories'
+import { confirmDialog } from '@/lib/system/confirmDialog'
 import { usePetStore } from '@/stores/petStore'
 import { MemoryEditModal, type MemoryFormValues } from './MemoryEditModal'
 import { MemoryFilterBar } from './MemoryFilterBar'
@@ -35,6 +36,7 @@ export function EnhancedMemoryList({ onCountChange }: EnhancedMemoryListProps) {
   const [editing, setEditing] = useState<EnhancedMemory | null>(null)
   const [saving, setSaving] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const editor = useMemo(() => {
     const mgr = getEnhancedMemoryManager(currentCharacterId)
@@ -100,6 +102,25 @@ export function EnhancedMemoryList({ onCountChange }: EnhancedMemoryListProps) {
     setEnd('')
   }, [])
 
+  const requestDelete = useCallback(
+    async (memory: EnhancedMemory) => {
+      setActionError(null)
+      const approved = await confirmDialog({
+        title: '删除这条记忆？',
+        message: '此操作不可恢复。',
+        detail: memory.user,
+        confirmLabel: '删除',
+        cancelLabel: '取消',
+        tone: 'danger',
+      })
+      if (!approved) return
+      const result = await editor.deleteMemory(memory.id)
+      if (result.success) setRefreshKey((k) => k + 1)
+      else setActionError('删除失败，请重试。')
+    },
+    [editor],
+  )
+
   return (
     <div className="flex flex-col gap-3">
       <MemoryFilterBar
@@ -113,6 +134,10 @@ export function EnhancedMemoryList({ onCountChange }: EnhancedMemoryListProps) {
         onEndChange={setEnd}
         onClear={handleClear}
       />
+
+      {actionError && (
+        <p className="rounded-lg border border-error/30 bg-error/10 px-3 py-2 text-xs text-error">{actionError}</p>
+      )}
 
       <div className="space-y-2">
         {items.length === 0 ? (
@@ -155,6 +180,14 @@ export function EnhancedMemoryList({ onCountChange }: EnhancedMemoryListProps) {
                 aria-label="编辑记忆"
               >
                 <Pencil size={14} />
+              </button>
+              <button
+                onClick={() => void requestDelete(mem)}
+                className="rounded p-1 text-ink-faint hover:bg-error/10 hover:text-error"
+                title="删除记忆"
+                aria-label="删除记忆"
+              >
+                <Trash2 size={14} />
               </button>
             </div>
           ))

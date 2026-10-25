@@ -42,7 +42,9 @@ export function MobileMemoryView() {
   const [semanticLoaded, setSemanticLoaded] = useState(false)
 
   // 异步加载全部记忆（可视化图表数据源）
+  // 切回可视化时重新拉取，确保「全部记忆」中的删除/编辑立即反映到图表
   useEffect(() => {
+    if (subView !== 'viz') return
     let cancelled = false
     void (async () => {
       const mgr = getEnhancedMemoryManager(currentCharacterId)
@@ -53,7 +55,7 @@ export function MobileMemoryView() {
     return () => {
       cancelled = true
     }
-  }, [currentCharacterId])
+  }, [currentCharacterId, subView])
 
   // P3-7：语义事实加载（只读，进入该子页时惰性拉取 + 角色切换重取）
   useEffect(() => {

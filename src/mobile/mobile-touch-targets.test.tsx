@@ -45,9 +45,8 @@ describe('触控命中区 ≥48dp（P2-1）', () => {
   it('清空与会话入口：after:-inset-2 扩展命中区', () => {
     render(<MobileChatView />)
     expect(classesOf(screen.getByLabelText('会话管理')).some((c) => c.startsWith('after:-inset-2'))).toBe(true)
-    const clear = screen.getByText('清空').closest('button')
-    expect(clear).not.toBeNull()
-    expect(classesOf(clear!).some((c) => c.startsWith('after:-inset-2'))).toBe(true)
+    const clear = screen.getByLabelText('清空')
+    expect(classesOf(clear).some((c) => c.startsWith('after:-inset-2'))).toBe(true)
   })
 
   it('主题切换：after:-inset-2 扩展命中区，点击仍生效', () => {

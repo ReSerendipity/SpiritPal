@@ -32,6 +32,7 @@ import {
   ChevronDown,
 } from 'lucide-react'
 import { getClipboardManager, type ClipboardEntry } from '@/lib/system/clipboardManager'
+import { confirmDialog } from '@/lib/system/confirmDialog'
 import { getSystemControls } from '@/lib/system/systemControls'
 
 /**
@@ -185,11 +186,16 @@ export function QuickControlsPanel() {
           <span className="text-[11px] text-ink-muted">({clipboardHistory.length})</span>
           {clipboardHistory.length > 0 && (
             <button
-              onClick={() => {
-                if (confirm('清空所有未固定的剪贴板历史？')) {
-                  clipMgr.clearAll()
-                  refreshClipboard()
-                }
+              onClick={async () => {
+                const approved = await confirmDialog({
+                  title: '清空剪贴板历史？',
+                  message: '所有未固定的剪贴板历史将被清空。',
+                  confirmLabel: '清空',
+                  tone: 'danger',
+                })
+                if (!approved) return
+                clipMgr.clearAll()
+                refreshClipboard()
               }}
               className="ml-auto flex items-center gap-1 text-[11px] text-error hover:text-error"
             >

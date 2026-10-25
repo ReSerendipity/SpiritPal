@@ -59,6 +59,8 @@ vi.mock('@/lib/memory/enhancedMemory', () => ({
     ensureLoaded: () => Promise.resolve(),
     getContextForChat: getContextForChatMock,
     addExchange: vi.fn(() => ({ id: 'mem-test-1' })),
+    updateMemoryIntensity: vi.fn(),
+    updateMemoryMood: vi.fn(),
   }),
 }))
 

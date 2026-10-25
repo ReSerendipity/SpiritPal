@@ -177,6 +177,19 @@ describe('detectAgentIntent', () => {
     expect(detectAgentIntent('今天心情怎么样')).toBe(false)
     expect(detectAgentIntent('给我讲个故事')).toBe(false)
   })
+
+  it('写作请求里的 start/open 动词不误判为启动应用', () => {
+    expect(
+      detectAgentIntent('Write a 250 word story about a cat walking in the rain. Start the story immediately.'),
+    ).toBe(false)
+    expect(detectAgentIntent('Start the story immediately')).toBe(false)
+    expect(detectAgentIntent('Open the door in the story')).toBe(false)
+  })
+
+  it('明确的英文启动应用表达仍然识别', () => {
+    expect(detectAgentIntent('launch the calculator')).toBe(true)
+    expect(detectAgentIntent('Start Spotify')).toBe(true)
+  })
 })
 
 describe('工具 execute 函数', () => {

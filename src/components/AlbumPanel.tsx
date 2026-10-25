@@ -23,6 +23,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Camera, Download, Trash2, Copy, X, Check, Image as ImageIcon, Share2, Sparkles, Pencil } from 'lucide-react'
 import { getCharacter } from '@/lib/data/characters'
+import { confirmDialog } from '@/lib/system/confirmDialog'
 import { getScreenshotManager, type Screenshot } from '@/lib/system/screenshotManager'
 
 // ============ 滤镜定义 ============
@@ -121,12 +122,17 @@ export function AlbumPanel() {
     }
   }
 
-  function handleClearAll() {
-    if (confirm('确定清空所有截图吗？此操作不可撤销。')) {
-      mgr.clearAll()
-      setSelected(null)
-      refresh()
-    }
+  async function handleClearAll() {
+    const approved = await confirmDialog({
+      title: '清空所有截图？',
+      message: '此操作不可撤销。',
+      confirmLabel: '清空',
+      tone: 'danger',
+    })
+    if (!approved) return
+    mgr.clearAll()
+    setSelected(null)
+    refresh()
   }
 
   // P3-27: 保存截图说明
