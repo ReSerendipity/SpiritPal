@@ -52,11 +52,7 @@ SpiritPal 是一只住在你桌面的 AI 伙伴，基于 Tauri v2 的原生应�
 
 ![首次见面](https://gcore.jsdelivr.net/gh/ReSerendipity/SpiritPal@main/docs/assets/readme-spiritpal-shot-1-main.png)
 
-**角色选择 · 欢迎页**
-
-![角色选择](https://gcore.jsdelivr.net/gh/ReSerendipity/SpiritPal@main/docs/assets/readme-spiritpal-shot-4-character.png)
-
-> 注：Web（纯浏览器）模式下聊天输入、设置、记忆等面板依赖 Tauri IPC（`window.__TAURI__`），浏览器中未渲染；这些面板仅在桌面 Tauri 构建（`pnpm tauri dev` / `pnpm tauri build`）中完整可用。
+> 注：Web（纯浏览器）模式下聊天输入、设置、记忆等面板依赖 Tauri IPC（`window.__TAURI__`），浏览器中未渲染；角色选择页也只能读出内置角色多罗，社区角色包依赖 Tauri 文件读取。这些界面仅在桌面 Tauri 构建（`pnpm tauri dev` / `pnpm tauri build`）中完整可用，因此本 README 不对其配图。
 
 ### 快速开始
 
@@ -160,11 +156,7 @@ SpiritPal is an AI companion that lives on your desktop — a native Tauri v2 ap
 
 ![First-run greeting](https://gcore.jsdelivr.net/gh/ReSerendipity/SpiritPal@main/docs/assets/readme-spiritpal-shot-1-main.png)
 
-**Character picker · welcome page**
-
-![Character picker](https://gcore.jsdelivr.net/gh/ReSerendipity/SpiritPal@main/docs/assets/readme-spiritpal-shot-4-character.png)
-
-> Note: in plain Web (browser-only) mode, the chat input, settings, and memory panels depend on Tauri IPC (`window.__TAURI__`) and are not rendered in the browser; those panels are fully available only in desktop Tauri builds (`pnpm tauri dev` / `pnpm tauri build`).
+> Note: in plain Web (browser-only) mode, the chat input, settings, and memory panels depend on Tauri IPC (`window.__TAURI__`) and are not rendered in the browser; the character picker can only read the built-in character Doro, because community packs rely on Tauri file access. Those screens are fully available only in desktop Tauri builds (`pnpm tauri dev` / `pnpm tauri build`), so this README does not illustrate them.
 
 ### Quick start
 
