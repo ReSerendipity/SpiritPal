@@ -7,9 +7,10 @@
 
 ***
 
-## [0.2.0] - 2026-10-29
+## [0.2.1] - 2026-10-29
 
 > 本版为 v0.1.0（2026-09-10）之后的首个 minor 版本，`main` 累计约 700 个提交。
+> v0.2.0 的 tag 在发布链 `Install pnpm` 步骤即失败（见 Fixed 首条），未产出任何安装包，故以 v0.2.1 重发。
 > 下方各分类先给面向用户的变更摘要，其后保留逐条细节（含内部工具/门禁类条目）。
 
 ### Added
@@ -60,6 +61,7 @@
 
 ### Fixed
 
+- **发布链在 `Install pnpm` 即失败**——`release.yml` 两处 `pnpm/action-setup` 仍传 `version: 11`，与 `package.json` 的 `packageManager: pnpm@11.26.0` 双源冲突；改为不传 `version`、由 `packageManager` 驱动（与 `ci.yml` 同口径）。v0.2.0 的 tag 因此未产出安装包，本版为修复后重发。
 - **应用内「检查更新」在宠物/聊天窗口报 `not allowed by ACL`**（v0.1.0 用户在主窗口必触发）——capability 补齐 updater/process/store 授权。
 - **Android release 包真机启动即崩**——R8 删除「仅 JNI 可达」方法导致 `NoSuchMethodError`；补齐 keep 规则并新增静态 + DEX 级双守卫。
 - **记忆与数据落盘类缺陷**：全新安装启用行级存储（修「对话写进了表、记忆列表恒为 0」）、移动端宠物互动/聊天补记忆旁路、`get_machine_id` 补移动端分支、二次启动 `.enc` 无法解密。
