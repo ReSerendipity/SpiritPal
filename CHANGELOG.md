@@ -7,10 +7,10 @@
 
 ***
 
-## [0.2.1] - 2026-10-29
+## [0.2.2] - 2026-10-29
 
 > 本版为 v0.1.0（2026-09-10）之后的首个 minor 版本，`main` 累计约 700 个提交。
-> v0.2.0 的 tag 在发布链 `Install pnpm` 步骤即失败（见 Fixed 首条），未产出任何安装包，故以 v0.2.1 重发。
+> v0.2.0 的 tag 在发布链 `Install pnpm` 步骤失败；v0.2.1 修复该步骤后又在 `tauri build` 因 Rust crate 与 npm 包 minor 版本不一致失败。两次均未产出安装包，故以 v0.2.2 重发。
 > 下方各分类先给面向用户的变更摘要，其后保留逐条细节（含内部工具/门禁类条目）。
 
 ### Added
@@ -61,7 +61,8 @@
 
 ### Fixed
 
-- **发布链在 `Install pnpm` 即失败**——`release.yml` 两处 `pnpm/action-setup` 仍传 `version: 11`，与 `package.json` 的 `packageManager: pnpm@11.26.0` 双源冲突；改为不传 `version`、由 `packageManager` 驱动（与 `ci.yml` 同口径）。v0.2.0 的 tag 因此未产出安装包，本版为修复后重发。
+- **Tauri Rust crate 与 npm 包版本不一致导致 `tauri build` 拒绝构建**——`Cargo.toml` 的宽松 `"2"` 使 lock 停在旧 minor（tauri 2.11.5 / 各插件 2.3~2.5），而 npm 已到 2.12/2.4~2.8。现将 Rust 侧对齐到 npm 所在 minor（tauri 2.12.5、autostart 2.7.0、store 2.5.0、process 2.4.0、fs 2.7.1、notification 2.5.1、dialog 2.8.4、deep-link 2.6.3、global-shortcut 2.4.1、updater 2.13.3），npm `@tauri-apps/plugin-fs` 同步升至 2.7.1。
+- **发布链在 `Install pnpm` 即失败**——`release.yml` 两处 `pnpm/action-setup` 仍传 `version: 11`，与 `package.json` 的 `packageManager: pnpm@11.26.0` 双源冲突；改为不传 `version`、由 `packageManager` 驱动（与 `ci.yml` 同口径）。
 - **应用内「检查更新」在宠物/聊天窗口报 `not allowed by ACL`**（v0.1.0 用户在主窗口必触发）——capability 补齐 updater/process/store 授权。
 - **Android release 包真机启动即崩**——R8 删除「仅 JNI 可达」方法导致 `NoSuchMethodError`；补齐 keep 规则并新增静态 + DEX 级双守卫。
 - **记忆与数据落盘类缺陷**：全新安装启用行级存储（修「对话写进了表、记忆列表恒为 0」）、移动端宠物互动/聊天补记忆旁路、`get_machine_id` 补移动端分支、二次启动 `.enc` 无法解密。
