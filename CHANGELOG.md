@@ -7,10 +7,17 @@
 
 ***
 
-## [Unreleased]
+## [0.2.0] - 2026-10-29
+
+> 本版为 v0.1.0（2026-09-10）之后的首个 minor 版本，`main` 累计约 700 个提交。
+> 下方各分类先给面向用户的变更摘要，其后保留逐条细节（含内部工具/门禁类条目）。
 
 ### Added
 
+- **Android 移动端从实验性走向可分发**：端侧 MNN LLM 内嵌（Rust 桥 + JNI）、云端与本地模型供应商可选、多会话聊天抽屉与跨会话搜索、消息发送状态机与消息级徽标、思维链折叠、记忆页新增「实体图谱 / 语义事实 / 上下文片段」子页、承诺到期提醒、番茄钟、数据管理面板（备份/恢复/删除/完整性检查/重置）、诊断导出、关键控件触控命中区 ≥48dp；移动端各页面 i18n 补齐（此前切语言对移动端界面无效）。
+- **端侧图像（Qwen-Image-2.1）**：设备分档 + 模型完整性校验 + 设置页入口与最小可用生成界面；模型权重由用户自行获取，不随包分发（非商用许可限制见 `docs/COMPLIANCE_CHECKLIST.md` §8）。
+- **桌面端体验**：深色模式首次真正生效（主题管理器接线）、设置页分组重构与设计令牌/UI Kit、性格编辑器雷达↔滑块联动、日程持久化升级到 SQLite 并支持 `.ics` 外部日历导入、更新链路每步可见（托盘/设置页入口 + 完整状态机）、崩溃自动重启（60s 冷却 + 上限 3 次）。
+- **角色与合规**：角色包导入向导（桌面 + 移动端单文件入口）、社区角色包工具；应用内首启协议门 + 法务文本同步 + 角色/Live2D 授权材料；用户反馈渠道（设置页入口 + GitHub issue 模板）。
 - `scripts/spec_audit_local.py` —— **仓内 spec-reference 审计器**（2026-10-14），仅依赖 Python 标准库，输出与仓外家族审计器同形的 JSON 报告，因此 `scripts/check_spec_refs.py` 在干净 CI 检出里也能真正执行。两层判据：① **调用层**——被门禁实际执行的脚本路径（`.github/workflows/*.yml` 的 `run:`、`package.json` scripts、`.pre-commit-config.yaml` 的 `repo: local` `entry:`、`.githooks/*`）必须存在；② **治理文档层**——入口文档与治理 README（`AGENTS.md`（若在）/ `README.md` / `.github/SECURITY.md` / `.github/PULL_REQUEST_TEMPLATE.md` / `.githooks/README.md`）内联代码里的仓内路径与相对 Markdown 链接必须解得开。保守护栏：只判版本化顶层前缀、跳过围栏代码块与 `（计划，未实现）` 行、剔除被 `.gitignore` 命中的路径（历史叙述文档不在仓内硬门禁范围内，仍由家族审计器覆盖）。配套 `scripts/__tests__/spec-audit-local.test.mjs`（6 用例，随 `pnpm test`）做**门禁自证**：正向（真实仓 rc=0 且判定读数超下限）+ 负向（注入缺失脚本 / 幽灵文档路径 → rc=1 且点名），防止审计器被改哑后变成新的装饰性门禁。
 
 - `scripts/check_android_proguard_keeps.py` —— Android release 的 **R8 keep 规则静态守卫**，并接入 CI 必需检查（`.github/workflows/structure-guard.yml` 的 `layout` job）。release 开 `minifyEnabled` 后 R8 会**静默**删掉「Kotlin/Java 侧无调用者、只能被 Rust 侧经 JNI 反射调用」的方法（编译期零告警、真机启动才 `NoSuchMethodError`，已踩 3 次）。守卫校验三件事：① `app/proguard-rules.pro` 是否覆盖全部 26 项「仅 JNI 可达」方法（ProGuard 语义感知：`native <methods>` 只算覆盖 native 方法、`pkg.*` 不跨包）；② `app/build.gradle` 的 release `proguardFiles` 是否仍引用该规则文件；③ `Cargo.lock` 里 `wry`/`tauri` 是否仍是已审计版本（依赖升级会改变 JNI 面，升级即报红要求重新审计）。纯静态、秒级、无需 Android 工具链。DEX 级证明仍需 `scripts/verify_android_jni_keeps.py`（需 APK，release 包出完必跑，SOP-4）。
@@ -39,6 +46,11 @@
 
 ### Changed
 
+- **数据与记忆层**：记忆改为 SQLite 行级存储（取代整块 blob，附带语义事实/摘要/状态表与一次性迁移）、检索打分真实化 + RRF 归一化 + 时间线索引与时间范围过滤、`chatStore` 持久化切 SQLite（`settingsStore` 保持加密例外）。
+- **界面一致性**：设计令牌统一（颜色/徽章/状态色全面令牌化）、移动端 emoji 图标改为单色线性 lucide、桌面端面板状态色令牌化；记忆列表控件去重为单一视图选择器。
+- **内置角色收敛**：移除 `feibi` / `gugugaga` 资源与对应配置（改为 `character-packs/` 模板 + 用户自备素材）。
+- **依赖与工程链**：依赖批量升级并持续清零漏洞（含 Tauri 生态、Vite、Vitest 4 迁移）；前端 `src/lib` 六群分层 + 依赖环拆除；Rust `lib.rs` 巨石拆分（1993 → ~900 行）；`.githooks` 随仓库分发（DCO 自动签名/校验）。
+- **发布链完整性**：新增 `docs/release-governance.md` 本仓发布/回滚规范、移除已裁决撤掉的 GPG 签名 workflow、`publish-updates` 挂载 `SHA256SUMS.txt`、把 `updates.json` 的生成与内容校验前置到「draft 转公开」之前，失败即退回 draft。
 - `crypto.rs` 新增内联单元测试模块（加密解密往返、数据损坏检测、密钥派生一致性）
 - 依赖批量升级（2026-09-11，dependabot #30-38）：Playwright 1.62.1→1.63.0（#30/#32）、@testing-library/react 16.3.3（#31）、@tauri-apps/plugin-updater 2.10.1→2.11.0（#33，含 Rust crate 对齐）、GitHub Actions（#34 osv-scanner 2.5.1 / #35 codecov 7 / #36 download-artifact 8 / #37 action-gh-release 3 / #38 setup-python 7）
 - N 卡性能实测记录（2026-09-11，RTX 5070）：冷启动 1071ms / 内存 51.0MB / Live2D FPS 59.4 / 模型切换 301ms（模拟值）——均达 PRD v0.2 门槛；基线无回归
@@ -48,6 +60,12 @@
 
 ### Fixed
 
+- **应用内「检查更新」在宠物/聊天窗口报 `not allowed by ACL`**（v0.1.0 用户在主窗口必触发）——capability 补齐 updater/process/store 授权。
+- **Android release 包真机启动即崩**——R8 删除「仅 JNI 可达」方法导致 `NoSuchMethodError`；补齐 keep 规则并新增静态 + DEX 级双守卫。
+- **记忆与数据落盘类缺陷**：全新安装启用行级存储（修「对话写进了表、记忆列表恒为 0」）、移动端宠物互动/聊天补记忆旁路、`get_machine_id` 补移动端分支、二次启动 `.enc` 无法解密。
+- **移动端真机缺陷**：键盘遮挡聊天输入栏、退出 SIGABRT、用户中止后静默标成功、宠物透明度/装饰品不生效、同步配置不持久化。
+- **大文件下载缺陷**：>2GiB 校验必败 + 206 续传错位 + `bytesWritten` 未处理（静默损坏）。
+- **行为缺陷**：情绪标签正则误吞 Markdown 链接正文、日程自动提取误建「幽灵日程」、`ChatWindow.mkMsg()` 仍用 `Math.random()` 生成消息 ID。
 - **`open_application` 的 URL scheme 白名单可被无 `://` 协议绕过（GAP-R01，2026-10-25，复查「Rust 侧防线完整」结论时发现）**：`validate_app_name` 的 scheme 校验条件是 `contains("://")`——`file:C:/Windows/System32/calc.exe`、`vbscript:...` 等**不含 `://` 的协议**不触发校验，直达 `open::that`（Windows 上走 ShellExecute，可打开/执行任意目标）；既有测试 `test_validate_app_name_ms_settings` 的注释（"ms-settings: 不包含 :// 所以不做 URL scheme 校验"）恰好记录了这个口子。可达性：Agent 正常链路不可达（TS zod `SAFE_APP_NAME_PATTERN` 拒绝 `:` 与 `/`），缺口在 **webview 失陷后直接 invoke** 的路径上——彼时 Rust 校验是最后一道防线。修法：校验条件收紧为 `contains(':')`，白名单补 `ms-settings:`（`APP_NAME_MAP`「设置」项的合法协议，原本恰是借该口子放行）；本地绝对路径（`C:/app.exe`）随之被拒（fail-closed 取舍，`open_application` 语义为「按名打开应用」）。回归：`validation.rs` 新增 4 个收口测试（file:/脚本协议/绝对路径拒绝、ms-settings 大小写放行），`cargo test --lib validation` 25/25 通过。**CI 追修（同日）**：首推后 CI `Run cargo test with coverage` 转红——集成测试 `tests/test_validation.rs::test_valid_protocol_uris` 仍断言 `mailto:` 应通过（旧 `contains("://")` 契约下不做 scheme 校验），与新契约冲突；已更新该断言为 `is_err()` 并注释 GAP-R01 取舍（mailto: 非产品在用协议，TS zod 层本就拒绝 `:`/`@`）。教训留痕：本地只跑了 `cargo test --lib`，漏了 `tests/` 集成套件——修复后已按全量 `cargo test`（lib 350 + crypto 36 + encrypted_db 8 + system_runtime 5 + validation 11）验证再推。
 - **AI 聊天提示词注入面集中加固（2026-10-25）**：五项缺口同批收口。① **单轮 Agent 路径缺工具模式权限校验（P0）**——`processAgentRequest` 此前只查 `AGENT_TOOLS` 注册表（全部 12 个工具），LLM 被越狱后返回 `read_file`（确认豁免名单内）即可在 agent 模式下越级执行 developer 权限工具且无需确认（ReAct 路径有 `isToolAllowed` 校验、单轮路径缺失）；现单轮路径补上 `isToolAvailableInMode` 强制（新增可选 `toolMode` 参数，默认 `'agent'`，与 ReAct 同口径），不变式钉进 `prompt.eval.test.ts` A 组。② **持久化上下文记忆投毒（P0）**——历史记忆/用户画像/共同经历/约定/视觉记忆/截断衔接摘要以 system 角色回灌给模型，其中沉淀的注入指令会跨会话存活；`inputInjectionScreen` 扩展 `scanContextForInjection`（注入前初筛告警，不阻断不篡改）+ `wrapSystemContext`/`CONTEXT_GUARD_NOTE`（统一可信边界声明包裹），ChatWindow 五段注入与 aiAgent 记忆拼接全部收口；另在 `promptRegistry` 新增版本化 `security.boundary`（v1）全局安全边界条款，拼接到主聊天与重新生成两条路径的 System Prompt 末尾（模型侧兜底，与逐块包裹互补）。③ **情绪标签正则误吞正文**——`extractEmotion`/`removeEmotionTags` 对任意 `[a-zA-Z_]+` 方括号文本一律清除，Markdown 链接 `[README](url)` 被剥成 `(url)`；收窄为「裸 `[word]` 仅命中 `EMOTION_MAP` 已知关键词才剥离，带 `emotion:`/`motion:` 显式前缀一律剥离」，回归钉进新增 `emotionTagStripping.test.ts`。④ **日程自动提取误建幽灵日程**——`parseScheduleFromText` 是纯时间解析（"明天"/"X分钟后"即命中）而聊天主流程对每条消息调用 `addFromChat`，"明天再说吧"也会被建成日程；`addFromChat` 新增 `requireIntent` 门槛（默认 true，需同时命中时间表达与 `hasReminderIntent()` 意图关键词），`set_reminder` 显式工具路径传 `requireIntent:false` 保持原能力，回归钉进新增 `scheduleIntent.test.ts`。⑤ **提示漂移门禁覆盖缺口**——`promptManifest` 此前只纳管 lib/ 六域，`usePetMemoryTriggers` / `usePetTimers` / `qualityMonitor` 里的 5 条 LLM 提示不受版本台账管；同日把 `usePetTimers` 两处重复的整理提示字面量收敛为 `MEMORY_ORGANIZE_PROMPT` 常量（锚点可唯一登记），5 条提示 + 3 个文件基线全部登记（hooks 域首次纳管）。新增评测：`prompt.eval.test.ts` D 组（上下文守卫）+ A 组模式边界不变式；`inputInjectionScreen.test.ts` 上下文守卫三用例。**复查追加（同日，"排除项"对抗性复查结论落地）**：⑥ **导入内容 systemPrompt 检测层**——角色卡/角色包/`.petmod` 模组是不可信第三方内容，其 systemPrompt 会进入主聊天 system 位置（恶意模组可借人格设定夹带指令）；`inputInjectionScreen` 新增 `scanImportedPrompt`（告警 + 返回 hits），`characterImportService` 三条导入路径（SillyTavern 卡 / 目录 / pet.json）命中并入用户可见 `warnings`，`modManager.toCharacterProfile` 转换点按 mod id 去重告警；不阻断导入（用户显式动作，运行时已有 `security.boundary` 拼接在 character.systemPrompt 之后兜底），回归钉进 `inputInjectionScreen.test.ts` 导入检测三用例。⑦ **`LegalDocument` 补显式 sanitize（防御纵深）**——此前仅靠 react-markdown 默认安全模型（无 rehype-raw 不渲染原始 HTML + defaultUrlTransform 清危险协议）与构建期静态内容兜底；现与 ChatWindow/MobileChatView 同口径挂 `rehypeSanitize`，防未来内容来源变化（如远程法务文本）时静默失去防线。**同环境事项**：本地 `dist/` 过期导致 `integrity::embedded_assets_match_sri_manifest` 报"内嵌资源缺失"（gitignored 构建产物落后于入库清单），已按 `tsc -b && vite build && obfuscate-and-sri.mjs` 全链路重建并重生成 `sri_hashes.rs`（35 个产物自校验一致，integrity 3/3 通过）。`open_path` 经审计维持现状：`Command::new("explorer").arg()` 为 argv 直传（无 shell 解释面）、唯一调用方传内部生成的应用数据目录、无执行语义。
 - **spec-refs 门禁在 CI 里「未执行也算绿」（fail-open 收尾，2026-10-14）**：`structure-guard.yml` 与 `docs-consistency.yml` 均以 `python scripts/check_spec_refs.py --allow-unavailable` 调用，而家族审计器位于**仓库外**（6 个家族仓库共用），干净 CI 检出必然搜不到 → 该步骤永远只报 `status=UNAVAILABLE` + `::warning::` 后退出 0，**一条路径都没判过**（2026-09-18 的三态退出码只把「静默报绿」改成「诚实的零判定」，没有改变零判定本身）。修法：包装脚本新增仓内回落（见 Added 项）后，两个 workflow **去掉 `--allow-unavailable`**，状态行加 `auditor=family|repo-local` 明说本次跑了哪套，`--family-only` 保留复现旧态的能力，退出码 `2` 收紧为「两套审计器都不存在」。**取舍**：不收归家族审计器（会 fork 家族逻辑），也不造 mock 报告（mock 只会把「审计器说什么」换成「写 mock 的人说什么」）。**验收**（`git worktree` 模拟干净检出：无 `AGENTS.md` / 无仓外审计器 / 无 gitignore 产物）：旧写法 rc=0 但判定读数 0；新写法 rc=1 并点名幽灵引用（判定读数 73）；注入 `run: python scripts/does-not-exist.py` → rc=1 点名缺失脚本；修复后 rc=0。
@@ -61,6 +79,14 @@
 - **CI 前端门禁转红（vitest 4 覆盖率口径变化）**：`cc0885a` 将 vitest 3.2.7 → 4.1.11（安全修复，无 3.x 修复版）后，vitest 4 的 v8 provider 改为 AST 感知重映射，同一份代码实测覆盖率由 lines 50.6/funcs 66.8/branches 78.8 降到 46.68/43/38.66，跌破 48/60/50/48 阈值。判据：转红区间（`cb0c3498`→`969f786`）内 **src/ 生产代码零改动**、163 个测试文件全通过 → 属度量口径变化而非质量退化。按新口径重校准阈值（lines 46 / functions 42 / branches 38 / statements 45，留 ~0.5pp 余量）并同步 `docs/agents/QUALITY_CONTRACT.md`。
 
 - **CI 前端矩阵移除 Node 20**：仓库使用 pnpm 11（lockfile 与 `pnpm/action-setup` 均锁 11），pnpm 11 要求 Node >= 22.13，Node 20 上直接报 `This version of pnpm requires at least Node.js v22.13` 并退出 —— 该矩阵项结构性不可能通过（Node 20 亦已 EOL）；矩阵改为 `[22]`。
+
+### Security
+
+- **AI 提示词注入面集中加固**（细节见 Fixed 段 2026-10-25 条目）：单轮 Agent 路径补工具模式权限校验、持久化上下文注入可信边界包裹 + 版本化 `security.boundary` 全局安全条款、导入的角色卡/角色包/`.petmod` systemPrompt 增加检测告警、`LegalDocument` 补显式 `rehypeSanitize`。
+- **`open_application` scheme 白名单收紧（GAP-R01）**：无 `://` 协议（`file:` / `vbscript:` 等）此前绕过校验，现按 `contains(':')` fail-closed，白名单仅保留 `ms-settings:`。
+- **本地凭据与存储**：`settingsStore` 改为 AES-256-GCM 加密持久化、PBKDF2 随机 salt、审计日志哈希链、SRI 运行时校验；Sentry 改为真实 SDK 动态加载并修复静默 catch。
+- **导入面与供应链**：上传魔数校验接入 4 条文件导入路径、密钥扫描门禁强制化、CodeQL 覆盖 Rust + Dependabot + SBOM + CSP 收紧、依赖审计棘轮基线门禁。
+- **依赖漏洞清零**：`ip-address`（GHSA-2vr4-cq9g-pvrc / CVE-2026-101910，见 Fixed 段）、11 条 npm 公告（brace-expansion 三版本线 + fast-uri 底座）、MCP SDK → 1.32.1 与 sharp → 0.35.5 清零剩余 high、vitest 4.1.12 消除 `@vitest/mocker` 公告、`zip` 0.6.6 → 9.0.4（RustSec 基线 7 → 4）；RustSec 上游无补丁且本仓不可达的公告登记为显式基线。
 
 ## [0.1.0] - 2026-09-10
 

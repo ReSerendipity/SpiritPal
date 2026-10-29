@@ -1,6 +1,6 @@
 [package]
 name = "spiritpal-app"
-version = "0.1.0"
+version = "0.2.0"
 description = "SpiritPal Desktop Pet"
 authors = ["SpiritPal"]
 license = "Apache-2.0"
