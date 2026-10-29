@@ -26,10 +26,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 版本由 package.json 的 packageManager 字段统一驱动（pnpm@11.26.0），
+      # 不能再传 version 输入，否则双源冲突 ERR_PNPM_BAD_PM_VERSION（与 ci.yml 同口径）。
       - name: Install pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - name: Install Node.js
         uses: actions/setup-node@v4
@@ -179,10 +179,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 同 release job：版本由 package.json 的 packageManager 驱动，不传 version 输入。
       - name: Install pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - name: Install Node.js
         uses: actions/setup-node@v4
