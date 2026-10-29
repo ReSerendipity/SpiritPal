@@ -7,10 +7,10 @@
 
 ***
 
-## [0.2.2] - 2026-10-29
+## [0.2.3] - 2026-10-29
 
 > 本版为 v0.1.0（2026-09-10）之后的首个 minor 版本，`main` 累计约 700 个提交。
-> v0.2.0 的 tag 在发布链 `Install pnpm` 步骤失败；v0.2.1 修复该步骤后又在 `tauri build` 因 Rust crate 与 npm 包 minor 版本不一致失败。两次均未产出安装包，故以 v0.2.2 重发。
+> v0.2.0 的 tag 在发布链 `Install pnpm` 步骤失败；v0.2.1 在 `tauri build` 因 Rust crate 与 npm 包 minor 版本不一致失败；v0.2.2 构建与资产上传成功、但收尾 `gh release upload` 缺 `--repo` 未转公开。三次均未产出公开版本，故以 v0.2.3 重发。
 > 下方各分类先给面向用户的变更摘要，其后保留逐条细节（含内部工具/门禁类条目）。
 
 ### Added
@@ -61,6 +61,8 @@
 
 ### Fixed
 
+- **发布链收尾 `Generate SHA256SUMS.txt` 步骤失败**——`gh release upload` 在 `cd /tmp` 后无 git 上下文可推断仓库，报 `not a git repository`；补显式 `--repo`。v0.2.2 的 Release 因此停在 draft。
+- **包大小门禁对 AppImage 必红**——PRD §10 的 <30MB 口径指安装包（NSIS/DEB 实测 6.8/10.8MB 通过），AppImage 为自带运行时的免安装格式（实测 87.4MB）；改按 120MB 独立阈值回归监控，基线趋势闸在 CI 加 `--allow-partial`（GPU 三项指标已按 T-08 移出 CI，本地人工验证）。
 - **Tauri Rust crate 与 npm 包版本不一致导致 `tauri build` 拒绝构建**——`Cargo.toml` 的宽松 `"2"` 使 lock 停在旧 minor（tauri 2.11.5 / 各插件 2.3~2.5），而 npm 已到 2.12/2.4~2.8。现将 Rust 侧对齐到 npm 所在 minor（tauri 2.12.5、autostart 2.7.0、store 2.5.0、process 2.4.0、fs 2.7.1、notification 2.5.1、dialog 2.8.4、deep-link 2.6.3、global-shortcut 2.4.1、updater 2.13.3），npm `@tauri-apps/plugin-fs` 同步升至 2.7.1。
 - **发布链在 `Install pnpm` 即失败**——`release.yml` 两处 `pnpm/action-setup` 仍传 `version: 11`，与 `package.json` 的 `packageManager: pnpm@11.26.0` 双源冲突；改为不传 `version`、由 `packageManager` 驱动（与 `ci.yml` 同口径）。
 - **应用内「检查更新」在宠物/聊天窗口报 `not allowed by ACL`**（v0.1.0 用户在主窗口必触发）——capability 补齐 updater/process/store 授权。

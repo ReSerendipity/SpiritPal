@@ -19,6 +19,13 @@ import { existsSync } from 'node:fs'
 // ============ 配置 ============
 
 const SIZE_LIMIT_MB = 30
+/**
+ * AppImage 单独阈值：PRD §10 的 <30MB 指标口径是「安装包」（NSIS/MSI/DMG/DEB），
+ * AppImage 是自带全部运行时的免安装便携格式，体积天然数倍于安装包
+ * （v0.2.2 CI 实测 87.38MB，同一程序 DEB 仅 10.82MB），按 30MB 必红且无优化空间；
+ * 取 120MB 作为可回归监控的上限（2026-10-29 裁决，与「安装包」指标并行监控）。
+ */
+const APPIMAGE_LIMIT_MB = 120
 /** 高占用预警线：达到限值的 85% 时告警（P2-03：当前 29.18MB ≈ 97%，新增功能即超标） */
 const SIZE_WARN_RATIO = 0.85
 const ROOT_DIR = join(import.meta.dirname, '..')
@@ -29,13 +36,13 @@ const DMG_DIR = join(ROOT_DIR, 'src-tauri', 'target', 'release', 'bundle', 'dmg'
 const DEB_DIR = join(ROOT_DIR, 'src-tauri', 'target', 'release', 'bundle', 'deb')
 const APPIMAGE_DIR = join(ROOT_DIR, 'src-tauri', 'target', 'release', 'bundle', 'appimage')
 
-// 安装包扩展名 → 平台映射
+// 安装包扩展名 → 平台映射（limitMB 缺省取 SIZE_LIMIT_MB）
 const PACKAGE_PATTERNS = [
   { exts: ['.exe'], platform: 'Windows (NSIS)', dirs: [NSIS_DIR] },
   { exts: ['.msi'], platform: 'Windows (MSI)', dirs: [MSI_DIR] },
   { exts: ['.dmg'], platform: 'macOS (DMG)', dirs: [DMG_DIR] },
   { exts: ['.deb'], platform: 'Linux (DEB)', dirs: [DEB_DIR] },
-  { exts: ['.AppImage'], platform: 'Linux (AppImage)', dirs: [APPIMAGE_DIR] },
+  { exts: ['.AppImage'], platform: 'Linux (AppImage)', dirs: [APPIMAGE_DIR], limitMB: APPIMAGE_LIMIT_MB },
 ]
 
 // ============ 工具函数 ============
@@ -98,6 +105,7 @@ async function checkPackageSizes() {
   const results = []
 
   for (const pattern of PACKAGE_PATTERNS) {
+    const limit = pattern.limitMB ?? SIZE_LIMIT_MB
     for (const dir of pattern.dirs) {
       const files = await findPackages(dir, pattern.exts)
       for (const file of files) {
@@ -105,7 +113,8 @@ async function checkPackageSizes() {
         results.push({
           ...info,
           platform: pattern.platform,
-          passed: info.sizeMB < SIZE_LIMIT_MB,
+          limitMB: limit,
+          passed: info.sizeMB < limit,
         })
       }
     }
@@ -144,7 +153,7 @@ async function checkPackageSizes() {
         ? '✅ 通过'
         : '❌ 超标'
     if (!r.passed && !r.platform.includes('Binary')) allPassed = false
-    if (!r.platform.includes('Binary') && r.sizeMB > SIZE_LIMIT_MB * SIZE_WARN_RATIO) nearLimit = true
+    if (!r.platform.includes('Binary') && r.sizeMB > r.limitMB * SIZE_WARN_RATIO) nearLimit = true
     const name = r.name.length > 12 ? r.name.slice(0, 11) + '…' : r.name
     console.log(`│ ${r.platform.padEnd(23)} │ ${name.padEnd(12)} │ ${formatSize(r.size).padEnd(8)} │ ${status.padEnd(6)} │`)
   }
@@ -153,7 +162,7 @@ async function checkPackageSizes() {
 
   console.log()
   if (allPassed) {
-    console.log('✅ 所有安装包均满足 PRD 指标 (<30MB)')
+    console.log(`✅ 所有安装包均满足各自阈值（安装包 <${SIZE_LIMIT_MB}MB，AppImage <${APPIMAGE_LIMIT_MB}MB）`)
     if (nearLimit) {
       console.log(`⚠️  有安装包已达限值的 ${(SIZE_WARN_RATIO * 100).toFixed(0)}% 以上 — 建议尽早扩容阈值或精简体积，防止新增功能即超标（P2-03）`)
     }

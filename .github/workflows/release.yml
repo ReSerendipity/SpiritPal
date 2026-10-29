@@ -203,8 +203,10 @@ jobs:
         run: node perf/package-size.mjs
 
       # P1-02: 只读回归比对（不写基线，避免跨 job 竞态）
+      # --allow-partial：cold-start/memory/fps 依赖 N 卡 GPU 桌面（T-08 已从 CI 移除，本地人工验证），
+      # 本 runner 结构性采不到这三项；CI 可采集项只有 package-size（上一步已生成）。
       - name: Baseline regression gate (read-only)
-        run: node perf/baseline-trend.mjs --read-only
+        run: node perf/baseline-trend.mjs --read-only --allow-partial
 
       - name: Upload performance results
         if: always()
@@ -268,7 +270,7 @@ jobs:
           cd /tmp/sp-sha256
           rm -f SHA256SUMS.txt        # 重跑发布链时覆盖旧清单自身，不重复累计
           sha256sum * > SHA256SUMS.txt
-          gh release upload "$TAG" SHA256SUMS.txt --clobber
+          gh release upload "$TAG" SHA256SUMS.txt --clobber --repo "${{ github.repository }}"
           echo "✓ SHA256SUMS.txt 已挂载（$(wc -l < SHA256SUMS.txt) 项）"
 
       # 顺序修正（Better Harness finding: release-goes-public-before-updates-manifest-verified）：
