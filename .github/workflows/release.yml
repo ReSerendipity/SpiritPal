@@ -247,7 +247,10 @@ jobs:
     name: Publish updates.json & Verify Assets
     needs: [release]
     # 完整链：needs release 成功后执行；收尾档（workflow_dispatch）：release 被跳过，本 job 独立执行。
-    if: github.event_name == 'workflow_dispatch' || needs.release.result == 'success'
+    # always() 前缀不可省：needs 上游被 skip 时，GitHub 会无条件级联跳过下游——纯布尔条件（哪怕
+    # event_name 判真）也进不来（实测 run 40887581431 整 job skipped）。always() 解除级联后，
+    # 括号内条件维持原闸门语义：push 链仍需 release 成功，构建失败时本 job 依旧不跑。
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.release.result == 'success') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
