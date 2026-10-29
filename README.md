@@ -71,14 +71,14 @@ pnpm tauri dev        # 开发模式（dev server :5223）
 pnpm tauri build      # 生产构建（NSIS / DMG / AppImage / deb）
 ```
 
-**免构建安装**：前往 [Releases](https://github.com/ReSerendipity/SpiritPal/releases) 下载对应平台安装包。Windows 首次运行可能出现 SmartScreen 提示——当前安装包未做 Authenticode 签名，属常见现象：「更多信息」→「仍然运行」即可；可比对 SHA-256 与 Release 页校验值。
+**免构建安装**：前往 [Releases](https://github.com/ReSerendipity/SpiritPal/releases) 下载对应平台安装包（Windows / Linux；**macOS 没有预置安装包**，需按上面的构建命令自行 `pnpm tauri build`）。Windows 首次运行可能出现 SmartScreen 提示——当前安装包未做 Authenticode 签名，属常见现象：「更多信息」→「仍然运行」即可；可比对 SHA-256 与 Release 页校验值。
 
 ### 系统要求与兼容性
 
 | 平台 | 安装包 | 备注 |
 |---|---|---|
 | Windows x64 | NSIS（`.exe`） | WebView2 引导安装 |
-| macOS | DMG | 未做 Notarization |
+| macOS | 源码构建 | 发布链不产出 macOS 包（推理需 NVIDIA 显卡，见 `docs/execution/RELEASE_VERIFICATION.md`）；本机构建出的 DMG 未做 Notarization |
 | Linux x64 | AppImage / `.deb` | 依赖 WebKit2GTK 4.1 |
 | Android | 源码构建 | minSdk 24，适配视图 |
 
@@ -175,14 +175,14 @@ pnpm tauri dev        # dev mode (dev server on :5223)
 pnpm tauri build      # production build (NSIS / DMG / AppImage / deb)
 ```
 
-**Prebuilt installers**: grab the right one from [Releases](https://github.com/ReSerendipity/SpiritPal/releases). On Windows, SmartScreen may warn on first launch — the installer is not Authenticode-signed yet, which is expected: *More info* → *Run anyway*. Cross-check the SHA-256 against the Release page if you prefer.
+**Prebuilt installers**: grab the Windows / Linux one from [Releases](https://github.com/ReSerendipity/SpiritPal/releases). **There is no macOS package** — build it yourself with `pnpm tauri build`. On Windows, SmartScreen may warn on first launch — the installer is not Authenticode-signed yet, which is expected: *More info* → *Run anyway*. Cross-check the SHA-256 against the Release page if you prefer.
 
 ### Requirements & compatibility
 
 | Platform | Package | Notes |
 |---|---|---|
 | Windows x64 | NSIS (`.exe`) | WebView2 bootstrapper |
-| macOS | DMG | Not notarized yet |
+| macOS | Build from source | Not in the release pipeline (inference requires an NVIDIA GPU — see `docs/execution/RELEASE_VERIFICATION.md`); a locally built DMG is not notarized |
 | Linux x64 | AppImage / `.deb` | Requires WebKit2GTK 4.1 |
 | Android | Build from source | minSdk 24, adapted view |
 

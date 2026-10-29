@@ -16,14 +16,15 @@
 ## 1. 版本号规范
 
 - 遵循 **SemVer** `MAJOR.MINOR.PATCH`；预发布用 `-alpha.N` / `-beta.N` / `-rc.N`。
-- **唯一权威版本位**：`package.json` 的 `version` 字段（当前 `0.1.0`）。
+- **唯一权威版本位**：`package.json` 的 `version` 字段（当前值以该文件为准，本文件不再抄写具体数字——抄一次就失真一次）。
 - **必须同步的其它版本位**（共 3 处代码位 + 2 处发布位）：
-  - `src-tauri/Cargo.toml` 的 `[package]` 段顶层 `version`（当前 `0.1.0`）；
-  - `src-tauri/tauri.conf.json` 的 `version` 字段（当前 `0.1.0`）；
-  - `updates.json` 的 `version`（当前 `0.1.0`，由发布链 `publish-updates` job 生成/回写）；
+  - `src-tauri/Cargo.toml` 的 `[package]` 段顶层 `version`；
+  - `src-tauri/tauri.conf.json` 的 `version` 字段；
+  - `updates.json` 的 `version`（**不由本地一致性工具覆盖**：它是发布链 `publish-updates` job 生成/回写的产物，代表「最后一次公开 release」，在打 tag 到该 job 提交清单之间天然落后于 `package.json`，因此不能与源码版本位做等值比较）；
   - 发布 tag `v<X.Y.Z>`（须与 `package.json` 版本逐字符相等，仅多一个 `v` 前缀）。
 - **版本位漂移由以下入口钉住——漂一处即判红**：
-  - `node scripts/sync-version.mjs --check`（比对 `package.json` / `Cargo.toml` / `tauri.conf.json` 三处；在 `.github/workflows/docs-consistency.yml` 的 `version-consistency` job 中执行）；
+  - `node scripts/sync-version.mjs --check`（比对 `package.json` / `Cargo.toml` / `tauri.conf.json` 三处代码位；在 `.github/workflows/docs-consistency.yml` 的 `version-consistency` job 中执行；**不比对 `updates.json`**）；
+  - `updates.json` 一侧由 `.github/workflows/release.yml` 的 `Verify updates.json content` 步骤钉住：其 `version` 必须等于本次要公开的 tag，不等就在 draft 转公开之前失败；
   - `.github/workflows/verify-release-version.yml`（独立门禁：校验三处一致 + tag 与 `package.json` 一致）；
   - `.github/workflows/release.yml` 首个步骤 `Verify release tag matches package version`（跨 workflow 无法 `needs` 阻断，故发布链自身在**任何 release 创建/上传动作之前**再判一次）。
 - **自动化方式：手动 tag（人工）**。本仓**不使用 release-please**，无自动版本递增；版本号由人工在 `package.json` 改定后，`node scripts/sync-version.mjs` 回写到另外两处。
@@ -102,9 +103,9 @@
 
 | 占位符 | 采集来源 | 本仓取值 |
 |---|---|---|
-| 版本位文件与字段 | 仓内版本声明 | `package.json` 的 `version`（唯一权威，当前 `0.1.0`） |
-| 其它需同步版本位 | 版本一致性工具 | `src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`、`updates.json`、发布 tag `v<ver>` |
-| 版本一致性校验入口 | `scripts/`、`.github/workflows/` | `node scripts/sync-version.mjs --check`；`verify-release-version.yml`；`release.yml` 首发步骤 |
+| 版本位文件与字段 | 仓内版本声明 | `package.json` 的 `version`（唯一权威；当前值以该文件为准） |
+| 其它需同步版本位 | 按位分工 | 代码位 `src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json` 由版本一致性工具比对；`updates.json` 与发布 tag `v<ver>` 由发布链比对（见上节） |
+| 版本一致性校验入口 | `scripts/`、`.github/workflows/` | `node scripts/sync-version.mjs --check`（三处代码位）；`verify-release-version.yml`；`release.yml` 首发步骤 + `Verify updates.json content`（清单↔tag） |
 | 自动化方式 | `.github/workflows/` | **手动 tag（人工）**；无 release-please |
 | 发布 workflow 文件名 | `.github/workflows/` | `release.yml`（`push: tags: 'v*'`）、`verify-release-version.yml`、`sbom.yml` |
 | 产物形态与标签规则 | 构建 workflow | Tauri 桌面包：Windows NSIS `setup.exe`、Linux AppImage/deb；不可变，URL 绑定 `v<ver>`，无 `latest` |
