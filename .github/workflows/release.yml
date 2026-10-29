@@ -1,16 +1,40 @@
 name: Release
 
+# ## 两档触发（2026-10-29，v0.2.3 发版复盘）
+# 1. **push tags v\*（完整发布链）**：构建三平台产物 → draft → 资产校验 → SHA256SUMS → updates.json 生成校验 → 转公开 → 开 updates.json 同步 PR。
+# 2. **workflow_dispatch（收尾档 tail-only）**：以 `--ref main -f tag=<已存在的 tag>` 派发，**跳过两个构建 job**，只跑
+#    `publish-updates`——用于完整链跑到「构建/上传」都成功、仅收尾步骤失败的场景（v0.2.3 实测：
+#    ruleset `governance-baseline` 要求 main 必须走 PR 且 bot 不在 bypass 名单，直推 updates.json 被 GH013 拒）。
+#    收尾档对已发布 release 各步骤均为幂等（edit --draft=false / SHA256SUMS --clobber），可安全重放。
+#    注：workflow_dispatch 读取的是 --ref 处的本文件定义，旧 tag 提交上没有该触发器，故必须 --ref main；
+#    目标 release 由 inputs.tag 指定（未填时回退 github.ref_name，push 场景不受影响）。
+#
+# ## 为什么 updates.json 从「直推 main」改为「开 PR」（2026-10-29）
+# 原步骤 `git push origin HEAD:main` 用 GITHUB_TOKEN 直推，被 ruleset「Changes must be made through a pull
+# request」拒绝（run 40881029744 末步实证；bypass 名单只有 Integration 29110）。改为本分支推
+# `chore/updates-json-<tag>` + `gh pr create`，由 owner 审批合并——不改 ruleset（红线），人工动作收敛为
+# 一次 approve + merge。合并前 Release 已公开、清单未入库的窗口是有意为之：清单校验在转公开之前完成，
+# PR 只承载已验证内容。
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    description: '收尾档：跳过构建，对 tag 输入指定的既有 release 重放发布链收尾（转公开 + updates.json PR）。须 --ref main'
+    inputs:
+      tag:
+        description: '目标 release tag（如 v0.2.3）'
+        required: true
+        type: string
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   release:
     name: Release (${{ matrix.platform }})
+    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -222,10 +246,13 @@ jobs:
   publish-updates:
     name: Publish updates.json & Verify Assets
     needs: [release]
+    # 完整链：needs release 成功后执行；收尾档（workflow_dispatch）：release 被跳过，本 job 独立执行。
+    if: github.event_name == 'workflow_dispatch' || needs.release.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
@@ -242,7 +269,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          TAG="${{ github.ref_name }}"
+          TAG="${{ inputs.tag || github.ref_name }}"
           gh release view "$TAG" --json assets -q '.assets[].name' > /tmp/assets.txt
           echo "=== Release 资产清单 ($(wc -l < /tmp/assets.txt) 项) ==="
           cat /tmp/assets.txt
@@ -264,7 +291,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          TAG="${{ github.ref_name }}"
+          TAG="${{ inputs.tag || github.ref_name }}"
           rm -rf /tmp/sp-sha256 && mkdir -p /tmp/sp-sha256
           gh release download "$TAG" --dir /tmp/sp-sha256 --clobber
           cd /tmp/sp-sha256
@@ -283,7 +310,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          node scripts/generate-updates-json.mjs --repo "${{ github.repository }}" --tag "${{ github.ref_name }}"
+          node scripts/generate-updates-json.mjs --repo "${{ github.repository }}" --tag "${{ inputs.tag || github.ref_name }}"
 
       - name: Verify updates.json content
         run: |
@@ -304,35 +331,59 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          gh release edit "${{ github.ref_name }}" --repo "${{ github.repository }}" --draft=false
-          echo "::notice::draft 已转正式 release：${{ github.ref_name }}（updates.json 已先于此校验通过）"
+          gh release edit "${{ inputs.tag || github.ref_name }}" --repo "${{ github.repository }}" --draft=false
+          echo "::notice::draft 已转正式 release：${{ inputs.tag || github.ref_name }}（updates.json 已先于此校验通过）"
 
-      - name: Commit and push updates.json
+      - name: Commit updates.json and open sync PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
+          TAG="${{ inputs.tag || github.ref_name }}"
+          BRANCH="chore/updates-json-${TAG}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add updates.json
           if git diff --cached --quiet; then
-            echo "updates.json 无变化，跳过提交"
+            echo "updates.json 与 ${TAG} 生成结果无差异，跳过提交"
+            exit 0
+          fi
+          # 仅 pub_date 变化（清单内容 version/url/signature 全同）时不制造空转 PR——
+          # 收尾档重放已同步过的 release 时会命中此分支。
+          if ! git diff --cached -U0 -- updates.json | grep -E '^[+-][^+-]' | grep -v '"pub_date"' | grep -q .; then
+            echo "updates.json 仅 pub_date 变化，内容无实质差异，跳过提交"
+            git checkout -- updates.json
+            exit 0
+          fi
+          # checkout 在 --ref（main）上。ruleset 要求 main 必须走 PR（bot 无 bypass），
+          # 故推到独立分支并开 PR；不带 [skip ci]——PR 需要跑齐 ruleset 的必需检查才能合并。
+          # commit -s 满足 DCO 必需检查（trailer 与 bot 作者身份一致）。
+          git checkout -b "$BRANCH"
+          git commit -s -m "chore(ci): sync updates.json for ${TAG}"
+          git push origin "$BRANCH"
+          if [ -n "$(gh pr list --repo "${{ github.repository }}" --head "$BRANCH" --state open --json number -q '.[0].number // empty')" ]; then
+            echo "PR 已存在（head=$BRANCH），跳过创建"
           else
-            git commit -m "chore(ci): sync updates.json for ${{ github.ref_name }} [skip ci]"
-            # checkout 在 tag（detached HEAD），无本地 main ref；用 HEAD:main 推送
-            git push origin HEAD:main
+            gh pr create --repo "${{ github.repository }}" --base main --head "$BRANCH" \
+              --title "chore(ci): sync updates.json for ${TAG}" \
+              --body "发布链 ${TAG} 收尾自动同步更新清单。Release 已按链序完成资产校验与转公开，本 PR 仅承载已验证的 updates.json。ruleset 禁止 bot 直推 main，请审批合并。"
           fi
 
-      # 失败侧收口：公开发布之后的任一步失败（典型如 tag 提交不在 main 历史上、对 main 非快进被拒）时，
-      # 把该 release 退回 draft，避免留下「用户可下载但更新清单没跟上」的半完成态。
+      # 失败侧收口：公开发布之后的任一步失败时，把该 release 退回 draft，避免留下
+      # 「用户可下载但更新清单没跟上」的半完成态。
+      # 仅限 push 完整链：收尾档（workflow_dispatch）面对的 release 往往在派发前就已公开
+      # （v0.2.3 场景），退回 draft 会把用户正在用的版本下线，属反向破坏，不做。
       - name: Re-draft release if a post-publication step failed
-        if: failure()
+        if: failure() && github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -uo pipefail
-          STATE=$(gh release view "${{ github.ref_name }}" --repo "${{ github.repository }}" --json isDraft -q '.isDraft' 2>/dev/null || echo unknown)
+          STATE=$(gh release view "${{ inputs.tag || github.ref_name }}" --repo "${{ github.repository }}" --json isDraft -q '.isDraft' 2>/dev/null || echo unknown)
           echo "当前 isDraft=$STATE"
           if [ "$STATE" = "false" ]; then
-            gh release edit "${{ github.ref_name }}" --repo "${{ github.repository }}" --draft=true
-            echo "::error::发布链后半段失败，已把 ${{ github.ref_name }} 退回 draft；在 updates.json 同步成功前不要让该版本对外可见"
+            gh release edit "${{ inputs.tag || github.ref_name }}" --repo "${{ github.repository }}" --draft=true
+            echo "::error::发布链后半段失败，已把 ${{ inputs.tag || github.ref_name }} 退回 draft；在 updates.json 同步成功前不要让该版本对外可见"
           else
             echo "该 release 未处于公开态（或不存在），无需退回"
           fi
