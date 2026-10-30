@@ -19,5 +19,4 @@ class Ipc(val webView: RustWebView, val webViewClient: RustWebViewClient) {
         }
     }
 
-
 }

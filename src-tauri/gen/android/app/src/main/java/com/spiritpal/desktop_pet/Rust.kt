@@ -13,7 +13,7 @@ import android.webkit.WebResourceResponse
 
 object Rust {
     init {
-        System.loadLibrary("{{library}}")
+        System.loadLibrary("spiritpal_lib")
     }
 
     // Tao bindings
