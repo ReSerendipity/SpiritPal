@@ -41,10 +41,10 @@ DEFAULT_APK_GLOB = "src-tauri/gen/android/app/build/outputs/apk/arm64/release/*.
 # {类描述符: [(方法名, 期望签名片段或 None 表示只校验名字)]}
 # 签名片段用「返回值类型」粗略校验，避免同名重载误判。
 REQUIRED: dict[str, list[tuple[str, str | None]]] = {
-    # wry 0.55.1：src/android/mod.rs 经 JNI 调 activity 上的这些方法
+    # wry 0.57.1：src/android/mod.rs 经 JNI 调 activity 上的这些方法
+    # （0.57.1 起 getId()/getVersion() 已从 WryActivity 移除；startActivity 仍在源码里，
+    #   但 Rust 侧不再调用，保留条目只为 DEX 面不回退）
     "Lcom/spiritpal/desktop_pet/WryActivity;": [
-        ("getId", "()I"),
-        ("getVersion", "()Ljava/lang/String;"),
         ("getAppClass", None),
         ("setWebView", None),
         ("startActivity", None),
@@ -71,15 +71,30 @@ REQUIRED: dict[str, list[tuple[str, str | None]]] = {
     # <init>/onCreate）。用 dexdump 逐类核对时务必按 Class descriptor 边界切分，
     # 否则会把下一个类（Rust）的成员误算到 MainActivity 头上。
     "Lcom/spiritpal/desktop_pet/Rust;": [
-        ("create", "()V"),
+        # wry 0.57.1 Rust.kt 的全部 external fun（.so 按类名+方法名链接）。
+        # 0.55.1 的 create/start/resume/pause/stop/wryCreate/withAssetLoader 与
+        # onActivityCreate/onActivityDestroy/onActivitySaveInstanceState/onActivityLowMemory
+        # 已移除，替换为下面的生命周期面。
+        ("onFirstActivityCreate", "()V"),
+        ("onCreate", None),
+        ("onStart", None),
+        ("onResume", None),
+        ("onPause", None),
+        ("onStop", None),
+        ("onDestroy", None),
+        ("onWindowFocusChanged", None),
+        ("onLowMemory", "()V"),
+        ("onNewIntent", None),
+        ("onFirstActivityCreateWry", "()V"),
+        ("onWebviewDestroy", None),
         ("ipc", None),
         ("handleRequest", None),
         ("handleReceivedTitle", None),
         ("assetLoaderDomain", None),
-        ("onActivityCreate", None),
-        ("onActivityDestroy", None),
-        ("onActivityLowMemory", None),
-        ("onActivitySaveInstanceState", None),
+        ("shouldOverride", None),
+        ("onPageLoading", None),
+        ("onPageLoaded", None),
+        ("onEval", None),
     ],
     # tauri：PluginManager 的 @JniMethod 方法（由 tauri-android 的 consumer proguard 规则保证）
     "Lapp/tauri/plugin/PluginManager;": [

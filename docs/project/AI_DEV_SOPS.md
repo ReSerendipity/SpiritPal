@@ -124,10 +124,17 @@
 1. 生态跟踪是自动的：`.github/workflows/deps-watch.yml` 每周一 04:23 UTC 跑 `scripts/track-deps-ecosystem.mjs`；发现可行动变化（官方 live2d 支持 pixi 8 / tauri 允许 gtk 0.20+）自动开 `[deps-watch]` issue，workflow 保持绿（变化以 issue 承载，不红主页）。收到 issue 后按《docs/execution/依赖与安全跟踪机制》§三/§六处置。
 2. 新跟踪对象登记：npm 包加进脚本 `PIXI_ECOSYSTEM`；RUSTSEC 修复线变化更新 `GLIB_FIXED_MINOR`/`GTK_FIXED_MINOR` 常量；新增执行文档同步登记 `scripts/check-exec-docs-tracked.mjs` 的清单。
 3. 新依赖漏洞：CI `dependency-vuln-scan`（push/PR + 每周一 03:00 UTC）的 security_gate 棘轮超标即红 = 唯一允许的信号红；按机制文档 §三分级 SOP 处置（CRITICAL/HIGH 48h，动棘轮基线必须留痕）。
-4. 发版前必跑：`node scripts/pre-release-check.mjs --local-artifacts`（版本三处一致/工作区干净/包<30MB/updates.json 可达/签名非空）；本机加速器 MITM 环境远程项失败用 `--skip-remote` 留痕，发布后以 publish-updates 回读为准。
+4. 发版前必跑（**人工前置，负责人＝发布者**）：`node scripts/pre-release-check.mjs --local-artifacts`（版本三处一致/工作区干净/包<30MB/updates.json 可达/签名非空）；本机加速器 MITM 环境远程项失败用 `--skip-remote` 留痕，发布后以 publish-updates 回读为准。
 5. 全部通过后打 tag v*；发版观察按 RELEASE_VERIFICATION §1。
 
-**验证**：`node scripts/track-deps-ecosystem.mjs` exit 0/1 语义正确；`node scripts/check-exec-docs-tracked.mjs` exit 0；`node scripts/pre-release-check.mjs` 全绿后才打 tag。
+> **该预检没有自动调用点，且不能接进发布链**：`push: tags` 是发版唯一入口，任何克隆都能直接推 tag；
+> 而脚本第 2 项要求「工作区干净且当前在 main」，在 CI 的 tag 检出（detached HEAD）下必然不成立，
+> 所以它只能停在人工步骤，不能宣称被 CI 拦截。打 tag 后各分项的自动兜底情况：
+> 版本三处一致 / tag↔package.json / 包大小 / SRI 清单 / 资产与签名 —— 由 `verify-release-version.yml`
+> 与 `release.yml`（含 `Verify updates.json content`）覆盖；
+> **工作区干净、前端已内嵌 release 二进制** 两项在发布链上没有等价检查，只能靠本步人工确认。
+
+**验证**：`node scripts/track-deps-ecosystem.mjs` exit 0/1 语义正确；`node scripts/check-exec-docs-tracked.mjs` exit 0；`node scripts/pre-release-check.mjs` 全绿后才打 tag（人工确认，非 CI 拦截）。
 
 **关联文件**：
 - scripts/track-deps-ecosystem.mjs / scripts/pre-release-check.mjs / scripts/check-exec-docs-tracked.mjs

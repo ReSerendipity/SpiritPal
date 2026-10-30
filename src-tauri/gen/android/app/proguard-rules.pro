@@ -42,7 +42,7 @@
 # 以匹配 libspiritpal_lib.so 里的 JNI 符号名。见 src-tauri/src/ondevice/image.rs。
 -keep class com.spiritpal.desktop_pet.QwenImageBridge { *; }
 
-# ===== wry 0.55.1 经 JNI 反射调用的 WryActivity / RustWebView 方法 =====
+# ===== wry 0.57.1 经 JNI 反射调用的 WryActivity / RustWebView 方法 =====
 # 这些方法是 wry 的 Rust 侧经 JNI 按名字/签名调用的（如 android_setup() 调
 # activity.getId() "()I"）。R8 在 release 中会把“仅反射可达”的方法当作 unused
 # 删除，导致真机启动即 SIGABRT/NoSuchMethodError 崩溃。
@@ -56,8 +56,6 @@
   public <init>(...);
   void setWebView(com.spiritpal.desktop_pet.RustWebView);
   java.lang.Class getAppClass(...);
-  int getId();
-  java.lang.String getVersion();
   int startActivity(...);
 }
 

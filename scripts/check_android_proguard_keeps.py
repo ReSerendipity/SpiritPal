@@ -43,8 +43,8 @@ from verify_android_jni_keeps import REQUIRED  # noqa: E402
 #   ~/.cargo/registry/src/*/wry-<ver>/src/android/kotlin/proguard-wry.pro
 #   ~/.cargo/registry/src/*/tauri-<ver>/mobile/proguard-tauri.pro
 AUDITED_VERSIONS: dict[str, str] = {
-    "wry": "0.55.1",
-    "tauri": "2.11.5",
+    "wry": "0.57.1",
+    "tauri": "2.12.5",
 }
 
 # 类描述符（Lcom/x/Y;）→ 生成它的 Kotlin 源所在目录，用于 A 的失败提示

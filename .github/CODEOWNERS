@@ -3,7 +3,11 @@
 # 格式：<路径> <审查者>（GitHub 用户名或团队）；无斜杠的模式在任意层级匹配。
 #
 # ⚠️ 本文件当前【不具强制力】，且短期不应被强制：
-#   分支保护里 require_code_owner_reviews=false、required_approving_review_count=0。
+#   分支保护里 require_code_owner_reviews=false（2026-10-29 用 gh api 只读回读 main 保护设置实测）；
+#   required_approving_review_count 现为 1（同一实测；早期记的 0 已作废，权威口径见
+#   docs/ci/branch-protection.json）。
+#   也就是说：PR 需要 1 个审批，但**不**要求来自 code owner 的审批，所以这里的登记只影响
+#   默认指派人，不构成门禁。
 #   本仓是单人仓库，一旦开启 code-owner 审查，PR 会要求「由 @ReSerendipity 批准」，
 #   而唯一能批的人就是提交者本人 → 自批死锁（GitHub 不认可作者自批为 code-owner 批准）。
 #   因此这里的价值是：路径登记 + 未来引入第二名维护者时的接线点，而非当下的门禁。
