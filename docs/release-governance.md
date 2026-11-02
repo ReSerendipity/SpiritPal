@@ -72,13 +72,23 @@
 
 ## 5. 回滚
 
-- **判定**（本仓具体阈值）：**待定（负责人 + 触发条件）**——本仓尚未定义量化回滚阈值（如崩溃率 / 包大小回归上限 / 更新失败率），待负责人与运行手册补定后回填。
-- **执行**：
-  - 代码类：`git revert <bad-commit>`（保历史、可再 forward）；
-  - 更新清单类：`git revert` 对 `updates.json` 的 `chore(ci): sync updates.json` 提交（客户端即回落到上一版清单）；
-  - 发布态类：把出问题的 Release 退回 draft（`gh release edit <tag> --draft=true`），阻断新用户下载。
+- **判定**（本仓具体阈值，2026-10-31 由仓库所有者成文）——**负责人：仓库所有者**（判定与拍板；agent 会话只做取证与建议，不自行启动回滚）。
+- **触发条件**（可判定，命中任一即启动回滚；命中多项按最高严重度定性，不等全部确认）：
+  1. **清单与 tag 不一致**：远端 `main` 的 `updates.json` `version` ≠ 最新发布 tag（去 `v` 前缀）；或任一平台缺 `signature`；或 `url` 未指向该 tag 的 `releases/download/` 固定路径；
+  2. **资产校验失败**：Release 资产缺 `setup.exe` / 对应 `.sig` / `SHA256SUMS.txt`，或 `SHA256SUMS.txt` 与资产实哈希不符；
+  3. **崩溃回退**：新版本更新后无法启动 / 启动即崩 / 核心功能不可用，复现确认 ≥1 例即触发（本仓无遥测，单例复现即可判定，宁严勿松）；
+  4. **更新失败率**：发布后 72 小时内 ≥2 例独立、可复现的「检查更新失败 / 更新后异常」反馈（issue 或发布回读复核）；不足 2 例但已确认可复现的，并入第 3 条处置；
+  5. **发布链闸失败**：`release.yml` 任一闸（tag↔package 版本 / SRI / 包大小 / 基线回归）在 draft 转公开之后暴露失败。
+- **执行顺序**（按序不跳步）：
+  1. 发布态类：把出问题的 Release 退回 draft（`gh release edit <tag> --draft=true`），阻断新用户下载；
+  2. 更新清单类：`git revert` 对 `updates.json` 的 `chore(ci): sync updates.json` 提交（客户端即回落到上一版清单），按 §3.4 走 PR 合入 `main`；
+  3. 代码类：对引入缺陷的代码提交 `git revert <bad-commit>`（保历史、可再 forward）；
+  4. 回滚后验证（见下）全绿才收口；
+  5. 留痕：CHANGELOG / issue 记录原因、范围与时间线。
 - **破坏性动作**：重指向 / 删除 tag、移动任何远端 ref → **须仓库所有者单独授权**。`release.yml` 由 `push: tags` 触发，移动已发布 tag 会当场重跑整条发布链。
-- **回滚后验证**：`gh release view <tag> --json assets -q '.assets[].name'` 核验资产；按 `docs/execution/RELEASE_VERIFICATION.md` 清单复核 `updates.json` 可达性与内容（HTTP 200、`version` 与 tag 一致、`platforms` 均含 `signature`）。
+- **回滚后验证**：`gh release view <tag> --json assets -q '.assets[].name'` 核验资产；`updates.json` 可达性与内容复核（HTTP 200、`version` 与最新 tag 一致、`platforms` 均含非空 `signature`）；`SHA256SUMS.txt` 与资产逐一相符；必要时按 `docs/execution/RELEASE_VERIFICATION.md` 全清单复核。
+- **演练节奏**：每季度至少一次回滚演练，覆盖「更新清单 revert + 生成链复核 + 可达性取证 + 代码 revert 通道」四项，记录入 `docs/execution/ROLLBACK_DRILL_<日期>.md`。
+  **最近演练：2026-10-31，记录见 `docs/execution/ROLLBACK_DRILL_2026-10-31.md`**。
 
 ## 6. SLA / 错误预算
 
@@ -110,7 +120,7 @@
 | 发布 workflow 文件名 | `.github/workflows/` | `release.yml`（`push: tags: 'v*'`）、`verify-release-version.yml`、`sbom.yml` |
 | 产物形态与标签规则 | 构建 workflow | Tauri 桌面包：Windows NSIS `setup.exe`、Linux AppImage/deb；不可变，URL 绑定 `v<ver>`，无 `latest` |
 | 完整性手段 | Release 资产清单 | Tauri ed25519 更新器签名（`*.sig`）；`SHA256SUMS.txt`（release.yml `publish-updates` 生成，2026-10-20 修复 PR 引入） |
-| 回滚判定阈值 | 运行手册 / 监控 | 待定（负责人 + 触发条件） |
+| 回滚判定阈值 | 运行手册 / 监控 | 已成文（2026-10-31）：负责人=仓库所有者；触发条件 / 执行顺序 / 回滚后验证 / 演练节奏见 §5 |
 | 回滚后验证命令 | `docs/execution/RELEASE_VERIFICATION.md` | `gh release view` 资产核验 + `updates.json` 可达性复核 |
 | 技术栈 | `package.json` / `Cargo.toml` | Rust（Tauri v2）+ 前端（pnpm / Vite）+ Android |
 | 部署目标 | Pages / deploy | 桌面端安装（本地运行边界）；**无** Pages / 容器部署 |
