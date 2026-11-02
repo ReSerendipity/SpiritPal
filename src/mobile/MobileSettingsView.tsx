@@ -1320,12 +1320,28 @@ export function MobileSettingsView() {
             <h3 className="mb-2 text-sm font-medium">{t('settings.mobile.followUs')}</h3>
             <div className="flex flex-wrap gap-2 text-xs">
               <a
-                href="https://github.com/ReSerendipity/SpiritPal"
+                href="https://github.com/ReSerendipity"
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
               >
                 GitHub
+              </a>
+              <a
+                href="https://modelscope.cn/profile/ReSerendipity"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
+              >
+                魔搭
+              </a>
+              <a
+                href="https://www.zhihu.com/people/6-50-73-59-83"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
+              >
+                知乎
               </a>
               <a
                 href="https://www.xiaohongshu.com/user/profile/6a606c140000000010000801"

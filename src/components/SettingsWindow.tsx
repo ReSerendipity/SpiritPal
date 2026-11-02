@@ -1338,13 +1338,31 @@ export default function SettingsWindow() {
                 <div className="mb-2 text-sm font-semibold text-tangerine-deep">关注我们</div>
                 <div className="flex flex-wrap gap-2 text-sm">
                   <a
-                    href="https://github.com/ReSerendipity/SpiritPal"
+                    href="https://github.com/ReSerendipity"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 rounded-lg bg-cream-deep px-3 py-1.5 text-ink-muted hover:bg-ink/5"
-                    title="GitHub 仓库"
+                    title="GitHub 主页"
                   >
                     GitHub
+                  </a>
+                  <a
+                    href="https://modelscope.cn/profile/ReSerendipity"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg bg-cream-deep px-3 py-1.5 text-ink-muted hover:bg-ink/5"
+                    title="魔搭 ModelScope"
+                  >
+                    魔搭
+                  </a>
+                  <a
+                    href="https://www.zhihu.com/people/6-50-73-59-83"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg bg-cream-deep px-3 py-1.5 text-ink-muted hover:bg-ink/5"
+                    title="知乎"
+                  >
+                    知乎
                   </a>
                   <a
                     href="https://www.xiaohongshu.com/user/profile/6a606c140000000010000801"
