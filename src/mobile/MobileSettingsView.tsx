@@ -1328,6 +1328,22 @@ export function MobileSettingsView() {
                 GitHub
               </a>
               <a
+                href="https://modelscope.cn/profile/ReSerendipity"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
+              >
+                魔搭
+              </a>
+              <a
+                href="https://www.zhihu.com/people/6-50-73-59-83"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`rounded-lg px-2.5 py-1 ${cardBgClass} border ${cardBorderClass} hover:opacity-80`}
+              >
+                知乎
+              </a>
+              <a
                 href="https://www.xiaohongshu.com/user/profile/6a606c140000000010000801"
                 target="_blank"
                 rel="noopener noreferrer"
