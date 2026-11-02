@@ -47,7 +47,17 @@
 # activity.getId() "()I"）。R8 在 release 中会把“仅反射可达”的方法当作 unused
 # 删除，导致真机启动即 SIGABRT/NoSuchMethodError 崩溃。
 # wry 自带的 proguard-wry.pro 未被接入本构建（build.gradle 引用了并不存在的
-# proguard-tauri.pro），故在此显式 keep。模板来源：wry-0.55.1/src/android/kotlin/proguard-wry.pro
+# proguard-tauri.pro），故在此显式 keep。模板来源：wry-0.57.1/src/android/kotlin/proguard-wry.pro
+# ⚠️ 2026-11-02 真机复现补记：上一轮 JNI keep 审计（随 wry 0.57.1 升级）**漏掉了 int getId() 与
+#    java.lang.String getVersion()** 两项，release 包在真机启动即崩，且是两步踩出来的：
+#    ① 先崩 `NoSuchMethodError: ...MainActivity;.getId()I`（wry-0.57.1/src/android/mod.rs:120 调它，
+#       Kotlin 侧靠 WryActivity.kt 的 `var id: Int = 0` 生成）；
+#    ② 补 getId 后继续崩 `...getVersion()Ljava/lang/String;`（main_pipe.rs:387 在
+#       WebViewMessage::GetWebViewVersion 分支调它，触发源是 tauri-runtime-wry 启动期的
+#       `webview_runtime_installed: wry::webview_version().is_ok()`；Kotlin 侧由 WryActivity.kt 的
+#       `val version: String` 属性生成 getter）。
+#    两者都是「源码里有、Java/Kotlin 侧无调用者、只有 Rust 经 JNI 反射可达」→ R8 当 unused 删除。
+#    wry 官方 src/android/kotlin/proguard-wry.pro 两项都仍列着，属上一轮审计时的漏抄。
 -keep class com.spiritpal.desktop_pet.* {
   native <methods>;
 }
@@ -56,6 +66,8 @@
   public <init>(...);
   void setWebView(com.spiritpal.desktop_pet.RustWebView);
   java.lang.Class getAppClass(...);
+  int getId();
+  java.lang.String getVersion();
   int startActivity(...);
 }
 

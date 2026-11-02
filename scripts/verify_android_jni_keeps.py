@@ -42,14 +42,25 @@ DEFAULT_APK_GLOB = "src-tauri/gen/android/app/build/outputs/apk/arm64/release/*.
 # 签名片段用「返回值类型」粗略校验，避免同名重载误判。
 REQUIRED: dict[str, list[tuple[str, str | None]]] = {
     # wry 0.57.1：src/android/mod.rs 经 JNI 调 activity 上的这些方法
-    # （0.57.1 起 getId()/getVersion() 已从 WryActivity 移除；startActivity 仍在源码里，
-    #   但 Rust 侧不再调用，保留条目只为 DEX 面不回退）
+    # ⚠️ 2026-11-02 订正：此前注释断言「0.57.1 起 getId()/getVersion() 已从 WryActivity 移除」是**错的**——
+    #   wry-0.57.1/src/android/mod.rs:120 仍有 .call_method(activity, "getId", "()I")，
+    #   其官方 src/android/kotlin/proguard-wry.pro 也仍列 getId（Kotlin 侧由 WryActivity.kt 的
+    #   `var id: Int = 0` 生成 getId()I）。该错误前提使本清单漏收 getId，守卫因此放过了
+    #   「R8 删掉 getId → 真机启动 SIGABRT / NoSuchMethodError」这一真实故障（2026-11-02 真机复现）。
+    #   故此处必须保留 getId 与 getVersion 两项（两者都是「源码里有、Java/Kotlin 侧无调用者、
+    #   只有 Rust 经 JNI 反射可达」→ R8 当 unused 删除）：
+    #   getId ← WryActivity.kt 的 `var id: Int = 0`；getVersion ← 同文件的 `val version: String` 属性。
+    #   getVersion 的触发源是 tauri-runtime-wry 启动期的 webview 运行时探测
+    #   （`webview_runtime_installed: wry::webview_version().is_ok()`），故缺失时启动即崩。
+    #   （startActivity 仍在源码里，但 Rust 侧不再调用，保留条目只为 DEX 面不回退）
     "Lcom/spiritpal/desktop_pet/WryActivity;": [
         ("getAppClass", None),
         ("setWebView", None),
+        ("getId", "()I"),
+        ("getVersion", "()Ljava/lang/String;"),
         ("startActivity", None),
     ],
-    # wry 0.55.1：main_pipe.rs 经 JNI 调 webview 上的这些方法
+    # wry 0.57.1：main_pipe.rs 经 JNI 调 webview 上的这些方法（版本标签 2026-11-02 由 0.55.1 订正）
     # （loadUrl / reload / setBackgroundColor / zoomBy 是库方法 override，R8 必留，不列）
     "Lcom/spiritpal/desktop_pet/RustWebView;": [
         ("loadUrlMainThread", None),
