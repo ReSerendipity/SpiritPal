@@ -46,8 +46,9 @@
 # 这些方法是 wry 的 Rust 侧经 JNI 按名字/签名调用的（如 android_setup() 调
 # activity.getId() "()I"）。R8 在 release 中会把“仅反射可达”的方法当作 unused
 # 删除，导致真机启动即 SIGABRT/NoSuchMethodError 崩溃。
-# wry 自带的 proguard-wry.pro 未被接入本构建（build.gradle 引用了并不存在的
-# proguard-tauri.pro），故在此显式 keep。模板来源：wry-0.57.1/src/android/kotlin/proguard-wry.pro
+# wry 自带的 proguard-wry.pro 从未被接入本构建（本仓 release 只引用 user-owned 的
+# proguard-rules.pro，见 build.gradle 的 proguardFiles），故在此显式 keep。
+# 模板来源：wry-0.57.1/src/android/kotlin/proguard-wry.pro
 # ⚠️ 2026-11-02 真机复现补记：上一轮 JNI keep 审计（随 wry 0.57.1 升级）**漏掉了 int getId() 与
 #    java.lang.String getVersion()** 两项，release 包在真机启动即崩，且是两步踩出来的：
 #    ① 先崩 `NoSuchMethodError: ...MainActivity;.getId()I`（wry-0.57.1/src/android/mod.rs:120 调它，
@@ -101,9 +102,10 @@
 # 调用 activity 上的该方法（声明在生成的 TauriActivity 里，MainActivity 继承）。
 # R8 看不到任何 Java/Kotlin 调用者 → release 会把整方法当 unused 删除
 # → 真机启动即 java.lang.NoSuchMethodError（与上面的 wry getId() 同类故障）。
-# 官方规则本应由 tauri CLI 自动生成到 app/proguard-tauri.pro；本仓该文件曾缺失，
-# 故在此再显式补一份（该文件为 user-owned、始终被引用、不被 tauri CLI 覆盖），
-# 防止自动生成文件再次丢失后复发。见 local/agents/GOTCHAS.md #122。
+# 官方规则本应由 tauri 的 build.rs 生成到 app/proguard-tauri.pro，但本仓构建链不设置
+# TAURI_ANDROID_PROJECT_PATH、该文件从不生成（2026-11-02 起 build.gradle 也不再引用它，
+# 消除「引用不存在的规则文件 → AGP 静默少应用一份规则」），故规则改为在此显式声明
+# （user-owned、始终被引用、不被 tauri 覆盖）。见 local/agents/GOTCHAS.md #122。
 -keep class com.spiritpal.desktop_pet.TauriActivity {
   public app.tauri.plugin.PluginManager getPluginManager();
 }
