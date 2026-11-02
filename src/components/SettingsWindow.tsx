@@ -1347,6 +1347,24 @@ export default function SettingsWindow() {
                     GitHub
                   </a>
                   <a
+                    href="https://modelscope.cn/profile/ReSerendipity"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg bg-cream-deep px-3 py-1.5 text-ink-muted hover:bg-ink/5"
+                    title="魔搭 ModelScope"
+                  >
+                    魔搭
+                  </a>
+                  <a
+                    href="https://www.zhihu.com/people/6-50-73-59-83"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg bg-cream-deep px-3 py-1.5 text-ink-muted hover:bg-ink/5"
+                    title="知乎"
+                  >
+                    知乎
+                  </a>
+                  <a
                     href="https://www.xiaohongshu.com/user/profile/6a606c140000000010000801"
                     target="_blank"
                     rel="noopener noreferrer"
