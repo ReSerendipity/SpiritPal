@@ -50,7 +50,7 @@
 | P2-1 | 触控命中区 ≥48dp | AgreementGate 整行 label / 发送·停止 `h-12 w-12` / 清空·会话·主题 `after:-inset-2` 外扩 8px | `src/mobile/mobile-touch-targets.test.tsx`（4 例） | `eb48953` |
 | P2-2 | IME 输入栏回归 | CDP touch 唤起键盘 `mInputShown=true`，visualViewport 842→530，textarea 底边 467 < 530 未遮挡；`1c7adce` 的 MainActivity IME insets 修复仍在且生效 → **验证型，无需改动** | §四设备走查 | — |
 | P2-3 | 图表刻度/数值/结论 | TagCloud 层级说明 / EmotionCurve y 轴刻度 + 峰值结论 / TimeDensity 柱顶数值 + 峰值月结论 | `src/components/__tests__/MemoryVisualization.test.tsx`（+3 例） | `fdc055a` |
-| P2-4 | 调色统一 | 蓝 logo / 蓝紫徽标 / 绿点 → 图标 hue 重生成全平台 54 文件、moon 徽章暖银灰、稀有度暖色阶梯、故事点语义 token、更新通知蓝→橙 | 全量门禁 + 视觉走查 | `039ef57` |
+| P2-4 | 调色统一 | 蓝 logo / 蓝紫徽标 / 绿点 → ⚠️ 2026-11-02 订正：其中「图标 hue 重生成全平台 54 文件」**已全量回滚**（品牌标识配色不在主题统一范围内，50 个二进制恢复原蓝色 hue 199°；见 `docs/CODING_STANDARDS.md` §9）；其余项（moon 徽章暖银灰、稀有度暖色阶梯、故事点语义 token、更新通知蓝→橙）保持现状 | 全量门禁 + 视觉走查 | `039ef57` |
 | P2-5 | 图标 emoji → 单色线性 | 四视图功能位 emoji → lucide 单色线性；数据层内容 emoji 按设计保留（见主文档 §5.5） | 全量门禁 | `ae1b21d` |
 | P2-6 | 记忆控件去重 | 单一视图选择器去重记忆控件 | 全量门禁 | `8fa9be8` |
 | P2-7 | 主人画像去调试文本 | factKeyLabel 中文标签 / 规则置信度差异化 0.9~0.7 / 来源徽章「手动 \| 自动抽取」，去调试文本 | `src/lib/memory/__tests__/ownerFacts.confidence.test.ts` + `src/components/__tests__/MemoryPanel.facts-display.test.tsx` | `a0438da` |
