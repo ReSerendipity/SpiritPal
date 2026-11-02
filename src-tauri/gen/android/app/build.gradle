@@ -63,7 +63,12 @@ android {
         release {
             minifyEnabled true
             signingConfig signingConfigs.release
-            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro", "proguard-tauri.pro"
+            // 只引用 user-owned 的 proguard-rules.pro：tauri 的 proguard-tauri.pro 由 tauri crate
+            // 的 build.rs 在 TAURI_ANDROID_PROJECT_PATH 存在时才生成，而本仓构建链（cargo-ndk +
+            // 直跑 gradle）从不设置它 → 该文件必然缺失。AGP 对缺失的 proguard 文件不报错也不警告，
+            // 只会静默少应用一份规则。其中唯一的规则（TauriActivity.getPluginManager()）已手工
+            // 并入 proguard-rules.pro，故不再引用它。守卫：scripts/check_android_proguard_keeps.py B 项。
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
     }
     kotlinOptions {

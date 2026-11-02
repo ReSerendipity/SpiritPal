@@ -5,7 +5,8 @@ name: Android
 # 改动只能「本地 + 真机」验证（见 docs/execution/ondevice-image-s0-verification-20261013.md）。
 # 本 workflow 补齐这条链，覆盖三道容易被漏掉的门禁：
 #   ① release(R8) 构建 —— minifyEnabled=true，proguard keep / JNI 方法只有在 release 才受考验；
-#   ② scripts/check_android_proguard_keeps.py —— proguard-rules.pro 静态守卫；
+#   ② scripts/check_android_proguard_keeps.py —— keep 规则覆盖 + build.gradle 接线静态守卫
+#      （后者含「proguardFiles 引用的规则文件必须存在」：AGP 对缺失文件不报错也不警告）；
 #   ③ scripts/verify_android_jni_keeps.py —— DEX 层方法保留 + ELF 层 JNI 符号导出
 #      （后者 2026-10-14 新增：Rust 侧漏 #[no_mangle] 或类名下划线漏 `_1` 转义，
 #       编译与 DEX 全过、只剩运行时 UnsatisfiedLinkError，只能靠符号断言拦下）。

@@ -8,14 +8,17 @@ release 开 `minifyEnabled=true` 后，R8 会把「Kotlin/Java 侧没有调用�
 真机启动才抛 `java.lang.NoSuchMethodError` + SIGABRT。已踩过 3 次：
 
   1. `WryActivity.getId()`        —— wry 自带 proguard-wry.pro 从未接入构建；
-  2. `TauriActivity.getPluginManager()` —— tauri CLI 自动生成的 proguard-tauri.pro 缺失
-     （Gradle 对缺失的 proguard 文件**不报错也不警告**，静默少应用一份规则）；
+  2. `TauriActivity.getPluginManager()` —— tauri 的 build.rs 只在设置了
+     TAURI_ANDROID_PROJECT_PATH 时才生成 proguard-tauri.pro，本仓构建链不设置它（Gradle
+     对缺失的 proguard 文件**不报错也不警告**，静默少应用一份规则）；
   3. `RustWebView.clearAllBrowsingData()` / `getCookies()` —— wry 官方规则自身漏列。
 
 本脚本查三件事（静态、秒级、零外部依赖）
 ----------------------------------------
   A. `app/proguard-rules.pro` 是否为**每个**「仅 JNI 可达」的方法提供了 keep 覆盖；
-  B. `app/build.gradle` 的 release `proguardFiles` 是否仍引用 `proguard-rules.pro`；
+  B. `app/build.gradle` 的 release `proguardFiles` 是否仍引用 `proguard-rules.pro`，且其中
+     引用的**每个**规则文件都确实存在 —— 2026-11-02 起 proguard-tauri.pro 的失效引用已删除，
+     该项防它（或同类引用）再次被写回；
   C. `Cargo.lock` 里的 `wry` / `tauri` 版本是否仍是**已审计过**的版本 —— 依赖升级会
      改变 JNI 面（新增/改名被 JNI 调用的方法），必须重新审计，不能静默放行。
 
@@ -176,14 +179,29 @@ def check_proguard_keeps(text: str) -> list[str]:
     return problems
 
 
-def check_gradle_wiring(text: str) -> list[str]:
-    """B. release 变体必须仍引用 proguard-rules.pro。"""
-    if not re.search(r"proguardFiles[^\n]*['\"]proguard-rules\.pro['\"]", text):
+_PROGUARDFILES_RE = re.compile(r"proguardFiles(?P<body>[^\n]*)")
+_DEFAULT_TXT_RE = re.compile(r"getDefaultProguardFile\s*\([^)]*\)")
+
+
+def check_gradle_wiring(text: str, app_dir: Path) -> list[str]:
+    """B. release 必须引用 proguard-rules.pro，且引用的规则文件都必须存在。"""
+    m = _PROGUARDFILES_RE.search(text)
+    body = m.group("body") if m else ""
+    if not re.search(r"['\"]proguard-rules\.pro['\"]", body):
         return [
             "app/build.gradle 的 release `proguardFiles` 未引用 proguard-rules.pro"
             "（规则写再好也不会被应用）"
         ]
-    return []
+    problems: list[str] = []
+    # getDefaultProguardFile("...") 的参数是 AGP 内置文件（不在 app/ 下），先剔除再查字面量。
+    for ref in re.findall(r"['\"]([^'\"]+\.pro)['\"]", _DEFAULT_TXT_RE.sub(" ", body)):
+        if not (app_dir / ref).is_file():
+            problems.append(
+                f"app/build.gradle 的 release `proguardFiles` 引用了不存在的规则文件 {ref!r}"
+                f"（AGP 对缺失的 proguard 文件不报错也不警告 → 静默少应用一份规则；"
+                f"要么把该文件的规则并入 proguard-rules.pro 并删掉此引用，要么确保它真被生成）"
+            )
+    return problems
 
 
 def check_dependency_versions(text: str) -> list[str]:
@@ -219,9 +237,14 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--lock", default=str(REPO_ROOT / CARGO_LOCK))
     args = ap.parse_args(argv[1:])
 
+    app_dir = Path(args.gradle).parent
     groups = [
         ("A. keep 规则覆盖（proguard-rules.pro）", args.proguard, check_proguard_keeps),
-        ("B. release 是否引用该规则文件（build.gradle）", args.gradle, check_gradle_wiring),
+        (
+            "B. release 接线与引用文件存在性（build.gradle）",
+            args.gradle,
+            lambda t: check_gradle_wiring(t, app_dir),
+        ),
         ("C. wry/tauri 版本是否仍为已审计版本（Cargo.lock）", args.lock, check_dependency_versions),
     ]
 
