@@ -74,6 +74,7 @@
 | [execution/依赖与安全跟踪机制-20260911.md](execution/依赖与安全跟踪机制-20260911.md) | 依赖与安全跟踪机制 |
 | [execution/执行对照表-桌面分发与安全加固-20260910.md](execution/执行对照表-桌面分发与安全加固-20260910.md) | 桌面分发与安全加固 · 执行对照表 |
 | [execution/落地执行总结-桌面分发与安全加固-20260910.md](execution/落地执行总结-桌面分发与安全加固-20260910.md) | 桌面分发与安全加固 · 落地执行总结 |
+| [execution/2026-09-agent-memory-archive.md](execution/2026-09-agent-memory-archive.md) | 2026-09 Agent 会话记忆归档（构建链 / 门禁 / 端侧 MNN / 加固计划落地状态） |
 
 ## 资产（docs/assets/ 与执行证据）
 
