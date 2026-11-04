@@ -1,6 +1,7 @@
 # 角色素材授权请求草稿 — 菲比/Feibi（llors-chen/Feibi_desktop）
 
 > 生成：2026-09-15（P1-4 整改配套）。发送方式与回填同 Doro 草稿。
+> 状态（截至 2026-11-03）：未获回复（llors-chen/Feibi_desktop#2，2026-09-16 发出）；素材已于 2026-09-17 出包停止分发，结果登记于 `CHARACTER_ATTRIBUTIONS.md`。
 
 **Subject: Permission request to bundle "Feibi" pet assets in SpiritPal (free, open-source, credited)**
 

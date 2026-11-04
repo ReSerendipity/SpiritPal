@@ -2,6 +2,7 @@
 
 > 生成：2026-09-15（P1-4 整改配套）。建议以 GitHub Issue 或仓库联系方式发送给
 > MelanTech/Dororo 作者；发送后把回复链接/截图登记到 `CHARACTER_ATTRIBUTIONS.md`。
+> 状态（截至 2026-11-03）：已发出并获作者回复（MelanTech/Dororo#10，2026-09-16，Live2D 模型免费提供、允许二创），结果登记于 `CHARACTER_ATTRIBUTIONS.md`。
 
 **Subject: Permission request to bundle "Doro" pet assets in SpiritPal (free, open-source, credited)**
 

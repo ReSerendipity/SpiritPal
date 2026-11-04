@@ -104,6 +104,7 @@ Live2D 为可选项：应用**不随包分发** Live2D Cubism Core（专有软�
 
 ### 文档与治理
 
+- 全部文档索引：[docs/README.md](docs/README.md)（按 adr / execution / project / assets 分组登记）
 - 架构决策：[docs/adr/](docs/adr/)（Tauri v2 capabilities、记忆系统选型、Pixi Live2D 版本锁定等）
 - 隐私与合规：[docs/PRIVACY_POLICY.md](docs/PRIVACY_POLICY.md) · [docs/COMPLIANCE_CHECKLIST.md](docs/COMPLIANCE_CHECKLIST.md) · [docs/THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md)
 - 安全模型：[docs/SECURITY_MATRIX.md](docs/SECURITY_MATRIX.md) · [.github/SECURITY.md](.github/SECURITY.md)
