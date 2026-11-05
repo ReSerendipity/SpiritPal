@@ -276,13 +276,11 @@ pub struct DBBackupInfo {
     pub modified_at: u64,
 }
 
-/// 获取备份目录路径
-fn get_backup_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    let data_dir = app
-        .path()
+/// 获取应用数据目录（备份/恢复各命令共享的路径解析出口）
+fn get_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
         .app_data_dir()
-        .map_err(|e| format!("获取数据目录失败: {e}"))?;
-    Ok(data_dir.join(BACKUP_DIR_NAME))
+        .map_err(|e| format!("获取数据目录失败: {e}"))
 }
 
 /// 备份文件名（时间戳到秒，唯一）
@@ -295,13 +293,13 @@ fn backup_filename() -> String {
 }
 
 /// 列出全部备份（按修改时间倒序）
-fn list_backup_files(app: &AppHandle) -> Result<Vec<DBBackupInfo>, String> {
-    let dir = get_backup_dir(app)?;
-    if !dir.exists() {
+pub fn list_backup_files_in(backup_dir: &Path) -> Result<Vec<DBBackupInfo>, String> {
+    if !backup_dir.exists() {
         return Ok(vec![]);
     }
     let mut items: Vec<DBBackupInfo> = vec![];
-    for entry in std::fs::read_dir(&dir).map_err(|e| format!("读取备份目录失败: {e}"))? {
+    for entry in std::fs::read_dir(backup_dir).map_err(|e| format!("读取备份目录失败: {e}"))?
+    {
         let entry = entry.map_err(|e| format!("遍历备份目录失败: {e}"))?;
         let meta = entry
             .metadata()
@@ -327,14 +325,69 @@ fn list_backup_files(app: &AppHandle) -> Result<Vec<DBBackupInfo>, String> {
 }
 
 /// 轮转：只保留最新的 BACKUP_KEEP_COUNT 份
-fn rotate_backups(app: &AppHandle) -> Result<(), String> {
-    let dir = get_backup_dir(app)?;
-    let items = list_backup_files(app)?;
+pub fn rotate_backups_in(backup_dir: &Path) -> Result<(), String> {
+    let items = list_backup_files_in(backup_dir)?;
     if items.len() <= BACKUP_KEEP_COUNT {
         return Ok(());
     }
     for old in &items[BACKUP_KEEP_COUNT..] {
-        let _ = std::fs::remove_file(dir.join(&old.name));
+        let _ = std::fs::remove_file(backup_dir.join(&old.name));
+    }
+    Ok(())
+}
+
+/// 自动备份核心（路径注入版，可脱离 AppHandle 实测）：
+/// 把加密库文件复制到 backups/ 并轮转（应用关闭加密完成后调用）。
+/// 返回备份文件名；无加密库（首次运行/未加密）则静默跳过返回 None。
+pub fn create_backup_in(data_dir: &Path) -> Result<Option<String>, String> {
+    let enc_path = data_dir.join("spiritpal.db.enc");
+    if !enc_path.exists() {
+        return Ok(None);
+    }
+    let backup_dir = data_dir.join(BACKUP_DIR_NAME);
+    std::fs::create_dir_all(&backup_dir).map_err(|e| format!("创建备份目录失败: {e}"))?;
+
+    let name = backup_filename();
+    let target = backup_dir.join(&name);
+    std::fs::copy(&enc_path, &target).map_err(|e| format!("复制备份失败: {e}"))?;
+
+    rotate_backups_in(&backup_dir)?;
+    log::info!("[encrypted_db] Auto backup created: {}", target.display());
+    Ok(Some(name))
+}
+
+/// 恢复核心（路径注入版，可脱离 AppHandle 实测）：备份文件（合法备份即
+/// spiritpal.db.enc 的副本）覆盖加密库；恢复后需重启应用（下次启动
+/// decrypt_db_at_rest 会解出明文库）。
+pub fn restore_backup_in(data_dir: &Path, name: &str) -> Result<(), String> {
+    // 防路径穿越：只允许 backups 目录内的文件名
+    if name.contains('/') || name.contains('\\') || name.contains("..") {
+        return Err("备份文件名非法".into());
+    }
+    let src = data_dir.join(BACKUP_DIR_NAME).join(name);
+    // 备份文件即使存在也需确认（不读了再写，避免损坏源）
+    if !src.exists() {
+        return Err(format!("备份不存在: {name}"));
+    }
+
+    // 恢复前先移除当前加密库（若存在），再复制（避免旧库残留被新库覆盖时同文件 io 冲突）
+    let enc_path = data_dir.join("spiritpal.db.enc");
+    if enc_path.exists() {
+        std::fs::remove_file(&enc_path).map_err(|e| format!("移除当前加密库失败: {e}"))?;
+    }
+    std::fs::copy(&src, &enc_path).map_err(|e| format!("恢复备份失败: {e}"))?;
+    log::warn!("[encrypted_db] Database restored from backup: {name}");
+    Ok(())
+}
+
+/// 删除指定备份核心（路径注入版）
+pub fn delete_backup_in(data_dir: &Path, name: &str) -> Result<(), String> {
+    if name.contains('/') || name.contains('\\') || name.contains("..") {
+        return Err("备份文件名非法".into());
+    }
+    let target = data_dir.join(BACKUP_DIR_NAME).join(name);
+    if target.exists() {
+        std::fs::remove_file(&target).map_err(|e| format!("删除备份失败: {e}"))?;
     }
     Ok(())
 }
@@ -342,27 +395,15 @@ fn rotate_backups(app: &AppHandle) -> Result<(), String> {
 /// 自动备份：把加密库文件复制到 backups/ 并轮转（应用关闭加密完成后调用）
 #[tauri::command]
 pub async fn backup_db_at_rest(app: AppHandle) -> Result<Option<String>, String> {
-    let enc_path = get_encrypted_db_path(&app)?;
-    if !enc_path.exists() {
-        // 无加密库（首次运行/未加密）则静默跳过
-        return Ok(None);
-    }
-    let backup_dir = get_backup_dir(&app)?;
-    std::fs::create_dir_all(&backup_dir).map_err(|e| format!("创建备份目录失败: {e}"))?;
-
-    let name = backup_filename();
-    let target = backup_dir.join(&name);
-    std::fs::copy(&enc_path, &target).map_err(|e| format!("复制备份失败: {e}"))?;
-
-    rotate_backups(&app)?;
-    log::info!("[encrypted_db] Auto backup created: {}", target.display());
-    Ok(Some(name))
+    let data_dir = get_data_dir(&app)?;
+    create_backup_in(&data_dir)
 }
 
 /// 列出全部可用备份（前端 UI 展示:名称/大小/时间）
 #[tauri::command]
 pub async fn list_db_backups(app: AppHandle) -> Result<Vec<DBBackupInfo>, String> {
-    list_backup_files(&app)
+    let data_dir = get_data_dir(&app)?;
+    list_backup_files_in(&data_dir.join(BACKUP_DIR_NAME))
 }
 
 /// 从指定备份恢复：备份文件（合法备份即 spiritpal.db.enc 的副本）覆盖加密库
@@ -389,39 +430,15 @@ async fn restore_db_backup_internal(app: AppHandle, name: String) -> Result<(), 
     );
     // D-1: 关闭 rusqlite 连接，避免恢复覆盖时文件被锁
     crate::sqlite::close();
-    // 防路径穿越：只允许 backups 目录内的文件名
-    if name.contains('/') || name.contains('\\') || name.contains("..") {
-        return Err("备份文件名非法".into());
-    }
-    let backup_dir = get_backup_dir(&app)?;
-    let src = backup_dir.join(&name);
-    // 备份文件即使存在也需确认（不读了再写，避免损坏源）
-    if !src.exists() {
-        return Err(format!("备份不存在: {name}"));
-    }
-
-    // 恢复前先移除当前加密库（若存在），再复制（避免旧库残留被新库覆盖时同文件 io 冲突）
-    let enc_path = get_encrypted_db_path(&app)?;
-    if enc_path.exists() {
-        std::fs::remove_file(&enc_path).map_err(|e| format!("移除当前加密库失败: {e}"))?;
-    }
-    std::fs::copy(&src, &enc_path).map_err(|e| format!("恢复备份失败: {e}"))?;
-    log::warn!("[encrypted_db] Database restored from backup: {name}");
-    Ok(())
+    let data_dir = get_data_dir(&app)?;
+    restore_backup_in(&data_dir, &name)
 }
 
 /// 删除指定备份
 #[tauri::command]
 pub async fn delete_db_backup(app: AppHandle, name: String) -> Result<(), String> {
-    if name.contains('/') || name.contains('\\') || name.contains("..") {
-        return Err("备份文件名非法".into());
-    }
-    let dir = get_backup_dir(&app)?;
-    let target = dir.join(&name);
-    if target.exists() {
-        std::fs::remove_file(&target).map_err(|e| format!("删除备份失败: {e}"))?;
-    }
-    Ok(())
+    let data_dir = get_data_dir(&app)?;
+    delete_backup_in(&data_dir, &name)
 }
 
 #[cfg(test)]

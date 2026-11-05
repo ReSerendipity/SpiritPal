@@ -62,6 +62,7 @@
 | 文档 | 说明 |
 |---|---|
 | [execution/RELEASE_VERIFICATION.md](execution/RELEASE_VERIFICATION.md) | 发布验收清单（P1-1） |
+| [execution/BACKUP_RESTORE_DRILL_2026-11-06.md](execution/BACKUP_RESTORE_DRILL_2026-11-06.md) | 本地数据备份/恢复实测记录（2026-11-06，O4 P0） |
 | [execution/ROLLBACK_DRILL_2026-10-31.md](execution/ROLLBACK_DRILL_2026-10-31.md) | 回滚演练记录（2026-10-31） |
 | [execution/android-device-test-20261001.md](execution/android-device-test-20261001.md) | Android 真机全量测试报告 |
 | [execution/android-fix-verification-20261003.md](execution/android-fix-verification-20261003.md) | Android 修复端上复测 |

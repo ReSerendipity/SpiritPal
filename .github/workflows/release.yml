@@ -48,15 +48,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (SHA pin 2026-11-06)
 
       # 版本由 package.json 的 packageManager 字段统一驱动（pnpm@11.26.0），
       # 不能再传 version 输入，否则双源冲突 ERR_PNPM_BAD_PM_VERSION（与 ci.yml 同口径）。
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4 (SHA pin 2026-11-06)
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4 (SHA pin 2026-11-06)
         with:
           node-version: 22
           cache: 'pnpm'
@@ -80,10 +80,10 @@ jobs:
           echo "✓ 版本一致，继续发布：$TAG"
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable (SHA pin 2026-11-06)
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2 (SHA pin 2026-11-06)
         with:
           workspaces: 'src-tauri -> target'
 
@@ -148,7 +148,7 @@ jobs:
             --title "SpiritPal v$VERSION" --draft --notes "$BODY"
 
       - name: Build and release Tauri app
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0 (SHA pin 2026-11-06)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -181,7 +181,7 @@ jobs:
       # 于是这两行恒零匹配，exe 从未进过 artifact，只有 bundle/ 进得去，而 warn 不会声张。
       - name: Upload build artifacts (for perf gates)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4 (SHA pin 2026-11-06)
         with:
           name: spiritpal-build-${{ matrix.platform }}
           path: |
@@ -206,14 +206,14 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (SHA pin 2026-11-06)
 
       # 同 release job：版本由 package.json 的 packageManager 驱动，不传 version 输入。
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4 (SHA pin 2026-11-06)
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4 (SHA pin 2026-11-06)
         with:
           node-version: 22
           cache: 'pnpm'
@@ -223,7 +223,7 @@ jobs:
 
       # artifact 内含 bundle/（package-size.mjs 检查 src-tauri/target/release/bundle/）
       - name: Download build artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8 (SHA pin 2026-11-06)
         with:
           name: spiritpal-build-ubuntu-22.04
           path: src-tauri/target/release
@@ -239,7 +239,7 @@ jobs:
 
       - name: Upload performance results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4 (SHA pin 2026-11-06)
         with:
           name: performance-results-ubuntu
           path: perf/results/
@@ -263,11 +263,11 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (SHA pin 2026-11-06)
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4 (SHA pin 2026-11-06)
         with:
           node-version: 22
 

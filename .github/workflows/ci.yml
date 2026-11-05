@@ -38,15 +38,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (SHA pin 2026-11-06)
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4 (SHA pin 2026-11-06)
         # 版本由 package.json 的 packageManager 字段统一驱动（pnpm@11.26.0），
         # 避免 action version 输入与 packageManager 双源冲突（ERR_PNPM_BAD_PM_VERSION）。
 
       - name: Install Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4 (SHA pin 2026-11-06)
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'pnpm'
@@ -63,7 +63,7 @@ jobs:
       - name: Upload coverage to Codecov
         # 双矩阵（Node 20/22）仅由 Node 22 上传一次，避免同 flag 互相覆盖
         if: always() && matrix.node-version == '22'
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7 (SHA pin 2026-11-06)
         with:
           files: ./coverage/lcov.info
           flags: frontend
@@ -72,7 +72,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4 (SHA pin 2026-11-06)
         with:
           name: coverage-report-node-${{ matrix.node-version }}
           path: coverage/
@@ -85,15 +85,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (SHA pin 2026-11-06)
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4 (SHA pin 2026-11-06)
         # 版本由 package.json 的 packageManager 字段统一驱动（pnpm@11.26.0），
         # 避免 action version 输入与 packageManager 双源冲突（ERR_PNPM_BAD_PM_VERSION）。
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4 (SHA pin 2026-11-06)
         with:
           node-version: 22
           cache: 'pnpm'
@@ -127,7 +127,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4 (SHA pin 2026-11-06)
         with:
           name: playwright-report
           path: playwright-report/
@@ -135,7 +135,7 @@ jobs:
 
       - name: Upload test videos (on failure)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4 (SHA pin 2026-11-06)
         with:
           name: playwright-videos
           path: test-results/screenshots/video/*.webm
@@ -150,10 +150,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (SHA pin 2026-11-06)
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8 (SHA pin 2026-11-06)
         with:
           name: spiritpal-build-ubuntu-22.04
           # 以工作区为根解出，与上传侧默认 root 对称；不再猜中间目录层级。
@@ -184,10 +184,10 @@ jobs:
         # 必须先装 pnpm：本 job 此前只有 setup-node(cache:'pnpm')，缺 action-setup，
         # run 36029050680 实测红在 `Unable to locate executable file: pnpm`（11s，其后 4 步 skipped）。
         # 版本不写死，由 package.json 的 packageManager 字段驱动（同 ci.yml:36-38）。
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4 (SHA pin 2026-11-06)
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4 (SHA pin 2026-11-06)
         with:
           node-version: 22
           cache: 'pnpm'
@@ -270,7 +270,7 @@ jobs:
 
       - name: Upload performance results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4 (SHA pin 2026-11-06)
         with:
           name: perf-baseline-results
           path: |
@@ -281,7 +281,7 @@ jobs:
 
       - name: Upload benchmark report summary
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4 (SHA pin 2026-11-06)
         with:
           name: benchmark-report-summary
           path: perf/benchmark-report.md
@@ -296,16 +296,16 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (SHA pin 2026-11-06)
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable (SHA pin 2026-11-06)
         with:
           toolchain: '1.98.0'
           components: clippy, rustfmt
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2 (SHA pin 2026-11-06)
         with:
           workspaces: 'src-tauri -> target'
 
@@ -385,7 +385,7 @@ jobs:
         # 精确的「哪一行未覆盖」只能从 CI 取回来看。Codecov 上传因缺 token 一直是失败的
         # （fail_ci_if_error: false），别指望它，artifacts 才是可靠来源。
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4 (SHA pin 2026-11-06)
         with:
           name: rust-coverage-report
           path: |
@@ -396,7 +396,7 @@ jobs:
 
       - name: Upload Rust coverage to Codecov
         if: always()
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7 (SHA pin 2026-11-06)
         with:
           files: ./src-tauri/coverage/lcov.info
           flags: rust
@@ -408,15 +408,15 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (SHA pin 2026-11-06)
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4 (SHA pin 2026-11-06)
         # 版本由 package.json 的 packageManager 字段统一驱动（pnpm@11.26.0），
         # 避免 action version 输入与 packageManager 双源冲突（ERR_PNPM_BAD_PM_VERSION）。
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4 (SHA pin 2026-11-06)
         with:
           node-version: 22
           cache: 'pnpm'
@@ -432,7 +432,7 @@ jobs:
           pnpm audit --json --audit-level=critical --registry=https://registry.npmjs.org/ > "$GITHUB_WORKSPACE/pnpm-audit.json" || true
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable (SHA pin 2026-11-06)
         with:
           toolchain: '1.98.0'
 
@@ -447,7 +447,7 @@ jobs:
         run: cargo audit --json -f src-tauri/Cargo.lock > cargo-audit.json || true
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7 (SHA pin 2026-11-06)
         with:
           python-version: '3.12'
       - name: Execute security gate (棘轮基线)
@@ -464,7 +464,7 @@ jobs:
       - name: Run osv-scanner
         # 扫描结果以报告形式落盘供人工审阅，退出码不作为门禁（security_gate.py 设计）
         continue-on-error: true
-        uses: google/osv-scanner-action/osv-scanner-action@v2.6.0
+        uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0 (SHA pin 2026-11-06)
         with:
           scan-args: |-
             --recursive
@@ -473,7 +473,7 @@ jobs:
 
       - name: Upload osv-scanner report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4 (SHA pin 2026-11-06)
         with:
           name: osv-scanner-report
           path: |
@@ -488,7 +488,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout (含完整历史)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (SHA pin 2026-11-06)
         with:
           fetch-depth: 0
 
@@ -509,15 +509,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (SHA pin 2026-11-06)
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4 (SHA pin 2026-11-06)
         # 版本由 package.json 的 packageManager 字段统一驱动（pnpm@11.26.0），
         # 避免 action version 输入与 packageManager 双源冲突（ERR_PNPM_BAD_PM_VERSION）。
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4 (SHA pin 2026-11-06)
         with:
           node-version: 22
           cache: 'pnpm'
@@ -547,7 +547,7 @@ jobs:
 
       - name: Upload performance stress results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4 (SHA pin 2026-11-06)
         with:
           name: perf-stress-results
           path: perf/results/
@@ -572,26 +572,26 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (SHA pin 2026-11-06)
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4 (SHA pin 2026-11-06)
         # 版本由 package.json 的 packageManager 字段统一驱动（pnpm@11.26.0），
         # 避免 action version 输入与 packageManager 双源冲突（ERR_PNPM_BAD_PM_VERSION）。
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4 (SHA pin 2026-11-06)
         with:
           node-version: 22
           cache: 'pnpm'
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable (SHA pin 2026-11-06)
         with:
           toolchain: '1.98.0'
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2 (SHA pin 2026-11-06)
         with:
           workspaces: 'src-tauri -> target'
 
@@ -624,7 +624,7 @@ jobs:
           ls -l "../binaries/spiritpal-mcp-${triple}${ext}"
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0 (SHA pin 2026-11-06)
         # createUpdaterArtifacts=true + tauri.conf.json 已登记 updater.pubkey：
         # 缺私钥时 tauri 直接失败（ubuntu 实测 `A public key has been found, but no private key`）。
         # secret 名与 release.yml:113-114 一致；只引用，不读值、不打印。
@@ -687,7 +687,7 @@ jobs:
         run: node scripts/obfuscate-and-sri.mjs --verify
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4 (SHA pin 2026-11-06)
         with:
           name: spiritpal-build-${{ matrix.platform }}
           # 修 #95 引入的回归：那笔把 root 当成了 path 的解析基准。run 36113821570 实测
@@ -716,16 +716,16 @@ jobs:
         working-directory: src-tauri
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (SHA pin 2026-11-06)
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable (SHA pin 2026-11-06)
         with:
           toolchain: '1.98.0'
           components: clippy
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2 (SHA pin 2026-11-06)
         with:
           workspaces: 'src-tauri -> target'
 
@@ -748,7 +748,7 @@ jobs:
 
       - name: Upload clippy log
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4 (SHA pin 2026-11-06)
         with:
           name: clippy-log
           path: src-tauri/clippy.log
@@ -769,15 +769,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (SHA pin 2026-11-06)
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4 (SHA pin 2026-11-06)
         # 版本由 package.json 的 packageManager 字段统一驱动（pnpm@11.26.0），
         # 避免 action version 输入与 packageManager 双源冲突（ERR_PNPM_BAD_PM_VERSION）。
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4 (SHA pin 2026-11-06)
         with:
           node-version: 22
           cache: 'pnpm'
@@ -792,7 +792,7 @@ jobs:
 
       - name: Upload mutation report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4 (SHA pin 2026-11-06)
         with:
           name: stryker-report
           path: reports/mutation/
@@ -808,15 +808,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (SHA pin 2026-11-06)
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4 (SHA pin 2026-11-06)
         # 版本由 package.json 的 packageManager 字段统一驱动（pnpm@11.26.0），
         # 避免 action version 输入与 packageManager 双源冲突（ERR_PNPM_BAD_PM_VERSION）。
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4 (SHA pin 2026-11-06)
         with:
           node-version: 22
           cache: 'pnpm'
@@ -829,7 +829,7 @@ jobs:
 
       - name: Upload flaky report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4 (SHA pin 2026-11-06)
         with:
           name: flaky-report
           path: perf/results/flaky-report.json
@@ -845,15 +845,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (SHA pin 2026-11-06)
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4 (SHA pin 2026-11-06)
         # 版本由 package.json 的 packageManager 字段统一驱动（pnpm@11.26.0），
         # 避免 action version 输入与 packageManager 双源冲突（ERR_PNPM_BAD_PM_VERSION）。
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4 (SHA pin 2026-11-06)
         with:
           node-version: 22
           cache: 'pnpm'
@@ -866,7 +866,7 @@ jobs:
 
       - name: Upload memory recall results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4 (SHA pin 2026-11-06)
         with:
           name: memory-recall-results
           path: perf/results/
@@ -887,15 +887,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (SHA pin 2026-11-06)
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4 (SHA pin 2026-11-06)
         # 版本由 package.json 的 packageManager 字段统一驱动（pnpm@11.26.0），
         # 避免 action version 输入与 packageManager 双源冲突（ERR_PNPM_BAD_PM_VERSION）。
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4 (SHA pin 2026-11-06)
         with:
           node-version: 22
           cache: 'pnpm'
@@ -910,12 +910,12 @@ jobs:
         run: pnpm add -D webdriverio
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable (SHA pin 2026-11-06)
         with:
           toolchain: '1.98.0'
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2 (SHA pin 2026-11-06)
         with:
           workspaces: 'src-tauri -> target'
 
@@ -946,7 +946,7 @@ jobs:
 
       - name: Upload tauri-driver report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4 (SHA pin 2026-11-06)
         with:
           name: tauri-driver-report
           path: playwright-report/

@@ -16,8 +16,8 @@ jobs:
   layout:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (SHA pin 2026-11-06)
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7 (SHA pin 2026-11-06)
         with:
           python-version: '3.11'
       - name: Check repository root layout
@@ -31,7 +31,7 @@ jobs:
         # 状态行 `auditor=repo-local|family` 标明本次究竟跑了哪套审计，绿 = 已判定。
         run: python scripts/check_spec_refs.py
       # P2-1: capability 最小授权 lint（报告2 §二；负向测试见 scripts/__tests__/lint-capabilities.test.mjs）
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4 (SHA pin 2026-11-06)
         with:
           node-version: 22
       - name: Capability minimal-permission lint
