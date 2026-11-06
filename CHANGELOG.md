@@ -9,6 +9,10 @@
 
 ## [未发布]
 
+### 新增
+
+- TD-010a 记忆「全部角色」导出：`MemoryPanel` 的导出工具条新增「全部角色」勾选框，勾选后一次导出所有有记忆的角色。导出器不再在缺 `characterId` 时静默落 `default`，改为枚举记忆库里实际有数据的角色（新命令 `sp_mem_characters` 查行级 `memories` 表按 `character_id` 聚合；旧 blob 按 settings 键 `spiritpal-enhanced-memory-<id>` 反推，剔除 `.corrupt` 备份键）。多角色导出时每条记忆标注 `characterId`、CSV 增加「角色」列、Markdown 每条加「角色」行、文件名为 `all-characters-memories-<date>`；单角色导出格式保持不变。
+
 ### 修复
 
 - TD-009 桌面端语音录制授权：`src-tauri/src/lib.rs` 的 Tauri Builder 挂 `on_permission_request`，策略收在 `desktop_permission_response()`——只放行 `Microphone`，相机/定位/通知/剪贴板等一律返回 `Default`（交回平台默认，不静默放行）。此前没有任何处理，等于把 `getUserMedia` 是否可用交给 WebView 默认策略。另补 `src-tauri/Info.plist` 的 `NSMicrophoneUsageDescription`：WKWebView 缺这条声明时麦克风请求会被直接拒绝。验证：`cargo check --lib` rc=0；`cargo test --lib td009` 2 passed（放行麦克风 / 其余权限回落默认）。

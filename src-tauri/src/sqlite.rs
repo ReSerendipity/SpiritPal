@@ -1185,6 +1185,26 @@ pub async fn sp_mem_by_character(
     .await
 }
 
+/// 列出「记忆库里实际有数据」的角色及其记忆条数（`sp_mem_characters` 的可测核心）。
+///
+/// 只读 `memories` 表，不碰角色名册：批量导出要遍历的是「有记忆的角色」，而名册里
+/// 大量内置角色从未产生过记忆，按名册遍历会为空角色反复建管理器、拉全量记忆。
+/// 排序取「条数降序 + id 升序」，让导出结果里主要角色排在前面且顺序稳定可复现。
+fn sp_mem_characters_impl(conn: &Connection) -> Result<Vec<JsonValue>, String> {
+    json_rows(
+        conn,
+        "SELECT character_id, COUNT(*) AS memory_count FROM memories
+         GROUP BY character_id ORDER BY memory_count DESC, character_id ASC",
+        &[],
+    )
+}
+
+/// 列出记忆库中出现过的角色（批量导出的角色枚举入口）。
+#[tauri::command]
+pub async fn sp_mem_characters(app: AppHandle) -> Result<Vec<JsonValue>, String> {
+    with_conn(app, |conn| sp_mem_characters_impl(conn)).await
+}
+
 // ---- memory_summaries / memory_state ----
 
 #[tauri::command]
@@ -3624,6 +3644,31 @@ mod tests {
             .collect();
         assert_eq!(importance[&a], 50, "缺省 importance 应为 50");
         assert_eq!(importance[&b], 90);
+    }
+
+    #[test]
+    fn test_mem_characters_impl_groups_and_counts() {
+        let conn = mem_conn();
+        // 空库：不能返回一个「无 id 的空行」，必须是真正的空集
+        assert!(sp_mem_characters_impl(&conn).unwrap().is_empty());
+
+        sp_mem_add_impl(&conn, "char-a", "episodic", "a1", None).unwrap();
+        sp_mem_add_impl(&conn, "char-a", "long_term", "a2", None).unwrap();
+        sp_mem_add_impl(&conn, "char-b", "episodic", "b1", None).unwrap();
+
+        let rows = sp_mem_characters_impl(&conn).unwrap();
+        assert_eq!(rows.len(), 2, "两个角色应各自聚合为一行: {rows:?}");
+        // 排序：条数降序 + id 升序
+        assert_eq!(rows[0]["character_id"], json!("char-a"));
+        assert_eq!(rows[0]["memory_count"], json!(2));
+        assert_eq!(rows[1]["character_id"], json!("char-b"));
+        assert_eq!(rows[1]["memory_count"], json!(1));
+
+        // 清空一个角色后，枚举里不应再出现它（否则批量导出会为它建空管理器）
+        sp_mem_clear_impl(&conn, "char-b").unwrap();
+        let rows = sp_mem_characters_impl(&conn).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["character_id"], json!("char-a"));
     }
 
     #[test]

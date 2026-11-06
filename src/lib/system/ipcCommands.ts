@@ -144,6 +144,8 @@ export const IPC_COMMANDS = [
   'sp_mem_add',
   'sp_mem_by_character',
   'sp_mem_by_tier',
+  // 批量导出：列出记忆库里实际有数据的角色
+  'sp_mem_characters',
   'sp_mem_clear',
   'sp_mem_clear_all',
   'sp_mem_delete',

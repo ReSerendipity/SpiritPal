@@ -354,6 +354,19 @@ export async function getMemories(characterId: string, type?: MemoryType): Promi
 }
 
 /**
+ * 列出记忆库里实际有数据的角色（批量导出的角色枚举入口）。
+ *
+ * 只查 `memories` 表，不看角色名册：名册里的内置角色大多从未产生记忆，按名册遍历会为空
+ * 角色反复建管理器。返回按记忆条数降序、id 升序，顺序稳定可复现。
+ */
+export async function listMemoryCharacters(): Promise<
+  Array<{ character_id: string; memory_count: number }>
+> {
+  await ensureReady()
+  return tauriInvoke('sp_mem_characters', {})
+}
+
+/**
  * P0-3 修复：按 dbId（SQLite 行 id）删除单条记忆及其 embedding。
  */
 export async function deleteMemory(dbId: number): Promise<void> {

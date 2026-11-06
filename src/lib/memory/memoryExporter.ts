@@ -13,8 +13,16 @@
  */
 
 import type { MemoryEntry } from '@/lib/data/types'
+import { getSettingsKeysLike, listMemoryCharacters } from '@/lib/data/db'
+import { getCharacter } from '@/lib/data/characters'
 import { getEnhancedMemoryManager } from '@/lib/memory/enhancedMemory'
 import { getKeyframeMemory } from '@/lib/memory/keyframeMemory'
+
+/** 多角色导出的条目：在原始记忆上附加归属角色（单角色导出不加，保持旧格式不变） */
+type ExportEntry = MemoryEntry & { characterId?: string }
+
+/** 旧 blob 存储的 settings 键：`spiritpal-enhanced-memory-<characterId>`（含 `.corrupt` 备份键） */
+const LEGACY_BLOB_PREFIX = 'spiritpal-enhanced-memory-'
 
 // ============ 类型定义 ============
 
@@ -83,7 +91,9 @@ export class MemoryExporter {
     >
   > &
     Pick<ExportOptions, 'characterId' | 'timeRange' | 'tags'>
-  static readonly VERSION = '1.0.0'
+  static readonly VERSION = '1.1.0'
+  /** 本次导出实际取到数据的角色（多角色导出时用于文件名与元数据；空数组=未走多角色分支） */
+  private exportedCharacterIds: string[] = []
 
   constructor(options: ExportOptions) {
     this.options = {
@@ -143,16 +153,35 @@ export class MemoryExporter {
 
     if (this.options.characterId) {
       // 导出指定角色：使用公开加载入口刷新内存后取全部记忆
-      const manager = getEnhancedMemoryManager(this.options.characterId || 'default')
+      const manager = getEnhancedMemoryManager(this.options.characterId)
       await manager.ensureLoaded()
       memories.push(...manager.getAllMemories())
+      this.exportedCharacterIds = [this.options.characterId]
     } else {
-      // TODO: 导出所有角色（需要遍历所有角色）
-      // 这里使用简化实现
-      console.warn('[MemoryExporter] 未指定角色 ID，将使用默认角色')
-      const manager = getEnhancedMemoryManager('default')
-      await manager.ensureLoaded()
-      memories.push(...manager.getAllMemories())
+      // 导出所有角色：先枚举「记忆库里实际有数据」的角色，再逐个取数。
+      // 不能靠角色名册遍历——名册里的内置角色大多从未产生记忆，会为空角色反复建管理器、
+      // 拉全量记忆，导出耗时随名册增长而与真实数据量无关。
+      const ids = await this.resolveCharacterIds()
+      if (ids.length === 0) {
+        // 记忆库确实为空（或行级/旧 blob 两处都没数据）：保持旧行为导出默认角色，
+        // 让调用方拿到一份空文件而不是一个「为什么没导出」的静默失败。
+        console.warn('[MemoryExporter] 未找到任何有记忆的角色，回退到默认角色')
+        const manager = getEnhancedMemoryManager('default')
+        await manager.ensureLoaded()
+        memories.push(...manager.getAllMemories())
+        this.exportedCharacterIds = ['default']
+      } else {
+        for (const id of ids) {
+          const manager = getEnhancedMemoryManager(id)
+          await manager.ensureLoaded()
+          const list = manager.getAllMemories()
+          if (list.length === 0) continue
+          this.exportedCharacterIds.push(id)
+          // 多角色导出必须在条目上标角色，否则合并后分不清哪条记忆属于谁；
+          // 单角色分支不加这个字段，旧导出文件的字段集合保持不变。
+          memories.push(...list.map((m) => ({ ...m, characterId: id }) as ExportEntry))
+        }
+      }
     }
 
     // 应用时间范围过滤
@@ -168,6 +197,54 @@ export class MemoryExporter {
   }
 
   /**
+   * 枚举「有记忆数据」的角色 ID
+   *
+   * 记忆有两种落盘形态，必须都覆盖：
+   * - 行级（默认）：`memories` 表按 character_id 分行，用 `sp_mem_characters` 一次查清；
+   * - 旧 blob（迁移前 / 强制 legacy）：整包 JSON 存在 settings 的
+   *   `spiritpal-enhanced-memory-<id>`，另可能有 `<id>.corrupt` 损坏备份，按前缀反推角色。
+   * 两处都查不到时返回空数组，由调用方决定回退策略。
+   */
+  private async resolveCharacterIds(): Promise<string[]> {
+    const ids = new Set<string>()
+
+    try {
+      const rows = await listMemoryCharacters()
+      for (const row of rows) {
+        const id = typeof row?.character_id === 'string' ? row.character_id.trim() : ''
+        if (id) ids.add(id)
+      }
+    } catch (e) {
+      console.warn('[MemoryExporter] 行级记忆角色枚举失败，将只按旧 blob 枚举:', e)
+    }
+
+    try {
+      const keys = await getSettingsKeysLike(`${LEGACY_BLOB_PREFIX}%`)
+      for (const key of keys) {
+        if (!key.startsWith(LEGACY_BLOB_PREFIX)) continue
+        const id = key.slice(LEGACY_BLOB_PREFIX.length).replace(/\.corrupt$/, '').trim()
+        if (id) ids.add(id)
+      }
+    } catch (e) {
+      console.warn('[MemoryExporter] 旧 blob 键枚举失败:', e)
+    }
+
+    // 稳定顺序：行级枚举已按「条数降序 + id 升序」，这里再按 id 排一次，
+    // 让「只有 blob 的角色」与行级角色混排后仍然可复现（同一份数据两次导出结果一致）。
+    return Array.from(ids).sort((a, b) => a.localeCompare(b))
+  }
+
+  /** 角色显示名（查不到就用 id，绝不猜） */
+  private characterNameOf(id: string): string {
+    try {
+      const profile = getCharacter(id)
+      return profile?.displayName || id
+    } catch {
+      return id
+    }
+  }
+
+  /**
    * 生成文件名
    */
   private generateFilename(_memories: MemoryEntry[]): string {
@@ -177,6 +254,11 @@ export class MemoryExporter {
     let prefix = 'memories'
     if (this.options.characterId) {
       prefix = `${this.options.characterId}-memories`
+    } else if (this.exportedCharacterIds.length > 1) {
+      // 多角色合并导出：文件名点明范围，避免与单角色导出混在下载目录里分不清
+      prefix = 'all-characters-memories'
+    } else if (this.exportedCharacterIds.length === 1) {
+      prefix = `${this.exportedCharacterIds[0]}-memories`
     }
 
     return `${prefix}-${dateStr}.${this.options.format}`
@@ -197,6 +279,12 @@ export class MemoryExporter {
       exportedAt: Date.now(),
       format: this.options.format,
       count: memories.length,
+      characterCount: this.exportedCharacterIds.length,
+      // 多角色导出时把角色清单也写进文件头：导入方不必逐条扫 entries 才知道有哪些角色
+      characters: this.exportedCharacterIds.map((id) => ({
+        id,
+        name: this.characterNameOf(id),
+      })),
     }
 
     // 如果包含关键帧
@@ -220,12 +308,17 @@ export class MemoryExporter {
   private exportAsCsv(memories: MemoryEntry[]): string {
     const delimiter = this.options.delimiter || ','
     const includeHeader = this.options.includeHeader ?? true
+    // 多角色时加「角色」列：否则合并后的 CSV 无法区分记忆归属
+    const withCharacter = this.exportedCharacterIds.length > 1
 
     const lines: string[] = []
 
     // 表头
     if (includeHeader) {
-      lines.push(['日期', '用户消息', 'AI 回复', '字数统计'].join(delimiter))
+      const header = withCharacter
+        ? ['角色', '日期', '用户消息', 'AI 回复', '字数统计']
+        : ['日期', '用户消息', 'AI 回复', '字数统计']
+      lines.push(header.join(delimiter))
     }
 
     // 数据行
@@ -235,7 +328,12 @@ export class MemoryExporter {
       const assistantText = this.escapeCsvValue(m.assistant, delimiter)
       const wordCount = `${m.user.length + m.assistant.length}`
 
-      lines.push([date, userText, assistantText, wordCount].join(delimiter))
+      const row = [date, userText, assistantText, wordCount]
+      if (withCharacter) {
+        const charId = (m as ExportEntry).characterId || ''
+        row.unshift(this.escapeCsvValue(charId, delimiter))
+      }
+      lines.push(row.join(delimiter))
     })
 
     return lines.join('\n')
@@ -272,6 +370,10 @@ export class MemoryExporter {
 
       lines.push(`## 对话 #${idx + 1}`)
       lines.push(`**时间**: ${date}`)
+      const charId = (m as ExportEntry).characterId
+      if (charId) {
+        lines.push(`**角色**: ${charId}`)
+      }
       lines.push('')
       lines.push('**用户**:')
       lines.push(m.user)
@@ -316,6 +418,13 @@ export class MemoryExporter {
     if (this.options.characterId) {
       meta.characterId = this.options.characterId
       meta.characterName = this.options.characterId
+    } else if (this.exportedCharacterIds.length > 0) {
+      // 多角色导出：把实际取到数据的角色连同条数记进元数据，便于核对「该导出的都导出了」
+      meta.characters = this.exportedCharacterIds.map((id) => ({
+        id,
+        name: this.characterNameOf(id),
+      }))
+      meta.characterCount = this.exportedCharacterIds.length
     }
 
     if (this.options.tags && this.options.tags.length > 0) {

@@ -52,6 +52,8 @@ export function MemoryPanel({ variant = 'full' }: MemoryPanelProps) {
   const batch = useMemo(() => createBatchManager<OwnerFact>([]), [])
   const [, setSelVersion] = useState(0)
   const [exporting, setExporting] = useState(false)
+  // TD-010a：勾选后导出「所有有记忆的角色」，否则只导出当前角色
+  const [exportAllCharacters, setExportAllCharacters] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showUndo, setShowUndo] = useState(false)
   const deletedSnapshot = useRef<OwnerFact[]>([])
@@ -103,11 +105,15 @@ export function MemoryPanel({ variant = 'full' }: MemoryPanelProps) {
   }, [currentCharacterId, newFactKey, newFactValue])
 
   // A-12：导出三层记忆（JSON / CSV / Markdown），webview 安全下载
+  // TD-010a：勾选「全部角色」时不传 characterId，交由导出器枚举所有有记忆的角色
   const handleExport = useCallback(
     async (format: 'json' | 'csv' | 'markdown') => {
       setExporting(true)
       try {
-        const result = await exportMemories({ format, characterId: currentCharacterId })
+        const result = await exportMemories({
+          format,
+          characterId: exportAllCharacters ? undefined : currentCharacterId,
+        })
         const blob = new Blob([result.content], { type: 'text/plain;charset=utf-8' })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
@@ -123,7 +129,7 @@ export function MemoryPanel({ variant = 'full' }: MemoryPanelProps) {
         setExporting(false)
       }
     },
-    [currentCharacterId],
+    [currentCharacterId, exportAllCharacters],
   )
 
   // A-12：批量删除选中事实（通过 batchOperationManager），并保留快照以支持撤销
@@ -233,6 +239,17 @@ export function MemoryPanel({ variant = 'full' }: MemoryPanelProps) {
           {/* A-12：工具条——导出 + 批量操作（仅事实页） */}
           <div key={`toolbar-${facts.length}`} className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-ink-faint">导出记忆</span>
+            <label className="flex items-center gap-1 text-xs text-ink-muted">
+              <input
+                type="checkbox"
+                checked={exportAllCharacters}
+                onChange={(e) => setExportAllCharacters(e.target.checked)}
+                disabled={exporting}
+                className="h-3 w-3 accent-ink"
+                aria-label="导出所有有记忆的角色"
+              />
+              全部角色
+            </label>
             <button
               onClick={() => void handleExport('json')}
               disabled={exporting}
