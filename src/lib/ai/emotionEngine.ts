@@ -236,12 +236,55 @@ export class EmotionAnalyzer {
   }
 
   /**
-   * 批量分析历史对话
+   * 批量分析历史对话（情绪时间线取数）
+   *
+   * TD-014：这里原先是 `return []` 的桩，情绪曲线/情绪趋势只能看当前会话内存里的
+   * `history`，聊得越久越看不到「过去几天的情绪」。现在接到四段式记忆的情景记忆层：
+   * 取该角色的 `episodicMemory`（含被 `compressEpisodic` 压缩前的最近对话），逐条跑
+   * `analyze()` 得到情绪点，并按记忆本身的 `created_at` 盖时间戳（不是"现在"）。
+   *
+   * 为什么必须显式传 `characterId`：记忆是**按角色分库**的，猜一个默认 id 会把别的角色的
+   * 对话算进这个角色的情绪线。没有角色上下文时宁可返回空，也不跨角色串数据。
+   *
+   * 用动态 import 拿记忆管理器：`emotionEngine` 被大量 UI 与工具模块（cultureEmoji 等）
+   * 引用，静态引入整套记忆栈会把 SQLite/RAG/Vec 全拖进这些轻量调用点的模块图。
    */
-  async analyzeMemoryHistory(): Promise<EmotionData[]> {
-    // TODO: 从记忆中提取对话并分析
-    // 这里使用简化实现
-    return []
+  async analyzeMemoryHistory(
+    options: { characterId?: string; limit?: number } = {}
+  ): Promise<EmotionData[]> {
+    const characterId = options.characterId
+    if (!characterId) return []
+
+    const limit = Math.max(1, options.limit ?? 100)
+
+    try {
+      const { getEnhancedMemoryManager } = await import('@/lib/memory/enhancedMemory')
+      const manager = getEnhancedMemoryManager(characterId)
+      await manager.ensureLoaded()
+
+      const memories = manager
+        .getEpisodicMemories()
+        .filter((m) => typeof m.user === 'string' && m.user.trim().length > 0)
+        .slice(-limit)
+
+      return memories.map((memory) => {
+        const parsed = Date.parse(memory.created_at)
+        return {
+          ...this.analyze(memory.user),
+          timestamp: Number.isFinite(parsed) ? parsed : Date.now(),
+          trigger: {
+            type: 'system_event',
+            source: 'memory_history',
+            context: memory.id,
+          },
+          relatedMemoryIds: [memory.id],
+        }
+      })
+    } catch (error) {
+      // 记忆未迁移/未就绪时不该让情绪面板整块挂掉：降级为空时间线
+      console.warn('[EmotionEngine] analyzeMemoryHistory 取记忆失败，降级为空:', error)
+      return []
+    }
   }
 
   /**
