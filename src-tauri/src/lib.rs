@@ -178,8 +178,9 @@ use tauri::{Emitter, Manager, WebviewWindow};
 // 其余命令保持独立模块文件，由下方 invoke_handler 统一注册。
 mod commands;
 use commands::window::{
-    detect_asset_tools, get_window_config, greet, log_frontend_error, open_application,
-    read_text_file, run_asset_pipeline, scan_character_directory, validate_upload_magic,
+    detect_asset_tools, detect_upload_kind, get_window_config, greet, log_frontend_error,
+    open_application, read_text_file, run_asset_pipeline, scan_character_directory,
+    validate_upload_magic,
 };
 #[cfg(desktop)]
 use commands::window::{
@@ -416,6 +417,8 @@ pub fn run() {
                     uninstall_mod,
                     // 上传文件魔数校验
                     validate_upload_magic,
+                    // 聊天上传：按字节识别真实媒体类别（不依赖扩展名）
+                    detect_upload_kind,
                     // 全局键鼠监听（宠物注视光标效果）
                     start_device_listening,
                     stop_device_listening,
@@ -605,6 +608,8 @@ pub fn run() {
                     uninstall_mod,
                     // 上传文件魔数校验
                     validate_upload_magic,
+                    // 聊天上传：按字节识别真实媒体类别（不依赖扩展名）
+                    detect_upload_kind,
                     // P1-2: 角色包导入
                     scan_character_directory,
                     read_text_file,

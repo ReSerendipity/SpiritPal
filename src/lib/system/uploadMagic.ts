@@ -81,3 +81,32 @@ export async function validateUploadMagic(file: File): Promise<string | null> {
     return null
   }
 }
+
+/** 识别出的媒体类别（与 Rust `FileKind::as_str()` 的标签逐字对齐） */
+export type UploadKind = 'image' | 'audio' | 'video' | 'archive'
+
+const KNOWN_KINDS: ReadonlySet<string> = new Set<UploadKind>(['image', 'audio', 'video', 'archive'])
+
+/**
+ * 按文件头字节识别真实媒体类别（Tauri invoke → Rust detect_upload_kind）
+ *
+ * 与 `validateUploadMagic` 同源（同一张魔数表），区别在于**不看扩展名**：聊天上传要处理
+ * 拖拽、剪贴板粘贴、移动端相册等「没有可靠扩展名」的来源，先识别类别再决定走图片/音频/
+ * 视频分支；扩展名不可信时也不会被伪装后缀带偏。
+ *
+ * @param file 用户选择的文件
+ * @returns 识别出的类别；未命中已登记格式、或非 Tauri 环境时返回 null（调用方自行兜底）
+ */
+export async function detectUploadKind(file: File): Promise<UploadKind | null> {
+  try {
+    const header = new Uint8Array(await file.slice(0, HEADER_READ_SIZE).arrayBuffer())
+    const kind = await tauriInvoke<string | null>('detect_upload_kind', {
+      contents: Array.from(header),
+    })
+    if (typeof kind === 'string' && KNOWN_KINDS.has(kind)) return kind as UploadKind
+    return null
+  } catch {
+    // 非 Tauri 环境或命令不可用：交由调用方按扩展名/MIME 兜底
+    return null
+  }
+}

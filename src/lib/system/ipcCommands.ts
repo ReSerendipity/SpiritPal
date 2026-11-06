@@ -52,6 +52,8 @@ export const IPC_COMMANDS = [
   'delete_db_backup',
   'delete_secret',
   'detect_device_tier',
+  // 聊天上传：按文件头字节识别真实媒体类别（不依赖扩展名）
+  'detect_upload_kind',
   'encrypt_data',
   'encrypt_data_chunked',
   'encrypt_db_at_rest',

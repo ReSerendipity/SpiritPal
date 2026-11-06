@@ -30,7 +30,7 @@ pub enum FileKind {
 }
 
 impl FileKind {
-    // 仅供 detect_file_kind 使用；detect_file_kind 是聊天上传自动识别的预留 API
+    // 供 detect_file_kind 生成前端可识别的类别标签（image/audio/video/archive）
     fn as_str(self) -> &'static str {
         match self {
             FileKind::Image => "image",
@@ -124,10 +124,22 @@ pub fn validate_magic(content: &[u8], file_ext: &str) -> Result<(), String> {
 /// 自动检测文件字节对应的媒体类别（不依赖扩展名）。
 ///
 /// 供前端聊天上传时自动识别真实类型，无需用户声明扩展名。
-/// 当前为聊天上传功能的预留 API，尚未被命令暴露。
-#[allow(dead_code)]
+/// 前端通过 Tauri 命令 detect_upload_kind 调用（聊天上传按字节识别类别）。
 pub fn detect_file_kind(content: &[u8]) -> Option<(FileKind, &'static str)> {
     let header = header_of(content);
+
+    // ftyp 族（ISO BMFF）歧义：`.m4a` 与 `.mp4/.mov` 的魔数完全相同（偏移 4 处都是 "ftyp"），
+    // 只能靠偏移 8..12 的 brand 区分——`M4A ` / `M4B ` / `M4P ` 是音频，其余（mp42 / isom /
+    // avc1 / qt  / M4V  …）按视频处理。不做这步，同一段 mp4 字节会被排在前面的 m4a 规则
+    // 判成 audio（聊天上传就会把视频交给图片/音频分支）。
+    if header.len() >= 12 && &header[4..8] == b"ftyp" {
+        let brand = &header[8..12];
+        return Some(match brand {
+            b"M4A " | b"M4B " | b"M4P " => (FileKind::Audio, "audio"),
+            _ => (FileKind::Video, "video"),
+        });
+    }
+
     for (_sig_ext, magic, offset, kind) in MAGIC_SIGNATURES {
         if header.len() >= offset + magic.len() && &header[*offset..*offset + magic.len()] == *magic
         {

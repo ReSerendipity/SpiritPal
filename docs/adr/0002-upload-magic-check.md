@@ -30,4 +30,17 @@
 # 可回滚路径与待验证项
 
 - 回滚：恢复为扩展名白名单判断（不推荐）。
-- 待验证：`detect_file_kind`（按字节识别媒体类别）为预留 API，尚未暴露为 Tauri 命令——不得写入现存式承诺。
+- ~~待验证：`detect_file_kind`（按字节识别媒体类别）为预留 API，尚未暴露为 Tauri 命令。~~
+  **已收口（2026-11-06）**：`detect_file_kind` 已暴露为 Tauri 命令 `detect_upload_kind(contents)`
+  （`src-tauri/src/commands/window.rs`，注册于 `lib.rs` 两处 `generate_handler!`；桌面端与移动端
+  各一份），前端助手为 `src/lib/system/uploadMagic.ts` 的 `detectUploadKind(file)`——返回
+  `image | audio | video | archive`，未命中已登记魔数返回 `null`，非 Tauri 环境返回 `null` 由调用方兜底。
+  与 `validate_upload_magic` 共用同一张 `MAGIC_SIGNATURES`：前者回答「声明扩展名与内容是否一致」，
+  后者回答「内容到底是什么类别」，供拖拽/剪贴板/移动端相册等**没有可靠扩展名**的上传入口使用。
+  验证：Rust 单测 3 条（四类别识别、ftyp brand 歧义消解、伪装/空/过短内容不 panic 且返回 None）、
+  前端 vitest 5 条（四类别透传、无扩展名照常识别、`null` 收敛、未知标签收敛为 `null`、非 Tauri
+  环境不抛错），两侧全 PASS；`cargo check --lib`、`cargo fmt --check`、`npx tsc --noEmit` 均 rc=0。
+  **暴露过程中发现并修掉一处真缺陷**：`.m4a` 与 `.mp4/.mov` 的魔数完全相同（偏移 4 处都是
+  `ftyp`），原实现按签名表顺序返回首个命中，同一段 mp4 字节会被排在前面的 m4a 规则判成
+  `audio`（聊天上传会把视频交给音频分支）。现按偏移 8..12 的 brand 消歧：`M4A `/`M4B `/`M4P `
+  为音频，其余（`mp42`/`isom`/`avc1`/`qt  `/`M4V `…）为视频；Rust 单测用 7 个 brand 逐一钉住。

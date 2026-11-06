@@ -353,6 +353,23 @@ pub fn validate_upload_magic(contents: Vec<u8>, file_ext: String) -> Result<bool
     }
 }
 
+/// 按文件头字节识别真实媒体类别（不依赖扩展名）。
+///
+/// 与 `validate_upload_magic` 同一套魔数表：校验命令回答「声明的扩展名和真实内容一致吗」，
+/// 本命令回答「真实内容到底是什么类别」——聊天上传要在没有扩展名（拖拽/剪贴板/移动端相册）
+/// 或扩展名不可信时决定走图片/音频/视频分支，靠的就是它。
+///
+/// # Arguments
+/// - `contents` — 文件二进制字节（前端读取，通常至少前 12 字节）
+///
+/// # Returns
+/// - `Some("image" | "audio" | "video" | "archive")` — 识别成功
+/// - `None` — 未命中已登记魔数（未知格式或内容被截断）
+#[tauri::command]
+pub fn detect_upload_kind(contents: Vec<u8>) -> Option<String> {
+    magic_check::detect_file_kind(&contents).map(|(_kind, label)| label.to_string())
+}
+
 // ============================================================
 // F5.5 AI Agent — 打开应用程序 / URL
 // ============================================================
@@ -786,6 +803,48 @@ mod tests {
             Ok(false)
         );
         assert_eq!(super::validate_upload_magic(png, "png".into()), Ok(false));
+    }
+
+    // ============ detect_upload_kind 命令测试（TD：预留 API 暴露为命令） ============
+    // 与 validate_upload_magic 共用同一张魔数表，这里钉的是「只看内容、不看扩展名」。
+
+    #[test]
+    fn test_detect_upload_kind_recognizes_four_categories() {
+        let png: Vec<u8> = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR".to_vec();
+        assert_eq!(super::detect_upload_kind(png), Some("image".into()));
+        let wav: Vec<u8> = b"RIFF\x24\x08\x00\x00WAVEfmt ".to_vec();
+        assert_eq!(super::detect_upload_kind(wav), Some("audio".into()));
+        let m4a: Vec<u8> = b"\x00\x00\x00\x20ftypM4A \x00\x00\x00\x00".to_vec();
+        assert_eq!(super::detect_upload_kind(m4a), Some("audio".into()));
+        let mp4: Vec<u8> = b"\x00\x00\x00\x18ftypmp42".to_vec();
+        assert_eq!(super::detect_upload_kind(mp4), Some("video".into()));
+        let zip: Vec<u8> = b"PK\x03\x04\x14\x00\x00\x00\x08\x00".to_vec();
+        assert_eq!(super::detect_upload_kind(zip), Some("archive".into()));
+    }
+
+    #[test]
+    fn test_detect_upload_kind_ftyp_brand_disambiguation() {
+        // 同一 ftyp 头，brand 决定 audio/video：isom / avc1 / qt 都是视频，M4B / M4P 是音频
+        for brand in [b"isom", b"avc1", b"qt  ", b"M4V "] {
+            let mut buf: Vec<u8> = b"\x00\x00\x00\x20ftyp".to_vec();
+            buf.extend_from_slice(brand);
+            assert_eq!(super::detect_upload_kind(buf), Some("video".into()));
+        }
+        for brand in [b"M4A ", b"M4B ", b"M4P "] {
+            let mut buf: Vec<u8> = b"\x00\x00\x00\x20ftyp".to_vec();
+            buf.extend_from_slice(brand);
+            assert_eq!(super::detect_upload_kind(buf), Some("audio".into()));
+        }
+    }
+
+    #[test]
+    fn test_detect_upload_kind_ignores_extension_and_rejects_masquerade() {
+        // 伪装文件（PE 头冒充图片）：内容不是任何已登记格式 → None
+        let fake: Vec<u8> = b"MZ\x90\x00\x03\x00\x00\x00\x04\x00\x00\x00".to_vec();
+        assert_eq!(super::detect_upload_kind(fake), None);
+        // 空内容 / 太短的内容都不 panic，直接 None
+        assert_eq!(super::detect_upload_kind(Vec::new()), None);
+        assert_eq!(super::detect_upload_kind(b"PK".to_vec()), None);
     }
 
     // ============ parse_hex_color 测试（窗口背景色解析） ============
