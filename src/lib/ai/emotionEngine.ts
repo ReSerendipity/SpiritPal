@@ -167,6 +167,63 @@ export function moodFromEmotionTags(animations: string[]): { valence: number; ar
   return { valence, arousal }
 }
 
+/**
+ * 由一组文本估算 0-100 的心情分（日记面板用，TD-012）
+ *
+ * 与 `moodFromEmotionTags` 的分工：那个吃的是 LLM 输出的动画标签，这个吃的是原始文本，
+ * 走的是 `EmotionAnalyzer.analyze()` 的关键词分类 + 强度检测。两者共用同一张
+ * `EMOTION_SCORES` 评分表，避免仓里出现第二套「情绪→分数」口径。
+ *
+ * 聚合方式：逐条取 (emotion, intensity)，权重取 `0.3 + 0.7 × intensity`——每条消息至少占
+ * 0.3 的基础权重，情绪越强权重越高（封顶 1.0）。这样中性文本也会真的进分母：
+ * 「今天聊了十句平淡话」应该贴近 50，而不是被一句「开心」拉到 90；同时强烈情绪仍能压过
+ * 闲聊（全 1.0 上限只在强度拉满时出现）。
+ *
+ * 权重上限之外还有一个下限保护：即使强度为 0 也不会出现 0 权重，避免除数极小导致
+ * 单条短句把整天的分数拉满。
+ */
+export function moodScoreFromTexts(texts: string[]): {
+  score: number
+  dominant: BasicEmotion
+  sampleCount: number
+} {
+  const analyzer = getEmotionAnalyzer()
+  let weightedSum = 0
+  let weightSum = 0
+  let sampleCount = 0
+  const weights = new Map<BasicEmotion, number>()
+
+  for (const raw of texts) {
+    const text = (raw ?? '').trim()
+    if (!text) continue
+    sampleCount += 1
+
+    const result = analyzer.analyze(text)
+    const emotion = result.emotion as BasicEmotion
+    const valence = EMOTION_SCORES[emotion] ?? 0
+    const intensity = Math.max(0, Math.min(1, result.intensity ?? 0))
+    const weight = 0.3 + 0.7 * intensity
+
+    weightedSum += valence * weight
+    weightSum += weight
+    weights.set(emotion, (weights.get(emotion) ?? 0) + weight)
+  }
+
+  let dominant: BasicEmotion = 'neutral'
+  let maxWeight = -1
+  for (const [emotion, weight] of weights) {
+    if (weight > maxWeight) {
+      maxWeight = weight
+      dominant = emotion
+    }
+  }
+
+  const avgValence = weightSum > 0 ? weightedSum / weightSum : 0
+  const score = Math.round(Math.max(0, Math.min(100, 50 + avgValence * 50)))
+
+  return { score, dominant, sampleCount }
+}
+
 // ============ 情绪分析器 ============
 
 export class EmotionAnalyzer {

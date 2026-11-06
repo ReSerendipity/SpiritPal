@@ -6,11 +6,14 @@
  *   故本组件采用 webview 安全实现：基于 chatStore 的今日对话 + lib/i18n 的本地化格式化器
  *   生成日记草稿，并通过 Blob 下载导出 Markdown（不依赖 Node fs）。
  * - 情绪评分当前为轻量启发式；后续可由 A-10 的 emotionEngine 进一步增强（见下方 TODO）。
+ * - TD-012（2026-11-07）：上面那条 TODO 已偿还——moodScore 改由 `emotionEngine.moodScoreFromTexts`
+ *   计算（关键词分类 + 强度检测 + 统一 EMOTION_SCORES 评分表），不再使用本地「正向词命中数 ×8」。
  */
 import { useState } from 'react'
 import { BookOpen, Download, Sparkles } from 'lucide-react'
 import type { ChatMessage } from '@/lib/data/types'
 import { formatDate } from '@/lib/system/i18n'
+import { moodScoreFromTexts } from '@/lib/ai/emotionEngine'
 import { useChatStore } from '@/stores/chatStore'
 
 interface JournalEntry {
@@ -85,10 +88,10 @@ function buildJournal(messages: ChatMessage[]): JournalEntry {
 
   const tags = extractTags(texts)
 
-  // TODO(A-10): 接入 emotionEngine.analyzeFromText 计算更精准的情绪评分
-  const positiveHits = ['开心', '喜欢', '谢谢', '爱', '棒', '好', 'happy', 'love', 'thanks', 'great', 'good', 'nice']
-  const positive = positiveHits.filter((w) => texts.join(' ').toLowerCase().includes(w)).length
-  const moodScore = Math.max(0, Math.min(100, 50 + positive * 8 + (userMsgs.length - 3) * 2))
+  // TD-012：心情分改由 emotionEngine 统一计算（原先是本地关键词命中数 × 8 的启发式，
+  // 同一句「有点累」会被判成平静，且全仓出现第二套「情绪→分数」口径）。
+  const { score: moodScore, dominant } = moodScoreFromTexts(texts)
+  const moodLabel = moodScore >= 60 ? '愉悦' : moodScore >= 40 ? '平静' : '略低'
 
   const title = `今天与 SpiritPal 的对话（${userMsgs.length} 条）`
   const content = [
@@ -98,7 +101,7 @@ function buildJournal(messages: ChatMessage[]): JournalEntry {
     '【今日对话摘要】',
     ...today.slice(-12).map((m) => `${m.role === 'user' ? '我' : 'SpiritPal'}：${m.content.slice(0, 120)}`),
     '',
-    `【心情】${moodScore >= 60 ? '愉悦' : moodScore >= 40 ? '平静' : '略低'}（评分 ${moodScore}）`,
+    `【心情】${moodLabel}（评分 ${moodScore} · 主要情绪 ${dominant}）`,
     `【关键词】${tags.join('、') || '—'}`,
   ].join('\n')
 
