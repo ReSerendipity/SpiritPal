@@ -16,6 +16,7 @@
 import { emit } from '@tauri-apps/api/event'
 import { register, unregisterAll } from '@tauri-apps/plugin-global-shortcut'
 import { ensureAppWindow } from '@/lib/system/appWindows'
+import { getContextAwarenessManager } from '@/lib/ai/contextAwareness'
 
 // ============ 类型定义 ============
 
@@ -41,6 +42,9 @@ export interface SilentModeState {
 
 // ============ 默认配置 ============
 
+/** 静音状态持久化键（TD-006） */
+const STORAGE_KEY = 'spiritpal:silent-mode'
+
 const DEFAULT_SCHEDULES = [
   // 深夜自动静音（23:00-7:00）
   { startHour: 23, endHour: 7, reason: 'schedule' as const },
@@ -57,6 +61,12 @@ export class SilentModeManager {
   private tempTimer: number | null = null
   private scheduleCheckTimer: number | null = null
   private listeners: Set<(state: SilentModeState) => void> = new Set()
+  /** 本次静音是否由会议检测自动触发（用于出会议时只撤销这一种） */
+  private autoMeetingMute = false
+  /** 本轮会议里用户手动关了静音 → 不再自动重开（state 变非 meeting 后复位） */
+  private meetingMuteSuppressed = false
+  /** TD-006：情境感知（会议检测）的退订函数，destroy 时清理 */
+  private unsubWorkState: (() => void) | null = null
 
   constructor() {
     this.init()
@@ -81,23 +91,53 @@ export class SilentModeManager {
 
   /**
    * 加载用户偏好设置
+   *
+   * TD-006：持久化落在 localStorage（WebView 的 localStorage 跟随应用数据目录，跨重启保留），
+   * 不引 SQLite —— 这里只是几字节的用户偏好，读写频率低，走加密库反而增加解锁/迁移负担。
+   *
+   * 恢复时要区分「跨会话该保留的」和「只属于上个会话的」：
+   * - `meeting`：会议已经结束，恢复成静音会让用户重启后莫名没声音 → 一律不恢复；
+   * - `temporary`：已过期的不恢复，未过期的按剩余时间重新挂定时器；
+   * - `manual` / `schedule`：按存储值恢复。
    */
   private async loadPreferences(): Promise<void> {
     try {
-      // TODO: 从 localStorage 或 SQLite 读取
-      // 这里使用简化实现
-      const stored = localStorage.getItem('spiritpal:silent-mode')
-      if (stored) {
-        const data = JSON.parse(stored)
-        this.state = {
-          ...this.state,
-          ...data,
-        }
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (!stored) return
 
-        // 如果曾经开启过，重新广播状态
-        if (this.state.isActive) {
-          this.notifyListeners()
+      const data = JSON.parse(stored) as Partial<SilentModeState>
+      if (!data || typeof data !== 'object') return
+
+      const restored: SilentModeState = {
+        ...this.state,
+        ...data,
+      }
+
+      if (restored.isActive && restored.reason === 'meeting') {
+        // 上个会话的会议静音不跨会话（会议检测本身也是会话级）
+        return
+      }
+
+      if (restored.isActive && restored.reason === 'temporary') {
+        const resumeAt = restored.resumeAt ?? 0
+        if (resumeAt <= Date.now()) {
+          // 已经过期：清掉存储里的旧值，避免每次启动都读到一条过期静音
+          void this.savePreferences()
+          return
         }
+        this.state = restored
+        // 按剩余时长重新挂自动恢复定时器
+        this.tempTimer = window.setTimeout(() => {
+          void this.disableSilentMode('auto-resume')
+        }, resumeAt - Date.now())
+        this.notifyListeners()
+        return
+      }
+
+      this.state = restored
+      if (this.state.isActive) {
+        // 如果曾经开启过，重新广播状态（跨窗口同步）
+        this.notifyListeners()
       }
     } catch (error) {
       console.error('[SilentMode] Failed to load preferences:', error)
@@ -106,11 +146,13 @@ export class SilentModeManager {
 
   /**
    * 保存用户偏好设置
+   *
+   * 写入失败（隐私模式 / 存储配额）只记日志、不阻断静音本身 —— 静音是即时生效的本地状态，
+   * 丢持久化最多是重启后回到未静音，不影响当前会话。
    */
   private async savePreferences(): Promise<void> {
     try {
-      // TODO: 保存到 localStorage 或 SQLite
-      localStorage.setItem('spiritpal:silent-mode', JSON.stringify(this.state))
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state))
     } catch (error) {
       console.error('[SilentMode] Failed to save preferences:', error)
     }
@@ -157,6 +199,13 @@ export class SilentModeManager {
     if (!this.state.isActive) return
 
     const prevReason = this.state.reason
+
+    // TD-006：用户在会议中手动关掉静音 → 本轮会议不再自动重开
+    //（'meeting-ended' 是会议检测自己触发的恢复，不算用户意愿）
+    if (this.autoMeetingMute && prevReason === 'meeting' && triggerReason !== 'meeting-ended') {
+      this.meetingMuteSuppressed = true
+    }
+    this.autoMeetingMute = false
 
     // 清除定时器
     if (this.tempTimer) {
@@ -354,12 +403,44 @@ export class SilentModeManager {
   }
 
   /**
-   * 设置系统事件监听（会议检测等）
+   * 设置系统事件监听（会议检测）
+   *
+   * TD-006：会议状态来自 `contextAwareness` 的活跃窗口检测（Zoom / Teams / 腾讯会议 / 钉钉 /
+   * 飞书 / Google Meet / Slack 命中 `WorkState = 'meeting'`），这里只做「进会议自动静音、
+   * 出会议自动恢复」，且**只撤销自己因会议打开的静音**：
+   * - 用户手动静音（reason=manual）时进会议不会再叠一层，出会议也不会把它关掉；
+   * - 会议期间用户手动关静音，则本轮会议不再自动重开（`meetingMuteSuppressed`）。
    */
   private setupSystemEventListeners(): void {
-    // TODO: 监听 contextAwareness 的会议状态
-    // 当检测到会议软件运行时自动静音
-    console.log('[SilentMode] System event listeners setup pending...')
+    try {
+      this.unsubWorkState?.()
+      this.unsubWorkState = getContextAwarenessManager().onWorkStateChange((state) => {
+        this.handleWorkStateChange(state)
+      })
+    } catch (error) {
+      // 情境感知不可用（非 Tauri 环境 / 能力开关关闭）时降级：不做会议联动，不影响其余功能
+      console.warn('[SilentMode] 会议联动不可用，已降级:', error)
+    }
+  }
+
+  /** 会议状态变化 → 自动静音/恢复 */
+  private handleWorkStateChange(state: string): void {
+    if (state === 'meeting') {
+      if (this.meetingMuteSuppressed) return
+      if (this.state.isActive) return // 已在静音（手动/定时/其他原因），不覆盖原因
+      this.autoMeetingMute = true
+      void this.enableSilentMode('meeting')
+      return
+    }
+
+    // 离开会议：只撤销「因会议自动打开」的那次静音
+    if (this.autoMeetingMute && this.state.isActive && this.state.reason === 'meeting') {
+      this.autoMeetingMute = false
+      void this.disableSilentMode('meeting-ended')
+    }
+    this.autoMeetingMute = false
+    // 新一轮会议重新允许自动静音（用户手动关闭只针对本轮会议）
+    this.meetingMuteSuppressed = false
   }
 
   /**
@@ -400,6 +481,9 @@ export class SilentModeManager {
     if (this.scheduleCheckTimer) {
       clearInterval(this.scheduleCheckTimer)
     }
+    // TD-006：退订情境感知的会议状态监听
+    this.unsubWorkState?.()
+    this.unsubWorkState = null
     // P1-4：注销全局快捷键（避免重复注册/残留）
     try {
       void unregisterAll().catch(() => {})

@@ -494,8 +494,8 @@ export async function processAgentRequest(
  * Chat < Agent < Developer < Worker
  * - Chat: 仅对话，无工具调用能力
  * - Agent: 基础工具集（打开应用、搜索、提醒、天气、宠物状态）
- * - Developer: Agent + 文件操作、终端命令（需额外工具注册）
- * - Worker: Developer + 系统级操作（需用户确认后执行）
+ * - Developer: Agent + 只读文件工具（read_file / list_directory / search_files）
+ * - Worker: Developer + write_file / execute_command（命令为只读白名单，两者均需用户确认）
  */
 export type ToolMode = 'chat' | 'agent' | 'developer' | 'worker'
 
@@ -511,9 +511,14 @@ const TOOL_MODE_LEVEL: Record<ToolMode, number> = {
  * 工具模式对应的可用工具集
  *
  * Chat: 无工具
- * Agent: 基础工具（AGENT_TOOLS 全部）
- * Developer: Agent + 文件/终端工具（TODO: 注册扩展工具）
- * Worker: Developer + 系统级工具（TODO: 注册系统工具）
+ * Agent: 基础工具 7 个（open_application / search_web / set_reminder / manage_schedule /
+ *   adjust_pet_state / get_weather / get_pet_status）
+ * Developer: Agent + 只读文件工具 3 个（read_file / list_directory / search_files）
+ * Worker: Developer + 写文件 / 受控命令（write_file / execute_command，均需用户确认）
+ *
+ * TD-013：这里原先是「TODO: 注册扩展工具 / 注册系统工具」，但工具注册早在 C-2 批次随权限表
+ * 上收到 `agentTools.TOOL_MODE_PERMISSIONS` 时完成，注释没跟上，读起来像还有未实现的注册缺口。
+ * 现按实际权限表逐条列出，避免再被当成待办。
  */
 // C-2：权限表已上收到 agentTools.TOOL_MODE_PERMISSIONS，本文件不再维护副本。
 // 能力边界（诚实声明，不夸大）：
@@ -560,9 +565,9 @@ export function getToolModeDescription(mode: ToolMode): string {
     case 'agent':
       return 'Agent 模式 — 可打开应用、搜索、设置提醒等'
     case 'developer':
-      return '开发者模式 — Agent + 文件操作、终端命令'
+      return '开发者模式 — Agent + 只读文件工具（读文件/列目录/搜索文件）'
     case 'worker':
-      return '工作模式 — 开发者 + 系统级操作（需确认）'
+      return '工作模式 — 开发者 + 写文件与受控命令（执行前需确认）'
   }
 }
 
