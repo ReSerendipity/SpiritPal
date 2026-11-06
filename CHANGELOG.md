@@ -7,6 +7,12 @@
 
 ***
 
+## [未发布]
+
+### 修复
+
+- TD-009 桌面端语音录制授权：`src-tauri/src/lib.rs` 的 Tauri Builder 挂 `on_permission_request`，策略收在 `desktop_permission_response()`——只放行 `Microphone`，相机/定位/通知/剪贴板等一律返回 `Default`（交回平台默认，不静默放行）。此前没有任何处理，等于把 `getUserMedia` 是否可用交给 WebView 默认策略。另补 `src-tauri/Info.plist` 的 `NSMicrophoneUsageDescription`：WKWebView 缺这条声明时麦克风请求会被直接拒绝。验证：`cargo check --lib` rc=0；`cargo test --lib td009` 2 passed（放行麦克风 / 其余权限回落默认）。
+
 ## [0.2.3] - 2026-10-29
 
 > 本版为 v0.1.0（2026-09-10）之后的首个 minor 版本，`main` 累计约 700 个提交。

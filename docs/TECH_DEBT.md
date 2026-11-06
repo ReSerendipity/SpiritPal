@@ -16,7 +16,7 @@
 | TD-006 | 静音模式无持久化：设置不落盘、不监听会议状态 | `lib/system/silentModeManager.ts`（3 处 TODO：行 87/112/360） | 重启后静音配置丢失 | 低 | P2 | 开放 |
 | TD-007 | 视觉记忆为桩：降采样/Canvas 绘制未实现 | `lib/memory/visualMemory.ts`（7 处 TODO(P2)：行 26/174/204/243/277/286 等） | 视觉记忆不可用 | 中 | P2 | 开放 |
 | TD-008 | 系统集成缺口：日历 Windows 权限对话框、宠物播报调用未接 | `lib/system/calendarIntegration.ts`（2 处 TODO：行 165/318） | 日历/播报体验不完整 | 低 | P2 | 开放 |
-| TD-009 | 语音录制权限未配置：Tauri 桌面端麦克风需 capability/系统侧授权（Rust 侧未配置） | `lib/system/voiceRecorder.ts`（行 13） | 桌面端录音功能可能不可用 | 低 | P2 | 开放 |
+| TD-009 | 语音录制权限未配置：Tauri 桌面端麦克风需 capability/系统侧授权（Rust 侧未配置） | `lib/system/voiceRecorder.ts`（行 13） | 桌面端录音功能可能不可用 | 低 | P2 | **已偿还（2026-11-06）**：`getUserMedia` 的麦克风请求不走 Tauri capability（capability 只管命令/插件），而由 WebView 层决定 —— Windows 是 WebView2 的 `PermissionRequested`、macOS 是 `WKUIDelegate` 的 `requestMediaCapturePermission`。`src-tauri/src/lib.rs` 的 Builder 现挂 `on_permission_request`，策略收在 `desktop_permission_response()`：**只放行 `Microphone`，其余权限一律 `Default`（交回平台默认）**；同时补 `src-tauri/Info.plist` 的 `NSMicrophoneUsageDescription`（WKWebView 缺这条会直接拒绝请求）。验证：`cargo check --lib` rc=0；新增 2 条单测 `td009_microphone_request_is_allowed` / `td009_other_permissions_fall_back_to_platform_default` 均 PASS（cargo test 350 filtered / 2 passed）。未做真机录音复验（需启动桌面端并实际调用 `getUserMedia`，本机 `adb` 设备与 macOS 构建环境均不就绪） |
 | TD-010 | 精灵 WebGL 绘制为桩 | `lib/system/webgl.worker.ts`（行 168） | 精灵渲染链路不完整 | 中 | P2 | 开放 |
 | TD-010a | 记忆导出仅支持单角色 | `lib/memory/memoryExporter.ts`（行 144） | 全量导出需手动逐角色操作 | 低 | P3 | 开放 |
 | TD-011 | 动画行编辑功能待导入向导统一实现（已挂 P1-3 导入向导） | `components/CharacterCreator.tsx`（行 673） | 自定义动画行不可编辑 | 中 | P3 | 开放 |

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  TD-009: 桌面端语音录制授权（macOS 侧）。
+  WKWebView 触发 getUserMedia 时，系统会读 Info.plist 里的 NSMicrophoneUsageDescription；
+  缺这一条时请求会被直接拒绝（沙盒构建还会在启动/首次请求时被系统终止）。
+  该文件会被 Tauri 打包器合并进最终 .app 的 Info.plist。
+-->
+<plist version="1.0">
+<dict>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>SpiritPal 需要麦克风权限来录制语音消息，用于语音转写与语音记忆。</string>
+</dict>
+</plist>

@@ -202,6 +202,20 @@ use commands::window::{
 /// 1. 设置 GPU 环境变量绕过黑名单
 /// 2. 清理 WebView2 残留锁文件（Windows）
 /// 3. 配置 Tauri Builder 和插件
+/// TD-009：桌面端 WebView 权限请求的应答策略（抽成函数，便于单测覆盖映射关系）。
+///
+/// 只放行麦克风：语音录制是产品已有能力（`src/lib/system/voiceRecorder.ts` 走
+/// MediaRecorder + getUserMedia）；相机、定位、通知、剪贴板等一律返回 `Default`，
+/// 交回平台默认策略，避免为无关权限静默放行。
+fn desktop_permission_response(
+    kind: tauri::webview::PermissionKind,
+) -> tauri::webview::PermissionResponse {
+    match kind {
+        tauri::webview::PermissionKind::Microphone => tauri::webview::PermissionResponse::Allow,
+        _ => tauri::webview::PermissionResponse::Default,
+    }
+}
+
 /// 4. 注册系统托盘和菜单
 /// 5. 启动空闲检测和全局快捷键
 /// 6. 配置 macOS NSPanel（如适用）
@@ -222,6 +236,12 @@ pub fn run() {
 
     // P1-4: 日志插件构建拆分到 build_log_plugin() 函数
     let mut builder = tauri::Builder::default()
+        // TD-009: 桌面端语音录制授权。getUserMedia 的麦克风请求不走 Tauri capability
+        // （capability 只管 Tauri 命令/插件权限），而由 WebView 层决定：Windows 走 WebView2
+        // 的 PermissionRequested、macOS 走 WKUIDelegate 的 requestMediaCapturePermission。
+        // 之前没有任何处理，等于把是否放行交给浏览器默认策略，录音在桌面端可能直接失败。
+        // 这里只放行麦克风（宠物只采集用户语音），其余一律 Default，交回平台默认（会弹系统提示或拒绝）。
+        .on_permission_request(|_webview, kind| desktop_permission_response(kind))
         .plugin(setup::build_log_plugin())
         .plugin(tauri_plugin_store::Builder::new().build())
         // D-1: 已移除 tauri-plugin-sql —— SQL 全量收口 Rust 语义命令（sqlite.rs），
@@ -756,6 +776,37 @@ mod tests {
     #[cfg(desktop)]
     use crate::tray::make_state_icon;
     use crate::validation::validate_app_name;
+
+    // ============ TD-009: 桌面端权限应答策略 ============
+    #[test]
+    fn td009_microphone_request_is_allowed() {
+        use tauri::webview::{PermissionKind, PermissionResponse};
+        assert_eq!(
+            crate::desktop_permission_response(PermissionKind::Microphone),
+            PermissionResponse::Allow,
+            "麦克风请求必须放行，否则桌面端录音退化"
+        );
+    }
+
+    #[test]
+    fn td009_other_permissions_fall_back_to_platform_default() {
+        use tauri::webview::{PermissionKind, PermissionResponse};
+        for kind in [
+            PermissionKind::Camera,
+            PermissionKind::Geolocation,
+            PermissionKind::Notifications,
+            PermissionKind::ClipboardRead,
+            PermissionKind::DisplayCapture,
+            PermissionKind::Midi,
+            PermissionKind::Sensors,
+        ] {
+            assert_eq!(
+                crate::desktop_permission_response(kind),
+                PermissionResponse::Default,
+                "{kind:?} 不应被静默放行"
+            );
+        }
+    }
 
     // ============ validate_app_name 测试 ============
 
