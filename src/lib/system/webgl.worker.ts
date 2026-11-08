@@ -7,6 +7,7 @@
 
 import { BatchRenderer } from '@/lib/render/batchRenderer'
 import { GPUParticleSystem } from '@/lib/render/gpuParticleSystem'
+import { SpriteRenderer, type SpriteInstance, type TextureSource } from '@/lib/render/spriteRenderer'
 import type { WorkerMessage, WorkerResponse, RenderCommand } from './webglWorker'
 
 // ============ 全局状态 ============
@@ -15,6 +16,8 @@ let canvas: OffscreenCanvas | null = null
 let gl: WebGLRenderingContext | null = null
 let particleSystem: GPUParticleSystem | null = null
 let batchRenderer: BatchRenderer | null = null
+/** 精灵渲染器（TD-010）：原来 drawSprite 是空分支，精灵从未真的画出来 */
+let spriteRenderer: SpriteRenderer | null = null
 
 let lastFrameTime: number = 0
 let frameCount: number = 0
@@ -93,6 +96,13 @@ async function handleMessageInit(message: WorkerMessage): Promise<void> {
       viewport: { x: 0, y: 0, width: 1920, height: 1080 },
     })
 
+    // 初始化精灵渲染器；着色器编译失败时如实报错，而不是让 drawSprite 继续静默空转
+    spriteRenderer = new SpriteRenderer()
+    if (!spriteRenderer.init(gl)) {
+      spriteRenderer = null
+      throw new Error('Sprite shader init failed')
+    }
+
     sendSuccess(message.id, { success: true })
 
     // 开始渲染循环
@@ -126,7 +136,8 @@ function handleRender(message: WorkerMessage): void {
     frameCount = 0
     lastFrameTime = now
     stats.particles = particleSystem.getParticleCount()
-    stats.drawCalls = batchRenderer.getStats().totalDrawCalls
+    // 真实的 draw call 数来自精灵渲染器；batchRenderer 只做 CPU 侧打包、不计入这里
+    stats.drawCalls = spriteRenderer?.getStats().drawCalls ?? 0
   }
 }
 
@@ -164,9 +175,19 @@ function executeRenderCommand(cmd: RenderCommand): void {
   if (!gl) return
 
   switch (cmd.command) {
-    case 'drawSprite':
-      // TODO: 实现精灵绘制
+    case 'drawSprite': {
+      if (!spriteRenderer || !canvas) return
+      const textureId = typeof cmd.params.textureId === 'string' ? cmd.params.textureId : ''
+      // 同一帧可能顺带上传纹理；只在上传成功后才画，否则该精灵会被 draw 跳过
+      if (cmd.params.texture && textureId) {
+        spriteRenderer.uploadTexture(gl, textureId, cmd.params.texture as TextureSource)
+      }
+      const sprite = toSpriteInstance(cmd.params, textureId)
+      if (!sprite) return
+      // drawCalls 统一由 spriteRenderer.getStats() 汇总，这里不重复累加
+      spriteRenderer.draw(gl, [sprite], canvas.width, canvas.height)
       break
+    }
 
     case 'drawParticle':
       if (particleSystem) {
@@ -185,6 +206,51 @@ function executeRenderCommand(cmd: RenderCommand): void {
       // OffscreenCanvas 自动呈现
       break
   }
+}
+
+/**
+ * 把 IPC 载荷转成精灵实例
+ *
+ * 必须校验 width/height：缺尺寸或负数会让四角顺序反转（画出来是"背面"），
+ * 表现为精灵整块消失而不是抛出错误，属最难查的一类。
+ */
+function toSpriteInstance(
+  params: RenderCommand['params'],
+  textureId: string,
+): SpriteInstance | null {
+  if (!textureId) return null
+  const x = num(params.x, 0)
+  const y = num(params.y, 0)
+  const width = num(params.width, 0)
+  const height = num(params.height, 0)
+  if (!(width > 0) || !(height > 0)) return null
+
+  const instance: SpriteInstance = { textureId, x, y, width, height }
+  if (typeof params.rotation === 'number') instance.rotation = params.rotation
+  if (typeof params.opacity === 'number') instance.opacity = params.opacity
+  if (Array.isArray(params.color) && params.color.length === 4) {
+    instance.color = [
+      num(params.color[0], 1),
+      num(params.color[1], 1),
+      num(params.color[2], 1),
+      num(params.color[3], 1),
+    ]
+  }
+  if (Array.isArray(params.uv) && params.uv.length === 4) {
+    instance.uv = [
+      num(params.uv[0], 0),
+      num(params.uv[1], 0),
+      num(params.uv[2], 1),
+      num(params.uv[3], 1),
+    ]
+  }
+  if (typeof params.zIndex === 'number') instance.zIndex = params.zIndex
+  return instance
+}
+
+/** 取数字，非有限值回落默认 */
+function num(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
 }
 
 // ============ 渲染循环 ============
@@ -279,6 +345,10 @@ function sendStats(messageId: string): void {
 function destroy(): void {
   stopRenderLoop()
 
+  if (gl && spriteRenderer) {
+    spriteRenderer.dispose(gl)
+  }
+
   if (gl) {
     const ext = gl.getExtension('WEBGL_lose_context')
     ext?.loseContext()
@@ -288,6 +358,7 @@ function destroy(): void {
   gl = null
   particleSystem = null
   batchRenderer = null
+  spriteRenderer = null
 
   console.log('[WebGLWorker] Resources cleaned up')
 }
