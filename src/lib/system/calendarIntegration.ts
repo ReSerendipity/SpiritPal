@@ -15,6 +15,17 @@
  * - 隐私保护（用户授权机制）
  *
  * 参考：Google Calendar API / Microsoft Graph API
+ *
+ * TD-008 实现状态（2026-11-08）：
+ * - **不再谎报授权**：`requestPermission()` 原来只 `console.log` 一句就把
+ *   `permissionGranted = true` 并返回 true —— 三条数据源（Windows / Google / Outlook）
+ *   一条都没真授权过。现在没有任何授权通道时**返回 false 并说明原因**，
+ *   授权动作只能由注入的 `requestPermission` 钩子（将来接 Tauri 命令）完成，
+ *   钩子说 true 才算授权。
+ * - **宠物播报改为可注入、并如实报告是否播了**：`sendReminder()` 原来只 `console.log`。
+ *   现在有 `speak` 钩子才播、并发事件去重（否则每分钟的定时器会把同一场会重复播报 N 次），
+ *   没有钩子时返回 false 并把 `suppressedReminders` 计数 +1，不假装已经播过。
+ * - 仍未做：系统日历直读（`fetchEvents` 仍返回空，属独立特性，需 Tauri 命令桥接，见下方 A-8 说明）。
  */
 
 import { exec } from 'child_process'
@@ -102,6 +113,27 @@ const DEFAULT_REMINDER_CONFIG: ReminderConfig = {
   },
 }
 
+// ============ 依赖注入（测试 / 未来 Tauri 桥接用）============
+
+export interface CalendarManagerDeps {
+  /** 真正的授权动作（将来接 Tauri 命令）；不注入就表示"本进程没有授权通道" */
+  requestPermission?: (source: CalendarDataSource) => Promise<boolean>
+  /** 宠物播报；不注入就表示"没有播报通道" */
+  speak?: (message: string, tone: ReminderConfig['tone']) => Promise<void>
+  /** 取事件（默认走 getEventsInRange） */
+  eventsProvider?: (from: Date, to: Date) => Promise<CalendarEvent[]>
+  /** 时钟（测试用） */
+  now?: () => Date
+}
+
+/** 提醒统计：播出去了多少、因为没通道/静默而被压掉多少 */
+export interface ReminderStats {
+  delivered: number
+  suppressed: number
+  /** 去重跳过（同一事件已经播过） */
+  deduped: number
+}
+
 // ============ 日历管理器 ============
 
 export class CalendarManager {
@@ -109,9 +141,14 @@ export class CalendarManager {
   private eventsCache: Map<string, CalendarEvent[]> = new Map()
   private config: ReminderConfig
   private reminderTimer: NodeJS.Timeout | null = null
+  private deps: CalendarManagerDeps
+  private stats: ReminderStats = { delivered: 0, suppressed: 0, deduped: 0 }
+  /** 已播过的事件 key，避免每分钟重复播报 */
+  private remindedKeys: Set<string> = new Set()
 
-  constructor(config?: Partial<ReminderConfig>) {
+  constructor(config?: Partial<ReminderConfig>, deps?: CalendarManagerDeps) {
     this.config = { ...DEFAULT_REMINDER_CONFIG, ...(config || {}) }
+    this.deps = deps ?? {}
     this.initDataSources()
   }
 
@@ -155,27 +192,40 @@ export class CalendarManager {
 
   /**
    * 请求日历访问权限
+   *
+   * 旧实现的问题不是"没有对话框"，而是**没有任何授权动作也照样把 permissionGranted 置 true
+   * 并返回 true** —— 上层据此认为日历已可用。现在只有注入的授权钩子明确返回 true 才算授权，
+   * 否则返回 false 并说明缺什么通道（Windows 需 Tauri 命令桥接、Google/Outlook 需 OAuth 客户端配置）。
    */
   async requestPermission(dataSourceId: string): Promise<boolean> {
     const dataSource = this.dataSources.get(dataSourceId)
     if (!dataSource) return false
 
     try {
-      if (dataSource.type === 'windows-calendar') {
-        // TODO: Windows 权限对话框
-        console.log('[Calendar] Requesting Windows calendar permission...')
-      } else if (dataSource.type === 'apple-calendar') {
-        // macOS 权限检查
-        await this.checkMacOSCalendarPermission()
-      } else if (dataSource.type === 'google-calendar') {
-        // OAuth2 授权流程
-        console.log('[Calendar] Opening Google Calendar OAuth2...')
+      if (dataSource.type === 'apple-calendar') {
+        // macOS 权限检查：读一次日历触发系统授权弹窗，失败即视为未授权
+        const granted = await this.checkMacOSCalendarPermission()
+        dataSource.permissionGranted = granted
+        dataSource.connected = granted
+        return granted
       }
 
-      dataSource.permissionGranted = true
-      return true
+      if (!this.deps.requestPermission) {
+        // 如实拒绝：本进程没有可用的授权通道，绝不假装已授权
+        console.warn(
+          `[Calendar] ${dataSource.type} 无授权通道（Windows 需 Tauri 命令桥接；Google/Outlook 需 OAuth 客户端配置），本次未授权`,
+        )
+        dataSource.permissionGranted = false
+        return false
+      }
+
+      const granted = await this.deps.requestPermission(dataSource)
+      dataSource.permissionGranted = granted
+      if (granted) dataSource.connected = true
+      return granted
     } catch (error) {
       console.error('[Calendar] Permission request failed:', error)
+      dataSource.permissionGranted = false
       return false
     }
   }
@@ -216,7 +266,7 @@ export class CalendarManager {
    * 获取今日日程
    */
   async getTodayEvents(): Promise<CalendarEvent[]> {
-    const today = new Date()
+    const today = this.now()
     const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
     const endOfDay = new Date(startOfDay)
     endOfDay.setDate(endOfDay.getDate() + 1)
@@ -228,7 +278,7 @@ export class CalendarManager {
    * 获取即将到来的事件
    */
   async getUpcomingEvents(minutes?: number): Promise<CalendarEvent[]> {
-    const now = new Date()
+    const now = this.now()
     const future = new Date(now.getTime() + (minutes ?? 60) * 60 * 1000)
 
     return this.getEventsInRange(now, future)
@@ -261,6 +311,9 @@ export class CalendarManager {
 
   /**
    * 检查并触发提醒
+   *
+   * 旧实现每分钟跑一次、每次把窗口内所有事件重播一遍 —— 同一场会会被重复播报 N 次。
+   * 现在按事件 key 去重（`id`，无 id 时退化为标题+开始时间）。
    */
   private async checkAndRemind(): Promise<void> {
     if (!this.config.enabled) return
@@ -270,24 +323,47 @@ export class CalendarManager {
       return
     }
 
-    const now = new Date()
+    const now = this.now()
     const remindTime = new Date(now.getTime() + this.config.minutesBefore * 60 * 1000)
 
-    const events = await this.getEventsInRange(now, remindTime)
+    const events = this.deps.eventsProvider
+      ? await this.deps.eventsProvider(now, remindTime)
+      : await this.getEventsInRange(now, remindTime)
 
     // 过滤低优先级
     const filtered = this.config.showOnlyHighPriority ? events.filter((e) => e.priority === 'high') : events
 
     // 发送提醒
     for (const event of filtered) {
-      await this.sendReminder(event)
+      const key = this.eventKey(event)
+      if (this.remindedKeys.has(key)) {
+        this.stats.deduped++
+        continue
+      }
+      const delivered = await this.sendReminder(event)
+      if (delivered) {
+        this.remindedKeys.add(key)
+      }
     }
+  }
+
+  /** 事件去重 key */
+  private eventKey(event: CalendarEvent): string {
+    return event.id || `${event.title}@${event.startTime.toISOString()}`
+  }
+
+  /** 当前时钟（可注入） */
+  private now(): Date {
+    return this.deps.now ? this.deps.now() : new Date()
   }
 
   /**
    * 发送提醒
+   *
+   * 返回值就是"到底播没播"：没有 `speak` 钩子时返回 false，并把 suppressed 计数 +1，
+   * 而不是打一行 console.log 让人误以为宠物已经说话了。
    */
-  private async sendReminder(event: CalendarEvent): Promise<void> {
+  private async sendReminder(event: CalendarEvent): Promise<boolean> {
     const timeStr = event.startTime.toLocaleTimeString('zh-CN', {
       hour: '2-digit',
       minute: '2-digit',
@@ -309,8 +385,24 @@ export class CalendarManager {
       message += `（地点：${event.location}）`
     }
 
-    // TODO: 调用宠物播报
-    console.log(`[Reminder] ${message}`)
+    if (!this.deps.speak) {
+      this.stats.suppressed++
+      return false
+    }
+
+    await this.deps.speak(message, this.config.tone)
+    this.stats.delivered++
+    return true
+  }
+
+  /** 提醒统计（播出去 / 被压掉 / 去重跳过） */
+  getReminderStats(): ReminderStats {
+    return { ...this.stats }
+  }
+
+  /** 手动触发一次提醒检查（不经定时器；也便于测试与"立即检查"入口） */
+  async runReminderCheck(): Promise<void> {
+    await this.checkAndRemind()
   }
 
   /**
@@ -319,7 +411,7 @@ export class CalendarManager {
   private isQuietTime(): boolean {
     if (!this.config.quietHours.enabled) return false
 
-    const now = new Date()
+    const now = this.now()
     const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
 
     const { start, end } = this.config.quietHours
@@ -335,8 +427,10 @@ export class CalendarManager {
 
   /**
    * macOS 日历权限检查
+   *
+   * 返回"是否真的拿到了权限"，不再只打日志 —— 旧实现无论成功失败都让调用方继续置 true。
    */
-  private async checkMacOSCalendarPermission(): Promise<void> {
+  private async checkMacOSCalendarPermission(): Promise<boolean> {
     try {
       // 尝试读取日历数据来触发权限请求
       const { stdout } = await execAsync(
@@ -345,9 +439,13 @@ export class CalendarManager {
 
       if (!stdout.includes('permission denied')) {
         console.log('[Calendar] macOS calendar permission granted')
+        return true
       }
+      console.warn('[Calendar] macOS calendar permission not granted')
+      return false
     } catch {
       console.warn('[Calendar] macOS calendar permission not granted')
+      return false
     }
   }
 
@@ -415,6 +513,7 @@ export class CalendarManager {
   destroy(): void {
     this.stopReminderListener()
     this.eventsCache.clear()
+    this.remindedKeys.clear()
   }
 }
 
@@ -422,9 +521,12 @@ export class CalendarManager {
 
 let instance: CalendarManager | null = null
 
-export function getCalendarManager(config?: Partial<ReminderConfig>): CalendarManager {
+export function getCalendarManager(
+  config?: Partial<ReminderConfig>,
+  deps?: CalendarManagerDeps,
+): CalendarManager {
   if (!instance) {
-    instance = new CalendarManager(config)
+    instance = new CalendarManager(config, deps)
   }
   return instance
 }
