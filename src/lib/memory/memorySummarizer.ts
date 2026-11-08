@@ -10,10 +10,21 @@
  * - 增量更新机制（新记忆加入时动态调整摘要）
  *
  * 参考：Live2DPet memory_summarizer.py / OpenPets packages/memory/summarization/
+ *
+ * TD-004 实现状态（2026-11-08）：
+ * - **已接真实 LLM**：`callLLM()` 走 `LLMClient.chat()`，只有「未配置凭据 / 调用失败」才降级到启发式，
+ *   并在返回值的 `source` 字段如实标出 `llm` / `heuristic` / `fallback` —— 不再有 500ms 假延迟。
+ * - **置信度不再硬编码 0.85**：由 `computeConfidence()` 按「来源 + 覆盖度 + 摘要密度」算出，
+ *   三档上限分别为 0.95 / 0.65 / 0.55，调用方一眼能分辨这是真 LLM 结果还是启发式结果。
+ * - **增量更新是真的增量**：`incrementallyUpdateSummary()` 以记忆 id 集合判断"是否有新内容"，
+ *   没有新 id 时零 LLM 调用直接返回旧摘要；有新内容时把旧摘要文本作为上下文喂给 LLM，
+ *   避免旧实现只摘要新记忆、把历史内容整段丢掉。
+ * - 未做：按 `maxTokens` 真正截断（依赖各 provider 的 tokenizer，跨 provider 无统一口径）。
  */
 
+import { getLLMClient } from '@/lib/ai/llmClient'
 import { getPrompt } from '@/lib/ai/promptRegistry'
-import type { MemoryEntry } from '@/lib/data/types'
+import type { AIConfig, MemoryEntry } from '@/lib/data/types'
 
 // ============ 类型定义 ============
 
@@ -52,8 +63,35 @@ export interface MemorySummary {
   topics?: string[]
   /** 整体情感倾向 */
   sentiment?: 'positive' | 'neutral' | 'negative'
-  /** 置信度 */
+  /** 置信度（由来源、覆盖度、密度算出，不再是常量 0.85） */
   confidence: number
+  /** 摘要来源：llm=真实模型，heuristic=无凭据时的启发式，fallback=调用失败后的兜底 */
+  source?: SummarySource
+  /** 参与摘要的记忆 id 集合（增量更新据此判断有没有新内容） */
+  memoryIds?: string[]
+}
+
+/** 摘要来源 */
+export type SummarySource = 'llm' | 'heuristic' | 'fallback'
+
+/** 可摘要的记忆最小形状（带 id 才能做增量） */
+export interface SummarizableMemory {
+  id?: string
+  created_at: string
+  user: string
+  assistant: string
+}
+
+/** 摘要生成所需的最小 LLM 能力（便于测试注入） */
+export interface SummaryLLM {
+  chat(messages: Array<{ role: string; content: string }>): Promise<string>
+  getConfig(): AIConfig
+}
+
+/** 可注入的依赖（测试用） */
+export interface SummarizerDeps {
+  /** 传入 null 表示强制走启发式 */
+  llm?: SummaryLLM | null
 }
 
 export interface TimelineSummary {
@@ -83,16 +121,22 @@ export class MemorySummarizer {
   private summaries: Map<string, MemorySummary> = new Map()
   private config: SummaryConfig
   private lastSummarizationTime: number = 0
+  /** 注入的 LLM；undefined 表示"按需取全局单例" */
+  private injectedLlm: SummaryLLM | null | undefined
 
-  constructor(config?: Partial<SummaryConfig>) {
+  constructor(config?: Partial<SummaryConfig>, deps?: SummarizerDeps) {
     this.config = { ...DEFAULT_SUMMARY_CONFIG, ...(config || {}) }
+    this.injectedLlm = deps && 'llm' in deps ? deps.llm : undefined
   }
 
   /**
    * 为指定记忆生成摘要
+   *
+   * 顺序：缓存 → 真实 LLM（已配置时）→ 启发式（无凭据）→ 兜底（调用失败）。
+   * 返回值里的 `source` 与 `confidence` 都跟着实际走的那条路走，不写死。
    */
   async summarize(
-    memories: Array<{ created_at: string; user: string; assistant: string }>,
+    memories: SummarizableMemory[],
     context?: string,
   ): Promise<MemorySummary> {
     if (memories.length === 0) {
@@ -111,20 +155,22 @@ export class MemorySummarizer {
       // 构建提示词
       const prompt = this.buildSummarizationPrompt(memories, context)
 
-      // 调用 LLM 生成摘要
-      const summaryText = await this.callLLM(prompt)
+      // 调用 LLM（已配置）或启发式（未配置）；两条路都不再假装延迟
+      const { text, source } = await this.callLLM(prompt, memories)
 
       // 解析结果
       const summary: MemorySummary = {
-        text: summaryText,
-        length: summaryText.length,
+        text,
+        length: text.length,
         generatedAt: Date.now(),
         memoryCount: memories.length,
         timeRange: {
           start: Math.min(...memories.map((m) => new Date(m.created_at).getTime())),
           end: Math.max(...memories.map((m) => new Date(m.created_at).getTime())),
         },
-        confidence: 0.85, // TODO: 从 LLM 响应中提取置信度
+        confidence: computeConfidence(memories, text, source),
+        source,
+        memoryIds: collectMemoryIds(memories),
       }
 
       // 提取额外信息
@@ -180,24 +226,72 @@ export class MemorySummarizer {
 
   /**
    * 增量更新摘要
-   * 当新记忆加入时，只重新计算受影响的部分
+   *
+   * 旧实现是"只把新记忆重新摘要一遍"——历史内容被整段丢掉，却仍标着新的 generatedAt，
+   * 属于静默丢数据。现在按记忆 id 集合判断：
+   * ① 新记忆 id 全部已知 → 零 LLM 调用、原样返回旧摘要（这才是增量的意义）；
+   * ② 有新 id → 把旧摘要文本作为上下文交给 LLM 续写（我们并不掌握旧记忆原文，
+   *    但旧摘要就是它当时的凝练，用它续写既省钱又不丢历史）；
+   * ③ 记忆没有 id（旧数据或调用方没传）→ 退化为「新条目为 0 才跳过」的保守判断。
    */
-  async incrementallyUpdateSummary(existingSummary: MemorySummary, newMemories: MemoryEntry[]): Promise<MemorySummary> {
-    // 简单的实现：合并后重新生成
-    // TODO: 优化为真正的增量算法
-    const allMemories: MemoryEntry[] = [
-      // 这里需要从现有摘要反推原始记忆（实际应存储原始记忆 ID）
-      ...newMemories,
-    ]
+  async incrementallyUpdateSummary(
+    existingSummary: MemorySummary,
+    newMemories: MemoryEntry[],
+  ): Promise<MemorySummary> {
+    const known = new Set(existingSummary.memoryIds ?? [])
+    const incoming = newMemories as SummarizableMemory[]
+    const newIds = collectMemoryIds(incoming).filter((id) => !known.has(id))
+    const hasIds = known.size > 0
 
-    return this.summarize(allMemories)
+    const noNewContent = hasIds ? newIds.length === 0 : incoming.length === 0
+    if (noNewContent) {
+      return existingSummary
+    }
+
+    const prompt = this.buildSummarizationPrompt(
+      incoming,
+      this.buildPriorSummaryContext(existingSummary),
+    )
+    const { text, source } = await this.callLLM(prompt, incoming)
+
+    const mergedIds = Array.from(new Set([...known, ...collectMemoryIds(incoming)]))
+    const times = incoming
+      .map((m) => Date.parse(m.created_at))
+      .filter((t) => !Number.isNaN(t))
+    const prevRange = existingSummary.timeRange
+    const timeRange =
+      times.length > 0 && prevRange
+        ? { start: Math.min(...times, prevRange.start), end: Math.max(...times, prevRange.end) }
+        : times.length > 0
+          ? { start: Math.min(...times), end: Math.max(...times) }
+          : prevRange
+
+    return {
+      // 历史摘要 + 本轮增量，显式拼接而不是覆盖
+      text: `${existingSummary.text}\n\n【本轮新增】\n${text}`,
+      length: existingSummary.length + text.length,
+      generatedAt: Date.now(),
+      memoryCount: existingSummary.memoryCount + (hasIds ? newIds.length : incoming.length),
+      timeRange,
+      confidence: computeConfidence(incoming, text, source),
+      source,
+      memoryIds: mergedIds,
+      events: existingSummary.events,
+      topics: existingSummary.topics,
+      sentiment: existingSummary.sentiment,
+    }
+  }
+
+  /** 把旧摘要转成提示词上下文（增量续写用） */
+  private buildPriorSummaryContext(existingSummary: MemorySummary): string {
+    return `已有摘要（覆盖此前 ${existingSummary.memoryCount} 条记忆，请在此基础上续写、不要重复旧内容）：\n${existingSummary.text}`
   }
 
   /**
    * 构建摘要提示词
    */
   private buildSummarizationPrompt(
-    memories: Array<{ created_at: string; user: string; assistant: string }>,
+    memories: SummarizableMemory[],
     context?: string,
   ): string {
     const systemPrompt = getPrompt('memory.summarize')
@@ -225,36 +319,52 @@ export class MemorySummarizer {
   }
 
   /**
-   * 调用 LLM 生成摘要
+   * 调用 LLM 生成摘要；未配置凭据时走启发式
+   *
+   * 判断依据只有一条：**有没有真的能发请求的配置**。`ondevice`（本地模型）视为可用；
+   * 其他 provider 必须带 apiKey。没有就不要再发请求、也不要假装延迟 500ms。
    */
-  private async callLLM(prompt: string): Promise<string> {
-    // TODO: 集成实际的 LLM 调用
-    // 这里使用简化实现
+  private async callLLM(
+    prompt: string,
+    memories: SummarizableMemory[],
+  ): Promise<{ text: string; source: SummarySource }> {
+    const llm = this.resolveLLM()
+    if (!llm || !isLlmAvailable(llm.getConfig())) {
+      return { text: this.simpleHeuristicSummary(memories), source: 'heuristic' }
+    }
 
-    // 模拟 LLM 延迟
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    const text = await llm.chat([{ role: 'user', content: prompt }])
+    const trimmed = text.trim()
+    if (!trimmed) {
+      // 模型返回空字符串不算成功：当成调用失败往上走降级，否则会缓存一条空摘要
+      throw new Error('LLM returned empty summary')
+    }
+    return { text: trimmed, source: 'llm' }
+  }
 
-    // 简单的启发式摘要（实际应调用 Vision/Text LLM）
-    return this.simpleHeuristicSummary(prompt)
+  /** 解析要用的 LLM：注入值优先（含 null=强制启发式） */
+  private resolveLLM(): SummaryLLM | null {
+    if (this.injectedLlm !== undefined) return this.injectedLlm
+    return getLLMClient() as unknown as SummaryLLM
   }
 
   /**
-   * 简单启发式摘要（降级方案）
+   * 启发式摘要（降级方案）
+   *
+   * 入参从"整段 prompt"改成"记忆数组"：原来靠 `split('：')` 从提示词里再捞文本，
+   * 提示词一改版（多行、含背景）就会把背景说明也当记忆摘要进去。
    */
-  private simpleHeuristicSummary(prompt: string): string {
-    const lines = prompt.split('\n').filter((l) => l.includes('：'))
+  private simpleHeuristicSummary(memories: SummarizableMemory[]): string {
+    const items = memories
+      .slice(-10)
+      .map((m) => m.user.trim())
+      .filter((t) => t.length > 0)
+      .map((t) => `- ${t.substring(0, 30)}`)
 
-    if (lines.length === 0) {
+    if (items.length === 0) {
       return '暂无有效记忆内容'
     }
-
-    // 提取每句话的关键词
-    const keywords = lines
-      .slice(0, 10)
-      .map((l) => l.split('：')[1]?.substring(0, 30).trim())
-      .filter(Boolean)
-
-    return `在最近的一段对话中，主要讨论了以下内容：\n${keywords.map((k) => `- ${k}`).join('\n')}`
+    return `在最近的一段对话中，主要讨论了以下内容：\n${items.join('\n')}`
   }
 
   /**
@@ -398,13 +508,13 @@ export class MemorySummarizer {
   /**
    * 生成缓存键
    */
-  private generateCacheKey(memories: MemoryEntry[]): string {
-    // 使用记忆的 ID 和内容哈希作为缓存键
+  private generateCacheKey(memories: SummarizableMemory[]): string {
+    // 用 id（有的话）或时间戳+文本长度，排序后拼接，避免同批不同序产生不同键
     const ids = memories
-      .map((m) => m.created_at + m.user.length)
+      .map((m) => m.id ?? `${m.created_at}#${m.user.length}:${m.assistant.length}`)
       .sort()
       .join('|')
-    return `summary_${ids}`
+    return `summary_${memories.length}_${ids}`
   }
 
   /**
@@ -423,25 +533,29 @@ export class MemorySummarizer {
       length: 5,
       generatedAt: Date.now(),
       memoryCount: 0,
+      // 没有内容要摘要，这条路本身是确定的，所以置信度 1.0
       confidence: 1.0,
+      source: 'heuristic',
+      memoryIds: [],
     }
   }
 
   /**
-   * 创建降级摘要
+   * 创建降级摘要（LLM 抛错后的兜底）
    */
-  private createFallbackSummary(
-    memories: Array<{ created_at: string; user: string; assistant: string }>,
-  ): MemorySummary {
+  private createFallbackSummary(memories: SummarizableMemory[]): MemorySummary {
     const recent = memories.slice(-5)
     const texts = recent.map((m) => m.user + m.assistant).join(' ')
+    const text = texts.substring(0, 200) + (texts.length > 200 ? '...' : '')
 
     return {
-      text: texts.substring(0, 200) + (texts.length > 200 ? '...' : ''),
+      text,
       length: texts.length,
       generatedAt: Date.now(),
       memoryCount: memories.length,
-      confidence: 0.5,
+      confidence: computeConfidence(memories, text, 'fallback'),
+      source: 'fallback',
+      memoryIds: collectMemoryIds(memories),
     }
   }
 
@@ -453,13 +567,55 @@ export class MemorySummarizer {
   }
 }
 
+// ============ 模块级辅助 ============
+
+/** 收集记忆 id（无 id 的不参与，去重） */
+export function collectMemoryIds(memories: SummarizableMemory[]): string[] {
+  const ids = memories.map((m) => m.id).filter((id): id is string => typeof id === 'string' && id.length > 0)
+  return Array.from(new Set(ids))
+}
+
+/** LLM 是否可用：ondevice（本地模型）无需凭据，其余 provider 必须有 apiKey */
+export function isLlmAvailable(config: AIConfig | undefined | null): boolean {
+  if (!config) return false
+  if (config.provider === 'ondevice') return true
+  return typeof config.apiKey === 'string' && config.apiKey.trim().length > 0
+}
+
+/**
+ * 置信度计算（替代硬编码 0.85）
+ *
+ * 三个分量：来源可信度（llm > heuristic > fallback）、覆盖度（记忆条数 / 5）、
+ * 摘要密度（相对"每条记忆 40 字"的达成比例）。三档上限分别 0.95 / 0.65 / 0.55，
+ * 保证调用方光看数值就知道该不该信这一条摘要。
+ */
+export function computeConfidence(
+  memories: SummarizableMemory[],
+  summaryText: string,
+  source: SummarySource,
+): number {
+  const coverage = Math.min(1, memories.length / 5)
+  const expectedLength = Math.max(1, memories.length * 40)
+  const density = Math.min(1, summaryText.trim().length / expectedLength)
+
+  const base = source === 'llm' ? 0.6 : source === 'heuristic' ? 0.35 : 0.25
+  const bonus = source === 'llm' ? 0.35 : source === 'heuristic' ? 0.3 : 0.3
+  const cap = source === 'llm' ? 0.95 : source === 'heuristic' ? 0.65 : 0.55
+
+  const raw = base + bonus * (0.6 * coverage + 0.4 * density)
+  return Math.min(cap, Math.round(raw * 100) / 100)
+}
+
 // ============ 单例 ============
 
 let instance: MemorySummarizer | null = null
 
-export function getMemorySummarizer(config?: Partial<SummaryConfig>): MemorySummarizer {
+export function getMemorySummarizer(
+  config?: Partial<SummaryConfig>,
+  deps?: SummarizerDeps,
+): MemorySummarizer {
   if (!instance) {
-    instance = new MemorySummarizer(config)
+    instance = new MemorySummarizer(config, deps)
   }
   return instance
 }
