@@ -67,9 +67,32 @@ export interface BatchOperationResult {
   totalCount: number
   /** 错误详情 */
   errors?: Array<{ itemId: string; error: string }>
-  /** 撤销操作的回调（如有） */
-  undo?: (itemIds?: string[]) => void
+  /**
+   * 撤销操作的回调（如有）。
+   *
+   * - 入参可选：不传 = 撤销本操作**全部成功项**；传子集 = 只撤销其中真正成功的那些
+   *   （失败项不会被"撤销"，否则会把没改过的数据反向改坏）。
+   * - 可能返回 Promise：调用方必须 `await`，否则撤销失败会被吞掉。
+   */
+  undo?: (itemIds?: string[]) => void | Promise<void>
+  /** 本操作是否可撤销。为 `false` 时 `undo` 恒为 undefined，界面据此如实提示，不要假装能撤 */
+  undoable: boolean
 }
+
+/** 构建撤销闭包时拿到的现场 */
+export interface BatchUndoContext {
+  /** 本操作提交的全部项目 ID */
+  itemIds: string[]
+  /** 真正执行成功的项目 ID（撤销只针对这批） */
+  succeededIds: string[]
+  /** 失败项与原因 */
+  failures: Array<{ itemId: string; error: string }>
+  /** 成功项在执行**之前**留下的现场快照（由调用方提供的 snapshot 采集） */
+  snapshots: Map<string, unknown>
+}
+
+/** 撤销闭包：入参是待撤销的 ID 子集（已由管理器过滤为成功项） */
+type UndoFn = (itemIds: string[]) => void | Promise<void>
 
 // ============ 批量操作管理器 ============
 
@@ -249,8 +272,18 @@ export class BatchOperationManager<T extends { id: string }> {
 
   /**
    * 执行批量删除
+   *
+   * 传了 `rollback` 才可撤销：`snapshot` 在删除**之前**取被删对象，`restore` 在撤销时把它写回。
+   * 不传 `rollback` 时结果里 `undoable` 为 false —— 宁可如实说"撤不了"，也不返回一个假撤销。
    */
-  async bulkDelete(getId: (item: T) => string, deleteFn: (id: string) => Promise<void>): Promise<BatchOperationResult> {
+  async bulkDelete(
+    _getId: (item: T) => string,
+    deleteFn: (id: string) => Promise<void>,
+    rollback?: {
+      snapshot: (id: string) => T | Promise<T>
+      restore: (item: T) => Promise<void>
+    },
+  ): Promise<BatchOperationResult> {
     return this.executeBatchOperation({
       type: 'delete',
       itemIds: Array.from(this.selection.selectedIds),
@@ -258,14 +291,30 @@ export class BatchOperationManager<T extends { id: string }> {
       execute: async (itemId) => {
         await deleteFn(itemId)
       },
-      createUndo: (_itemIds: string[]) => undefined, // TODO: 实现删除回滚
+      snapshot: rollback ? (itemId) => rollback.snapshot(itemId) : undefined,
+      createUndo: rollback
+        ? (ctx) => async (ids) => {
+            for (const id of ids) {
+              const item = ctx.snapshots.get(id) as T | undefined
+              if (item === undefined) continue
+              await rollback.restore(item)
+            }
+          }
+        : undefined,
     })
   }
 
   /**
    * 执行批量标记标签
+   *
+   * 传 `rollback.readTags` 才可撤销；撤销靠"把旧标签整组写回"，因此 `tagFn` 必须是
+   * **整体替换 tags** 的语义（增量追加式实现无法用这种方式回滚）。
    */
-  async bulkTag(tagFn: (id: string, tags: string[]) => Promise<void>, tags: string[]): Promise<BatchOperationResult> {
+  async bulkTag(
+    tagFn: (id: string, tags: string[]) => Promise<void>,
+    tags: string[],
+    rollback?: { readTags: (id: string) => string[] | Promise<string[]> },
+  ): Promise<BatchOperationResult> {
     return this.executeBatchOperation({
       type: 'tag',
       itemIds: Array.from(this.selection.selectedIds),
@@ -273,14 +322,30 @@ export class BatchOperationManager<T extends { id: string }> {
       execute: async (itemId) => {
         await tagFn(itemId, tags)
       },
-      createUndo: (_itemIds: string[]) => undefined, // TODO: 实现标签回滚
+      snapshot: rollback ? (itemId) => rollback.readTags(itemId) : undefined,
+      createUndo: rollback
+        ? (ctx) => async (ids) => {
+            for (const id of ids) {
+              const prev = ctx.snapshots.get(id) as string[] | undefined
+              if (prev === undefined) continue
+              await tagFn(id, prev)
+            }
+          }
+        : undefined,
     })
   }
 
   /**
    * 执行批量修改
+   *
+   * 传 `rollback.readPrevious` 才可撤销：撤销时用**同一把 `modifyFn`** 把旧值写回，
+   * 所以 `modifyFn` 必须是 patch 语义、且旧值与 `changes` 同形（如 `{confidence: 0.8}`）。
    */
-  async bulkModify<U>(modifyFn: (id: string, changes: U) => Promise<void>, changes: U): Promise<BatchOperationResult> {
+  async bulkModify<U>(
+    modifyFn: (id: string, changes: U) => Promise<void>,
+    changes: U,
+    rollback?: { readPrevious: (id: string) => U | Promise<U> },
+  ): Promise<BatchOperationResult> {
     return this.executeBatchOperation({
       type: 'modify',
       itemIds: Array.from(this.selection.selectedIds),
@@ -288,12 +353,24 @@ export class BatchOperationManager<T extends { id: string }> {
       execute: async (itemId) => {
         await modifyFn(itemId, changes)
       },
-      createUndo: (_itemIds: string[]) => undefined, // TODO: 实现修改回滚
+      snapshot: rollback ? (itemId) => rollback.readPrevious(itemId) : undefined,
+      createUndo: rollback
+        ? (ctx) => async (ids) => {
+            for (const id of ids) {
+              const prev = ctx.snapshots.get(id) as U | undefined
+              if (prev === undefined) continue
+              await modifyFn(id, prev)
+            }
+          }
+        : undefined,
     })
   }
 
   /**
    * 执行批量切换（开/关）
+   *
+   * 切换是二元操作，旧值即 `!enabled`，所以不传 rollback 也能撤销；
+   * **但只撤销真正切换成功的项**（此前把所有 itemIds 一并反向切换，会把没动过的项改坏）。
    */
   async bulkToggle(
     toggleFn: (id: string, enabled: boolean) => Promise<void>,
@@ -306,24 +383,28 @@ export class BatchOperationManager<T extends { id: string }> {
       execute: async (itemId) => {
         await toggleFn(itemId, enabled)
       },
-      createUndo: (_itemIds: string[]) => {
-        // 恢复之前的状态
-        return async () => {
-          for (const itemId of _itemIds) {
-            await toggleFn(itemId, !enabled)
+      createUndo: () =>
+        async (ids) => {
+          for (const id of ids) {
+            await toggleFn(id, !enabled)
           }
-        }
-      },
+        },
     })
   }
 
   /**
    * 执行自定义批量操作
+   *
+   * 自定义操作管理器无法推断怎么回滚，撤销闭包必须由调用方给（`rollback.makeUndo`）。
    */
   async bulkCustom<U>(
     type: string,
     customFn: (id: string, params: U) => Promise<void>,
     params: U,
+    rollback?: {
+      snapshot?: (id: string) => unknown
+      makeUndo: (ctx: BatchUndoContext) => UndoFn | undefined
+    },
   ): Promise<BatchOperationResult> {
     return this.executeBatchOperation({
       type: 'custom',
@@ -332,7 +413,8 @@ export class BatchOperationManager<T extends { id: string }> {
       execute: async (itemId) => {
         await customFn(itemId, params)
       },
-      createUndo: (_itemIds: string[]) => undefined,
+      snapshot: rollback?.snapshot,
+      createUndo: rollback?.makeUndo,
     })
   }
 
@@ -344,9 +426,12 @@ export class BatchOperationManager<T extends { id: string }> {
     itemIds: string[]
     params: U
     execute: (itemId: string) => Promise<void>
-    createUndo: (_itemIds: string[]) => (() => void) | undefined
+    /** 在 `execute` 之前采集现场（异步也可）；只保留成功项的快照 */
+    snapshot?: (itemId: string) => unknown | Promise<unknown>
+    /** 由现场构建撤销闭包；不提供 = 本操作不可撤销 */
+    createUndo?: (ctx: BatchUndoContext) => UndoFn | undefined
   }): Promise<BatchOperationResult> {
-    const { itemIds, params, execute, createUndo } = operationConfig
+    const { itemIds, params, execute, snapshot, createUndo } = operationConfig
 
     if (itemIds.length === 0) {
       return {
@@ -354,10 +439,9 @@ export class BatchOperationManager<T extends { id: string }> {
         successCount: 0,
         failureCount: 0,
         totalCount: 0,
+        undoable: false,
       }
     }
-
-    const allItemIdsForUndo = [...itemIds]
 
     const operation: BatchOperation<U> = {
       id: `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -374,15 +458,23 @@ export class BatchOperationManager<T extends { id: string }> {
     operation.startedAt = Date.now()
 
     const errors: Array<{ itemId: string; error: string }> = []
+    const snapshots = new Map<string, unknown>()
+    const succeededIds: string[] = []
 
     try {
       // 串行执行（可改为并行）
       for (const itemId of itemIds) {
         try {
+          if (snapshot) {
+            // 先取现场再动手：失败项的快照没有意义，成功后才有
+            snapshots.set(itemId, await snapshot(itemId))
+          }
           await execute(itemId)
           operation.successCount++
+          succeededIds.push(itemId)
         } catch (error) {
           operation.failureCount++
+          snapshots.delete(itemId)
           errors.push({
             itemId,
             error: error instanceof Error ? error.message : String(error),
@@ -393,13 +485,27 @@ export class BatchOperationManager<T extends { id: string }> {
       operation.status = operation.failureCount === 0 ? 'completed' : 'failed'
       operation.completedAt = Date.now()
 
+      const ctx: BatchUndoContext = { itemIds, succeededIds, failures: errors, snapshots }
+      const rawUndo = createUndo ? createUndo(ctx) : undefined
+      const undo: BatchOperationResult['undo'] = rawUndo
+        ? (subset) => {
+            const targets = (subset ?? succeededIds).filter((id) => succeededIds.includes(id))
+            if (targets.length === 0) return
+            return rawUndo(targets)
+          }
+        : undefined
+
+      // 现场留档：撤销数据跟着这次操作进历史，便于事后排查"为什么撤不回来"
+      operation.rollbackData = { succeededIds: [...succeededIds], snapshots: Array.from(snapshots.entries()) }
+
       const result: BatchOperationResult = {
         success: operation.failureCount === 0,
         successCount: operation.successCount,
         failureCount: operation.failureCount,
         totalCount: itemIds.length,
         errors: errors.length > 0 ? errors : undefined,
-        undo: createUndo(allItemIdsForUndo),
+        undo,
+        undoable: Boolean(undo),
       }
 
       // 记录到历史
@@ -431,6 +537,7 @@ export class BatchOperationManager<T extends { id: string }> {
             error: globalError instanceof Error ? globalError.message : String(globalError),
           },
         ],
+        undoable: false,
       }
     }
   }
@@ -439,24 +546,30 @@ export class BatchOperationManager<T extends { id: string }> {
 
   /**
    * 撤销上一个操作
+   *
+   * 与旧实现的区别：① 真的 `await` 撤销闭包（旧的既不 await、也把异步失败吞了）；
+   * ② 不可撤销的操作不再被静默弹出历史（否则那条记录白白消失、界面还以为"撤过了"）；
+   * ③ 撤销失败时保留历史项，便于重试与排查。
    */
   async undoLast(): Promise<boolean> {
-    const last = this.operationHistory.pop()
+    const last = this.operationHistory[this.operationHistory.length - 1]
     if (!last) return false
 
     const { operation, result } = last
 
-    if (result.undo) {
-      try {
-        result.undo(operation.itemIds)
-        return true
-      } catch (error) {
-        console.error('[BatchOperation] Undo failed:', error)
-        return false
-      }
+    if (!result.undo) {
+      // 不可撤销：保留历史，让界面能如实显示"此项不可撤销"
+      return false
     }
 
-    return false
+    try {
+      await result.undo(operation.itemIds)
+      this.operationHistory.pop()
+      return true
+    } catch (error) {
+      console.error('[BatchOperation] Undo failed:', error)
+      return false
+    }
   }
 
   /**
