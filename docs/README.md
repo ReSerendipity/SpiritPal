@@ -34,10 +34,10 @@
 | [CHARACTER_PERMISSION_REQUEST_DRAFTS.md](CHARACTER_PERMISSION_REQUEST_DRAFTS.md) | 授权请求草稿合集（状态索引） |
 | [CHARACTER_PERMISSION_REQUEST_DRAFTS_doro.md](CHARACTER_PERMISSION_REQUEST_DRAFTS_doro.md) | Doro 授权请求草稿（已获回复） |
 | [CHARACTER_PERMISSION_REQUEST_DRAFTS_feibi.md](CHARACTER_PERMISSION_REQUEST_DRAFTS_feibi.md) | 菲比授权请求草稿（未获回复，已出包） |
-| [P0-1-人工review包.md](P0-1-人工review包.md) | P0-1 人工 Review 包（已关闭 2026-10-07） |
+| [P0-1-人工review包.md](../_archive/执行记录/2026-11/P0-1-人工review包.md) | P0-1 人工 Review 包（已关闭 2026-10-07） |
 | [VR-10-角色显示名回填指引.md](VR-10-角色显示名回填指引.md) | 角色显示名 char.* 五语言回填指引 |
 | [agent-contract.md](agent-contract.md) | Agent 契约（治理模板逐字节复制） |
-| [agent-review-视觉回归结果-2026-10-06.md](agent-review-视觉回归结果-2026-10-06.md) | 移动端视觉回归验证结果 |
+| [agent-review-视觉回归结果-2026-10-06.md](../_archive/执行记录/2026-11/agent-review-视觉回归结果-2026-10-06.md) | 移动端视觉回归验证结果 |
 | [spiritpal-animation-tech-selection.md](spiritpal-animation-tech-selection.md) | 桌宠动画类型选型报告（2026-08-26） |
 
 ## 架构决策记录（docs/adr/）
