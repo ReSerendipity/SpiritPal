@@ -43,6 +43,14 @@ import { PERSONALITY_LABELS } from '@/lib/ai/personalityEngine'
 import { PERSONALITY_TEMPLATES } from '@/lib/ai/personalityTemplates'
 import type { CharacterProfile, Personality } from '@/lib/data/types'
 import { FOODS_BY_CHARACTER, TOYS, MEDICINES } from '@/lib/nurture/items'
+import {
+  animationRowsForPreset,
+  availableAnimationNames,
+  buildRowDraft,
+  UNUSED_ROW_NAME,
+  type AnimationPreset,
+  type AnimationRowDraft,
+} from '@/lib/render/characterAnimationRows'
 import { usePetStore } from '@/stores/petStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 
@@ -209,6 +217,9 @@ function buildItemPool() {
 }
 
 // ============ 动画配置选项 ============
+/** 默认行数（与全局 ATLAS.rows 一致；角色带 atlasLayout 时以它为准） */
+const ATLAS_ROWS = 9
+
 const ANIMATION_PRESETS = [
   {
     id: 'default',
@@ -261,7 +272,9 @@ export function CharacterCreator({ onClose }: Props) {
 
   const [profile, setProfile] = useState<CharacterProfile>(createBlankProfile)
   const [newPhrase, setNewPhrase] = useState('')
-  const [animPreset, setAnimPreset] = useState<'default' | 'simple' | 'custom'>('default')
+  const [animPreset, setAnimPreset] = useState<AnimationPreset>('default')
+  const [animRowDraft, setAnimRowDraft] = useState<AnimationRowDraft[]>(() => buildRowDraft())
+  const [animRowErrors, setAnimRowErrors] = useState<string[]>([])
   const [savedTip, setSavedTip] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [importOk, setImportOk] = useState(false)
@@ -281,6 +294,44 @@ export function CharacterCreator({ onClose }: Props) {
   const updateThemeColor = useCallback((which: 'primary' | 'secondary', color: string) => {
     setProfile((prev) => ({ ...prev, themeColor: { ...prev.themeColor, [which]: color } }))
   }, [])
+
+  // ---- 动画行编辑（TD-011）----
+  // 三档预设都走同一条写回路径：校验通过才落 profile.animationRows，
+  // 非法就只提示、不持久化（越界行号在渲染侧会把图集取到图外）。
+  const applyAnimPreset = useCallback(
+    (preset: AnimationPreset, draft: AnimationRowDraft[]) => {
+      setAnimPreset(preset)
+      const result = animationRowsForPreset(preset, draft)
+      setAnimRowErrors(result.errors)
+      if (result.errors.length === 0) updateField('animationRows', result.animationRows)
+    },
+    [updateField],
+  )
+
+  const handleAnimPresetClick = useCallback(
+    (preset: AnimationPreset) => {
+      const draft =
+        preset === 'custom'
+          ? buildRowDraft(profile.atlasLayout?.rows ?? ATLAS_ROWS, profile.animationRows)
+          : animRowDraft
+      setAnimRowDraft(draft)
+      applyAnimPreset(preset, draft)
+    },
+    [animRowDraft, applyAnimPreset, profile.atlasLayout, profile.animationRows],
+  )
+
+  const updateAnimRow = useCallback(
+    (row: number, patch: Partial<Pick<AnimationRowDraft, 'name' | 'frames'>>) => {
+      const next = animRowDraft.map((d) => (d.row === row ? { ...d, ...patch } : d))
+      setAnimRowDraft(next)
+      // 编辑态一定属于「自定义」：否则改了却仍标着默认预设，等于再次制造"改了不生效"
+      const result = animationRowsForPreset('custom', next)
+      setAnimRowErrors(result.errors)
+      setAnimPreset('custom')
+      if (result.errors.length === 0) updateField('animationRows', result.animationRows)
+    },
+    [animRowDraft, updateField],
+  )
 
   // ---- 口头禅管理 ----
   function addCatchphrase() {
@@ -359,6 +410,9 @@ export function CharacterCreator({ onClose }: Props) {
         // 合并默认值，保证字段完整
         const merged = { ...createBlankProfile(), ...parsed }
         setProfile(merged)
+        // 导入的角色若自带动画行，编辑态要跟着它走，否则用户点开「自定义」看到的是默认 9 行
+        setAnimRowDraft(buildRowDraft(merged.atlasLayout?.rows ?? ATLAS_ROWS, merged.animationRows))
+        setAnimPreset(merged.animationRows ? 'custom' : 'default')
         setError(null)
         setImportOk(true)
         setTimeout(() => setImportOk(false), 2000)
@@ -691,7 +745,7 @@ export function CharacterCreator({ onClose }: Props) {
                   {ANIMATION_PRESETS.map((p) => (
                     <button
                       key={p.id}
-                      onClick={() => setAnimPreset(p.id as 'default' | 'simple' | 'custom')}
+                      onClick={() => handleAnimPresetClick(p.id as AnimationPreset)}
                       className={`block w-full rounded-lg border px-3 py-2 text-left transition-all ${
                         animPreset === p.id ? 'border-tangerine bg-tangerine/10' : 'border-ink/10 hover:border-ink/30'
                       }`}
@@ -702,10 +756,56 @@ export function CharacterCreator({ onClose }: Props) {
                   ))}
                 </div>
 
-                {/* TODO: 自定义动画行编辑功能将在 P1-3 导入向导中统一实现，
-                     届时 customAnimRows 将写回 atlasLayout 并持久化。
-                     当前该 UI 未写回 atlasLayout，为避免误导用户暂时移除。
-                     原始代码见 docs/_devarchive/removed-components/CustomPetForm.tsx */}
+                {/* 自定义动画行编辑（TD-011）：选「自定义」后展开。
+                    改的是每一行放哪个动画、占几帧，校验通过就直接写回
+                    profile.animationRows（SpriteRenderer 读的就是这个字段），
+                    非法值只提示、不落库。 */}
+                {animPreset === 'custom' && (
+                  <div className="mt-3 rounded-lg border border-ink/10 p-2">
+                    <div className="mb-2 flex items-center justify-between text-[10px] text-ink-muted">
+                      <span>
+                        行数 {animRowDraft.length} · 列数 {profile.atlasLayout?.cols ?? 8}（帧数不能超过列数）
+                      </span>
+                      <span>{animRowErrors.length === 0 ? '已写回角色动画行' : '未写回：请先修正'}</span>
+                    </div>
+                    <div className="space-y-1">
+                      {animRowDraft.map((d) => (
+                        <div key={d.row} className="flex items-center gap-2">
+                          <span className="w-8 shrink-0 text-[10px] text-ink-faint">行 {d.row}</span>
+                          <select
+                            value={d.name}
+                            aria-label={`第 ${d.row} 行动画名`}
+                            onChange={(e) => updateAnimRow(d.row, { name: e.target.value })}
+                            className="min-w-0 flex-1 rounded bg-cream-deep px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-tangerine"
+                          >
+                            <option value={UNUSED_ROW_NAME}>未使用</option>
+                            {availableAnimationNames().map((n) => (
+                              <option key={n} value={n}>
+                                {n}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="number"
+                            min={1}
+                            value={d.name === UNUSED_ROW_NAME ? 0 : d.frames}
+                            disabled={d.name === UNUSED_ROW_NAME}
+                            aria-label={`第 ${d.row} 行帧数`}
+                            onChange={(e) => updateAnimRow(d.row, { frames: Number(e.target.value) })}
+                            className="w-16 shrink-0 rounded bg-cream-deep px-2 py-1 text-[11px] disabled:opacity-40 focus:outline-none focus:ring-1 focus:ring-tangerine"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    {animRowErrors.length > 0 && (
+                      <ul className="mt-2 space-y-0.5 text-[10px] text-error">
+                        {animRowErrors.map((msg, i) => (
+                          <li key={i}>· {msg}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
 
                 {/* 精灵图资源路径 */}
                 <div className="mt-3">
