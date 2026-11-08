@@ -9,7 +9,7 @@
  * 2. L1 (中等分辨率): 最近 M 帧降采样截图（用于模式匹配）
  * 3. L2 (低分辨率): 最近 K 帧极小缩略图（用于快速比对/去重）
  * 4. 环形缓冲区：固定大小，自动覆盖最旧帧
- * 5. 隐私保护：仅内存存储，不写磁盘；销毁时清零
+ * 5. 隐私保护：仅内存存储，不写磁盘；销毁时解除全部引用（依赖 GC，不承诺内存擦除）
  *
  * 参考设计：
  * - 游戏引擎的 Mipmap 纹理 LOD 机制
@@ -23,7 +23,8 @@
  * - VisualMemoryManager: 视觉记忆管理器
  * - getVisualMemoryManager()/resetVisualMemoryManager(): 单例管理
  *
- * TODO(P2): 完整实现 — 当前为桩代码，包含类型定义和核心接口
+ * TODO(P2): 见文末「实现状态」—— 默认降采样已实现（OffscreenCanvas / Canvas 两条路径，不可用时如实回退并计数），
+ *            尚未实现：WebGPU/尺寸自适应的清晰度调参、与 characterId 维度的关联。
  */
 
 // ============ 配置常量 ============
@@ -42,6 +43,41 @@ const L1_TARGET_WIDTH = 256
 
 /** L2 降采样目标宽度 */
 const L2_TARGET_WIDTH = 64
+
+/** L1/L2 输出 JPEG 质量（缩略图只用于比对，不需要无损） */
+const THUMBNAIL_JPEG_QUALITY = 0.8
+
+// ============ 尺寸推导 ============
+
+/** 降采样后的目标尺寸 */
+export interface TargetSize {
+  width: number
+  height: number
+  /** 是否需要真的重绘（false 表示原图已经不比目标宽，直接复用原图） */
+  scaled: boolean
+}
+
+/**
+ * 按目标宽度推导等比缩放后的尺寸
+ *
+ * 关键约束：**只缩不放**。原图宽度不大于目标宽度时返回原尺寸并置 scaled=false ——
+ * 旧实现直接按 `targetWidth / width` 算，`width < 256` 时 scale > 1，会把小图放大，
+ * 既浪费 CPU 又让 L1「低成本比对」的假设失效，且 getStats() 报出的内存反而变大。
+ */
+export function computeTargetSize(width: number, height: number, targetWidth: number): TargetSize {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return { width: 0, height: 0, scaled: false }
+  }
+  if (!Number.isFinite(targetWidth) || targetWidth <= 0 || width <= targetWidth) {
+    return { width: Math.round(width), height: Math.round(height), scaled: false }
+  }
+  const scale = targetWidth / width
+  return {
+    width: Math.max(1, Math.round(targetWidth)),
+    height: Math.max(1, Math.round(height * scale)),
+    scaled: true,
+  }
+}
 
 // ============ 类型定义 ============
 
@@ -76,6 +112,10 @@ export interface VisualMemoryStats {
   estimatedMemoryBytes: number
   /** 总捕获帧数 */
   totalCaptured: number
+  /** 真正重绘过的缩略图数（>0 说明降采样在生效） */
+  downscaledFrames?: number
+  /** 因环境不支持 Canvas 而回退原图的次数（>0 说明 L1/L2 仍是原图，内存优化没生效） */
+  fallbackFrames?: number
 }
 
 /** 视觉记忆回调 */
@@ -171,7 +211,7 @@ class RingBuffer<T> {
  * - L1: 中等分辨率，用于模式匹配
  * - L2: 低分辨率，用于快速比对/去重
  *
- * TODO(P2): 当前为桩实现，核心接口已定义，降采样逻辑待补充
+ * TODO(P2): 余下与 TD-007 无关的增强（按窗口标题聚类的相似帧去重、跨会话持久化）见 docs/TECH_DEBT.md
  */
 export class VisualMemoryManager {
   /** L0 缓冲区（原始分辨率） */
@@ -188,6 +228,10 @@ export class VisualMemoryManager {
   private callbacks: VisualMemoryCallbacks
   /** 是否已销毁 */
   private destroyed = false
+  /** 真正重绘过的缩略图计数 */
+  private downscaledFrames = 0
+  /** 环境不支持重绘、回退原图的计数 */
+  private fallbackFrames = 0
 
   constructor(callbacks: VisualMemoryCallbacks = {}) {
     this.l0Buffer = new RingBuffer<VisualKeyframe>(L0_CAPACITY)
@@ -239,15 +283,13 @@ export class VisualMemoryManager {
     }
     this.callbacks.onKeyframeAdded?.(l0Frame)
 
-    // L1: 中等分辨率降采样
-    // TODO(P2): 使用 Canvas 或 OffscreenCanvas 进行降采样
-    const l1ImageData = await this.downsample(imageData, L1_TARGET_WIDTH)
-    const l1Scale = L1_TARGET_WIDTH / width
+    // L1: 中等分辨率降采样（只缩不放；环境不支持重绘时如实回退原图并计数）
+    const l1 = await this.buildLevel(imageData, width, height, L1_TARGET_WIDTH)
     const l1Frame: VisualKeyframe = {
       seq,
-      imageData: l1ImageData,
-      width: Math.round(width * l1Scale),
-      height: Math.round(height * l1Scale),
+      imageData: l1.data,
+      width: l1.width,
+      height: l1.height,
       windowTitle,
       windowProcess,
       timestamp,
@@ -255,14 +297,13 @@ export class VisualMemoryManager {
     }
     this.l1Buffer.push(l1Frame)
 
-    // L2: 低分辨率降采样
-    const l2ImageData = await this.downsample(l1ImageData, L2_TARGET_WIDTH)
-    const l2Scale = L2_TARGET_WIDTH / (width * l1Scale)
+    // L2: 以 L1 结果为输入再降到 64 宽（L1 本身已不比 64 宽时直接复用 L1）
+    const l2 = await this.buildLevel(l1.data, l1.width, l1.height, L2_TARGET_WIDTH)
     const l2Frame: VisualKeyframe = {
       seq,
-      imageData: l2ImageData,
-      width: Math.round(width * l1Scale * l2Scale),
-      height: Math.round(height * l1Scale * l2Scale),
+      imageData: l2.data,
+      width: l2.width,
+      height: l2.height,
       windowTitle,
       windowProcess,
       timestamp,
@@ -272,24 +313,103 @@ export class VisualMemoryManager {
   }
 
   /**
+   * 生成某一级的图像（按目标宽度，只缩不放）
+   *
+   * @returns 实际图像数据与尺寸。无法重绘时返回原图并把 fallbackFrames 计数 +1，
+   *          尺寸也如实报原图尺寸 —— 不谎报一个没做过的缩放。
+   */
+  private async buildLevel(
+    source: string,
+    width: number,
+    height: number,
+    targetWidth: number,
+  ): Promise<{ data: string; width: number; height: number }> {
+    const size = computeTargetSize(width, height, targetWidth)
+    if (!size.scaled) {
+      // 原图不比目标宽：不需要重绘，直接复用（旧实现在这里会放大）
+      return { data: source, width: size.width, height: size.height }
+    }
+    const data = await this.downsample(source, size)
+    if (data === null) {
+      this.fallbackFrames++
+      return { data: source, width: size.width, height: size.height }
+    }
+    this.downscaledFrames++
+    return { data, width: size.width, height: size.height }
+  }
+
+  /**
    * 降采样图像
    *
-   * TODO(P2): 使用 Canvas API 实现
-   * 当前返回原始数据（不降采样）
+   * 优先用调用方注入的 onDownsample；否则走浏览器 Canvas：
+   * - `createImageBitmap` + `OffscreenCanvas`（现代浏览器 / Worker）
+   * - `Image` + `HTMLCanvasElement.toDataURL`（老环境）
+   *
+   * 两条路径都不可用（典型：vitest 的 jsdom 没有 canvas 实现、或 data URL 解码失败）时返回 null，
+   * 由调用方回退原图并计数 —— 宁可承认"没降采样"，也不假装降过。
    */
-  private async downsample(imageData: string, targetWidth: number): Promise<string> {
-    // 使用自定义降采样回调
+  private async downsample(source: string, size: TargetSize): Promise<string | null> {
     if (this.callbacks.onDownsample) {
-      return this.callbacks.onDownsample(imageData, targetWidth)
+      return this.callbacks.onDownsample(source, size.width)
     }
 
-    // TODO(P2): 默认降采样实现
-    // 在浏览器环境可使用 Canvas：
-    // 1. 创建 Image 对象加载 Base64
-    // 2. 绘制到 Canvas（缩放到目标尺寸）
-    // 3. 导出为 Base64
-    // 当前返回原始数据作为桩
-    return imageData
+    try {
+      if (typeof createImageBitmap === 'function' && typeof OffscreenCanvas === 'function') {
+        const bitmap = await this.decodeToBitmap(source)
+        if (bitmap) {
+          const canvas = new OffscreenCanvas(size.width, size.height)
+          const ctx = canvas.getContext('2d')
+          if (ctx) {
+            ctx.fillStyle = '#ffffff'
+            ctx.fillRect(0, 0, size.width, size.height)
+            ctx.drawImage(bitmap, 0, 0, size.width, size.height)
+            bitmap.close()
+            const blob = await canvas.convertToBlob({
+              type: 'image/jpeg',
+              quality: THUMBNAIL_JPEG_QUALITY,
+            })
+            return await blobToDataUrl(blob)
+          }
+          bitmap.close()
+        }
+      }
+
+      const canvas =
+        typeof document !== 'undefined' && typeof document.createElement === 'function'
+          ? document.createElement('canvas')
+          : null
+      if (!canvas) return null
+      canvas.width = size.width
+      canvas.height = size.height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return null
+      const img = await loadImageElement(source)
+      if (!img) return null
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, size.width, size.height)
+      ctx.drawImage(img, 0, 0, size.width, size.height)
+      return canvas.toDataURL('image/jpeg', THUMBNAIL_JPEG_QUALITY)
+    } catch {
+      return null
+    }
+  }
+
+  /** 把 base64/Blob/URL 解码成 ImageBitmap（失败返回 null，交由上层回退） */
+  private async decodeToBitmap(source: string): Promise<ImageBitmap | null> {
+    try {
+      if (typeof globalThis.fetch === 'function' && source.startsWith('data:')) {
+        const res = await globalThis.fetch(source)
+        const blob = await res.blob()
+        return await createImageBitmap(blob)
+      }
+      if (typeof document !== 'undefined') {
+        const img = await loadImageElement(source)
+        if (img) return await createImageBitmap(img)
+      }
+    } catch {
+      return null
+    }
+    return null
   }
 
   // ============ 查询 ============
@@ -353,11 +473,17 @@ export class VisualMemoryManager {
       l2Count: l2Frames.length,
       estimatedMemoryBytes,
       totalCaptured: this.totalCaptured,
+      downscaledFrames: this.downscaledFrames,
+      fallbackFrames: this.fallbackFrames,
     }
   }
 
   /**
-   * 销毁管理器，清零所有缓冲区
+   * 销毁管理器，清空所有缓冲区
+   *
+   * 说明：Base64 是 JS 字符串，无法在语言层面擦除内存，这里只解除引用并依赖 GC；
+   * 文件头那句「销毁时清零」应理解为「不再持有」，不是「覆写内存」。真实防取证级擦除
+   * 需要改用 ArrayBuffer 持有像素并在停用后 fill(0)，本模块不承诺这一点。
    */
   destroy(): void {
     this.destroyed = true
@@ -366,8 +492,34 @@ export class VisualMemoryManager {
     this.l2Buffer.clear()
     this.seqCounter = 0
     this.totalCaptured = 0
+    this.downscaledFrames = 0
+    this.fallbackFrames = 0
     this.callbacks = {}
   }
+}
+
+// ============ Canvas 辅助 ============
+
+/** Blob → data URL（FileReader 路径，浏览器环境可用） */
+async function blobToDataUrl(blob: Blob): Promise<string | null> {
+  if (typeof FileReader !== 'function') return null
+  return await new Promise<string | null>((resolve) => {
+    const reader = new FileReader()
+    reader.onload = () => (typeof reader.result === 'string' ? resolve(reader.result) : resolve(null))
+    reader.onerror = () => resolve(null)
+    reader.readAsDataURL(blob)
+  })
+}
+
+/** data URL → HTMLImageElement（等解码完成；失败返回 null） */
+async function loadImageElement(source: string): Promise<HTMLImageElement | null> {
+  if (typeof Image !== 'function') return null
+  return await new Promise<HTMLImageElement | null>((resolve) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => resolve(null)
+    img.src = source
+  })
 }
 
 // ============ 单例 ============

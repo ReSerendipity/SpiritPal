@@ -75,7 +75,10 @@ describe('VisualMemoryManager', () => {
     expect(l2.seq).toBe(0)
   })
 
-  it('自定义 onDownsample 回调逐级降采样', async () => {
+  it('自定义 onDownsample 回调逐级降采样（只缩不放）', async () => {
+    // 旧版此用例断言「100 宽的图也按 target 256 调一次回调」，
+    // 那正对应 TD-007 的尺寸 bug（width < 256 时 scale > 1 会把小图放大）。
+    // 修正后：L1 原图已经不比 256 宽 → 不重绘；只有 L2（64）需要降一次。
     const onDownsample = vi.fn(async (imageData: string, targetWidth: number) => {
       return `ds:${targetWidth}:${imageData}`
     })
@@ -83,12 +86,13 @@ describe('VisualMemoryManager', () => {
 
     await custom.addKeyframe('raw', 100, 50, 'W', 'P')
 
-    expect(onDownsample).toHaveBeenCalledTimes(2)
-    expect(onDownsample).toHaveBeenNthCalledWith(1, 'raw', 256)
-    expect(onDownsample).toHaveBeenNthCalledWith(2, 'ds:256:raw', 64)
+    expect(onDownsample).toHaveBeenCalledTimes(1)
+    expect(onDownsample).toHaveBeenNthCalledWith(1, 'raw', 64)
 
-    expect(custom.getLatestL1(1)[0].imageData).toBe('ds:256:raw')
-    expect(custom.getLatestL2(1)[0].imageData).toBe('ds:64:ds:256:raw')
+    expect(custom.getLatestL1(1)[0].imageData).toBe('raw')
+    expect(custom.getLatestL1(1)[0].width).toBe(100)
+    expect(custom.getLatestL2(1)[0].imageData).toBe('ds:64:raw')
+    expect(custom.getLatestL2(1)[0].width).toBe(64)
   })
 
   it('onKeyframeAdded 回调触发（L0 帧）', async () => {
@@ -235,7 +239,8 @@ describe('单例 getVisualMemoryManager / resetVisualMemoryManager', () => {
   it('首次创建传入的 callbacks 生效', async () => {
     const onDownsample = vi.fn(async (d: string) => d)
     const singleton = getVisualMemoryManager({ onDownsample })
-    await singleton.addKeyframe('x', 10, 10, 'W', 'P')
+    // 用大图：小图（≤256 宽）现在按"只缩不放"直接复用原图，不会触发降采样回调
+    await singleton.addKeyframe('x', 1024, 768, 'W', 'P')
     expect(onDownsample).toHaveBeenCalled()
   })
 })
