@@ -27,8 +27,13 @@
  * 4. 可取消：用户交互时立即暂停当前任务
  */
 
+import { stringSimilarity } from '@/lib/system/stringSimilarity'
 import { EnhancedMemoryManager } from './enhancedMemory'
+import { buildEntityGraphFromMemories } from './entityGraph'
 import { type EnhancedMemory } from './memoryTypes'
+
+/** 自传记忆合并的相似度阈值（与管理器 mergeSimilarMemories 保持一致，避免"以为能并、实际没并"） */
+export const AUTOBIOGRAPHICAL_MERGE_THRESHOLD = 0.7
 
 // ============ 类型定义 ============
 
@@ -87,6 +92,103 @@ export const DEFAULT_DREAMING_CONFIG: DreamingConfig = {
   maxBatchSize: 10, // 每批最多 10 条
   maxExecutionMs: 5000, // 单次最多 5 秒
   enabled: true,
+}
+
+// ============ 纯规划函数（可单测，不碰 DB / 不碰时钟以外的东西） ============
+
+/** 实体图增量更新的一轮计划 */
+export interface EntityGraphBatchPlan {
+  /** 本轮要建图的记忆（按 createdAt 升序，最多 maxBatchSize 条） */
+  batch: EnhancedMemory[]
+  /** 处理完本轮后应写回的游标（= 本批最后一条的 createdAt；无批次时与原值相同） */
+  nextWatermark: number
+  /** 尚未处理的总数（含本轮这批） */
+  pending: number
+}
+
+/**
+ * 规划实体图增量更新的一轮：从游标往后取记忆，按时间升序、最多 `maxBatchSize` 条。
+ *
+ * 为什么按"升序取最旧的一批"而不是"取最新 N 条"：夜间任务每轮只跑几秒，
+ * 若总取最新的，旧记忆永远补不进图；从旧到新推进才能保证有限轮次内收敛。
+ */
+export function planEntityGraphBatch(
+  memories: EnhancedMemory[],
+  watermarkMs: number,
+  maxBatchSize: number,
+): EntityGraphBatchPlan {
+  const fresh = memories
+    .map((m) => ({ memory: m, ts: new Date(m.created_at).getTime() }))
+    .filter((x) => Number.isFinite(x.ts) && x.ts > watermarkMs)
+    .sort((a, b) => a.ts - b.ts)
+
+  const limit = Math.max(0, maxBatchSize)
+  const batch = fresh.slice(0, limit).map((x) => x.memory)
+  // 水位取"本批最后一条"而不是"第 limit 条"：最后一批可能不满额
+  const nextWatermark = batch.length > 0 ? fresh[batch.length - 1]!.ts : watermarkMs
+
+  return { batch, nextWatermark, pending: fresh.length }
+}
+
+/** 自传记忆合并的一组 */
+export interface AutobiographicalMergeGroup {
+  /** 合并后保留的那条（取文本更长的一条，与管理器行为一致） */
+  keeperId: string
+  /** 被并入、随后应删除的记忆 */
+  absorbedIds: string[]
+}
+
+/** 自传记忆合并计划 */
+export interface AutobiographicalMergePlan {
+  groups: AutobiographicalMergeGroup[]
+  /** 没有参与合并、原样保留的记忆 ID */
+  untouchedIds: string[]
+}
+
+/**
+ * 规划自传记忆合并：只判断"有没有可合并的对"，真正落库仍走管理器。
+ *
+ * 与 `EnhancedMemoryManager.mergeSimilarMemories()` 用同一个 `stringSimilarity` 和
+ * 同一个阈值，避免规划说"有 3 组"、执行却说"并了 0 条"的自相矛盾。
+ */
+export function planAutobiographicalMerge(
+  memories: EnhancedMemory[],
+  threshold: number = AUTOBIOGRAPHICAL_MERGE_THRESHOLD,
+): AutobiographicalMergePlan {
+  const used = new Set<string>()
+  const groups: AutobiographicalMergeGroup[] = []
+
+  for (let i = 0; i < memories.length; i++) {
+    const base = memories[i]!
+    if (used.has(base.id)) continue
+
+    let keeper = base
+    const absorbedIds: string[] = []
+
+    for (let j = i + 1; j < memories.length; j++) {
+      const other = memories[j]!
+      if (used.has(other.id)) continue
+      if (stringSimilarity(keeper.user, other.user) <= threshold) continue
+
+      // 取文本更长的作为 keeper（与管理器 mergeSimilarMemories 的选择规则一致）
+      if (other.user.length > keeper.user.length) {
+        absorbedIds.push(keeper.id)
+        used.add(keeper.id)
+        keeper = other
+      } else {
+        absorbedIds.push(other.id)
+      }
+      used.add(other.id)
+    }
+
+    if (absorbedIds.length > 0) {
+      used.add(keeper.id)
+      groups.push({ keeperId: keeper.id, absorbedIds })
+    }
+  }
+
+  const untouchedIds = memories.filter((m) => !used.has(m.id)).map((m) => m.id)
+  return { groups, untouchedIds }
 }
 
 // ============ 空闲监控器 ============
@@ -175,6 +277,17 @@ class IdleMonitor {
 
 // ============ 做梦调度器 ============
 
+/** 可注入的外部依赖（生产用默认实现；测试可替换，避免为了测调度逻辑去碰真实 SQLite） */
+export interface DreamingDeps {
+  /** 把一批记忆写入实体图（默认走 entityGraph 的真实实现） */
+  buildEntityGraphFromMemories?: (memories: EnhancedMemory[]) => Promise<void>
+}
+
+/** 默认依赖 */
+const DEFAULT_DREAMING_DEPS: Required<DreamingDeps> = {
+  buildEntityGraphFromMemories,
+}
+
 /**
  * 做梦任务调度器
  *
@@ -184,15 +297,25 @@ export class DreamingScheduler {
   private static instance: DreamingScheduler | null = null
   private config: DreamingConfig
   private memoryManager: EnhancedMemoryManager
+  private deps: Required<DreamingDeps>
   private idleMonitor: IdleMonitor
   private taskQueue: DreamingTask[] = []
   private currentTask: DreamingTask | null = null
   private isRunning: boolean = false
   private abortController: AbortController | null = null
+  /** 实体图增量游标（毫秒时间戳）：已建图到哪条记忆为止 */
+  private entityGraphWatermarkMs: number = 0
+  /** 夜间窗口检查定时器（stop() 时要清掉，否则测试/重载会留下一串 interval） */
+  private nightlyTimer: ReturnType<typeof setInterval> | null = null
 
-  private constructor(memoryManager: EnhancedMemoryManager, config: Partial<DreamingConfig> = {}) {
+  private constructor(
+    memoryManager: EnhancedMemoryManager,
+    config: Partial<DreamingConfig> = {},
+    deps: DreamingDeps = {},
+  ) {
     this.config = { ...DEFAULT_DREAMING_CONFIG, ...config }
     this.memoryManager = memoryManager
+    this.deps = { ...DEFAULT_DREAMING_DEPS, ...deps }
     this.idleMonitor = new IdleMonitor(this.config.idleThresholdMs)
 
     this.setupIdleCallbacks()
@@ -200,9 +323,13 @@ export class DreamingScheduler {
   }
 
   /** 获取单例实例 */
-  static getInstance(memoryManager: EnhancedMemoryManager, config?: Partial<DreamingConfig>): DreamingScheduler {
+  static getInstance(
+    memoryManager: EnhancedMemoryManager,
+    config?: Partial<DreamingConfig>,
+    deps?: DreamingDeps,
+  ): DreamingScheduler {
     if (!DreamingScheduler.instance) {
-      DreamingScheduler.instance = new DreamingScheduler(memoryManager, config)
+      DreamingScheduler.instance = new DreamingScheduler(memoryManager, config, deps)
     }
     return DreamingScheduler.instance
   }
@@ -247,7 +374,7 @@ export class DreamingScheduler {
     }
 
     // 每分钟检查一次
-    setInterval(checkNightly, 60000)
+    this.nightlyTimer = setInterval(checkNightly, 60000)
   }
 
   /** 调度夜间巩固任务 */
@@ -263,6 +390,16 @@ export class DreamingScheduler {
         createdAt: Date.now(),
       })
 
+      // 添加实体图增量更新任务（TD-001：此前这两个任务类型从未入队，等于永远不执行）
+      await this.addTask({
+        type: 'entity_graph_update',
+        priority: 6,
+        estimatedDurationMs: 3000,
+        status: 'pending',
+        id: `entity-graph-nightly-${Date.now()}`,
+        createdAt: Date.now(),
+      })
+
       // 添加记忆重排序任务
       await this.addTask({
         type: 'memory_ranking',
@@ -270,6 +407,16 @@ export class DreamingScheduler {
         estimatedDurationMs: 2000,
         status: 'pending',
         id: `ranking-nightly-${Date.now()}`,
+        createdAt: Date.now(),
+      })
+
+      // 添加自传记忆合并任务
+      await this.addTask({
+        type: 'autobiographical_merge',
+        priority: 4,
+        estimatedDurationMs: 2000,
+        status: 'pending',
+        id: `autobio-merge-nightly-${Date.now()}`,
         createdAt: Date.now(),
       })
 
@@ -284,6 +431,16 @@ export class DreamingScheduler {
   async addTask(task: DreamingTask): Promise<void> {
     this.taskQueue.push(task)
     this.taskQueue.sort((a, b) => b.priority - a.priority) // 按优先级排序
+  }
+
+  /**
+   * 立即执行当前队列（供手动触发与测试用）
+   *
+   * 生产路径是空闲/夜间回调自行调用 `startDreaming()`；这个入口把同一段逻辑露出来，
+   * 避免为了测一次任务执行而必须伪造 5 分钟空闲或把系统时间拨到凌晨 2 点。
+   */
+  async runPendingTasks(): Promise<void> {
+    await this.startDreaming()
   }
 
   /** 开始做梦（执行任务队列） */
@@ -391,33 +548,75 @@ export class DreamingScheduler {
   }
 
   /** 执行实体图更新任务 */
-  private async executeEntityGraphUpdate(_task: DreamingTask): Promise<void> {
-    // TODO: 实现实体图更新逻辑
-    // - 从最近记忆中提取实体
-    // - 更新 memory_entities 和 memory_entity_edges 表
-    // - 预计算 PPR 分数
+  private async executeEntityGraphUpdate(task: DreamingTask): Promise<void> {
+    // 增量建图：只处理游标之后的记忆，每轮最多 maxBatchSize 条
+    // （第一次运行时游标为 0，从最旧的记忆开始逐轮补齐；不做全量重建，避免夜间任务一上来就 O(n²)）
+    const plan = planEntityGraphBatch(
+      this.memoryManager.getAllMemories(),
+      this.entityGraphWatermarkMs,
+      this.config.maxBatchSize,
+    )
 
-    console.log('[DreamingScheduler] Entity graph update completed (TODO)')
+    task.totalCount = plan.pending
+
+    if (plan.batch.length === 0) {
+      // 没有新记忆：如实记录，不再假装"已完成"
+      console.log('[DreamingScheduler] Entity graph up to date, nothing to update')
+      return
+    }
+
+    const startedAt = Date.now()
+    await this.deps.buildEntityGraphFromMemories(plan.batch)
+    this.entityGraphWatermarkMs = plan.nextWatermark
+    task.processedCount = (task.processedCount ?? 0) + plan.batch.length
+
+    // 说明：TODO 里写的「预计算 PPR 分数」没有落地 —— PPR 是 query-dependent（种子实体来自当次提问），
+    // `pprMultiHopRetrieval` 每次检索时按种子算，离线预算一份分数没有消费方，存了也只会过期。
+    console.log(
+      `[DreamingScheduler] Entity graph updated: ${plan.batch.length} memories in ${Date.now() - startedAt}ms, ` +
+        `remaining ${Math.max(0, plan.pending - plan.batch.length)}`,
+    )
   }
 
   /** 执行记忆重排序任务 */
-  private async executeMemoryRanking(_task: DreamingTask): Promise<void> {
-    // TODO: 实现记忆重排序逻辑
-    // - 应用遗忘曲线
-    // - 重新计算重要性分数
-    // - 更新 memories.importance 字段
+  private async executeMemoryRanking(task: DreamingTask): Promise<void> {
+    // 遗忘曲线是唯一衰减模型（F3 起）：applyDecay 会重算每条记忆的 forgetScore、
+    // 把 decayFactor 回写成 1 - forgetScore（UI 展示用），并物理清理该遗忘的记忆。
+    const beforeIds = new Set(this.memoryManager.getAllMemories().map((m) => m.id))
 
-    console.log('[DreamingScheduler] Memory ranking completed (TODO)')
+    this.memoryManager.applyDecay()
+
+    const afterMemories = this.memoryManager.getAllMemories()
+    const removed = [...beforeIds].filter((id) => !afterMemories.some((m) => m.id === id))
+
+    task.totalCount = beforeIds.size
+    task.processedCount = beforeIds.size - removed.length
+
+    console.log(
+      `[DreamingScheduler] Memory ranking applied: ${task.processedCount} rescored, ${removed.length} forgotten`,
+    )
   }
 
   /** 执行自传记忆合并任务 */
-  private async executeAutobiographicalMerge(_task: DreamingTask): Promise<void> {
-    // TODO: 实现自传记忆合并逻辑
-    // - 合并相似的自传记忆
-    // - 更新记忆摘要
-    // - 删除冗余记忆
+  private async executeAutobiographicalMerge(task: DreamingTask): Promise<void> {
+    // 先做一次便宜的可合并性判定，避免在"没有可合并项"时白跑 O(n²) 相似度
+    const candidates = this.memoryManager.getAutobiographicalMemories()
+    const plan = planAutobiographicalMerge(candidates, AUTOBIOGRAPHICAL_MERGE_THRESHOLD)
 
-    console.log('[DreamingScheduler] Autobiographical merge completed (TODO)')
+    task.totalCount = candidates.length
+
+    if (plan.groups.length === 0) {
+      console.log('[DreamingScheduler] Autobiographical merge: no mergeable pairs')
+      return
+    }
+
+    // 真正合并交给管理器（它负责清 SQLite 孤儿行 + embedding + RAG 索引 + 重新分层）
+    const mergedCount = this.memoryManager.mergeSimilarMemories()
+    task.processedCount = mergedCount
+
+    console.log(
+      `[DreamingScheduler] Autobiographical merge: ${plan.groups.length} candidate pair(s), ${mergedCount} merged`,
+    )
   }
 
   /** 获取当前任务状态 */
@@ -438,6 +637,10 @@ export class DreamingScheduler {
   /** 停止调度器 */
   stop(): void {
     this.idleMonitor.stop()
+    if (this.nightlyTimer) {
+      clearInterval(this.nightlyTimer)
+      this.nightlyTimer = null
+    }
     if (this.abortController) {
       this.abortController.abort()
     }
@@ -453,8 +656,9 @@ export class DreamingScheduler {
 export function startDreamingScheduler(
   memoryManager: EnhancedMemoryManager,
   config?: Partial<DreamingConfig>,
+  deps?: DreamingDeps,
 ): DreamingScheduler {
-  return DreamingScheduler.getInstance(memoryManager, config)
+  return DreamingScheduler.getInstance(memoryManager, config, deps)
 }
 
 /**
