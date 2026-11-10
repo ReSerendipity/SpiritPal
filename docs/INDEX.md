@@ -86,7 +86,7 @@
 | [`execution/ondevice-custom-model-pipeline.md`](execution/ondevice-custom-model-pipeline.md) | 端侧自定义模型交付流水线（MNN） | 现行 | 2026-11-10 |
 | [`execution/agent-review-handoff-2026-10-05.md`](execution/agent-review-handoff-2026-10-05.md) | 移动端施工审计 · 执行交接 | 历史 | 2026-11-10 |
 | [`execution/agent-review-handoff-2026-10-05-tickets.md`](execution/agent-review-handoff-2026-10-05-tickets.md) | 移动端施工审计 · 工单切片与验收判据 | 历史 | 2026-11-10 |
-| [`execution/依赖与安全跟踪机制-20260911.md`](execution/依赖与安全跟踪机制-20260911.md) | 依赖与安全跟踪机制（口径仍有效） | 现行 | 2026-11-10 |
+| [`execution/依赖与安全跟踪机制-20260911.md`](execution/依赖与安全跟踪机制-20260911.md) | 依赖与安全跟踪机制（口径仍有效） | 历史 | 2026-11-10 |
 | [`execution/执行对照表-桌面分发与安全加固-20260910.md`](execution/执行对照表-桌面分发与安全加固-20260910.md) | 桌面分发与安全加固 · 执行对照表 | 历史 | 2026-11-10 |
 | [`execution/落地执行总结-桌面分发与安全加固-20260910.md`](execution/落地执行总结-桌面分发与安全加固-20260910.md) | 桌面分发与安全加固 · 落地执行总结 | 历史 | 2026-11-10 |
 | [`execution/2026-09-agent-memory-archive.md`](execution/2026-09-agent-memory-archive.md) | 2026-09 Agent 会话记忆归档（构建链 / 门禁 / 端侧 MNN / 加固落地状态） | 历史 | 2026-11-10 |
