@@ -1059,6 +1059,21 @@ export default function PetWindow() {
     if (!panelOpenRef.current) handlePanelModeChange(true)
   }
 
+  // TD-015：双击宠物直接打开设置，降低对托盘菜单的依赖
+  function handleDoubleClick(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (draggingRef.current) return
+    void showWindow('settings-window')
+  }
+
+  // TD-015：悬停齿轮入口（mousedown 阻止冒泡，避免触发拖拽）
+  function handleOpenSettingsClick(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    void showWindow('settings-window')
+  }
+
   // ========== Background Drag (transparent window 手动 setPosition) ==========
   const bgDragRef = useRef<{ winX: number; winY: number; mouseX: number; mouseY: number; sf: number } | null>(null)
 
@@ -1582,7 +1597,7 @@ export default function PetWindow() {
       {/* 宠物容器 — usePetGaze 管理 transform（gaze + walk offset） */}
       <div
         ref={containerRef}
-        className="absolute"
+        className="group absolute"
         style={{
           left: pos.x,
           top: pos.y,
@@ -1633,6 +1648,35 @@ export default function PetWindow() {
           </div>
         )}
 
+        {/* TD-015：悬停齿轮入口 —— 不依赖托盘菜单；mousedown 阻止冒泡避免触发拖拽 */}
+        {!dragging && !fading && (
+          <button
+            type="button"
+            aria-label="打开设置"
+            title="打开设置"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={handleOpenSettingsClick}
+            className="absolute z-40 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+            style={{
+              right: 4,
+              top: 4,
+              width: 26,
+              height: 26,
+              padding: 0,
+              borderRadius: '50%',
+              border: '1px solid rgba(255,255,255,0.75)',
+              background: 'rgba(255,255,255,0.88)',
+              color: '#7a4b2a',
+              fontSize: 14,
+              lineHeight: '24px',
+              cursor: 'pointer',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.16)',
+            }}
+          >
+            ⚙
+          </button>
+        )}
+
         {/* 精灵本体 — 停靠(贴边)变换层：窗口吸附到屏幕边缘时整体向窗外偏移藏身，悬停探头。
             独立包裹层避免与 usePetGaze / usePetDragging / 音乐摇摆的 transform 互相覆盖 */}
         <div
@@ -1666,6 +1710,7 @@ export default function PetWindow() {
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onContextMenu={handleContextMenu}
+              onDoubleClick={handleDoubleClick}
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
               style={{
