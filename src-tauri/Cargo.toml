@@ -16,7 +16,7 @@ tauri-build = { version = "2", features = [] }
 # 强制 indexmap 在 build-dependency 图里启用 std（tauri-build→tauri→schemars 链
 # 需要 indexmap 的 `IndexMap<K,V,S=RandomState>`，否则 schemars 0.8.22 的
 # `Map<K,V> = indexmap::IndexMap<K,V>` 在 no_std 变体下报 E0107）。
-# 注：indexmap 1.9.3 已移除 default=["std"]，schemars 0.8.22 仅开 serde-1，
+# 注：indexmap 1.9.3 已移除 default= ["std"]，schemars 0.8.22 仅开 serde-1，
 # 故需在此显式开启 std。
 indexmap = { version = "1.9.3", features = ["std"] }
 
