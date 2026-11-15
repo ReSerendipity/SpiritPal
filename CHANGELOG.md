@@ -7,7 +7,7 @@
 
 ***
 
-## [未发布]
+## [0.3.0] - 2026-11-15
 
 ### 新增
 
@@ -16,6 +16,9 @@
 ### 修复
 
 - TD-009 桌面端语音录制授权：`src-tauri/src/lib.rs` 的 Tauri Builder 挂 `on_permission_request`，策略收在 `desktop_permission_response()`——只放行 `Microphone`，相机/定位/通知/剪贴板等一律返回 `Default`（交回平台默认，不静默放行）。此前没有任何处理，等于把 `getUserMedia` 是否可用交给 WebView 默认策略。另补 `src-tauri/Info.plist` 的 `NSMicrophoneUsageDescription`：WKWebView 缺这条声明时麦克风请求会被直接拒绝。验证：`cargo check --lib` rc=0；`cargo test --lib td009` 2 passed（放行麦克风 / 其余权限回落默认）。
+- CI Clippy：TD-009 的函数级 doc 块原先夹在 `run()` 的 1–9 编号列表中间，host 与 aarch64-linux-android 的 `clippy -D warnings` 均报 `doc_lazy_continuation`（`doc list item without indentation`，lib.rs:206）。把该 doc 与 `desktop_permission_response()` 整体移到 `run()` doc 之前，列表恢复连续，逻辑零改动。
+- CI 依赖漏洞：`cargo audit` 从 8 条回落到基线 4 条——`rusqlite 0.32` 升 `0.43`（`libsqlite3-sys 0.40.0`，覆盖 RUSTSEC-2026-0459），lock 内残留的 `quinn-proto`/`quinn-udp` 升到 `0.11.19`/`0.5.16`（覆盖 RUSTSEC-2026-0523/0524/0538）；剩余 4 条全部是 `tauri-plugin-updater 2.13.3` 钉死的 `zip 4.6.1`（上游依赖为 `zip ^4`，无法解析 9.x），漏洞数与既有棘轮基线持平，未抬高阈值、未关闭扫描。
+- CI 跨平台单测：`calendarIntegration.td-008.test.ts` 的授权器用例误用仅 win32 注册的 `windows-calendar`，在 ubuntu-latest 上必然因「数据源不存在」返回 false；改用两端都注册的 `outlook`，并注明跨平台用例的数据源约束。
 
 ## [0.2.3] - 2026-10-29
 
