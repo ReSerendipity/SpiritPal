@@ -129,7 +129,7 @@ fn json_rows(conn: &Connection, sql: &str, params: &[SqValue]) -> Result<Vec<Jso
     let mut stmt = conn
         .prepare(sql)
         .map_err(|e| format!("SQL 预编译失败: {e}"))?;
-    let cols: Vec<String> = stmt.column_names().iter().map(|c| c.to_string()).collect();
+    let cols: Vec<String> = stmt.column_names().map(|c| c.to_string()).collect();
     let rows = stmt
         .query_map(params_from_iter(params.iter().cloned()), |row| {
             let mut map = Map::new();
