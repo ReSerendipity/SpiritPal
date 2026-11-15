@@ -42,7 +42,10 @@ import { getCommitmentTracker } from '@/lib/nurture/commitmentTracker'
 // T-12: 统一配置入口
 import { THINK_TAG_PROMPT_FRAGMENT } from '@/lib/render/thinkTagParser'
 import { isSilentMode } from '@/lib/system/silentModeManager'
-import { getContextAwarenessManager } from './contextAwareness'
+// P0-1：注意力裁决（本地启发式）+ TTS 播放门禁
+import { decideAttention, isAttentionEngineEnabled } from './attentionEngine'
+import { isSpeechPlaying } from './bargeIn'
+import { getContextAwarenessManager, type WorkState } from './contextAwareness'
 import { EMOTION_PROMPT_FRAGMENT } from './emotionExtractor'
 import { getLLMClient } from './llmClient'
 import { getPrompt } from './promptRegistry'
@@ -75,6 +78,10 @@ export class ProactiveSpeakManager {
   private listeners: Set<(message: string) => void> = new Set()
   /** 防止并发检查 */
   private isChecking = false
+  /** P0-1：连续未获用户回应的主动发言次数（用于注意力评分降权） */
+  private unansweredStreak = 0
+  /** P0-1：最近一次裁决原因（供设置页/诊断展示） */
+  private lastAttentionReason = ''
 
   /** P2-11：能力开关（false 时 start() 为 no-op，已运行的可由 stop() 停止） */
   private capabilityEnabled: boolean = true
@@ -129,25 +136,37 @@ export class ProactiveSpeakManager {
     // 距上次主动说话不足 5 分钟
     if (now - this.lastProactiveAt < MIN_PROACTIVE_INTERVAL_MS) return
 
-    // 随机概率触发
-    if (Math.random() > RANDOM_TRIGGER_PROBABILITY) return
-
-    // P1-2 修复：从 contextAwareness 获取真实空闲时长，替代硬编码的 idleMinutes: 0
-    // 仅在用户确实空闲时才主动说话（避免用户正忙时打扰）
-    let idleMinutes = 0
-    try {
-      const ctxMgr = getContextAwarenessManager()
-      idleMinutes = ctxMgr.getLastIdleMinutes()
-    } catch {
-      // contextAwareness 不可用时退化为 0（不影响触发，仅影响情境提示）
-    }
+    // P0-1：读取本地情境信号（contextAwareness 不可用时用保守默认值）
+    const idleMinutes = this.readIdleMinutes()
     this.pendingIdleMinutes = idleMinutes
+    // 用户重新活跃（空闲<2 分钟）即重置“连续未回应”计数
+    if (idleMinutes < 2) this.unansweredStreak = 0
+
+    if (isAttentionEngineEnabled()) {
+      // 注意力裁决：静默/TTS 播放/冷却/用户活跃由引擎统一硬闸，评分决定是否开口
+      const decision = decideAttention({
+        now,
+        hour: new Date().getHours(),
+        idleMinutes,
+        workState: this.readWorkState(),
+        lastProactiveAt: this.lastProactiveAt,
+        silentMode: false, // 已在上面短路
+        speechPlaying: isSpeechPlaying(),
+        unansweredStreak: this.unansweredStreak,
+      })
+      this.lastAttentionReason = decision.reason
+      if (!decision.shouldSpeak) return
+    } else if (Math.random() > RANDOM_TRIGGER_PROBABILITY) {
+      // 灰度关闭：回退旧的“30% 随机”路径
+      return
+    }
 
     this.isChecking = true
     try {
       const message = await this.generateProactiveMessage()
       if (message) {
         this.lastProactiveAt = Date.now()
+        this.unansweredStreak++
         this.emitToListeners(message)
       }
     } catch {
@@ -155,6 +174,30 @@ export class ProactiveSpeakManager {
     } finally {
       this.isChecking = false
     }
+  }
+
+  /** 读取空闲分钟数（contextAwareness 不可用时返回保守默认 10 分钟） */
+  private readIdleMinutes(): number {
+    try {
+      const value = getContextAwarenessManager().getLastIdleMinutes()
+      return Number.isFinite(value) && value >= 0 ? value : 10
+    } catch {
+      return 10
+    }
+  }
+
+  /** 读取工作状态（不可用时返回 unknown） */
+  private readWorkState(): WorkState {
+    try {
+      return getContextAwarenessManager().getCurrentState()
+    } catch {
+      return 'unknown'
+    }
+  }
+
+  /** 最近一次注意力裁决原因（诊断/设置页用） */
+  getLastAttentionReason(): string {
+    return this.lastAttentionReason
   }
 
   /**

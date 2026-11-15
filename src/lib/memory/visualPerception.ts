@@ -31,6 +31,8 @@
  * - @tauri-apps/api/core: Tauri invoke API（调用 Rust 后端截屏/窗口检测）
  */
 
+// P0-3：截图变化检测 — 近重复帧不送 VLM（参考 Miru sensor.py）
+import { computeFrameHash, DEFAULT_SIMILARITY_THRESHOLD, isNearDuplicate } from '@/lib/system/frameChangeDetector'
 import { tauriInvokeNoRetry } from '@/lib/system/tauriInvoker'
 
 // ============ 配置常量 ============
@@ -139,6 +141,18 @@ export interface VisualCallbacks {
 // ============ 视觉感知管理器 ============
 
 /**
+ * 视觉感知配置选项
+ */
+export interface VisualPerceptionOptions {
+  /** 截屏间隔（毫秒） */
+  captureIntervalMs?: number
+  /** 自定义帧哈希函数（测试注入；默认走 dHash 解码） */
+  frameHashFn?: (dataUrl: string) => Promise<string | null>
+  /** 帧近似判定阈值（汉明距离，默认 6/64） */
+  similarityThreshold?: number
+}
+
+/**
  * 视觉感知管理器类
  *
  * 负责定时截屏、活动窗口检测、Vision LLM 分析和主动对话触发
@@ -156,15 +170,22 @@ export class VisualPerceptionManager {
   // P2: 窗口变化检测
   private windowCheckTimer: ReturnType<typeof setInterval> | null = null
   private lastWindow: ActiveWindowInfo = { title: '', processName: '' }
+  // P0-3: 上一帧 dHash 与去重计数
+  private lastFrameHash: string | null = null
+  private skippedDuplicates = 0
+  private frameHashFn: (dataUrl: string) => Promise<string | null>
+  private similarityThreshold: number
 
   /**
    * 构造函数
    * @param callbacks 回调配置
    * @param options 配置选项
    */
-  constructor(callbacks: VisualCallbacks = {}, options: { captureIntervalMs?: number } = {}) {
+  constructor(callbacks: VisualCallbacks = {}, options: VisualPerceptionOptions = {}) {
     this.callbacks = callbacks
     this.intervalMs = options.captureIntervalMs ?? DEFAULT_CAPTURE_INTERVAL_MS
+    this.frameHashFn = options.frameHashFn ?? computeFrameHash
+    this.similarityThreshold = options.similarityThreshold ?? DEFAULT_SIMILARITY_THRESHOLD
   }
 
   // ============ 生命周期 ============
@@ -253,6 +274,23 @@ export class VisualPerceptionManager {
         return null
       }
 
+      // P0-3：帧变化检测 — 同一窗口且画面近似重复时跳过 VLM，直接复用上次分析
+      // 仅在配置了 LLM 分析回调时启用；无 LLM 时仍记录窗口轨迹
+      if (this.callbacks.onVisionAnalyzeEnhanced || this.callbacks.onLLMAnalyze) {
+        const frameHash = await this.frameHashFn(imageBase64).catch(() => null)
+        if (
+          frameHash &&
+          this.lastFrameHash &&
+          this.lastAnalysis &&
+          this.isSameWindow(windowInfo, this.lastAnalysis.window) &&
+          isNearDuplicate(this.lastFrameHash, frameHash, this.similarityThreshold)
+        ) {
+          this.skippedDuplicates++
+          return this.lastAnalysis
+        }
+        if (frameHash) this.lastFrameHash = frameHash
+      }
+
       // 3. 分析（优先使用 P2 增强分析，降级到基础分析）
       let analysis: VisualAnalysis
       if (this.callbacks.onVisionAnalyzeEnhanced) {
@@ -311,6 +349,20 @@ export class VisualPerceptionManager {
   }
 
   // ============ 截屏实现 ============
+
+  /**
+   * 判断两次活动窗口是否一致（进程名 + 标题）
+   */
+  private isSameWindow(a: ActiveWindowInfo, b: ActiveWindowInfo): boolean {
+    return a.processName === b.processName && a.title === b.title
+  }
+
+  /**
+   * 获取因画面近似重复而跳过的分析次数
+   */
+  getSkippedDuplicateCount(): number {
+    return this.skippedDuplicates
+  }
 
   /**
    * 截屏实现
@@ -592,7 +644,7 @@ let instance: VisualPerceptionManager | null = null
  */
 export function getVisualPerceptionManager(
   callbacks?: VisualCallbacks,
-  options?: { captureIntervalMs?: number },
+  options?: VisualPerceptionOptions,
 ): VisualPerceptionManager {
   if (!instance) {
     instance = new VisualPerceptionManager(callbacks, options)
