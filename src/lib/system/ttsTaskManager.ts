@@ -541,6 +541,15 @@ export function getTTSTaskManager(
 }
 
 /**
+ * 获取已存在的 TTS 任务管理器（不创建新实例）
+ *
+ * 供 barge-in 等“仅在播放时打断”的场景使用，避免未初始化时创建空实现实例
+ */
+export function getTTSTaskManagerIfExists(): TTSTaskManager | null {
+  return instance
+}
+
+/**
  * 重置 TTS 任务管理器（用于切换引擎或重新初始化）
  *
  * 取消所有任务并清空单例，下次 getTTSTaskManager() 时会创建新实例

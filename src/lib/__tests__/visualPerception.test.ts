@@ -38,4 +38,36 @@ describe('VisualPerceptionManager.triggerAnalysis (A-1 接线依赖验证)', () 
     expect(result?.userActivity ?? '').toContain('Figma')
     expect(result?.inferredWorkState).toBe('unknown')
   })
+
+  it('P0-3：同一窗口的近似重复帧只调用一次 LLM 分析', async () => {
+    mockInvoke.mockImplementation(async (cmd: string) => {
+      if (cmd === 'get_active_window') return { title: 'VSCode', process_name: 'Code' }
+      return null
+    })
+    const onLLMAnalyze = vi.fn(async () => ({
+      userActivity: '在写代码',
+      inferredWorkState: 'coding',
+      relevantTopics: ['TypeScript'],
+    }))
+    const hashes = ['0000000000000000', '0000000000000000', 'ffffffffffffffff']
+    const frameHashFn = vi.fn(async () => hashes.shift() ?? 'ffffffffffffffff')
+
+    const mgr = getVisualPerceptionManager(
+      {
+        onCaptureScreen: async () => 'data:image/png;base64,iVBORw0KGgo=',
+        onLLMAnalyze,
+      },
+      { frameHashFn },
+    )
+
+    const first = await mgr.triggerAnalysis()
+    const second = await mgr.triggerAnalysis()
+    expect(first?.userActivity).toBe('在写代码')
+    expect(second?.userActivity).toBe('在写代码')
+    expect(onLLMAnalyze).toHaveBeenCalledTimes(1)
+    expect(mgr.getSkippedDuplicateCount()).toBe(1)
+
+    await mgr.triggerAnalysis()
+    expect(onLLMAnalyze).toHaveBeenCalledTimes(2)
+  })
 })

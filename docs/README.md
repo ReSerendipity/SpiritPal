@@ -1,7 +1,7 @@
 # SpiritPal 文档索引
 
-> 本文件是 `docs/` 下全部 tracked Markdown 的统一入口索引（治理规范 §18.1「入链」）。
-> 建立日期：2026-11-03。新增文档须在对应分组登记一行；被取代/归档的文档在行内补状态，不删条目。
+> 本文件是 `docs/` 的**分组导读入口**；全量逐文件清单（含用途 / 状态 / 核对日期）见 [`INDEX.md`](INDEX.md)，两者冲突时以 `INDEX.md` 为准（治理规范 §18.1「入链」）。
+> 建立日期：2026-11-03（`INDEX.md` 于 2026-11-10 补建）。新增文档须在对应分组登记一行；被取代/归档的文档在行内补状态，不删条目。
 > 治理规范见根 README 引用行（ReSerendipity/.github/governance）。
 
 ## 目录分组
@@ -34,10 +34,10 @@
 | [CHARACTER_PERMISSION_REQUEST_DRAFTS.md](CHARACTER_PERMISSION_REQUEST_DRAFTS.md) | 授权请求草稿合集（状态索引） |
 | [CHARACTER_PERMISSION_REQUEST_DRAFTS_doro.md](CHARACTER_PERMISSION_REQUEST_DRAFTS_doro.md) | Doro 授权请求草稿（已获回复） |
 | [CHARACTER_PERMISSION_REQUEST_DRAFTS_feibi.md](CHARACTER_PERMISSION_REQUEST_DRAFTS_feibi.md) | 菲比授权请求草稿（未获回复，已出包） |
-| [P0-1-人工review包.md](P0-1-人工review包.md) | P0-1 人工 Review 包（已关闭 2026-10-07） |
+| [P0-1-人工review包.md](../_archive/执行记录/2026-11/P0-1-人工review包.md) | P0-1 人工 Review 包（已关闭 2026-10-07） |
 | [VR-10-角色显示名回填指引.md](VR-10-角色显示名回填指引.md) | 角色显示名 char.* 五语言回填指引 |
 | [agent-contract.md](agent-contract.md) | Agent 契约（治理模板逐字节复制） |
-| [agent-review-视觉回归结果-2026-10-06.md](agent-review-视觉回归结果-2026-10-06.md) | 移动端视觉回归验证结果 |
+| [agent-review-视觉回归结果-2026-10-06.md](../_archive/执行记录/2026-11/agent-review-视觉回归结果-2026-10-06.md) | 移动端视觉回归验证结果 |
 | [spiritpal-animation-tech-selection.md](spiritpal-animation-tech-selection.md) | 桌宠动画类型选型报告（2026-08-26） |
 
 ## 架构决策记录（docs/adr/）

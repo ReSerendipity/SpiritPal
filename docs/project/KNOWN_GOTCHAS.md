@@ -124,3 +124,4 @@
 - 2026-09-04｜vi.mock('fs/promises') 未命中 node:fs/promises 业务 import｜测试 real read 抛 ENOENT｜mock specifier 必须与业务 import 前缀完全一致（node: 前缀也匹配）
 - 2026-09-04｜Playwright page.goto 10s load 超时（dev 多窗口重部件）｜accessibility 测试 flaky 失败｜waitUntil=domcontentloaded + waitFor #root；navigationTimeout 放宽 30s
 - 2026-09-04｜工作区存在大量 WIP 与任务改动同文件交错｜无法按片段分离提交｜按模块分批 add 显式文件并在提交说明标注随带 WIP，避免 add -A
+| 222 | 竞品改进批次收尾未同步台账，push 被 ledger-gate 拦截 | 注意力裁决/打断/帧去重批次提交后直接 push | 预检提示「代码/配置/脚本变更，但 GOTCHAS 未新增行」，远端拒绝 | 批次收尾固定动作：凡改代码/配置/脚本，先在 GOTCHAS 追加一行再 push | 2026-11-15 |

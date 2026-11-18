@@ -30,15 +30,17 @@ function fixedNow(hour = 11, minute = 0): () => Date {
 const NO_QUIET = { quietHours: { enabled: false, start: '22:00', end: '08:00' } }
 
 describe('requestPermission（不再谎报授权）', () => {
+  // windows-calendar 仅在 win32 注册，而前端 CI job 跑在 ubuntu-latest；
+  // 跨平台用例必须用两端都注册的 outlook，否则失败原因是「数据源不存在」而非授权逻辑。
   it('没有授权通道时返回 false，且 permissionGranted 保持 false', async () => {
     const m = new CalendarManager(undefined, {})
-    const ok = await m.requestPermission('windows-calendar')
+    const ok = await m.requestPermission('outlook')
     expect(ok).toBe(false)
   })
 
   it('注入授权器返回 true 时才授权，并置 connected', async () => {
     const m = new CalendarManager(undefined, { requestPermission: async () => true })
-    expect(await m.requestPermission('windows-calendar')).toBe(true)
+    expect(await m.requestPermission('outlook')).toBe(true)
   })
 
   it('授权器返回 false / 抛错时都不授权', async () => {

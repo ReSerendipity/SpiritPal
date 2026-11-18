@@ -67,6 +67,8 @@ import { usePetTTS } from '@/hooks/usePetTTS'
 import { setToolConfirmationHandler } from '@/lib/ai/agentSandbox'
 import { detectAgentIntent, processAgentRequest } from '@/lib/ai/aiAgent'
 import { loadAIConfig } from '@/lib/ai/aiConfig'
+// P0-2：语音打断 — 用户开口/发送时立即停掉正在播放的 TTS
+import { interruptSpeech, isSubstantiveUtterance, registerSpeechStopper } from '@/lib/ai/bargeIn'
 import { getChatStageManager } from '@/lib/ai/chatStages'
 // P2-2：情境感知信号
 import { getContextAwarenessManager } from '@/lib/ai/contextAwareness'
@@ -222,6 +224,16 @@ export default function ChatWindow() {
     if (!voicevoxPlayerRef.current) voicevoxPlayerRef.current = new TTSPlayer()
     return voicevoxPlayerRef.current
   }
+  // P0-2：把本组件持有的 VOICEVOX 播放器接入 barge-in（全局 TTS 引擎由 bargeIn 内置处理）
+  useEffect(() => {
+    return registerSpeechStopper(() => {
+      const player = voicevoxPlayerRef.current
+      if (!player) return false
+      const playing = player.isPlaying()
+      player.stop()
+      return playing
+    })
+  }, [])
   // 语音朗读（TTS）：仅朗读"刚结束流式"的助手回复，避免朗读历史/重复朗读
   const { speak } = usePetTTS()
   const prevStreamingIds = useRef<ReadonlySet<string>>(new Set())
@@ -367,6 +379,8 @@ export default function ChatWindow() {
   async function handleSend() {
     const text = input.trim()
     if (!text || isLoading) return
+    // P0-2：发送即打断上一轮朗读（含排队中的 TTS 任务）
+    if (interruptSpeech('send')) setSpeakingId(null)
     setError(null)
     setInput('')
 
@@ -856,13 +870,19 @@ export default function ChatWindow() {
       setError('当前环境不支持语音识别（需 Chrome/Edge 内核 WebView）')
       return
     }
+    // P0-2：点麦克风即打断正在朗读的助手回复
+    if (interruptSpeech('mic')) setSpeakingId(null)
     setError(null)
     try {
       const engine = new STTEngine()
       sttEngineRef.current = engine
       engine.start(
         {
-          onPartial: (text) => setInput(text),
+          onPartial: (text) => {
+            setInput(text)
+            // P0-2：连续识别中，形成有效语句即打断 TTS（过滤“嗯/啊”等单字噪声）
+            if (isSubstantiveUtterance(text) && interruptSpeech('voice')) setSpeakingId(null)
+          },
           onFinal: (text) => setInput(text),
           onError: (msg) => {
             setError(`语音识别失败：${msg}`)

@@ -197,12 +197,6 @@ use commands::window::{
 // run() 拆分函数（P1-4: 减少 Fat Controller 反模式）
 // ============================================================
 
-/// SpiritPal 应用入口函数
-///
-/// 由 `main.rs` 调用，负责：
-/// 1. 设置 GPU 环境变量绕过黑名单
-/// 2. 清理 WebView2 残留锁文件（Windows）
-/// 3. 配置 Tauri Builder 和插件
 /// TD-009：桌面端 WebView 权限请求的应答策略（抽成函数，便于单测覆盖映射关系）。
 ///
 /// 只放行麦克风：语音录制是产品已有能力（`src/lib/system/voiceRecorder.ts` 走
@@ -217,6 +211,12 @@ fn desktop_permission_response(
     }
 }
 
+/// SpiritPal 应用入口函数
+///
+/// 由 `main.rs` 调用，负责：
+/// 1. 设置 GPU 环境变量绕过黑名单
+/// 2. 清理 WebView2 残留锁文件（Windows）
+/// 3. 配置 Tauri Builder 和插件
 /// 4. 注册系统托盘和菜单
 /// 5. 启动空闲检测和全局快捷键
 /// 6. 配置 macOS NSPanel（如适用）

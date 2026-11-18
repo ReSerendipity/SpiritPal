@@ -139,7 +139,11 @@ AGENTS.md
 LOCAL_RULES.md
 
 # §13.1 仅本地容器：内部说明 / agent 上下文 / 实验记录 / 纯历史
-/local/
+/local/*
+!/local/agents/
+/local/agents/*
+!/local/agents/GOTCHAS.md
+!/local/agents/REVISION_LOG.md
 
 # 内部开发文档（仅本地保留，不上远程，2026-09-02）
 _devarchive/

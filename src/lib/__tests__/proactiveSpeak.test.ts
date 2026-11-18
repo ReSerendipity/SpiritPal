@@ -35,9 +35,10 @@ vi.mock('@/lib/memory/enhancedMemory', () => ({
   })),
 }))
 
+const { mockIdleMinutes } = vi.hoisted(() => ({ mockIdleMinutes: vi.fn(() => 15) }))
 vi.mock('@/lib/ai/contextAwareness', () => ({
   getContextAwarenessManager: vi.fn(() => ({
-    getLastIdleMinutes: vi.fn(() => 15),
+    getLastIdleMinutes: mockIdleMinutes,
   })),
 }))
 
@@ -88,6 +89,8 @@ describe('ProactiveSpeakManager', () => {
 
   beforeEach(() => {
     vi.useFakeTimers()
+    localStorage.removeItem('spiritpal:attention-engine')
+    mockIdleMinutes.mockReturnValue(15)
     manager = new ProactiveSpeakManager()
   })
 
@@ -116,6 +119,17 @@ describe('ProactiveSpeakManager', () => {
     expect(mockIsSilent).toHaveBeenCalled()
     expect(listener).not.toHaveBeenCalled()
     mockIsSilent.mockReturnValue(false)
+  })
+
+  it('P0-1：用户活跃（空闲不足 10 分钟）时注意力裁决否决', async () => {
+    mockIdleMinutes.mockReturnValue(3)
+    const listener = vi.fn()
+    manager.onProactiveSpeak(listener)
+    manager.start()
+
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    expect(listener).not.toHaveBeenCalled()
   })
 
   it('重复调用 start 不应创建多个定时器', () => {

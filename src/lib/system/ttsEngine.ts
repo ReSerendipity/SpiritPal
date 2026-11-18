@@ -39,6 +39,7 @@ import {
   type TTSGenerateFn,
   type TTSPlayFn,
   getTTSTaskManager,
+  getTTSTaskManagerIfExists,
   resetTTSTaskManager,
 } from './ttsTaskManager'
 
@@ -453,6 +454,19 @@ export class TTSEngineManager {
     } catch {
       return null
     }
+  }
+
+  /**
+   * 当前是否有语音正在播放（原生 SpeechSynthesis 或任务队列）
+   */
+  isSpeaking(): boolean {
+    try {
+      if (typeof speechSynthesis !== 'undefined' && speechSynthesis.speaking) return true
+    } catch {
+      /* 环境不支持时忽略 */
+    }
+    const mgr = getTTSTaskManagerIfExists()
+    return mgr?.getIsPlaying() ?? false
   }
 
   /**

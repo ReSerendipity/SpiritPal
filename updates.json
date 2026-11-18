@@ -1,15 +1,15 @@
 {
-  "version": "0.2.3",
+  "version": "0.3.0",
   "notes": "",
-  "pub_date": "2026-10-29T13:52:05.145Z",
+  "pub_date": "2026-11-15T16:57:51.101Z",
   "platforms": {
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSSmFjeHQxcUcwSk0wK05TNnJubm52YmZKYkZzdHNjVW0wVHViSzFxRlJHWitwQ3gzSWVuSWYyNks1clFqazBOekMxeUxya2tZYnpmNTZadlVFS1A3S0ZtdW14SEhrdEFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMjgwNjMxCWZpbGU6U3Bpcml0UGFsXzAuMi4zX2FtZDY0LkFwcEltYWdlCXZlcnNpb246MC4yLjMKeDFaRkxmUXpES09pbjh6amVzU3pnaDNSWmdwUEMrWXl4RGxVZzJycThqeTRGOFVUKzIySDJOOXVvVDJlT1VqWmlNNFQ0ai9aMzFENy9zSVAvWEdSQ3c9PQo=",
-      "url": "https://github.com/ReSerendipity/SpiritPal/releases/download/v0.2.3/SpiritPal_0.2.3_amd64.AppImage"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSSmFjeHQxcUcwSkNGaUFjN1dUUzNPR2ZCaThqKzEyS2VBRG9MVWtCbCtZR1BzUHNaL0RoTTBDV25IbFlGNUJ5WlZOaFpFVmhjLzdkMFpzV09ycEQ5cXFNblFvdTBTUlFjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0NzU5NDkzCWZpbGU6U3Bpcml0UGFsXzAuMy4wX2FtZDY0LkFwcEltYWdlCXZlcnNpb246MC4zLjAKYndkMzh5MVhqTUt3N2JxdHNoSEJ6S1l5cUNPQ01rNlNodVdsZTl1bXRPVHBDbE5OOTZWZVNRbktPYkQ5M3hBVXlnUnJLS1hYd1ozbFpYY2V0TGZqQlE9PQo=",
+      "url": "https://github.com/ReSerendipity/SpiritPal/releases/download/v0.3.0/SpiritPal_0.3.0_amd64.AppImage"
     },
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSSmFjeHQxcUcwSk00ZXVLRCtOQXVLR0l2b2pLWmZMc1FXQVNUVnVqTVh0YWRQOXYwbTdFdWxPRlM1YmtZZExZYm5FL0tzaFN1b2NpR2xBeW51ci9MbkU1bmdtS2VZZGdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMjgwODcwCWZpbGU6U3Bpcml0UGFsXzAuMi4zX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjIuMwoyc1AydFZibVcxQnJkcEtPYVljcmxSMWxRUFNFR0FFNkVkZjVXa1NGYmZPd1ZDWXlWbENEejZiNjZmT2ZzanUvRk8wZW8yNWlrYmQ2MlluYXZTS3dBdz09Cg==",
-      "url": "https://github.com/ReSerendipity/SpiritPal/releases/download/v0.2.3/SpiritPal_0.2.3_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSSmFjeHQxcUcwSkZ2T2hiWkNYck9Ca1VIK09sT0RBQWtVUmJZaVF3dGgyeEdndUgvOE0zVjl4eW1NdWNPK0U5MURKd29GVlJDUXd4eGdUKytCc0xxK1FnQWpBeXo2WVFjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0NzU5NjUwCWZpbGU6U3Bpcml0UGFsXzAuMy4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjMuMAo4MXQzQXYxSStvSFVqTHBWRktYUUpnMkhYa1lvMDI3TnFOL1FxaGFtMThmczI4cmxVZmh4WnFEcFpNQ1JiM2VqQzl0ZllVSTAxdEtpd3gvSSt1MXpEdz09Cg==",
+      "url": "https://github.com/ReSerendipity/SpiritPal/releases/download/v0.3.0/SpiritPal_0.3.0_x64-setup.exe"
     }
   }
 }

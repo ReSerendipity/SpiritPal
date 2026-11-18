@@ -130,7 +130,14 @@ function main() {
     }
     platforms[key] = {
       signature,
-      url: asset.url,
+      // 2026-11-15：draft release 上传的资产，其 browserDownloadUrl 会带
+      // `untagged-<hash>` 前缀；release 转公开、甚至补跑收尾档后该 URL 仍不变，
+      // 实测 404。更新清单必须用 tag 的规范下载地址（v0.2.3 的清单即此格式）。
+      // 资产名只做路径段编码，保留 GitHub Releases 的 download/<tag>/<asset> 结构。
+      url: `https://github.com/${repo}/releases/download/${tag}/${asset.name
+        .split('/')
+        .map(encodeURIComponent)
+        .join('/')}`,
     }
   }
 
